@@ -4,6 +4,10 @@ import { SCOPE, authorizeChild } from '../authz';
 import { store } from '../store';
 
 const typeDefs = parse(`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+
   type Query {
     events(childId: ID!, date: String!): [Event!]!
   }

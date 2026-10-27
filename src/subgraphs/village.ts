@@ -11,6 +11,10 @@ import { ageOn } from '../derive';
 import { recordApproval, store } from '../store';
 
 const typeDefs = parse(`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+
   type Query {
     person(id: ID!): Person
     child(id: ID!): Child

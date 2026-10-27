@@ -8,6 +8,10 @@ import { store } from '../store';
  * Milestone 1: schema only — every resolver returns an empty list.
  */
 const typeDefs = parse(`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+
   type Query {
     coordinationJobs(childId: ID): [CoordinationJob!]!
     attempts(jobId: ID): [Attempt!]!

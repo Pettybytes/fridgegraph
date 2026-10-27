@@ -4,6 +4,10 @@ import { SCOPE, authorizeChild, deny, isParentOf, requireCaller } from '../authz
 import { store } from '../store';
 
 const typeDefs = parse(`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+
   type Query {
     practices(childId: ID!, date: String!): [Practice!]!
     groupEvents(groupId: ID!): [GroupEvent!]!

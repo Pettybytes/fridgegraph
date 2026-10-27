@@ -5,6 +5,10 @@ import { childIds, pickupCandidatesFor } from '../derive';
 import { store } from '../store';
 
 const typeDefs = parse(`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+
   type Query {
     busRoster(childId: ID!, date: String!): BusRoster
     vehicles(personId: ID!): [Vehicle!]!

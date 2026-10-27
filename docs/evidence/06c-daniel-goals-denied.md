@@ -39,7 +39,7 @@ query { goals(childId: "p_nora") { title } }
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:27:10)",
-          "    at goals (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:217:13)",
+          "    at goals (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:221:13)",
           "    at field.resolve (/Users/user/Desktop/bentley/fridgegraph/node_modules/@apollo/server/src/utils/schemaInstrumentation.ts:82:22)",
           "    at executeField (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:733:20)",
           "    at executeFields (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:653:22)",

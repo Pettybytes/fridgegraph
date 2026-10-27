@@ -40,7 +40,7 @@ query { events(childId: "p_jax", date: "2026-10-26") { title } }
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:27:10)",
           "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:94:9)",
-          "    at events (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/schedule.ts:28:7)",
+          "    at events (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/schedule.ts:32:7)",
           "    at field.resolve (/Users/user/Desktop/bentley/fridgegraph/node_modules/@apollo/server/src/utils/schemaInstrumentation.ts:82:22)",
           "    at executeField (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:733:20)",
           "    at executeFields (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:653:22)",

@@ -41,7 +41,7 @@ mutation { approveRelationship(relationshipId: "r_dana_friend_parent") { id stat
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:27:10)",
-          "    at approveRelationship (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:230:59)",
+          "    at approveRelationship (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:234:59)",
           "    at field.resolve (/Users/user/Desktop/bentley/fridgegraph/node_modules/@apollo/server/src/utils/schemaInstrumentation.ts:82:22)",
           "    at executeField (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:733:20)",
           "    at /Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:614:22",

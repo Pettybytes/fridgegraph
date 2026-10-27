@@ -14,6 +14,10 @@ import { approverForChild, pickupCandidatesFor, supervisionCandidatesFor } from 
 import { nextGrantId, recordApproval, store } from '../store';
 
 const typeDefs = parse(`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+
   type Query {
     grants(childId: ID, actorId: ID): [Grant!]!
     approvals(subjectId: ID): [Approval!]!

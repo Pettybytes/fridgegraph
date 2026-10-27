@@ -1,0 +1,196 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+type Query {
+  person(id: ID!): Person
+  child(id: ID!): Child
+  village(id: ID!): Village
+  households(childId: ID!): [Household!]!
+  householdMembers(childId: ID!): [HouseholdMember!]!
+  relationships(childId: ID!): [Relationship!]!
+  contactMethods(personId: ID!, childId: ID): [ContactMethod!]!
+  capabilities(personId: ID): [Capability!]!
+  groups: [Group!]!
+  memberships(groupId: ID): [Membership!]!
+  goals(childId: ID!): [Goal!]!
+  carePlan(childId: ID!): CarePlan
+}
+
+type Mutation {
+  """
+  DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later.
+  """
+  approveRelationship(relationshipId: ID!): Relationship
+}
+
+type Person @key(fields: "id") {
+  id: ID!
+  displayName: String!
+  birthDate: String!
+  age(asOf: String): Int!
+  contactMethods(childId: ID): [ContactMethod!]!
+}
+
+type Child @key(fields: "id") {
+  id: ID!
+  person: Person
+}
+
+type Village {
+  id: ID!
+  name: String!
+}
+
+type Household @key(fields: "id") {
+  id: ID!
+  village: Village
+}
+
+type HouseholdMember {
+  person: Person!
+  household: Household!
+  role: String!
+}
+
+type RelationshipEvent {
+  at: String!
+  event: String!
+}
+
+type Relationship {
+  id: ID!
+  from: Person!
+  to: Child!
+  type: String!
+  status: RelationshipStatus!
+  createdAt: String!
+  history: [RelationshipEvent!]!
+}
+
+enum RelationshipStatus {
+  DISCOVERED
+  INTRODUCED
+  VERIFIED
+  APPROVED
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+type ContactMethod {
+  person: Person!
+  channel: ContactChannel!
+  value: String!
+  preferred: Boolean!
+  verified: Boolean!
+}
+
+enum ContactChannel {
+  CALL
+  SMS
+  EMAIL
+}
+
+type Capability {
+  person: Person!
+  name: String!
+  conditions: String
+}
+
+type Group @key(fields: "id") {
+  id: ID!
+  name: String!
+  kind: String!
+}
+
+type Membership {
+  person: Person!
+  group: Group!
+  role: String!
+}
+
+type Goal {
+  id: ID!
+  child: Child!
+  title: String!
+  owner: Person
+  proposedBy: Person
+  horizon: String
+  status: String!
+}
+
+type CarePlan {
+  child: Child!
+  text: String!
+}
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+scalar federation__FieldSet
+
+directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+directive @federation__external on OBJECT | FIELD_DEFINITION
+
+directive @federation__extends on OBJECT | INTERFACE
+
+directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
+
+directive @federation__override(from: String!, label: String) on FIELD_DEFINITION
+
+directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
+
+directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
+directive @federation__interfaceObject on OBJECT
+
+scalar federation__Scope
+
+directive @federation__authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+directive @federation__requiresScopes(scopes: [[federation__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+scalar federation__Policy
+
+directive @federation__policy(policies: [[federation__Policy!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+scalar federation__ContextFieldValue
+
+directive @federation__context(name: String!) repeatable on INTERFACE | OBJECT | UNION
+
+directive @federation__fromContext(field: federation__ContextFieldValue) on ARGUMENT_DEFINITION
+
+directive @federation__cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
+
+directive @federation__listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
+
+type _Service {
+  sdl: String
+}
+
+scalar _Any
+
+union _Entity = Child | Group | Household | Person
+
+extend type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}
