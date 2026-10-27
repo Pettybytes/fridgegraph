@@ -158,3 +158,11 @@ docs/apollo-notes.md   composition, query planning, runtime authorization
 docs/questions.md      open questions and deviations (read this)
 docs/spike-notes.md    MCP spike: versions, what worked, gotchas
 ```
+
+## Known conflict (needs a decision)
+
+The suite is green at `DEMO_CLOCK=1` (canonical evidence). At `DEMO_CLOCK=0` — the production
+default — 30 of 31 checks are identical, but `06b` (grant expired "tomorrow") inverts by design,
+because the date header is correctly ignored. Those two requirements cannot both hold as written;
+see `docs/questions.md` #17 for the one-line fix if you want the production default to be the
+evidence run.

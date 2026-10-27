@@ -68,3 +68,15 @@ Things the prompt left open, and how they were resolved. Nothing here blocks Mil
 
 16. **Stack traces are included in dev error responses** (`includeStacktraceInErrorResponses`).
     Useful locally, but it leaks source paths to clients — must be off before anything public.
+
+17. **CONFLICT to decide: the suite cannot pass unchanged at `DEMO_CLOCK=0`.** The brief asks for
+    both (a) `x-demo-date` ignored unless `DEMO_CLOCK=1`, and (b) the whole suite green at
+    `DEMO_CLOCK=0`. Ran it: **30 of 31 checks identical, `06b-daniel-careplan-on-27` inverts** —
+    with the clock off the header is ignored, today is the real local 26th, and Daniel's one-day
+    grant is correctly allowed instead of correctly expired. That check *is* date manipulation, so
+    (a) and (b) are mutually exclusive as written.
+    Resolution taken: `DEMO_CLOCK=1` is the canonical evidence run (all 31 green, committed);
+    `DEMO_CLOCK=0` is verified separately for identity/scope behaviour (14a/14b still
+    `UNAUTHENTICATED`, 05a still `UNAUTHORIZED`, 11* mutations unchanged). `06b` is the only check
+    that requires the clock. If you would rather have the production default be the evidence run,
+    the fix is to make `06b` a grant with a *past* `validUntil` instead of a future date header.
