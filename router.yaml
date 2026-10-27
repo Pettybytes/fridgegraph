@@ -1,0 +1,22 @@
+# Local development router config. Introspection on for local dev only.
+supergraph:
+  listen: 127.0.0.1:4010
+  introspection: true
+
+health_check:
+  enabled: true
+  listen: 127.0.0.1:8090
+
+include_subgraph_errors:
+  all: true
+
+# The router forwards the two INSECURE demo headers; it never trusts them itself.
+# Authorization is enforced field-by-field inside the subgraphs (src/authz.ts).
+headers:
+  all:
+    request:
+      operations:
+        - propagate:
+            named: x-demo-user
+        - propagate:
+            named: x-demo-date

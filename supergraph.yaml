@@ -1,0 +1,31 @@
+# Local federation only — no graph refs, nothing published to GraphOS tonight.
+federation_version: =2.9.0
+subgraphs:
+  village:
+    routing_url: http://127.0.0.1:4001/
+    schema:
+      subgraph_url: http://127.0.0.1:4001/
+  access:
+    routing_url: http://127.0.0.1:4002/
+    schema:
+      subgraph_url: http://127.0.0.1:4002/
+  coordination:
+    routing_url: http://127.0.0.1:4003/
+    schema:
+      subgraph_url: http://127.0.0.1:4003/
+  schedule:
+    routing_url: http://127.0.0.1:4004/
+    schema:
+      subgraph_url: http://127.0.0.1:4004/
+  school:
+    routing_url: http://127.0.0.1:4005/
+    schema:
+      subgraph_url: http://127.0.0.1:4005/
+  transport:
+    routing_url: http://127.0.0.1:4006/
+    schema:
+      subgraph_url: http://127.0.0.1:4006/
+  activities:
+    routing_url: http://127.0.0.1:4007/
+    schema:
+      subgraph_url: http://127.0.0.1:4007/
