@@ -1,7 +1,5 @@
-import type { Ctx } from '../authz';
-import { parse } from 'graphql';
-import { SCOPE, authorizeChild } from '../authz';
-import { store } from '../store';
+import { SCOPE, authorizeChild, type Ctx } from '../authz';
+import { dbFor, rows } from '../db';
 
 const typeDefs = parse(`
   extend schema
@@ -37,20 +35,43 @@ const resolvers = {
   Query: {
     schoolReports: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       await authorizeChild(ctx, childId, SCOPE.school);
-      return store.schoolReports.filter((r) => r.childId === childId);
+      const data = await rows(
+        dbFor(ctx)
+          .from('school_reports')
+          .select('id,child_id,kind,text,at')
+          .eq('child_id', childId),
+      );
+      return data.map((r) => ({
+        id: String(r.id),
+        child: { id: String(r.child_id) },
+        kind: String(r.kind),
+        text: String(r.text),
+        at: String(r.at).slice(0, 10),
+      }));
     },
     permissionSlips: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       await authorizeChild(ctx, childId, SCOPE.school);
-      return store.permissionSlips.filter((s) => s.childId === childId);
+      const data = await rows(
+        dbFor(ctx)
+          .from('permission_slips')
+          .select('id,child_id,title,signed')
+          .eq('child_id', childId),
+      );
+      return data.map((s) => ({
+        id: String(s.id),
+        child: { id: String(s.child_id) },
+        title: String(s.title),
+        signed: Boolean(s.signed),
+      }));
     },
   },
 
   SchoolReport: {
-    child: (r: { childId: string }) => ({ id: r.childId }),
+    child: (r: { child: { id: string }; childId?: string }) => r.child ?? { id: r.childId },
   },
 
   PermissionSlip: {
-    child: (s: { childId: string }) => ({ id: s.childId }),
+    child: (s: { child: { id: string }; childId?: string }) => s.child ?? { id: s.childId },
   },
 };
 
