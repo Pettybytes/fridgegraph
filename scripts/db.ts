@@ -13,21 +13,46 @@
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createSeed } from '../src/fixtures';
 
 function parseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const line of readFileSync('.env', 'utf8').split('\n')) {
+  let text = '';
+  try {
+    text = readFileSync('.env', 'utf8');
+  } catch {
+    // Imported from the server (which loads .env itself) or run in a bare shell.
+    return env;
+  }
+  for (const line of text.split('\n')) {
     const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
     if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   }
   return env;
 }
 
-const ENV = parseEnv();
-const BASE = ENV.SUPABASE_URL.replace(/\/$/, '');
-const SERVICE = ENV.SUPABASE_SERVICE_ROLE_KEY;
-if (!SERVICE) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+/**
+ * Env is resolved lazily: this module is imported by src/server.ts, whose imports are evaluated
+ * before loadEnv() runs. Reading at call time keeps the script and the server on one path.
+ */
+function envValue(name: string): string {
+  const fromProcess = process.env[name];
+  if (fromProcess) return fromProcess;
+  return parseEnv()[name] ?? '';
+}
+
+function base(): string {
+  const url = envValue('SUPABASE_URL');
+  if (!url) throw new Error('SUPABASE_URL missing');
+  return url.replace(/\/$/, '');
+}
+
+function serviceKey(): string {
+  const key = envValue('SUPABASE_SERVICE_ROLE_KEY');
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  return key;
+}
 
 /** Tables reset owns, in FK-safe order. Nothing outside this list is ever deleted. */
 const TABLES = [
@@ -45,18 +70,21 @@ const RESET_SCOPED = [
   'information_requests', 'confirmations', 'conversation_state',
 ] as const;
 
-const headers = {
-  'content-type': 'application/json',
-  apikey: SERVICE,
-  authorization: 'Bea' + 'rer ' + SERVICE,
-};
+function headers() {
+  const service = serviceKey();
+  return {
+    'content-type': 'application/json',
+    apikey: service,
+    authorization: 'Bea' + 'rer ' + service,
+  };
+}
 
 async function upsert(table: string, rows: Record<string, unknown>[], onConflict?: string) {
   if (!rows.length) return 0;
   const q = onConflict ? `?on_conflict=${onConflict}` : '';
-  const res = await fetch(`${BASE}/rest/v1/${table}${q}`, {
+  const res = await fetch(`${base()}/rest/v1/${table}${q}`, {
     method: 'POST',
-    headers: { ...headers, prefer: 'resolution=merge-duplicates,return=minimal' },
+    headers: { ...headers(), prefer: 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify(rows),
   });
   if (!res.ok) throw new Error(`${table} upsert failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
@@ -64,12 +92,12 @@ async function upsert(table: string, rows: Record<string, unknown>[], onConflict
 }
 
 async function del(table: string, filter: string) {
-  const res = await fetch(`${BASE}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
+  const res = await fetch(`${base()}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: headers() });
   if (!res.ok) throw new Error(`${table} delete failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
 }
 
 async function fetchAll(table: string): Promise<Record<string, unknown>[]> {
-  const res = await fetch(`${BASE}/rest/v1/${table}?select=*`, { headers });
+  const res = await fetch(`${base()}/rest/v1/${table}?select=*`, { headers: headers() });
   if (!res.ok) throw new Error(`${table} read failed: HTTP ${res.status}`);
   return (await res.json()) as Record<string, unknown>[];
 }
@@ -125,7 +153,7 @@ const CONFLICT: Record<string, string | undefined> = {
   capabilities: 'person_id,name', contact_methods: 'person_id,channel,value',
 };
 
-async function seed() {
+export async function seedDatabase() {
   const b = baseline();
   let total = 0;
   // parents first so FKs exist
@@ -137,9 +165,9 @@ async function seed() {
   return total;
 }
 
-async function reset() {
+export async function resetDatabase() {
   const b = baseline();
-  await seed();
+  await seedDatabase();
   const deleted: Record<string, number> = {};
 
   for (const t of RESET_SCOPED) {
@@ -170,7 +198,7 @@ async function reset() {
   return deleted;
 }
 
-async function checksum() {
+export async function checksumDatabase() {
   const out: Record<string, { rows: number; sha: string }> = {};
   for (const t of TABLES) {
     const rows = await fetchAll(t);
@@ -183,15 +211,21 @@ async function checksum() {
   return out;
 }
 
-const cmd = process.argv[2];
-if (cmd === 'seed') {
-  console.log(`seeded ${await seed()} rows`);
-} else if (cmd === 'reset') {
-  const deleted = await reset();
-  console.log(`reset complete; deleted non-baseline rows: ${JSON.stringify(deleted)}`);
-} else if (cmd === 'checksum') {
-  console.log(JSON.stringify(await checksum(), null, 2));
-} else {
-  console.error('usage: tsx scripts/db.ts seed|reset|checksum');
-  process.exit(2);
+// CLI only when executed directly (`tsx scripts/db.ts ...`), never when imported by the server.
+const executedDirectly =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (executedDirectly) {
+  const cmd = process.argv[2];
+  if (cmd === 'seed') {
+    console.log(`seeded ${await seedDatabase()} rows`);
+  } else if (cmd === 'reset') {
+    const deleted = await resetDatabase();
+    console.log(`reset complete; deleted non-baseline rows: ${JSON.stringify(deleted)}`);
+  } else if (cmd === 'checksum') {
+    console.log(JSON.stringify(await checksumDatabase(), null, 2));
+  } else {
+    console.error('usage: tsx scripts/db.ts seed|reset|checksum');
+    process.exit(2);
+  }
 }

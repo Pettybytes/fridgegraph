@@ -31,7 +31,7 @@ mutation { approveRelationship(relationshipId: "r_dana_friend_parent") { id stat
           "event": "DISCOVERED (friend_parent)"
         },
         {
-          "at": "2026-10-26",
+          "at": "2026-10-27",
           "event": "APPROVED (dev shortcut: invitation and contact verification skipped)"
         }
       ]

@@ -39,8 +39,8 @@ const typeDefs = parse(`
 
 const resolvers = {
   Query: {
-    practices: (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
-      authorizeChild(ctx, childId, SCOPE.schedule);
+    practices: async (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
+      await authorizeChild(ctx, childId, SCOPE.schedule);
       const teamGroupIds = store.memberships
         .filter((m) => m.personId === childId)
         .map((m) => m.groupId)
@@ -49,13 +49,19 @@ const resolvers = {
         (p) => teamGroupIds.includes(p.groupId) && p.start.startsWith(date.slice(0, 10)),
       );
     },
-    groupEvents: (_: unknown, { groupId }: { groupId: string }, ctx: Ctx) => {
+    groupEvents: async (_: unknown, { groupId }: { groupId: string }, ctx: Ctx) => {
       const callerId = requireCaller(ctx);
       const memberIds = store.memberships
         .filter((m) => m.groupId === groupId)
         .map((m) => m.personId);
       const isMember = memberIds.includes(callerId);
-      const isParentOfMember = memberIds.some((id) => isParentOf(callerId, id));
+      let isParentOfMember = false;
+      for (const id of memberIds) {
+        if (await isParentOf(ctx, id)) {
+          isParentOfMember = true;
+          break;
+        }
+      }
       if (!isMember && !isParentOfMember) throw deny();
       return store.practices.length ? [] : [];
     },

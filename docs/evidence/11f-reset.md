@@ -6,5 +6,5 @@
 ## Response
 
 ```json
-{"ok":true,"reset":true}
+{"ok":true,"reset":true,"db":{"deleted":{"grants":1,"approvals":2}}}
 ```

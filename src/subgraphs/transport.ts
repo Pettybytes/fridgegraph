@@ -47,34 +47,41 @@ const vehiclesOf = (personId: string) => store.vehicles.filter((v) => v.ownerId 
  * Own vehicles are always readable. Otherwise the vehicle belongs to a person who is a
  * pickupCandidate for a child the caller is a parent of, or holds pickup.verify for.
  */
-function mayReadVehicles(ctx: { callerId?: string; today: string }, personId: string): boolean {
-  const callerId = requireCaller(ctx as never);
+async function mayReadVehicles(ctx: Ctx, personId: string): Promise<boolean> {
+  const callerId = requireCaller(ctx);
   if (callerId === personId) return true;
-  return childIds().some((cid) => {
-    const allowed = isParentOf(callerId, cid) || hasScope(callerId, cid, SCOPE.pickupVerify, ctx.today);
-    if (!allowed) return false;
-    return pickupCandidatesFor(cid, ctx.today).some((c) => c.personId === personId);
-  });
+  for (const cid of await childIds(ctx)) {
+    const allowed =
+      (await isParentOf(ctx, cid)) || (await hasScope(ctx, cid, SCOPE.pickupVerify, ctx.today));
+    if (!allowed) continue;
+    const candidates = await pickupCandidatesFor(ctx, cid, ctx.today);
+    if (candidates.some((c) => c.personId === personId)) return true;
+  }
+  return false;
 }
 
 const resolvers = {
   Query: {
-    busRoster: (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
-      authorizeChild(ctx, childId, SCOPE.transport);
+    busRoster: async (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
+      await authorizeChild(ctx, childId, SCOPE.transport);
       const row = store.busRosters.find(
         (b) => b.childId === childId && b.date === date.slice(0, 10),
       );
       return row ?? null;
     },
-    vehicles: (_: unknown, { personId }: { personId: string }, ctx: { callerId?: string; today: string }) => {
-      if (!mayReadVehicles(ctx, personId)) throw deny();
+    vehicles: async (
+      _: unknown,
+      { personId }: { personId: string },
+      ctx: Ctx,
+    ) => {
+      if (!(await mayReadVehicles(ctx, personId))) throw deny();
       return vehiclesOf(personId);
     },
   },
 
   Person: {
-    vehicles: (p: { id: string }, __: unknown, ctx: { callerId?: string; today: string }) => {
-      if (!mayReadVehicles(ctx, p.id)) throw deny();
+    vehicles: async (p: { id: string }, __: unknown, ctx: Ctx) => {
+      if (!(await mayReadVehicles(ctx, p.id))) throw deny();
       return vehiclesOf(p.id);
     },
   },

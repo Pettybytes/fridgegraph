@@ -5,6 +5,7 @@ import { buildSubgraphSchema } from '@apollo/subgraph';
 import type { DocumentNode } from 'graphql';
 import { makeContext } from './context';
 import { resetStore } from './store';
+import { resetDatabase } from '../scripts/db';
 
 export type SubgraphDef = {
   name: string;
@@ -31,10 +32,18 @@ export async function startSubgraph(def: SubgraphDef): Promise<void> {
 
   const app = express();
 
-  // Control endpoint used by `npm run reset` (same process, shared store).
-  app.post('/__reset', jsonBody, (_req: Request, res: Response) => {
-    resetStore();
-    res.json({ ok: true, reset: true });
+  // Control endpoint used by `npm run reset` / the evidence runner.
+  // Postgres is the source of truth for migrated subgraphs, so the reset must restore the
+  // database baseline; the in-memory fixtures are still reset for the not-yet-migrated owners.
+  app.post('/__reset', jsonBody, async (_req: Request, res: Response) => {
+    try {
+      const deleted = await resetDatabase();
+      resetStore();
+      res.json({ ok: true, reset: true, db: { deleted } });
+    } catch (error) {
+      console.error('[reset] database reset failed:', (error as Error).message);
+      res.status(500).json({ ok: false, reset: false, error: 'DB_RESET_FAILED' });
+    }
   });
 
   app.use(

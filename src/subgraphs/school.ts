@@ -35,12 +35,12 @@ const typeDefs = parse(`
 
 const resolvers = {
   Query: {
-    schoolReports: (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
-      authorizeChild(ctx, childId, SCOPE.school);
+    schoolReports: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      await authorizeChild(ctx, childId, SCOPE.school);
       return store.schoolReports.filter((r) => r.childId === childId);
     },
-    permissionSlips: (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
-      authorizeChild(ctx, childId, SCOPE.school);
+    permissionSlips: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      await authorizeChild(ctx, childId, SCOPE.school);
       return store.permissionSlips.filter((s) => s.childId === childId);
     },
   },

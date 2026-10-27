@@ -28,8 +28,8 @@ const typeDefs = parse(`
 
 const resolvers = {
   Query: {
-    events: (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
-      authorizeChild(ctx, childId, SCOPE.schedule);
+    events: async (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
+      await authorizeChild(ctx, childId, SCOPE.schedule);
       return store.events.filter((e) => e.childId === childId && e.start.startsWith(date.slice(0, 10)));
     },
   },

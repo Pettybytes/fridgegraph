@@ -4,16 +4,20 @@ _Last updated: Oct 26, 2026 (late). Written under context pressure — read §9 
 
 ## 1. State
 
-- **HEAD:** `d6e583f` (B0+B1 green). Working tree carries the uncommitted B2 work described in §9.
+- **HEAD:** `fb0c77f` + the B3 commit (see §9).
 - **Runtime source of truth:**
-  - `village`, `access`, `coordination`, `schedule`, `school`, `transport`, `activities` → **ALL still `src/fixtures.ts` in memory.** No subgraph reads Postgres yet.
-  - Supabase → seeded, RLS-enforced, but **only read by scripts/ops**, not by the graph.
+  - `village` + `access` (grants/approvals/householdPolicy/parentingSchedule/candidates/approverFor)
+    → **Postgres, per-request RLS client** (`src/db.ts`). No in-memory read on those paths.
+  - `coordination`, `schedule`, `school`, `transport`, `activities` → **still `src/fixtures.ts`**
+    for their own rows; their authorization calls already go to Postgres via `src/authz.ts`.
+- **Migrations:** 0001–0011. New in B3: `0008` pickup-candidate definer read, `0009`
+  household_members policy recursion fix, `0010` grant-holder/co-parent definer helpers,
+  `0011` Daniel's grant window widened off a single day.
 - **Last measured results**
-  - Graph suite: **31/31** at `DEMO_CLOCK=1` and `DEMO_CLOCK=0` (measured at `d6e583f`, before B2; subgraph code unchanged since).
-  - RLS proofs: `docs/evidence/17-supabase-rls.md` (8/8), `docs/evidence/18-rls-gaps.md` (14/14 paired).
-  - Edge auth: `docs/evidence/15`, `16` (tampered → 401 `AUTH_ERROR`; missing → `UNAUTHENTICATED`).
-  - B2: `docs/evidence/19-b2-persistence.md` — **contains 2 stale FAIL rows** (see §9).
-- **Last green:** `d6e583f` for A+B0/B1. B2 partially verified.
+  - Graph suite: **31 cases, identical in `DEMO_CLOCK=1` and `DEMO_CLOCK=0`** after B3.
+  - B3 proof: `docs/evidence/20-b3-village-postgres.md` — **21/21 PASS** (`node ops/b3-proof.mjs`).
+  - RLS proofs: `17` (8/8), `18` (14/14 paired). B2: `19` regenerated from a live run.
+- **Last green:** B3 commit — village + access DB-backed, rest restart-proven.
 
 ## 2. Test reality check
 
@@ -101,7 +105,11 @@ Seed/reset: `npm run db:seed`, `npm run db:reset`, `npm run db:checksum`. Bounda
 
 - **B2 status:** migration `0007`, `scripts/db.ts`, npm scripts done; seed idempotency proven (**28 tables, 157 rows, identical checksums**); reset deleted the temp grant/relationship and restored the care plan; sentinel survived; double reset a no-op; `village_event` → Kendra 1, Chris 0.
 - **Two FAIL rows in `19-b2-persistence.md` are stale text**, not live failures: Dana legitimately keeps baseline `r_dana_friend_parent` (`DISCOVERED`). The corrected assertion (grants 0, status DISCOVERED only) was patched in `ops/b2-proof.mjs` but the re-run did not finish writing the file. **Re-run `node ops/b2-proof.mjs` and commit the refreshed file.**
-- **B3, B4, B5, Section C: not started.** No subgraph reads Postgres; `src/fixtures.ts` remains the runtime source for all seven.
+- **B3 DONE (village + access on Postgres).** Per-request client, publishable key + caller's token,
+  no service key in request handling. Evidence 20: graph + direct PostgREST for Kendra/Loretta/Dana/
+  Walter/Chris, a named-row reality check, and `approveRelationship` surviving a real restart.
+- **B4 IN PROGRESS:** coordination, schedule, school, transport, activities still read fixtures.
+- **B5, Section C: not started.**
 - No secrets printed/committed. `META_API_KEY` present; **no model calls made**.
 
 ## 10. Risks (ranked)

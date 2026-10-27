@@ -36,7 +36,11 @@ function todayIn(timeZone: string): string {
  */
 export async function makeContext({ req }: { req?: { headers?: HeaderBag } }): Promise<Ctx> {
   const headers = req?.headers ?? {};
-  const identity = await verifyBearer(readHeader(headers, 'authorization'));
+  const authorization = readHeader(headers, 'authorization');
+  const identity = await verifyBearer(authorization);
+  // The raw token is kept only to build this request's RLS-scoped Postgres client. It is never
+  // logged, never stored, and never forwarded anywhere except the Supabase endpoint.
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
 
   const timeZone = process.env.APP_TIME_ZONE ?? 'America/Detroit';
   const realToday = todayIn(timeZone);
@@ -44,7 +48,7 @@ export async function makeContext({ req }: { req?: { headers?: HeaderBag } }): P
   const demoClock = process.env.DEMO_CLOCK === '1';
   const today = demoClock && demoDate && ISO_DATE.test(demoDate) ? demoDate : realToday;
 
-  if (identity.ok) return { callerId: identity.personId, today };
+  if (identity.ok) return { callerId: identity.personId, today, token: bearer };
 
   // Never surfaced to the client; resolvers raise UNAUTHENTICATED without detail.
   return { today, identityError: identity.reason };

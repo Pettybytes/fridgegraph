@@ -175,7 +175,7 @@ await run('05c-dana-supervision-jax-empty', 'As Dana (Jax\'s parent): supervisio
 // ---------------------------------------------------------------- 6
 await run('06a-daniel-careplan-today', 'As Daniel: carePlan allowed (grant window covers today)', {
   user: 'p_okafor',
-  note: 'Daniel holds careplan.read for exactly 2026-10-26. No date header is sent, so this does not depend on DEMO_CLOCK.',
+  note: 'Daniel holds careplan.read for a window that covers the demo dates (2026-10-20..2026-11-30). No date header is sent, so this does not depend on DEMO_CLOCK.',
   query: `query { carePlan(childId: "${N}") { text } }`,
 });
 
