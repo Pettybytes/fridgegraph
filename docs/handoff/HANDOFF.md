@@ -183,3 +183,45 @@ Suite: **31 cases, byte-identical outcome in `DEMO_CLOCK=1` and `DEMO_CLOCK=0`**
   silently reverted Daniel's grant window once and cost a debugging cycle.
 - A single-day grant window in the seed makes a suite case pass/fail on the wall clock
   (`06a` went red at 00:00 Oct 27) → migration `0011` widened it to a covering window.
+
+---
+
+## 14. B4 COMPLETE (Oct 27, 2026) — store removed
+
+`src/store.ts` is **deleted**. `grep -rn "fixtures" src/` shows only `src/fixtures.ts` itself and
+two stale comments; `scripts/db.ts` still imports `createSeed` to build the seed baseline, which is
+its only remaining purpose. Every subgraph reads its own tables through the per-request RLS client.
+
+Suite after the deletion, with no in-memory fallback anywhere:
+**31 cases, outcome identical in `DEMO_CLOCK=1` and `DEMO_CLOCK=0`, 0 `DB_UNAVAILABLE`.**
+
+Green steps (each with its own evidence file):
+
+| Step | Commit | Evidence |
+| --- | --- | --- |
+| B3 village + access | `f1cb43a` | `20-b3-village-postgres.md` (21/21) |
+| B4 schedule | `0de43f6` | `21-b4-schedule.md` |
+| B4 school | `a2a1356` | `21-b4-school.md` |
+| B4 transport | `a836604` | `21-b4-transport.md` |
+| B4 activities | `6840829` | `21-b4-activities.md` |
+| B4 coordination | `32d669a` | `21-b4-coordination.md` |
+| store removed | this commit | final suite above |
+
+### The reported practices_read "gap" was a bad test premise — NOT fixed, deliberately
+
+`practices_read` already evaluates for the CALLER: `is_parent_of(m.person_id)` and
+`has_scope(m.person_id, scope)` are `current_person()`-anchored definer helpers. `p_dana`'s single
+row was correct access — **Jax is a Tigers player** (`memberships: p_jax / g_tigers / player`).
+No policy was rewritten; rewriting it would have broken correct behaviour to satisfy a wrong
+expectation. `ops/practices-authz.mjs` / `evidence 22` records the probe table, proves the guard
+actually FIRES (withdraw Jax → Dana 1→0, restored → 1), and states the genuine no-op (Kendra stays
+at 1 because Nora is still a player).
+
+### Still open
+
+1. **MCP on 5050 as Kendra → 4 pickup candidates: UNVERIFIED.** The server starts and the probe's
+   negative control behaves (unknown tool → error), but `tools/call PickupCandidates` returned
+   `ROUTER_FREE_PLAN_RATE_LIMIT_REACHED` from GraphOS. That is an account plan limit, not a code or
+   auth failure. Re-run `node ops/mcp-probe.mjs` on a plan that permits the call.
+2. `practices_read` authorizes on any group the player belongs to while the resolver surfaces only
+   team groups. Scoping question, not a leak; left as-is and flagged in evidence 22.

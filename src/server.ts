@@ -4,7 +4,6 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import type { DocumentNode } from 'graphql';
 import { makeContext } from './context';
-import { resetStore } from './store';
 import { resetDatabase } from '../scripts/db';
 
 export type SubgraphDef = {
@@ -38,7 +37,6 @@ export async function startSubgraph(def: SubgraphDef): Promise<void> {
   app.post('/__reset', jsonBody, async (_req: Request, res: Response) => {
     try {
       const deleted = await resetDatabase();
-      resetStore();
       res.json({ ok: true, reset: true, db: { deleted } });
     } catch (error) {
       console.error('[reset] database reset failed:', (error as Error).message);

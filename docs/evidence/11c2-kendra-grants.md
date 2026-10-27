@@ -27,7 +27,7 @@ mutation {
 {
   "data": {
     "grantAccess": {
-      "id": "g_3c27a943-be31-4845-aab4-3d679e673508",
+      "id": "g_6a96d436-4d4f-47d9-ab5c-ce2a42911eca",
       "actor": {
         "displayName": "Dana Coleman"
       },
