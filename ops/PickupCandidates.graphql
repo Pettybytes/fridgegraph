@@ -1,0 +1,25 @@
+# Predefined operation for the Step 7 MCP spike: one tool, introspection disabled.
+query PickupCandidates($childId: ID!, $asOf: String) {
+  pickupCandidates(childId: $childId, asOf: $asOf) {
+    person {
+      id
+      displayName
+      contactMethods(childId: $childId) {
+        channel
+        value
+        preferred
+        verified
+      }
+      vehicles {
+        year
+        make
+        model
+        color
+        plate
+      }
+    }
+    reason
+    authorization
+    availability
+  }
+}
