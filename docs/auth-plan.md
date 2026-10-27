@@ -105,3 +105,25 @@ and never report an unfinished test as passed.
 - Identity map location: `data/identity-map.json`, gitignored, loaded at startup by the servers.
 - `.demo-credentials` is gitignored and never read by the servers — it exists only so the evidence
   runner and I can sign in.
+
+---
+
+## Accepted decisions (Oct 26, 2026)
+
+**Router-level JWT.** "Router-level JWT authentication is licence-gated in the current local
+environment. Revisit Thursday after connecting the router to GraphOS with the graph key and checking
+the plan's entitlements." The commented block stays in `router.yaml` as the place to turn it on. No
+licence was purchased, managed federation was not enabled, and the running router was not changed.
+
+**Why verification lives in the subgraphs.** Verification in all seven subgraphs is **required**
+because subgraph ports are reachable; router-level auth would add an earlier rejection point and is
+**NOT active today**.
+
+**MCP.** "MCP forwards the caller's token; downstream subgraphs reject missing or invalid tokens. The
+MCP HTTP endpoint itself does not authenticate requests."
+
+**Clock.** The `APP_TIME_ZONE` fix stays. `DEMO_CLOCK` exists only as a test clock and is not needed
+by any evidence check.
+
+**Evidence 06b.** Rewritten to use a grant whose window closed 2026-09-30 rather than a future date
+header, so the expiry is evaluated against the real local date at either clock setting.

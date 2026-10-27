@@ -303,6 +303,9 @@ export function createSeed(): Seed {
     grant('g_angela', 'p_price', 'p_nora', ['school.read', 'careplan.read', 'pickup.verify'], 'p_mom'),
     grant('g_daniel', 'p_okafor', 'p_nora', ['careplan.read'], 'p_mom', '2026-10-26', '2026-10-26'),
     grant('g_carol', 'p_jennings', 'p_nora', ['careplan.read', 'school.read'], 'p_mom'),
+    // Deliberately expired before today: proves the date window is evaluated, with no clock
+    // manipulation. Chris holds careplan.read for Nora, and the window closed 2026-09-30.
+    grant('g_chris_expired', 'p_chris', 'p_nora', ['careplan.read'], 'p_mom', '2026-09-01', '2026-09-30'),
     grant('g_gary', 'p_holt', 'p_nora', ['transport.read'], 'p_mom'),
     // Jax's village
     grant('g_evelyn', 'p_evelyn', 'p_jax', ['pickup.request', 'schedule.read'], 'p_dana'),

@@ -173,15 +173,15 @@ await run('05c-dana-supervision-jax-empty', 'As Dana (Jax\'s parent): supervisio
 });
 
 // ---------------------------------------------------------------- 6
-await run('06a-daniel-careplan-on-26', 'As Daniel (grant valid only Oct 26): carePlan allowed', {
+await run('06a-daniel-careplan-today', 'As Daniel: carePlan allowed (grant window covers today)', {
   user: 'p_okafor',
-  date: D_26,
+  note: 'Daniel holds careplan.read for exactly 2026-10-26. No date header is sent, so this does not depend on DEMO_CLOCK.',
   query: `query { carePlan(childId: "${N}") { text } }`,
 });
 
-await run('06b-daniel-careplan-on-27', 'As Daniel on Oct 27 (grant expired): carePlan denied', {
-  user: 'p_okafor',
-  date: '2026-10-27',
+await run('06b-chris-careplan-expired', 'As Chris: carePlan -> UNAUTHORIZED (grant window closed 2026-09-30)', {
+  user: 'p_chris',
+  note: 'Chris holds careplan.read for Nora, but the window ended 2026-09-30 — before today, with no clock manipulation. Scope is present, so only the date check can explain the denial.',
   query: `query { carePlan(childId: "${N}") { text } }`,
 });
 

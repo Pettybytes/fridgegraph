@@ -69,14 +69,13 @@ Things the prompt left open, and how they were resolved. Nothing here blocks Mil
 16. **Stack traces are included in dev error responses** (`includeStacktraceInErrorResponses`).
     Useful locally, but it leaks source paths to clients — must be off before anything public.
 
-17. **CONFLICT to decide: the suite cannot pass unchanged at `DEMO_CLOCK=0`.** The brief asks for
-    both (a) `x-demo-date` ignored unless `DEMO_CLOCK=1`, and (b) the whole suite green at
-    `DEMO_CLOCK=0`. Ran it: **30 of 31 checks identical, `06b-daniel-careplan-on-27` inverts** —
-    with the clock off the header is ignored, today is the real local 26th, and Daniel's one-day
-    grant is correctly allowed instead of correctly expired. That check *is* date manipulation, so
-    (a) and (b) are mutually exclusive as written.
-    Resolution taken: `DEMO_CLOCK=1` is the canonical evidence run (all 31 green, committed);
-    `DEMO_CLOCK=0` is verified separately for identity/scope behaviour (14a/14b still
-    `UNAUTHENTICATED`, 05a still `UNAUTHORIZED`, 11* mutations unchanged). `06b` is the only check
-    that requires the clock. If you would rather have the production default be the evidence run,
-    the fix is to make `06b` a grant with a *past* `validUntil` instead of a future date header.
+17. **CLOSED — 06b no longer needs the test clock.** The conflict was that 06b used a *future* date
+    header, so it could only pass with `DEMO_CLOCK=1`. Replaced: Chris holds `careplan.read` for Nora
+    with a window that closed **2026-09-30**, so he is `UNAUTHORIZED` because the grant expired —
+    evaluated against the real local date. No assertion was weakened and no other grant or rule was
+    changed. The suite now produces **identical outcomes at `DEMO_CLOCK=1` and `DEMO_CLOCK=0`**
+    (31/31), so no check requires the clock; date-dependent behaviour is exercised through explicit
+    `asOf` / `date` arguments (`02`, `03`, `05c`, `11*`).
+
+18. **Gloria returns in 2B.** Restore Gloria's scenario (grandparent with no pickup rights) as a
+    regression test in 2B, using an existing identity or an approved new user.
