@@ -21,7 +21,7 @@ authentication:
   router:
     jwt:
       jwks:
-        - url: "${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+        - url: "${env.SUPABASE_JWKS_URL}"
           issuers:
             - "${env.SUPABASE_URL}/auth/v1"
           audiences:
