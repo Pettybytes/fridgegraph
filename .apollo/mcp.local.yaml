@@ -22,7 +22,7 @@ introspection:
     enabled: false
   validate:
     enabled: false
-# SECURITY NOTE: demo identity pinned for the spike only. Milestone 3 replaces this with a
+# SECURITY NOTE: demo identity pinned for the spike only. Milestone 2 replaces this with a
 # validated JWT. Never ship a server that hard-codes who the caller is.
 headers:
   x-demo-user: p_mom

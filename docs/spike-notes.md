@@ -41,5 +41,5 @@
   form is used in `router.yaml`; the old form still works but is rewritten automatically.
 - The MCP server config file is watched; editing it restarts the server in place.
 - Static `headers:` in the MCP config are the spike's stand-in for auth. They pin one caller for
-  every request — fine for a local demo, unacceptable anywhere else. Milestone 3 replaces this
+  every request — fine for a local demo, unacceptable anywhere else. Milestone 2 replaces this
   with a validated JWT and per-request identity.

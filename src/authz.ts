@@ -1,6 +1,6 @@
 /**
  * x-demo-user and x-demo-date are INSECURE test inputs for local development only.
- * Replaced by validated JWTs in Milestone 3. Never deploy with these headers trusted.
+ * Replaced by validated JWTs in Milestone 2. Never deploy with these headers trusted.
  *
  * Access rules live here and are called from every resolver. The router is not an
  * authorization boundary: it only forwards the two demo headers.
