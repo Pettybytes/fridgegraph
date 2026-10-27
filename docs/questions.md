@@ -28,3 +28,22 @@ Things the prompt left open, and how they were resolved. Nothing here blocks Mil
    their own child without holding `pickup.verify` — parents already have full access.
 9. **Sibling types.** `brother`, `sister`, `sibling` are treated as sibling relationship types for
    the supervision age rule. No ages are hardcoded; the threshold comes from `HouseholdPolicy`.
+
+10. **CONTRADICTION in brief item 9 — needs a decision.** It asks for *Ray (Jax's father)* to be
+    **denied** Jax's carePlan and *Evelyn (Jax's grandmother)* to be **allowed**. Both conflict with
+    the same brief's access rules:
+    - "Parents of the child have full access" means Ray is allowed, not denied.
+    - Evelyn's grant is `[pickup.request, schedule.read]`, and `CarePlan` requires `careplan.read`,
+      so she is denied.
+
+    Implemented: the rules win. Observed: Ray ALLOWED, Evelyn UNAUTHORIZED
+    (`docs/evidence/09a-*`, `09b-*`). To match item 9 literally you would have to give parents less
+    access than grantees, which contradicts the scope table — so this needs your call, not a guess.
+    If the intent is "Evelyn may read the care plan", the fix is one fixture/scope change: add
+    `careplan.read` to her grant.
+11. **Jax has a care plan in the fixtures.** Nothing in the fixture list specifies its text, but
+    item 9 is only meaningful if there is something to read (an allowed query returning `null` looks
+    identical to a policy gap). Added one line: "Mild asthma. Inhaler in the front pocket of the
+    school bag." Replace or delete freely.
+12. **`ops/PickupCandidates.graphql` uses `authorization: ***`** because the field type in the brief
+    is written as `***`; it is modelled as `String` with the constant value `AUTHORIZED`.

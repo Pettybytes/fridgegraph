@@ -1,0 +1,29 @@
+# Apollo MCP Server config for the Milestone 1 spike.
+# One tool, built from one predefined operation. Introspection tools are OFF, so the model
+# cannot discover or invent other fields.
+endpoint: http://127.0.0.1:4010/
+transport:
+  type: streamable_http
+  address: 127.0.0.1
+  port: 5050
+schema:
+  source: local
+  path: ./supergraph.graphql
+operations:
+  source: local
+  paths:
+    - ./ops/PickupCandidates.graphql
+introspection:
+  introspect:
+    enabled: false
+  execute:
+    enabled: false
+  search:
+    enabled: false
+  validate:
+    enabled: false
+# SECURITY NOTE: demo identity pinned for the spike only. Milestone 3 replaces this with a
+# validated JWT. Never ship a server that hard-codes who the caller is.
+headers:
+  x-demo-user: p_mom
+  x-demo-date: "2026-10-26"

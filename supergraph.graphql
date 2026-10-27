@@ -1,0 +1,422 @@
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+{
+  query: Query
+  mutation: Mutation
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+type Approval
+  @join__type(graph: ACCESS)
+{
+  id: ID!
+  approver: Person!
+  subjectType: String!
+  subjectId: ID!
+  decision: String!
+  at: String!
+}
+
+type ApproverResult
+  @join__type(graph: ACCESS)
+{
+  approver: Person
+  fyiParents: [Person!]!
+}
+
+type Attempt
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  job: CoordinationJob!
+  channel: String!
+  at: String!
+}
+
+enum Availability
+  @join__type(graph: ACCESS)
+{
+  UNKNOWN @join__enumValue(graph: ACCESS)
+  CONTACTED @join__enumValue(graph: ACCESS)
+  CONFIRMED @join__enumValue(graph: ACCESS)
+  DECLINED @join__enumValue(graph: ACCESS)
+}
+
+type BusRoster
+  @join__type(graph: TRANSPORT)
+{
+  date: String!
+  child: Child!
+  route: String!
+  riding: Boolean!
+}
+
+type Candidate
+  @join__type(graph: ACCESS)
+{
+  person: Person!
+  reason: String!
+  authorization: String!
+  availability: Availability!
+}
+
+type Capability
+  @join__type(graph: VILLAGE)
+{
+  person: Person!
+  name: String!
+  conditions: String
+}
+
+type CarePlan
+  @join__type(graph: VILLAGE)
+{
+  child: Child!
+  text: String!
+}
+
+type Child
+  @join__type(graph: ACCESS, key: "id")
+  @join__type(graph: ACTIVITIES, key: "id")
+  @join__type(graph: COORDINATION, key: "id")
+  @join__type(graph: SCHEDULE, key: "id")
+  @join__type(graph: SCHOOL, key: "id")
+  @join__type(graph: TRANSPORT, key: "id")
+  @join__type(graph: VILLAGE, key: "id")
+{
+  id: ID!
+  person: Person @join__field(graph: VILLAGE)
+}
+
+type Confirmation
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  job: CoordinationJob!
+  receivedAt: String!
+}
+
+enum ContactChannel
+  @join__type(graph: VILLAGE)
+{
+  CALL @join__enumValue(graph: VILLAGE)
+  SMS @join__enumValue(graph: VILLAGE)
+  EMAIL @join__enumValue(graph: VILLAGE)
+}
+
+type ContactMethod
+  @join__type(graph: VILLAGE)
+{
+  person: Person!
+  channel: ContactChannel!
+  value: String!
+  preferred: Boolean!
+  verified: Boolean!
+}
+
+type CoordinationJob
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  idempotencyKey: String!
+  type: CoordinationType!
+  child: Child!
+  status: String!
+  version: Int!
+}
+
+enum CoordinationType
+  @join__type(graph: COORDINATION)
+{
+  PICKUP @join__enumValue(graph: COORDINATION)
+  INVITATION @join__enumValue(graph: COORDINATION)
+  ONBOARDING @join__enumValue(graph: COORDINATION)
+}
+
+type Event
+  @join__type(graph: SCHEDULE)
+{
+  id: ID!
+  child: Child!
+  title: String!
+  start: String!
+  end: String!
+  location: String
+}
+
+type Goal
+  @join__type(graph: VILLAGE)
+{
+  id: ID!
+  child: Child!
+  title: String!
+  owner: Person
+  proposedBy: Person
+  horizon: String
+  status: String!
+}
+
+type Grant
+  @join__type(graph: ACCESS)
+{
+  id: ID!
+  actor: Person!
+  child: Child!
+  scopes: [String!]!
+  validFrom: String
+  validUntil: String
+  grantedBy: Person!
+}
+
+type Group
+  @join__type(graph: ACTIVITIES, key: "id")
+  @join__type(graph: VILLAGE, key: "id")
+{
+  id: ID!
+  name: String! @join__field(graph: VILLAGE)
+  kind: String! @join__field(graph: VILLAGE)
+}
+
+type GroupEvent
+  @join__type(graph: ACTIVITIES)
+{
+  id: ID!
+  group: Group!
+  kind: String!
+  text: String!
+  at: String!
+}
+
+type Household
+  @join__type(graph: ACCESS, key: "id")
+  @join__type(graph: VILLAGE, key: "id")
+{
+  id: ID!
+  village: Village @join__field(graph: VILLAGE)
+}
+
+type HouseholdMember
+  @join__type(graph: VILLAGE)
+{
+  person: Person!
+  household: Household!
+  role: String!
+}
+
+type HouseholdPolicy
+  @join__type(graph: ACCESS)
+{
+  household: Household!
+  rule: String!
+  value: String!
+}
+
+type InformationRequest
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  job: CoordinationJob!
+  question: String!
+  status: String!
+}
+
+scalar join__FieldSet
+
+enum join__Graph {
+  ACCESS @join__graph(name: "access", url: "http://127.0.0.1:4002/")
+  ACTIVITIES @join__graph(name: "activities", url: "http://127.0.0.1:4007/")
+  COORDINATION @join__graph(name: "coordination", url: "http://127.0.0.1:4003/")
+  SCHEDULE @join__graph(name: "schedule", url: "http://127.0.0.1:4004/")
+  SCHOOL @join__graph(name: "school", url: "http://127.0.0.1:4005/")
+  TRANSPORT @join__graph(name: "transport", url: "http://127.0.0.1:4006/")
+  VILLAGE @join__graph(name: "village", url: "http://127.0.0.1:4001/")
+}
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+type Membership
+  @join__type(graph: VILLAGE)
+{
+  person: Person!
+  group: Group!
+  role: String!
+}
+
+type Mutation
+  @join__type(graph: ACCESS)
+  @join__type(graph: VILLAGE)
+{
+  grantAccess(actorId: ID!, childId: ID!, scopes: [String!]!, validFrom: String, validUntil: String): Grant @join__field(graph: ACCESS)
+  revokeGrant(id: ID!): Boolean! @join__field(graph: ACCESS)
+
+  """
+  DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later.
+  """
+  approveRelationship(relationshipId: ID!): Relationship @join__field(graph: VILLAGE)
+}
+
+type ParentingSchedule
+  @join__type(graph: ACCESS)
+{
+  child: Child!
+  parent: Person!
+  weekdays: [String!]!
+}
+
+type PermissionSlip
+  @join__type(graph: SCHOOL)
+{
+  id: ID!
+  child: Child!
+  title: String!
+  signed: Boolean!
+}
+
+type Person
+  @join__type(graph: ACCESS, key: "id")
+  @join__type(graph: TRANSPORT, key: "id")
+  @join__type(graph: VILLAGE, key: "id")
+{
+  id: ID!
+  vehicles: [Vehicle!]! @join__field(graph: TRANSPORT)
+  displayName: String! @join__field(graph: VILLAGE)
+  birthDate: String! @join__field(graph: VILLAGE)
+  age(asOf: String): Int! @join__field(graph: VILLAGE)
+  contactMethods(childId: ID): [ContactMethod!]! @join__field(graph: VILLAGE)
+}
+
+type Practice
+  @join__type(graph: ACTIVITIES)
+{
+  id: ID!
+  group: Group!
+  start: String!
+  location: String
+}
+
+type Query
+  @join__type(graph: ACCESS)
+  @join__type(graph: ACTIVITIES)
+  @join__type(graph: COORDINATION)
+  @join__type(graph: SCHEDULE)
+  @join__type(graph: SCHOOL)
+  @join__type(graph: TRANSPORT)
+  @join__type(graph: VILLAGE)
+{
+  grants(childId: ID, actorId: ID): [Grant!]! @join__field(graph: ACCESS)
+  approvals(subjectId: ID): [Approval!]! @join__field(graph: ACCESS)
+  householdPolicy(householdId: ID!): [HouseholdPolicy!]! @join__field(graph: ACCESS)
+  parentingSchedule(childId: ID!): [ParentingSchedule!]! @join__field(graph: ACCESS)
+  pickupCandidates(childId: ID!, asOf: String): [Candidate!]! @join__field(graph: ACCESS)
+  supervisionCandidates(childId: ID!, asOf: String): [Candidate!]! @join__field(graph: ACCESS)
+  approverFor(childId: ID!, date: String): ApproverResult! @join__field(graph: ACCESS)
+  practices(childId: ID!, date: String!): [Practice!]! @join__field(graph: ACTIVITIES)
+  groupEvents(groupId: ID!): [GroupEvent!]! @join__field(graph: ACTIVITIES)
+  coordinationJobs(childId: ID): [CoordinationJob!]! @join__field(graph: COORDINATION)
+  attempts(jobId: ID): [Attempt!]! @join__field(graph: COORDINATION)
+  informationRequests(childId: ID): [InformationRequest!]! @join__field(graph: COORDINATION)
+  confirmations(childId: ID): [Confirmation!]! @join__field(graph: COORDINATION)
+  events(childId: ID!, date: String!): [Event!]! @join__field(graph: SCHEDULE)
+  schoolReports(childId: ID!): [SchoolReport!]! @join__field(graph: SCHOOL)
+  permissionSlips(childId: ID!): [PermissionSlip!]! @join__field(graph: SCHOOL)
+  busRoster(childId: ID!, date: String!): BusRoster @join__field(graph: TRANSPORT)
+  vehicles(personId: ID!): [Vehicle!]! @join__field(graph: TRANSPORT)
+  person(id: ID!): Person @join__field(graph: VILLAGE)
+  child(id: ID!): Child @join__field(graph: VILLAGE)
+  village(id: ID!): Village @join__field(graph: VILLAGE)
+  households(childId: ID!): [Household!]! @join__field(graph: VILLAGE)
+  householdMembers(childId: ID!): [HouseholdMember!]! @join__field(graph: VILLAGE)
+  relationships(childId: ID!): [Relationship!]! @join__field(graph: VILLAGE)
+  contactMethods(personId: ID!, childId: ID): [ContactMethod!]! @join__field(graph: VILLAGE)
+  capabilities(personId: ID): [Capability!]! @join__field(graph: VILLAGE)
+  groups: [Group!]! @join__field(graph: VILLAGE)
+  memberships(groupId: ID): [Membership!]! @join__field(graph: VILLAGE)
+  goals(childId: ID!): [Goal!]! @join__field(graph: VILLAGE)
+  carePlan(childId: ID!): CarePlan @join__field(graph: VILLAGE)
+}
+
+type Relationship
+  @join__type(graph: VILLAGE)
+{
+  id: ID!
+  from: Person!
+  to: Child!
+  type: String!
+  status: RelationshipStatus!
+  createdAt: String!
+  history: [RelationshipEvent!]!
+}
+
+type RelationshipEvent
+  @join__type(graph: VILLAGE)
+{
+  at: String!
+  event: String!
+}
+
+enum RelationshipStatus
+  @join__type(graph: VILLAGE)
+{
+  DISCOVERED @join__enumValue(graph: VILLAGE)
+  INTRODUCED @join__enumValue(graph: VILLAGE)
+  VERIFIED @join__enumValue(graph: VILLAGE)
+  APPROVED @join__enumValue(graph: VILLAGE)
+  ACTIVE @join__enumValue(graph: VILLAGE)
+  EXPIRED @join__enumValue(graph: VILLAGE)
+  REVOKED @join__enumValue(graph: VILLAGE)
+}
+
+type SchoolReport
+  @join__type(graph: SCHOOL)
+{
+  id: ID!
+  child: Child!
+  kind: String!
+  text: String!
+  at: String!
+}
+
+type Vehicle
+  @join__type(graph: TRANSPORT)
+{
+  id: ID!
+  owner: Person!
+  year: Int!
+  make: String!
+  model: String!
+  color: String!
+  plate: String!
+}
+
+type Village
+  @join__type(graph: VILLAGE)
+{
+  id: ID!
+  name: String!
+}
