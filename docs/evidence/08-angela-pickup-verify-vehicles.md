@@ -26,41 +26,25 @@ query { pickupCandidates(childId: "p_nora", asOf: "2026-10-26") { person { displ
       {
         "person": {
           "displayName": "Loretta Brooks",
-          "vehicles": [
-            {
-              "plate": "DEMO-103"
-            }
-          ]
+          "vehicles": []
         }
       },
       {
         "person": {
           "displayName": "Bryan Brooks",
-          "vehicles": [
-            {
-              "plate": "DEMO-104"
-            }
-          ]
+          "vehicles": []
         }
       },
       {
         "person": {
           "displayName": "Tasha Ellison",
-          "vehicles": [
-            {
-              "plate": "DEMO-105"
-            }
-          ]
+          "vehicles": []
         }
       },
       {
         "person": {
           "displayName": "Monique Davis",
-          "vehicles": [
-            {
-              "plate": "DEMO-106"
-            }
-          ]
+          "vehicles": []
         }
       }
     ]

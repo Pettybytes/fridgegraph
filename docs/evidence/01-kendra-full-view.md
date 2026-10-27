@@ -93,15 +93,7 @@ query KendraView($childId: ID!, $date: String!) {
               "verified": true
             }
           ],
-          "vehicles": [
-            {
-              "year": 2016,
-              "make": "Buick",
-              "model": "Enclave",
-              "color": "white",
-              "plate": "DEMO-103"
-            }
-          ]
+          "vehicles": []
         },
         "reason": "grandmother — transport.child offered, pickup.request grant valid 2026-10-26",
         "authorization": "AUTHORIZED",
@@ -118,15 +110,7 @@ query KendraView($childId: ID!, $date: String!) {
               "verified": true
             }
           ],
-          "vehicles": [
-            {
-              "year": 2020,
-              "make": "Dodge",
-              "model": "Charger",
-              "color": "blue",
-              "plate": "DEMO-104"
-            }
-          ]
+          "vehicles": []
         },
         "reason": "uncle — transport.child offered, pickup.request grant valid 2026-10-26",
         "authorization": "AUTHORIZED",
@@ -143,15 +127,7 @@ query KendraView($childId: ID!, $date: String!) {
               "verified": true
             }
           ],
-          "vehicles": [
-            {
-              "year": 2022,
-              "make": "Toyota",
-              "model": "RAV4",
-              "color": "red",
-              "plate": "DEMO-105"
-            }
-          ]
+          "vehicles": []
         },
         "reason": "aunt + godmother — transport.child offered, pickup.request grant valid 2026-10-26",
         "authorization": "AUTHORIZED",
@@ -168,15 +144,7 @@ query KendraView($childId: ID!, $date: String!) {
               "verified": true
             }
           ],
-          "vehicles": [
-            {
-              "year": 2023,
-              "make": "Kia",
-              "model": "Telluride",
-              "color": "silver",
-              "plate": "DEMO-106"
-            }
-          ]
+          "vehicles": []
         },
         "reason": "parent_friend — transport.child offered, pickup.request grant valid 2026-10-26",
         "authorization": "AUTHORIZED",
