@@ -29,18 +29,14 @@ Things the prompt left open, and how they were resolved. Nothing here blocks Mil
 9. **Sibling types.** `brother`, `sister`, `sibling` are treated as sibling relationship types for
    the supervision age rule. No ages are hardcoded; the threshold comes from `HouseholdPolicy`.
 
-10. **CONTRADICTION in brief item 9 — needs a decision.** It asks for *Ray (Jax's father)* to be
-    **denied** Jax's carePlan and *Evelyn (Jax's grandmother)* to be **allowed**. Both conflict with
-    the same brief's access rules:
-    - "Parents of the child have full access" means Ray is allowed, not denied.
-    - Evelyn's grant is `[pickup.request, schedule.read]`, and `CarePlan` requires `careplan.read`,
-      so she is denied.
-
-    Implemented: the rules win. Observed: Ray ALLOWED, Evelyn UNAUTHORIZED
-    (`docs/evidence/09a-*`, `09b-*`). To match item 9 literally you would have to give parents less
-    access than grantees, which contradicts the scope table — so this needs your call, not a guess.
-    If the intent is "Evelyn may read the care plan", the fix is one fixture/scope change: add
-    `careplan.read` to her grant.
+10. **CLOSED — item 9 labelling, not a permission change.** The original brief asked for *Ray
+    (Jax's father)* to be denied Jax's carePlan and *Evelyn (grandmother)* to be allowed. Read
+    against the brief's own rules that is contradictory, so nothing was changed to force it:
+    **Ray Coleman (parent) has full access to Jax's carePlan; Evelyn Carter (grandmother, no
+    `careplan.read`) is UNAUTHORIZED.** No grant was added, removed or altered. Evidence #9 was
+    relabelled to state this (`docs/evidence/09a-*`, `09b-*`). If a grandchild's care plan should be
+    readable by a grandmother, that is a deliberate scope decision for a later milestone — it is
+    not a bug to fix silently.
 11. **Jax has a care plan in the fixtures.** Nothing in the fixture list specifies its text, but
     item 9 is only meaningful if there is something to read (an allowed query returning `null` looks
     identical to a policy gap). Added one line: "Mild asthma. Inhaler in the front pocket of the

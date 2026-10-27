@@ -212,21 +212,17 @@ query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { person { displayNam
 });
 
 // ---------------------------------------------------------------- 9
-// Brief item 9 asks for Ray (Jax's FATHER) to be DENIED Jax's carePlan and Evelyn (grandmother,
-// pickup.request + schedule.read only) to be ALLOWED. Both conflict with the access rules in the
-// same brief: parents have full access, and carePlan requires careplan.read, which Evelyn lacks.
-// The rules win; these two files record what actually happens. See docs/questions.md #10.
-await run('09a-ray-jax-careplan', 'As Ray (Jax\'s father): Jax\'s carePlan -> ALLOWED (parent has full access)', {
+await run('09a-ray-jax-careplan', "Ray Coleman (parent) has full access to Jax's carePlan", {
   user: 'p_ray',
   date: D_26,
-  note: 'Brief expected UNAUTHORIZED. A parent of the child has full access, so this is allowed.',
+  note: "Ray Coleman is Jax's parent. A parent of the child has full access, so this is correct.",
   query: `query { carePlan(childId: "${J}") { text } }`,
 });
 
-await run('09b-evelyn-jax-careplan', 'As Evelyn (grandmother, no careplan.read): Jax\'s carePlan -> UNAUTHORIZED', {
+await run('09b-evelyn-jax-careplan', "Evelyn Carter (grandmother, no careplan.read) is UNAUTHORIZED", {
   user: 'p_evelyn',
   date: D_26,
-  note: 'Brief expected allowed. Her grant is [pickup.request, schedule.read]; carePlan requires careplan.read.',
+  note: 'Her grant is [pickup.request, schedule.read]; CarePlan requires careplan.read. No grant was changed.',
   query: `query { carePlan(childId: "${J}") { text } }`,
 });
 

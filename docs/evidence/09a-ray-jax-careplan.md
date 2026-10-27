@@ -1,9 +1,9 @@
-# As Ray (Jax's father): Jax's carePlan -> ALLOWED (parent has full access)
+# Ray Coleman (parent) has full access to Jax's carePlan
 
 - endpoint: `http://127.0.0.1:4010/`
 - x-demo-user: `p_ray`  (INSECURE dev header)
 - x-demo-date: `2026-10-26`
-- note: Brief expected UNAUTHORIZED. A parent of the child has full access, so this is allowed.
+- note: Ray Coleman is Jax's parent, and a parent of the child has full access. This is the correct result, not a leak.
 - HTTP status: 200
 
 ## Query

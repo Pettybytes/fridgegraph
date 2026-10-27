@@ -1,9 +1,9 @@
-# As Evelyn (grandmother, no careplan.read): Jax's carePlan -> UNAUTHORIZED
+# Evelyn Carter (grandmother, no careplan.read) is UNAUTHORIZED
 
 - endpoint: `http://127.0.0.1:4010/`
 - x-demo-user: `p_evelyn`  (INSECURE dev header)
 - x-demo-date: `2026-10-26`
-- note: Brief expected allowed. Her grant is [pickup.request, schedule.read]; carePlan requires careplan.read.
+- note: Evelyn's grant is [pickup.request, schedule.read]. CarePlan requires careplan.read, which she does not hold. No grant was changed to make this pass.
 - HTTP status: 200
 
 ## Query
