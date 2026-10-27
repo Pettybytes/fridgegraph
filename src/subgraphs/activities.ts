@@ -1,7 +1,6 @@
-import type { Ctx } from '../authz';
 import { parse } from 'graphql';
-import { SCOPE, authorizeChild, deny, isParentOf, requireCaller } from '../authz';
-import { store } from '../store';
+import { SCOPE, authorizeChild, deny, isParentOf, requireCaller, type Ctx } from '../authz';
+import { dbFor, rows } from '../db';
 
 const typeDefs = parse(`
   extend schema
@@ -41,19 +40,39 @@ const resolvers = {
   Query: {
     practices: async (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
       await authorizeChild(ctx, childId, SCOPE.schedule);
-      const teamGroupIds = store.memberships
-        .filter((m) => m.personId === childId)
-        .map((m) => m.groupId)
-        .filter((gid) => store.groups.some((g) => g.id === gid && g.kind === 'team'));
-      return store.practices.filter(
-        (p) => teamGroupIds.includes(p.groupId) && p.start.startsWith(date.slice(0, 10)),
+      // groups/memberships are village-owned: read them (read-only) through the caller's RLS
+      // client rather than writing or caching them here.
+      const memberships = await rows(
+        dbFor(ctx).from('memberships').select('group_id').eq('person_id', childId),
       );
+      const groupIds = memberships.map((m) => String(m.group_id));
+      if (groupIds.length === 0) return [];
+      const groups = await rows(
+        dbFor(ctx).from('groups').select('id,kind').in('id', groupIds).eq('kind', 'team'),
+      );
+      const teamIds = groups.map((g) => String(g.id));
+      if (teamIds.length === 0) return [];
+      const data = await rows(
+        dbFor(ctx)
+          .from('practices')
+          .select('id,group_id,start_at,location')
+          .in('group_id', teamIds),
+      );
+      return data
+        .filter((p) => String(p.start_at).startsWith(date.slice(0, 10)))
+        .map((p) => ({
+          id: String(p.id),
+          group: { id: String(p.group_id) },
+          start: String(p.start_at),
+          location: (p.location as string | null) ?? null,
+        }));
     },
     groupEvents: async (_: unknown, { groupId }: { groupId: string }, ctx: Ctx) => {
       const callerId = requireCaller(ctx);
-      const memberIds = store.memberships
-        .filter((m) => m.groupId === groupId)
-        .map((m) => m.personId);
+      const members = await rows(
+        dbFor(ctx).from('memberships').select('person_id').eq('group_id', groupId),
+      );
+      const memberIds = members.map((m) => String(m.person_id));
       const isMember = memberIds.includes(callerId);
       let isParentOfMember = false;
       for (const id of memberIds) {
@@ -63,16 +82,17 @@ const resolvers = {
         }
       }
       if (!isMember && !isParentOfMember) throw deny();
-      return store.practices.length ? [] : [];
+      // No GroupEvent source table exists yet (milestone 1 returned an empty list on purpose).
+      return [];
     },
   },
 
   Practice: {
-    group: (p: { groupId: string }) => ({ id: p.groupId }),
+    group: (p: { group: { id: string }; groupId?: string }) => p.group ?? { id: p.groupId },
   },
 
   GroupEvent: {
-    group: (g: { groupId: string }) => ({ id: g.groupId }),
+    group: (g: { group: { id: string }; groupId?: string }) => g.group ?? { id: g.groupId },
   },
 };
 

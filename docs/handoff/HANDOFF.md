@@ -132,3 +132,54 @@ First three commands: `cd ~/Desktop/bentley/fridgegraph` · `set -a; . ./.env; s
 
 Present: `coordination_jobs`, `attempts`, `information_requests`, `confirmations` (RLS-scoped, empty), `village_event` for history.
 Missing: idempotency keys on job creation (unique `idempotency_key` exists — needs an enforced create path), an outbound channel adapter with labeled test responders, confirmation state that cannot be invented by the model, and a job state machine (pending → awaiting_parent → awaiting_adult → confirmed/failed) with versioned writes.
+
+---
+
+## 13. B3/B4 STATUS — stop point (Oct 27, 2026 00:20)
+
+**Green and pushed, each proven by its own evidence file:**
+
+| Step | Commit | Evidence | Proof |
+| --- | --- | --- | --- |
+| B3 village + access on Postgres | `f1cb43a` | `20-b3-village-postgres.md` | 21/21 |
+| B4 schedule | `0de43f6` | `21-b4-schedule.md` | 8/8 |
+| B4 school | `a2a1356` | `21-b4-school.md` | pass (seeded + cleaned a fictional row) |
+| B4 transport | `a836604` | `21-b4-transport.md` | pass |
+
+Suite: **31 cases, byte-identical outcome in `DEMO_CLOCK=1` and `DEMO_CLOCK=0`** after every green step
+(12 single `UNAUTHORIZED` denials + 04's pair + 14a `UNAUTHENTICATED` + 14b edge `AUTH_ERROR`).
+
+**NOT green — activities (uncommitted code in this commit, marked `wip`):**
+- `activities` resolvers were migrated to Postgres, but `node ops/b4-proof.mjs activities` FAILS two checks:
+  1. `edit is visible through the graph` — after patching `practices.location`, the graph returned `[]`.
+     Not yet diagnosed; the same read path works in the suite (01 shows the practice row).
+  2. `paired RLS` — `p_dana` reads 1 `practices` row for Nora's team. **This is a real RLS gap, not a
+     test artifact:** `practices_read` (0003) authorizes on the *player's* grants —
+     `is_parent_of(m.person_id) or has_scope(m.person_id,'schedule.read')` — instead of the CALLER's.
+     Any signed-in user sees practices for any group whose player has a parent.
+- **Decision needed (Bryan):** tighten `practices_read` to the caller (`is_parent_of(player) or
+  has_scope(player,'schedule.read')` evaluated for `current_person()`), then re-run 18-rls-gaps
+  because the policy changes proven evidence. Not done here: changing a policy with no budget left
+  to re-verify it would be exactly the "pass the check by moving the goalposts" failure mode.
+
+**Remaining:**
+1. Diagnose the activities graph read, then finish activities (needs the policy decision above).
+2. Migrate `coordination` (all four tables are empty by design; proof harness already supports
+   seed-and-clean via `emptyByDesign`).
+3. Delete `src/store.ts`; `grep -rn "fixtures" src/` must show no runtime importer
+   (`scripts/db.ts` legitimately imports `createSeed` to build the seed baseline).
+4. Re-run the full battery: both clock modes, `b3-proof`, `b4-proof <owner>`, MCP probe as Kendra
+   (expect 4 pickup candidates), secret scan for `***` outside fixture data.
+5. MCP (5050) was not re-proven after B3/B4 — do that in the final pass.
+
+**New gotchas found this run (add to §8 when next editing):**
+- Self-referencing RLS policy on `household_members` = `42P17` at runtime → migration `0009`
+  (`my_household_ids()`). Never put a table's own select inside its policy.
+- RLS hides *other people's* rows the derived queries need (grants, co-parent membership,
+  relationship types for a pickup.verify holder) → narrow `SECURITY DEFINER` helpers in `0008`/`0010`
+  rather than widening policies.
+- `/__reset` re-seeds from the fixtures the **server process loaded at startup**; after editing
+  `src/fixtures.ts` you must restart the stack or in-process resets restore the OLD values. This
+  silently reverted Daniel's grant window once and cost a debugging cycle.
+- A single-day grant window in the seed makes a suite case pass/fail on the wall clock
+  (`06a` went red at 00:00 Oct 27) → migration `0011` widened it to a covering window.
