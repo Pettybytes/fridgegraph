@@ -43,3 +43,28 @@ Things the prompt left open, and how they were resolved. Nothing here blocks Mil
     school bag." Replace or delete freely.
 12. **`ops/PickupCandidates.graphql` uses `authorization: ***`** because the field type in the brief
     is written as `***`; it is modelled as `String` with the constant value `AUTHORIZED`.
+
+13. **Router-level JWT authentication is licence-gated (blocks part of the plan).** The brief asked
+    for `authentication.router.jwt` in `router.yaml`. An unlicensed self-hosted router refuses to
+    start with it:
+    `ERROR Not connected to GraphOS ... license for: Authentication plugin .authentication.router`
+    and `ERROR license violation ... ["Authentication plugin"]`. Through `rover dev` this only shows
+    as `Failed healthcheck`; running the router binary directly reveals it, and
+    `router config validate` passes, so it is the licence check and not a config error.
+    **Resolution:** verification moved into the subgraphs (`src/auth/verify.ts`), which is the
+    stronger boundary anyway. If a GraphOS licence lands, the block to re-enable is quoted in
+    `router.yaml`. **Needs your decision for the demo:** is there an `APOLLO_KEY`/licence you want
+    the local router connected to, or is subgraph-side verification the accepted story?
+
+14. **`05b` (Gloria) retired.** Gloria has no Supabase user because the approved seed list is
+    exactly 13 people and she is not among them. `05a` (Walter) already demonstrates the
+    schedule-only denial, and the stale `05b` file was deleted rather than left claiming a result
+    that can no longer be reproduced. Reinstating it needs a 14th identity approved.
+
+15. **UTC vs local date bug (fixed).** `today` was derived from `toISOString()`, so after 20:00
+    Detroit time the graph believed it was already tomorrow and a same-day grant appeared expired.
+    Now computed in `APP_TIME_ZONE` (default `America/Detroit`). Milestone 1 masked it because every
+    test sent an explicit date.
+
+16. **Stack traces are included in dev error responses** (`includeStacktraceInErrorResponses`).
+    Useful locally, but it leaks source paths to clients — must be off before anything public.

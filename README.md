@@ -14,7 +14,10 @@ fictional `313` area code, `@example.com` emails, and `DEMO-###` licence plates.
 
 ```bash
 npm install
-npm start                    # all seven subgraphs in one Node process, 4001-4007
+npx tsx scripts/seed-auth-users.ts   # create the 13 demo auth users (idempotent)
+DEMO_CLOCK=1 npm start                # 7 subgraphs in one process, 4001-4007
+                                      # DEMO_CLOCK=1 lets tests pass x-demo-date as the clock;
+                                      # without it the real local date is always used
 
 # second terminal
 export PATH="$HOME/.rover/bin:$PATH"
@@ -32,20 +35,34 @@ node ops/mcp-probe.mjs           # MCP handshake, tools/list, tools/call
 Query the router at `http://127.0.0.1:4010/`:
 
 ```bash
+# get a token for one demo person (nothing else is printed)
+TOKEN=$(node -e 'import("./ops/auth.mjs").then(m=>m.tokenForPersonId("p_mom")).then(console.log)')
+
 curl -s http://127.0.0.1:4010/ \
   -H 'content-type: application/json' \
-  -H 'x-demo-user: p_mom' \
+  -H "authorization: Bearer $TOKEN" \
   -H 'x-demo-date: 2026-10-26' \
   -d '{"query":"{ pickupCandidates(childId: \"p_nora\", asOf: \"2026-10-26\") { person { displayName } reason } }"}'
 ```
 
 ## SECURITY
 
-**`x-demo-user` / `x-demo-date` are insecure local test inputs; real JWTs arrive in Milestone 2.**
-Anyone who can reach port 4010 can claim to be any person. The authorization *rules* are real and
-enforced in every resolver; the caller's *identity* is not yet verified. Every service is bound to
-`127.0.0.1` only (proof: `docs/evidence/13-localhost-binding.md`). The pinned `headers:` block in
-`.apollo/mcp.local.yaml` is the same shortcut for MCP requests.
+Identity is a **verified Supabase JWT**, not a header. Every subgraph verifies the bearer token
+(ES256 only, issuer `<project>/auth/v1`, audience `authenticated`, `exp` required) and resolves
+`sub` → person through `data/identity-map.json` (gitignored, server-side, loaded at startup).
+Failures are `UNAUTHENTICATED`; a verified caller who lacks the scope gets `UNAUTHORIZED`.
+
+- **`x-demo-user` is gone.** `x-demo-date` survives only as a test clock, ignored unless the server
+  runs with `DEMO_CLOCK=1`.
+- **No router-level JWT validation** — `authentication.router` is licence-gated and an unlicensed
+  router refuses to start (see `router.yaml` and `docs/questions.md` #13). Verification therefore
+  lives in the subgraphs, which is also the stronger place: each subgraph port is independently
+  reachable on localhost, so an edge-only check would be bypassable.
+- The MCP server no longer pins an identity. It forwards the caller's `authorization` header
+  (`forward_headers`), and a tokenless MCP call fails closed.
+- The service-role key is used only by `scripts/seed-auth-users.ts`, server-side, and never appears
+  in a response, log, or committed file.
+- Every service still binds `127.0.0.1` only (`docs/evidence/13-localhost-binding.md`).
 
 ## Ports
 
@@ -88,15 +105,16 @@ Full ownership + scope table: `docs/schema-plan.md`.
 | `02-approver-thursday.md` | `approverFor` Oct 29 → Andre, Kendra FYI |
 | `03-supervision-age-boundary.md` | Leo excluded at 15, included at 16 — threshold from policy |
 | `04-loretta-goals-careplan-contact.md` | Approved goal only; care plan and another adult's contact denied |
-| `05a`/`05b`/`05c` | Pickup list denied to schedule-only grantees; empty list for an authorized caller |
+| `05a`/`05c` | Pickup list denied to a schedule-only grantee; empty list for an authorized caller (`05b` retired — see `questions.md` #14) |
 | `06a`/`06b`/`06c` | Time-boxed grant: allowed Oct 26, denied Oct 27; goals denied |
 | `07a`/`07b`/`07c` | Bus driver: roster allowed, schedule and care plan denied |
 | `08-angela-pickup-verify-vehicles.md` | `pickup.verify` sees candidate vehicles only |
 | `09a`/`09b` | Ray (parent) full access to Jax's care plan; Evelyn without `careplan.read` denied |
 | `10a`–`10d` | Cross-village denial for Dana; Loretta's grant does not reach Jax |
 | `11a`–`11f2` | Mutations: blocked approval, approval, grant, two `Approval` rows, candidate appears, reset |
-| `12-mcp-spike.md` | MCP: one tool, live data, introspection tool absent |
+| `12-mcp-spike.md` | MCP: one tool, caller token forwarded, tokenless call fails closed |
 | `13-localhost-binding.md` | `lsof` proof that all ten listeners are `127.0.0.1` |
+| `14a`/`14b` | No token and a malformed token both return `UNAUTHENTICATED` |
 
 ## Milestone 1 status
 
@@ -112,9 +130,14 @@ Full ownership + scope table: `docs/schema-plan.md`.
 | Mutations write `Approval` rows; reset restores fixtures | pass |
 | Localhost-only binding | pass |
 | MCP: one tool, introspection off | pass |
+| Verified Supabase JWT identity (13 demo users, `sub` → person via server-side map) | pass |
+| `UNAUTHENTICATED` (unknown caller) vs `UNAUTHORIZED` (known, no scope) | pass |
+| Test clock honoured only under `DEMO_CLOCK=1` (checked both ways) | pass |
+| MCP forwards the caller's token; tokenless call fails closed | pass |
+| Router-level JWT validation | **blocked — licence-gated feature; see `questions.md` #13** |
 
-Not started: Milestone 2 (real auth, Supabase, Meta Model API). Nothing is published to GraphOS
-from this repo's scripts, and the local router still composes locally.
+Milestone 2A is done. Next: Supabase-backed store, then the Meta Model API. Nothing is published
+to GraphOS from this repo's scripts beyond the seven subgraphs already in `fridgegraph@dev`.
 
 ## Layout
 

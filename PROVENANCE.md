@@ -11,3 +11,11 @@ any pre-existing private repository.
 - Supabase (later)
 - GoHighLevel (later; agent built new this week)
 - n8n (later; workflows built new this week)
+
+## Identity (Milestone 2A)
+
+- **Supabase Auth** issues the JWTs. No tokens, keys or signing material in this repository.
+- **jose** (MIT) verifies signatures locally. It is a verifier only; it mints nothing.
+- Demo credentials live in `.demo-credentials` (gitignored, mode 600) and the server-side identity
+  map in `data/identity-map.json` (gitignored, mode 600). Neither is committed, and the servers never
+  read `.demo-credentials`.

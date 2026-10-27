@@ -126,3 +126,53 @@ The UNAUTHORIZED evidence, if you want to see the rules bite:
 `04` (grandmother denied the medical file), `05a`/`05b` (schedule-only grantees denied the candidate
 list), `06b` (time-boxed grant expired by one day), `07b`/`07c` (bus driver: roster yes, schedule and
 care plan no), `10a`–`10d` (cross-village denial).
+
+---
+
+## 4. Verified identity replaced the demo headers
+
+Milestone 1 trusted `x-demo-user`. Milestone 2A trusts a **Supabase-issued JWT** and nothing else.
+
+**Where it is checked.** In `src/auth/verify.ts`, called from `src/context.ts` for every request:
+
+| Step | Rule |
+| --- | --- |
+| Header | must match `Authorization: Bearer <token>`; otherwise `missing`/`malformed` |
+| Signature | `createRemoteJWKSet` against `<project>/auth/v1/.well-known/jwks.json` |
+| Algorithm | **ES256 only.** A token offering `alg: none` or `HS256` never reaches signature work |
+| Issuer | exactly `<project>/auth/v1` |
+| Audience | exactly `authenticated` |
+| Claims | `sub`, `exp`, `iss`, `aud` all required; 5s clock tolerance |
+| Identity | map[`sub`] → fixture person via `data/identity-map.json`; unmapped ⇒ rejected |
+
+**Why in the subgraphs and not only at the router.** Two reasons, both concrete:
+
+1. `authentication.router` (router-level JWKS validation) is **licence-gated**. Unlicensed, the
+   router exits at startup with *"Not connected to GraphOS … license for: Authentication plugin"* —
+   and through `rover dev` that appears only as `Failed healthcheck`. So it is not available here.
+2. Each subgraph port is independently reachable on `127.0.0.1`. An edge-only check would be
+   bypassable by anyone who can reach 4001–4007 directly. Verifying where the data lives is the
+   only check that cannot be routed around.
+
+**Two failure codes, deliberately different.** `UNAUTHENTICATED` = "I do not know who you are"
+(absent, expired, bad signature, wrong issuer/audience, unmapped `sub`). `UNAUTHORIZED` = "I know
+exactly who you are, and you lack this scope for this child." Milestone 1's scope assertions still
+expect `UNAUTHORIZED`, so collapsing the two would silently weaken them — evidence `14a`/`14b`
+pin the other side.
+
+**The one surviving header.** `x-demo-date` is a test clock and is honoured **only** when the server
+runs with `DEMO_CLOCK=1`. Verified both ways: with the clock off, a client sending `2026-10-27`
+still resolves Daniel's one-day grant for the 26th (header ignored); with `DEMO_CLOCK=1` the same
+request correctly denies. This exists because the whole demo lives on a fixed Monday, not because
+clients should ever set the date.
+
+**A bug this surfaced.** `today` was computed with `toISOString()` — UTC — so at 20:00 Detroit time
+the "day" flipped to tomorrow and a grant valid for the whole local day silently expired. Household
+calendars are local date ranges (grants, `ParentingSchedule`, policies), so `today` is now computed
+in `APP_TIME_ZONE` (default `America/Detroit`). Milestone 1 never saw it because every test passed
+an explicit date.
+
+**MCP.** The pinned `headers:` block is gone. `forward_headers: [authorization]` passes the caller's
+token through to the router, and the subgraphs verify it as usual; a tokenless MCP call now returns
+`UNAUTHENTICATED` inside the tool result. Apollo MCP Server logs a warning when forwarding
+`Authorization` — expected, since the router/subgraphs are the validators, not the MCP server.
