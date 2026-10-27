@@ -147,9 +147,12 @@ Milestone 1 trusted `x-demo-user`. Milestone 2A trusts a **Supabase-issued JWT**
 
 **Why in the subgraphs and not only at the router.** Two reasons, both concrete:
 
-1. `authentication.router` (router-level JWKS validation) is **licence-gated**. Unlicensed, the
-   router exits at startup with *"Not connected to GraphOS … license for: Authentication plugin"* —
-   and through `rover dev` that appears only as `Failed healthcheck`. So it is not available here.
+1. `authentication.router` (router-level JWKS validation) is **licence-gated**: unlicensed/offline
+   the router exits at startup with *"Not connected to GraphOS … license for: Authentication
+   plugin"*. Connected with `APOLLO_KEY` + `APOLLO_GRAPH_REF`, the same configuration starts, logs
+   `UpdateLicense(Licensed)`, and rejects bad tokens at the edge (evidence `15`). Even then it is not
+   the boundary: a *missing* token is not stopped at the edge (documented), so only the subgraph
+   check covers every path.
 2. Each subgraph port is independently reachable on `127.0.0.1`. An edge-only check would be
    bypassable by anyone who can reach 4001–4007 directly. Verifying where the data lives is the
    only check that cannot be routed around.

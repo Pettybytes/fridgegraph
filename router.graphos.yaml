@@ -1,0 +1,38 @@
+# Isolated GraphOS-connected router for the JWT licence test (Milestone 2A.1).
+# Runs ALONGSIDE the main router (4010/8090) and does not touch it, the MCP server, the subgraphs,
+# or the GraphOS registration. Delete this file if the test is abandoned.
+supergraph:
+  listen: 127.0.0.1:4011
+  introspection: true
+
+health_check:
+  enabled: true
+  listen: 127.0.0.1:8091
+
+include_subgraph_errors:
+  all: true
+
+# Licence-gated at runtime. Startup is the only honest proof: `router config validate` accepts this
+# file even when unlicensed, and `rover dev` reports only "Failed healthcheck".
+authentication:
+  router:
+    jwt:
+      jwks:
+        - url: "${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+          issuers:
+            - "${env.SUPABASE_URL}/auth/v1"
+          audiences:
+            - authenticated
+          algorithms:
+            - ES256
+      header_name: Authorization
+      header_value_prefix: Bearer
+      on_error: Error
+
+# Router-level validation does not stop the token from reaching subgraphs, which verify it again.
+headers:
+  all:
+    request:
+      operations:
+        - propagate:
+            named: Authorization

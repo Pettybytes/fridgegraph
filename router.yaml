@@ -10,7 +10,13 @@ health_check:
 include_subgraph_errors:
   all: true
 
-# NO router-level JWT validation here — and that is deliberate.
+# NO router-level JWT validation in THIS file — and that is deliberate.
+#
+# VERIFIED (Oct 26, evidence docs/evidence/15-graphos-jwt-router.md): the feature is licensed when
+# the router is connected to GraphOS, and refuses to start when it is not. The working config lives
+# in router.graphos.yaml (isolated port 4011 for the test). This unlicensed local router keeps
+# verification in the subgraphs, which is the boundary regardless: a missing token is not stopped at
+# the edge even when edge auth is on.
 #
 # `authentication.router.jwt` is a LICENSE-GATED feature. An unlicensed self-hosted router
 # refuses to start with it configured:

@@ -58,8 +58,10 @@ the authority people actually delegated.
 - Apollo MCP Server forwarding the caller's token to the protected graph
 - All services bound to localhost
 
-**Not active yet:** router-level JWT authentication (licence-gated locally; verification happens in
-every subgraph).
+**Router-level JWT: tested, not the default.** With the router connected to GraphOS it is licensed
+and rejects bad tokens at the edge (evidence `15`). The unlicensed local router cannot enable it, and
+even when it is on, a missing token is not stopped there — so verification also runs in every
+subgraph.
 
 **Coming this week:** Muse reasoning and tool use with Meta's Muse Spark · the pickup coordination job
 with real calls and texts and labeled test responders · village data in Supabase · Add a Villager by
@@ -114,12 +116,14 @@ through `data/identity-map.json` (gitignored, server-side, loaded at startup). F
 
 - **`x-demo-user` is gone.** `x-demo-date` survives only as a test clock, ignored unless the server
   runs with `DEMO_CLOCK=1`. No check in the suite requires that clock.
-- **Router-level JWT authentication is licence-gated in the current local environment** — an
-  unlicensed router refuses to start with `authentication.router` configured, and through
-  `rover dev` that appears only as `Failed healthcheck` (see `router.yaml`). Verification therefore
-  happens in all seven subgraphs, which is also the stronger place: each subgraph port is
-  independently reachable on localhost, so an edge-only check would be bypassable. Router-level auth
-  would add an earlier rejection point; **it is not active today**.
+- **Router-level JWT is licence-gated, and now measured.** Unlicensed, the router refuses to start
+  with `authentication.router` configured (through `rover dev` that appears only as
+  `Failed healthcheck`). Connected to GraphOS with `APOLLO_KEY` + `APOLLO_GRAPH_REF`, the identical
+  config starts as `UpdateLicense(Licensed)` and rejects malformed, `alg:none`, `HS256` and
+  tampered tokens at the edge with `AUTH_ERROR` — while a *missing* token still passes the edge and is
+  stopped downstream as `UNAUTHENTICATED`. Both layers are therefore real and complementary; the edge
+  is an earlier rejection point, the subgraphs remain the boundary, because each subgraph port is
+  independently reachable on localhost.
 - **MCP forwards the caller's token; downstream subgraphs reject missing or invalid tokens. The MCP
   HTTP endpoint itself does not authenticate requests.**
 - The service-role key is used only by `scripts/seed-auth-users.ts`, server-side, and never appears
@@ -188,6 +192,7 @@ explicit `asOf` / `date` arguments in `02`, `03`, `05c` and `11*`.
 | `12-mcp-spike.md` | MCP: one tool, caller token forwarded, tokenless call fails closed |
 | `13-localhost-binding.md` | `lsof` proof that all ten listeners are `127.0.0.1` |
 | `14a`/`14b` | No token and a malformed token both return `UNAUTHENTICATED` |
+| `15-graphos-jwt-router.md` | GraphOS-connected router: `UpdateLicense(Licensed)`, edge rejects bad tokens (`AUTH_ERROR`), missing token falls through to `UNAUTHENTICATED` |
 
 ### Milestone status
 

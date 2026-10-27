@@ -44,17 +44,16 @@ Things the prompt left open, and how they were resolved. Nothing here blocks Mil
 12. **`ops/PickupCandidates.graphql` uses `authorization: ***`** because the field type in the brief
     is written as `***`; it is modelled as `String` with the constant value `AUTHORIZED`.
 
-13. **Router-level JWT authentication is licence-gated (blocks part of the plan).** The brief asked
-    for `authentication.router.jwt` in `router.yaml`. An unlicensed self-hosted router refuses to
-    start with it:
-    `ERROR Not connected to GraphOS ... license for: Authentication plugin .authentication.router`
-    and `ERROR license violation ... ["Authentication plugin"]`. Through `rover dev` this only shows
-    as `Failed healthcheck`; running the router binary directly reveals it, and
-    `router config validate` passes, so it is the licence check and not a config error.
-    **Resolution:** verification moved into the subgraphs (`src/auth/verify.ts`), which is the
-    stronger boundary anyway. If a GraphOS licence lands, the block to re-enable is quoted in
-    `router.yaml`. **Needs your decision for the demo:** is there an `APOLLO_KEY`/licence you want
-    the local router connected to, or is subgraph-side verification the accepted story?
+13. **RESOLVED — router-level JWT works when the router is connected to GraphOS (evidence `15`).**
+    Unlicensed/offline, the router refuses to start with `authentication.router.jwt` configured
+    (*"Not connected to GraphOS … license for: Authentication plugin"*), visible through `rover dev`
+    only as `Failed healthcheck`. Connected with `APOLLO_KEY` + `APOLLO_GRAPH_REF=fridgegraph@dev`,
+    the same configuration starts, logs `UpdateLicense(Licensed)`, and rejects bad tokens at the edge
+    (`AUTH_ERROR`, HTTP 400 for unparseable tokens / 401 for failed validation). **Consequence for the
+    demo:** edge enforcement exists only in the GraphOS-connected topology. Subgraph verification
+    stays mandatory either way — each subgraph port is reachable, and a *missing* token is not
+    stopped at the edge at all (documented: "If no JWT is present, the request proceeds"). The edge
+    layer is an earlier rejection point, not the authorization boundary.
 
 14. **`05b` (Gloria) retired.** Gloria has no Supabase user because the approved seed list is
     exactly 13 people and she is not among them. `05a` (Walter) already demonstrates the
