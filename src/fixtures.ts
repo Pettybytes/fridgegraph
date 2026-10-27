@@ -1,7 +1,7 @@
 /**
  * FridgeGraph fictional fixtures.
  *
- * Every person here is fictional. Contact values use only the reserved +1-555-01xx range and
+ * Every person here is fictional. Contact values use only the reserved +1-313-555-01xx range and
  * name@example.com. Licence plates use only the reserved DEMO-### form. Nothing in this file is
  * real data and nothing here may be replaced with real data.
  *
@@ -198,28 +198,28 @@ export function createSeed(): Seed {
   ];
 
   const contactMethods: ContactRow[] = [
-    { personId: 'p_mom', channel: 'SMS', value: '+1-555-0101', preferred: true, verified: true },
+    { personId: 'p_mom', channel: 'SMS', value: '+1-313-555-0101', preferred: true, verified: true },
     { personId: 'p_mom', channel: 'EMAIL', value: 'kendra.ellison@example.com', preferred: false, verified: true },
-    { personId: 'p_dad', channel: 'SMS', value: '+1-555-0102', preferred: true, verified: true },
+    { personId: 'p_dad', channel: 'SMS', value: '+1-313-555-0102', preferred: true, verified: true },
     { personId: 'p_dad', channel: 'EMAIL', value: 'andre.ellison@example.com', preferred: false, verified: true },
-    { personId: 'p_gma', channel: 'CALL', value: '+1-555-0103', preferred: true, verified: true },
-    { personId: 'p_bryan', channel: 'SMS', value: '+1-555-0104', preferred: true, verified: true },
-    { personId: 'p_walter', channel: 'CALL', value: '+1-555-0105', preferred: true, verified: true },
-    { personId: 'p_gloria', channel: 'SMS', value: '+1-555-0106', preferred: true, verified: true },
-    { personId: 'p_tasha', channel: 'SMS', value: '+1-555-0107', preferred: true, verified: true },
-    { personId: 'p_monique', channel: 'SMS', value: '+1-555-0108', preferred: true, verified: true },
-    { personId: 'p_chris', channel: 'SMS', value: '+1-555-0109', preferred: true, verified: true },
-    { personId: 'p_priya', channel: 'SMS', value: '+1-555-0110', preferred: true, verified: true },
-    { personId: 'p_dana', channel: 'SMS', value: '+1-555-0111', preferred: true, verified: false },
-    { personId: 'p_ray', channel: 'SMS', value: '+1-555-0112', preferred: true, verified: true },
-    { personId: 'p_evelyn', channel: 'CALL', value: '+1-555-0113', preferred: true, verified: true },
-    { personId: 'p_leo', channel: 'SMS', value: '+1-555-0114', preferred: true, verified: false },
-    { personId: 'p_max', channel: 'SMS', value: '+1-555-0115', preferred: true, verified: false },
+    { personId: 'p_gma', channel: 'CALL', value: '+1-313-555-0103', preferred: true, verified: true },
+    { personId: 'p_bryan', channel: 'SMS', value: '+1-313-555-0104', preferred: true, verified: true },
+    { personId: 'p_walter', channel: 'CALL', value: '+1-313-555-0105', preferred: true, verified: true },
+    { personId: 'p_gloria', channel: 'SMS', value: '+1-313-555-0106', preferred: true, verified: true },
+    { personId: 'p_tasha', channel: 'SMS', value: '+1-313-555-0107', preferred: true, verified: true },
+    { personId: 'p_monique', channel: 'SMS', value: '+1-313-555-0108', preferred: true, verified: true },
+    { personId: 'p_chris', channel: 'SMS', value: '+1-313-555-0109', preferred: true, verified: true },
+    { personId: 'p_priya', channel: 'SMS', value: '+1-313-555-0110', preferred: true, verified: true },
+    { personId: 'p_dana', channel: 'SMS', value: '+1-313-555-0111', preferred: true, verified: false },
+    { personId: 'p_ray', channel: 'SMS', value: '+1-313-555-0112', preferred: true, verified: true },
+    { personId: 'p_evelyn', channel: 'CALL', value: '+1-313-555-0113', preferred: true, verified: true },
+    { personId: 'p_leo', channel: 'SMS', value: '+1-313-555-0114', preferred: true, verified: false },
+    { personId: 'p_max', channel: 'SMS', value: '+1-313-555-0115', preferred: true, verified: false },
     { personId: 'p_price', channel: 'EMAIL', value: 'angela.price@example.com', preferred: true, verified: true },
     { personId: 'p_okafor', channel: 'EMAIL', value: 'daniel.okafor@example.com', preferred: true, verified: true },
     { personId: 'p_jennings', channel: 'EMAIL', value: 'carol.jennings@example.com', preferred: true, verified: true },
-    { personId: 'p_holt', channel: 'SMS', value: '+1-555-0119', preferred: true, verified: true },
-    { personId: 'p_marcus', channel: 'SMS', value: '+1-555-0120', preferred: true, verified: true },
+    { personId: 'p_holt', channel: 'SMS', value: '+1-313-555-0119', preferred: true, verified: true },
+    { personId: 'p_marcus', channel: 'SMS', value: '+1-313-555-0120', preferred: true, verified: true },
   ];
 
   const capabilities = [

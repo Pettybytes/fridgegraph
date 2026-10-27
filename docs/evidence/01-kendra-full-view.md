@@ -88,7 +88,7 @@ query KendraView($childId: ID!, $date: String!) {
           "contactMethods": [
             {
               "channel": "CALL",
-              "value": "+1-555-0103",
+              "value": "+1-313-555-0103",
               "preferred": true,
               "verified": true
             }
@@ -113,7 +113,7 @@ query KendraView($childId: ID!, $date: String!) {
           "contactMethods": [
             {
               "channel": "SMS",
-              "value": "+1-555-0104",
+              "value": "+1-313-555-0104",
               "preferred": true,
               "verified": true
             }
@@ -138,7 +138,7 @@ query KendraView($childId: ID!, $date: String!) {
           "contactMethods": [
             {
               "channel": "SMS",
-              "value": "+1-555-0107",
+              "value": "+1-313-555-0107",
               "preferred": true,
               "verified": true
             }
@@ -163,7 +163,7 @@ query KendraView($childId: ID!, $date: String!) {
           "contactMethods": [
             {
               "channel": "SMS",
-              "value": "+1-555-0108",
+              "value": "+1-313-555-0108",
               "preferred": true,
               "verified": true
             }
