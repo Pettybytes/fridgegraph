@@ -6,7 +6,10 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "reset": "tsx src/reset.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:seed": "tsx scripts/db.ts seed",
+    "db:reset": "tsx scripts/db.ts reset",
+    "db:checksum": "tsx scripts/db.ts checksum"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",

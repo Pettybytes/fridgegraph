@@ -108,6 +108,20 @@ curl -s http://127.0.0.1:4010/ \
   -d '{"query":"{ pickupCandidates(childId: \"p_nora\", asOf: \"2026-10-26\") { person { displayName } reason } }"}'
 ```
 
+### Data: seed, reset, checksums
+
+```bash
+npm run db:seed       # upsert the fictional fixtures by fixed id (idempotent)
+npm run db:reset      # baseline upsert + delete non-baseline demo records
+npm run db:checksum   # per-table row count + content hash
+npm run db:seed       # run twice — the second run must be a no-op
+```
+
+`db:reset` restores grants, approvals, parenting schedules, policies and grant windows
+(`America/Detroit`), and deletes demo records that are not part of the baseline — e.g. a grant or
+relationship created during a test or a live onboarding. It never uses `TRUNCATE`, never cascades
+into unrelated data, never touches auth users or `identity_map`, and never generates history.
+
 ### Security
 
 Identity is a **verified Supabase JWT**. Every subgraph verifies the bearer token (ES256 only,
