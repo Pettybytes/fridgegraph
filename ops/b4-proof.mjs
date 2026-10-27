@@ -78,8 +78,11 @@ const owners = {
     graph: `query { practices(childId: "p_nora", date: "2026-10-26") { start location } }`,
     observe: (b) => (b.data?.practices ?? []).map((p) => p.location).join('|'),
     expectsGraph: (b) => (b.data?.practices ?? []).length > 0,
+    // Dana is NOT a valid "denied" caller here: Jax is a Tigers player, so Dana's read is correct
+    // access through her own child (proved in ops/practices-authz.mjs / evidence 22). Angela has
+    // neither a parent link nor schedule.read for any player in this group.
     allowed: 'p_mom',
-    denied: 'p_dana',
+    denied: 'p_price',
   },
   coordination: {
     table: 'coordination_jobs',
