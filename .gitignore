@@ -2,6 +2,8 @@ node_modules
 .env
 .env.*
 !.env.example
+.demo-credentials
+data/
 dist
 *.key
 *.pem
