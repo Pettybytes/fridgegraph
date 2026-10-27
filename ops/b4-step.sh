@@ -23,7 +23,7 @@ DEMO_CLOCK=0 node ops/run-evidence.mjs > /tmp/b4_c0.log 2>&1
 
 if grep -q "DB_UNAVAILABLE" /tmp/b4_c1.log /tmp/b4_c0.log; then echo "DB_UNAVAILABLE PRESENT"; exit 1; fi
 
-mode_diff=$(diff <(grep "^--- " /tmp/b4_c1.log | awk '{print $2, $NF}') <(grep "^--- " /tmp/b4_c0.log | awk '{print $NF}'))
+mode_diff=$(diff <(grep "^--- " /tmp/b4_c1.log | awk '{print $2, $NF}') <(grep "^--- " /tmp/b4_c0.log | awk '{print $2, $NF}'))
 if [ -n "$mode_diff" ]; then echo "CLOCK MODES DIFFER:"; echo "$mode_diff"; exit 1; fi
 echo "both clock modes identical ($(grep -c '^--- ' /tmp/b4_c1.log) cases)"
 

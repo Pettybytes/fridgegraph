@@ -24,7 +24,7 @@ query { approvals { id approver { displayName } subjectType subjectId decision a
   "data": {
     "approvals": [
       {
-        "id": "ap_d97160c3-68f3-477f-8915-3ddacbf97f0f",
+        "id": "ap_67c34dee-7470-4bca-8f39-63560d0dca54",
         "approver": {
           "displayName": "Kendra Ellison"
         },
@@ -34,12 +34,12 @@ query { approvals { id approver { displayName } subjectType subjectId decision a
         "at": "2026-10-27"
       },
       {
-        "id": "ap_3da34316-65a6-4ff4-8024-63dc2522c154",
+        "id": "ap_34ea94ad-e94d-434e-9877-619c4b72489a",
         "approver": {
           "displayName": "Kendra Ellison"
         },
         "subjectType": "Grant",
-        "subjectId": "g_4b216ec2-8f84-4ed8-afca-fa67f1009f2f",
+        "subjectId": "g_eb782669-b004-4066-8325-7d364a3ab623",
         "decision": "GRANTED",
         "at": "2026-10-27"
       }

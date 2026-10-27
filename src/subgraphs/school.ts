@@ -1,3 +1,4 @@
+import { parse } from 'graphql';
 import { SCOPE, authorizeChild, type Ctx } from '../authz';
 import { dbFor, rows } from '../db';
 
