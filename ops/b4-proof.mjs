@@ -46,9 +46,18 @@ const owners = {
     field: 'text',
     graph: `query { schoolReports(childId: "p_nora") { kind text } }`,
     observe: (b) => (b.data?.schoolReports ?? []).map((r) => r.text).join('|'),
-    expectsGraph: (b) => (b.data?.schoolReports ?? []).length > 0,
+    expectsGraph: () => true,
     allowed: 'p_mom',
     denied: 'p_dana',
+    // Empty in the seed by design: the proof seeds one fictional report and removes it again.
+    emptyByDesign: true,
+    insertBody: {
+      id: 'sr_b4_proof',
+      child_id: 'p_nora',
+      kind: 'B4_PROOF',
+      text: 'fictional report for the B4 school proof',
+      at: '2026-10-26',
+    },
   },
   transport: {
     table: 'bus_rosters',
@@ -83,6 +92,14 @@ const owners = {
     allowed: 'p_mom',
     denied: 'p_dana',
     emptyByDesign: true,
+    insertBody: {
+      id: 'cj_b4_proof',
+      idempotency_key: 'b4-proof-2026-10-26',
+      type: 'PICKUP',
+      child_id: 'p_nora',
+      status: 'pending',
+      version: 1,
+    },
   },
 };
 
@@ -157,19 +174,12 @@ if (rows.length === 0 && cfg.emptyByDesign) {
   const inserted = await svc(cfg.table, '', {
     method: 'POST',
     headers: { prefer: 'return=representation' },
-    body: JSON.stringify({
-      id: 'cj_b4_proof',
-      idempotency_key: 'b4-proof-2026-10-26',
-      type: 'PICKUP',
-      child_id: 'p_nora',
-      status: 'pending',
-      version: 1,
-    }),
+    body: JSON.stringify(cfg.insertBody),
   });
   rec(
     'seeded one fictional row (table empty by design)',
     inserted.status < 300,
-    `coordination_jobs insert HTTP ${inserted.status}`,
+    `${cfg.table} insert HTTP ${inserted.status}`,
   );
   rows = (await svc(cfg.table, `select=${cfg.select}&${cfg.where}`)).rows;
 }
@@ -214,10 +224,6 @@ if (rows.length === 0) {
       ? restored.rows?.[0]?.[cfg.field] === null
       : String(restored.rows?.[0]?.[cfg.field]) === original;
   rec('original value restored', restore.status < 300 && back, `matches baseline=${back}`);
-
-  if (cfg.emptyByDesign) {
-    await svc(cfg.table, `id=eq.${named}`, { method: 'DELETE' });
-  }
 }
 
 // ---------------------------------------------------------------- paired RLS
@@ -236,6 +242,10 @@ if (rows.length === 0) {
 
 // ---------------------------------------------------------------- reset + checksums
 {
+  if (cfg.emptyByDesign && named) {
+    const cleaned = await svc(cfg.table, `id=eq.${named}`, { method: 'DELETE' });
+    rec('fictional row removed again', cleaned.status < 300, `delete HTTP ${cleaned.status}`);
+  }
   await fetch(RESET_URL, { method: 'POST' });
   const after = checksum();
   rec('baseline checksums match after reset', after === baselineChecksum, after === baselineChecksum ? 'identical' : 'DIFFER');

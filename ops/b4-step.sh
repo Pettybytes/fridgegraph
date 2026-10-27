@@ -31,8 +31,10 @@ tally=$(grep -o "errors=[A-Z_|]*" /tmp/b4_c1.log | sort | uniq -c | tr '\n' ' ')
 echo "denials: $tally"
 
 node ops/b4-proof.mjs "$owner" > /tmp/b4_proof.log 2>&1
+proof_status=$?
 tail -3 /tmp/b4_proof.log
-if ! grep -q "B4 ${owner^^} PASS" /tmp/b4_proof.log; then echo "PROOF FAILED"; cat /tmp/b4_proof.log; exit 1; fi
+if [ $proof_status -ne 0 ]; then echo "PROOF FAILED"; cat /tmp/b4_proof.log; exit 1; fi
+if ! tail -1 /tmp/b4_proof.log | grep -q "PASS"; then echo "PROOF DID NOT REPORT PASS"; cat /tmp/b4_proof.log; exit 1; fi
 
 git add -A
 git commit -q -m "feat: B4 ${owner} reads Postgres
