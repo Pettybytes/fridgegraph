@@ -355,10 +355,10 @@ await run('14a-no-token', 'No Authorization header -> UNAUTHENTICATED (unknown c
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { reason } }`,
 });
 
-await run('14b-garbage-token', 'Malformed bearer token -> UNAUTHENTICATED', {
+await run('14b-garbage-token', 'Malformed bearer token -> rejected (edge AUTH_ERROR or downstream UNAUTHENTICATED)', {
   date: D_26,
   extraHeaders: { authorization: 'Bearer not-a-jwt' },
-  note: 'Signature verification fails; the caller is still unknown, not merely unprivileged.',
+  note: 'Rejection may come from the router (AUTH_ERROR) or the subgraph (UNAUTHENTICATED) depending on whether router-level JWT is active. Either way no data is returned and the caller stays unknown. The edge-specific assertion lives in evidence 16.',
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { reason } }`,
 });
 

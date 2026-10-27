@@ -127,3 +127,33 @@ by any evidence check.
 
 **Evidence 06b.** Rewritten to use a grant whose window closed 2026-09-30 rather than a future date
 header, so the expiry is evaluated against the real local date at either clock setting.
+
+---
+
+## Section A — main router moved to the GraphOS-connected config (Oct 26, 2026)
+
+**Main:** `router.graphos.yaml` on `127.0.0.1:4010` (health `8090`), started from the router binary
+with `APOLLO_KEY` and `APOLLO_GRAPH_REF` in the environment:
+
+```bash
+cd ~/Desktop/bentley/fridgegraph
+set -a; . ./.env; set +a
+~/.rover/bin/router-v2.18.0 --config router.graphos.yaml
+```
+
+Startup must show `UpdateLicense(Licensed)` with zero ERROR lines; that is the only honest proof
+(`config validate` accepts the file even when unlicensed).
+
+**TESTED ROLLBACK** — offline config, no router-level JWT, same ports:
+
+```bash
+~/.rover/bin/router-v2.18.0 --config router.yaml --supergraph supergraph.graphql
+```
+
+Verified: full evidence suite passes on the rollback (31/31, `14b` falls through to downstream
+`UNAUTHENTICATED` instead of the edge `AUTH_ERROR`). MCP runs standalone
+(`~/.rover/bin/apollo-mcp-server-v2.1.0 .apollo/mcp.local.yaml`) so it survives either router.
+
+**Why the router is not `rover dev` any more:** `rover dev` composes locally and runs the router
+without GraphOS credentials, so it is unlicensed and cannot enable `authentication.router`. The
+GraphOS-connected binary is required for edge auth.

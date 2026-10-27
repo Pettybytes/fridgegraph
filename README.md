@@ -58,10 +58,11 @@ the authority people actually delegated.
 - Apollo MCP Server forwarding the caller's token to the protected graph
 - All services bound to localhost
 
-**Router-level JWT: tested, not the default.** With the router connected to GraphOS it is licensed
-and rejects bad tokens at the edge (evidence `15`). The unlicensed local router cannot enable it, and
-even when it is on, a missing token is not stopped there — so verification also runs in every
-subgraph.
+**Router-level JWT is ON in the main topology.** The main router (`router.graphos.yaml`, 4010,
+health 8090) runs connected to GraphOS, fetches its schema from there, and is licensed — it rejects
+malformed, `alg:none`, `HS256` and tampered tokens at the edge with `AUTH_ERROR` (evidence `16`).
+A *missing* token is still not stopped at the edge, so every subgraph keeps verifying independently.
+The offline rollback is tested; see "Router topology" below.
 
 **Coming this week:** Muse reasoning and tool use with Meta's Muse Spark · the pickup coordination job
 with real calls and texts and labeled test responders · village data in Supabase · Add a Villager by
@@ -130,6 +131,33 @@ through `data/identity-map.json` (gitignored, server-side, loaded at startup). F
   in a response, log, or committed file.
 - Every service binds `127.0.0.1` only (`docs/evidence/13-localhost-binding.md`).
 
+### Router topology (main + tested rollback)
+
+**Main (GraphOS-connected, edge auth ON).** Serves 4010 / health 8090.
+
+```bash
+cd ~/Desktop/bentley/fridgegraph
+set -a; . ./.env; set +a          # APOLLO_KEY, APOLLO_GRAPH_REF, SUPABASE_URL — never echoed
+~/.rover/bin/router-v2.18.0 --config router.graphos.yaml
+```
+
+The supergraph comes from GraphOS via uplink (no `--supergraph`), and that connection carries the
+licence: startup logs `UpdateLicense(Licensed)`. Registered routing URLs are localhost, so it routes
+to the local subgraphs.
+
+**Rollback (offline, no edge auth).** Same ports; verification then happens only in the subgraphs.
+Tested: full suite, 31/31.
+
+```bash
+~/.rover/bin/router-v2.18.0 --config router.yaml --supergraph supergraph.graphql
+```
+
+**MCP** runs standalone so it survives either router:
+
+```bash
+~/.rover/bin/apollo-mcp-server-v2.1.0 .apollo/mcp.local.yaml
+```
+
 ### Ports
 
 | Service | Port | Bind |
@@ -193,6 +221,7 @@ explicit `asOf` / `date` arguments in `02`, `03`, `05c` and `11*`.
 | `13-localhost-binding.md` | `lsof` proof that all ten listeners are `127.0.0.1` |
 | `14a`/`14b` | No token and a malformed token both return `UNAUTHENTICATED` |
 | `15-graphos-jwt-router.md` | GraphOS-connected router: `UpdateLicense(Licensed)`, edge rejects bad tokens (`AUTH_ERROR`), missing token falls through to `UNAUTHENTICATED` |
+| `16-edge-auth-and-mcp.md` | Main router on 4010: tampered → 401 `AUTH_ERROR`, missing → `UNAUTHENTICATED`, MCP as Kendra returns 4 candidates |
 
 ### Milestone status
 

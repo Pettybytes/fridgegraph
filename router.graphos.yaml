@@ -1,19 +1,22 @@
-# Isolated GraphOS-connected router for the JWT licence test (Milestone 2A.1).
-# Runs ALONGSIDE the main router (4010/8090) and does not touch it, the MCP server, the subgraphs,
-# or the GraphOS registration. Delete this file if the test is abandoned.
+# Main router: GraphOS-connected, router-level JWT on. Listens on 4010 (health 8090).
+#
+# Requires APOLLO_KEY and APOLLO_GRAPH_REF in the environment; the schema is fetched from GraphOS
+# via uplink, and that same connection carries the licence that makes `authentication.router`
+# available. Startup MUST be proven at runtime: `config validate` accepts this file even when
+# unlicensed, and through `rover dev` the failure only appears as "Failed healthcheck".
+#
+# ROLLBACK: router.yaml + the offline startup command in docs/auth-plan.md. Tested.
 supergraph:
-  listen: 127.0.0.1:4011
+  listen: 127.0.0.1:4010
   introspection: true
 
 health_check:
   enabled: true
-  listen: 127.0.0.1:8091
+  listen: 127.0.0.1:8090
 
 include_subgraph_errors:
   all: true
 
-# Licence-gated at runtime. Startup is the only honest proof: `router config validate` accepts this
-# file even when unlicensed, and `rover dev` reports only "Failed healthcheck".
 authentication:
   router:
     jwt:
@@ -30,6 +33,8 @@ authentication:
       on_error: Error
 
 # Router-level validation does not stop the token from reaching subgraphs, which verify it again.
+# A MISSING token is not stopped here at all (documented router behaviour), so subgraph
+# verification is what covers that path.
 headers:
   all:
     request:
