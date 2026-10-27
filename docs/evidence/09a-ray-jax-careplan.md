@@ -3,7 +3,7 @@
 - endpoint: `http://127.0.0.1:4010/`
 - x-demo-user: `p_ray`  (INSECURE dev header)
 - x-demo-date: `2026-10-26`
-- note: Ray Coleman is Jax's parent, and a parent of the child has full access. This is the correct result, not a leak.
+- note: Ray Coleman is Jax's parent. A parent of the child has full access, so this is correct.
 - HTTP status: 200
 
 ## Query

@@ -109,20 +109,21 @@ function requireDerivedAccess(ctx: CtxShape, childId: string, onDate: string): v
 }
 
 /**
- * Who may see the candidate list itself: parents and holders of one of `scopes`.
- * Any other grant holder gets an empty list rather than another family's candidate set
- * (a schedule-only grandparent must not see who is cleared for pickup).
+ * Who may see the pickup candidate list: a parent of the child, or a grant holding pickup.verify.
+ * Anyone else is UNAUTHORIZED — an empty list would imply "nobody can collect this child",
+ * which is a different and misleading statement.
  */
-function derivedVisibility(
-  ctx: CtxShape,
-  childId: string,
-  onDate: string,
-  scopes: string[],
-): 'full' | 'none' {
+function requirePickupAccess(ctx: CtxShape, childId: string, onDate: string): void {
   const callerId = requireCaller(ctx as never);
-  if (isParentOf(callerId, childId)) return 'full';
-  if (scopes.some((s) => hasScope(callerId, childId, s, onDate))) return 'full';
-  if (hasAnyGrant(callerId, childId, onDate)) return 'none';
+  if (isParentOf(callerId, childId)) return;
+  if (hasScope(callerId, childId, SCOPE.pickupVerify, onDate)) return;
+  throw deny();
+}
+
+/** Supervision candidates are for parents only. No new scope is introduced for them. */
+function requireSupervisionAccess(ctx: CtxShape, childId: string): void {
+  const callerId = requireCaller(ctx as never);
+  if (isParentOf(callerId, childId)) return;
   throw deny();
 }
 
@@ -155,8 +156,7 @@ const resolvers = {
     },
     pickupCandidates: (_: unknown, { childId, asOf }: { childId: string; asOf?: string }, ctx: CtxShape) => {
       const on = asOf ?? ctx.today;
-      const visibility = derivedVisibility(ctx, childId, on, [SCOPE.pickupRequest, SCOPE.pickupVerify]);
-      if (visibility === 'none') return [];
+      requirePickupAccess(ctx, childId, on);
       return pickupCandidatesFor(childId, on).map((c) => ({
         person: { id: c.personId },
         reason: c.reason,
@@ -166,8 +166,7 @@ const resolvers = {
     },
     supervisionCandidates: (_: unknown, { childId, asOf }: { childId: string; asOf?: string }, ctx: CtxShape) => {
       const on = asOf ?? ctx.today;
-      const visibility = derivedVisibility(ctx, childId, on, [SCOPE.superviseRequest]);
-      if (visibility === 'none') return [];
+      requireSupervisionAccess(ctx, childId);
       return supervisionCandidatesFor(childId, on).map((c) => ({
         person: { id: c.personId },
         reason: c.reason,

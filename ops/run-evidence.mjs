@@ -151,16 +151,25 @@ query {
 });
 
 // ---------------------------------------------------------------- 5
-await run('05a-walter-no-pickup', 'As Walter: pickupCandidates -> empty', {
+await run('05a-walter-no-pickup', 'As Walter: pickupCandidates -> UNAUTHORIZED (no pickup.verify)', {
   user: 'p_walter',
   date: D_26,
+  note: 'Walter holds schedule.read and goals.read only, so he may not read the candidate list at all.',
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { person { displayName } } }`,
 });
 
-await run('05b-gloria-no-pickup', 'As Gloria: pickupCandidates -> empty', {
+await run('05b-gloria-no-pickup', 'As Gloria: pickupCandidates -> UNAUTHORIZED (no pickup.verify)', {
   user: 'p_gloria',
   date: D_26,
+  note: 'Gloria holds schedule.read and goals.read only.',
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { person { displayName } } }`,
+});
+
+await run('05c-dana-supervision-jax-empty', 'As Dana (Jax\'s parent): supervisionCandidates(Jax) -> [] (authorized, none exist)', {
+  user: 'p_dana',
+  date: D_26,
+  note: 'Authorized caller with no candidates returns an empty list, not an error.',
+  query: `query { supervisionCandidates(childId: "${J}", asOf: "${D_26}") { person { displayName } } }`,
 });
 
 // ---------------------------------------------------------------- 6
