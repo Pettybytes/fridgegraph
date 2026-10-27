@@ -1,7 +1,8 @@
 # Query plan for evidence #1 (full Kendra view)
 
 - endpoint: `http://127.0.0.1:4010/`
-- headers: `x-demo-user: p_mom`, `x-demo-date: 2026-10-26`, `apollo-expose-query-plan: true`
+- identity: Bearer eyJhbG…<redacted, 807 chars>  (verified Supabase JWT; token redacted)
+- x-demo-date: `2026-10-26` (test clock)
 - Router: 2.18.0
 
 ## Fetch order (traversal of `extensions.apolloQueryPlan`)

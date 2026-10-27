@@ -1,6 +1,4 @@
-# Apollo MCP Server config for the Milestone 1 spike.
-# One tool, built from one predefined operation. Introspection tools are OFF, so the model
-# cannot discover or invent other fields.
+# Apollo MCP Server config — identity comes from the caller, never from this file.
 endpoint: http://127.0.0.1:4010/
 transport:
   type: streamable_http
@@ -22,8 +20,12 @@ introspection:
     enabled: false
   validate:
     enabled: false
-# SECURITY NOTE: demo identity pinned for the spike only. Milestone 2 replaces this with a
-# validated JWT. Never ship a server that hard-codes who the caller is.
-headers:
-  x-demo-user: p_mom
-  x-demo-date: "2026-10-26"
+
+# NOTHING is pinned here any more. The previous `headers:` block hard-coded x-demo-user: p_mom for
+# every request, which meant every MCP caller acted as one fixed person. The caller's own bearer
+# token is forwarded instead and verified by the subgraphs.
+#
+# Apollo MCP Server logs a warning when forwarding Authorization — expected, documented in
+# docs/apollo-notes.md. A request with no token now fails closed with UNAUTHENTICATED.
+forward_headers:
+  - authorization

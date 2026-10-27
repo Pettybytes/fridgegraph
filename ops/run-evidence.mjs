@@ -8,6 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { redactBearer, tokenForPersonId } from './auth.mjs';
 
 const ENDPOINT = process.env.FRIDGEGRAPH_ROUTER ?? 'http://127.0.0.1:4010/';
 const RESET_URL = process.env.FRIDGEGRAPH_RESET_URL ?? 'http://127.0.0.1:4001/__reset';
@@ -16,17 +17,19 @@ const OUT_DIR = join(HERE, '..', 'docs', 'evidence');
 mkdirSync(OUT_DIR, { recursive: true });
 
 async function gql({ user, date, query, variables, extraHeaders }) {
+  // Real sign-in per caller. Tokens stay in memory; only a redacted form reaches disk.
+  const bearer = user ? await tokenForPersonId(user) : undefined;
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(user ? { 'x-demo-user': user } : {}),
+      ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
       ...(date ? { 'x-demo-date': date } : {}),
       ...(extraHeaders ?? {}),
     },
     body: JSON.stringify({ query, variables }),
   });
-  return { status: res.status, body: await res.json() };
+  return { status: res.status, body: await res.json(), auth: redactBearer(bearer) };
 }
 
 function writeEvidence(slug, { title, user, date, query, variables, extraHeaders, note }, result) {
@@ -34,8 +37,8 @@ function writeEvidence(slug, { title, user, date, query, variables, extraHeaders
     `# ${title}`,
     '',
     `- endpoint: \`${ENDPOINT}\``,
-    `- x-demo-user: \`${user ?? '(none)'}\`  (INSECURE dev header)`,
-    `- x-demo-date: \`${date ?? '(not sent)'}\``,
+    `- identity: ${result.auth}  (verified Supabase JWT; token redacted, never stored)`,
+    `- x-demo-date: \`${date ?? '(not sent)'}\`  (test clock; honoured only while DEMO_CLOCK=1)`,
     ...(extraHeaders ? [`- extra headers: \`${JSON.stringify(extraHeaders)}\``] : []),
     ...(note ? [`- note: ${note}`] : []),
     `- HTTP status: ${result.status}`,
@@ -158,12 +161,9 @@ await run('05a-walter-no-pickup', 'As Walter: pickupCandidates -> UNAUTHORIZED (
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { person { displayName } } }`,
 });
 
-await run('05b-gloria-no-pickup', 'As Gloria: pickupCandidates -> UNAUTHORIZED (no pickup.verify)', {
-  user: 'p_gloria',
-  date: D_26,
-  note: 'Gloria holds schedule.read and goals.read only.',
-  query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { person { displayName } } }`,
-});
+// 05b (Gloria) retired: Gloria has no Supabase auth user because the approved seed list is 13
+// people and she is not among them. Walter in 05a already proves the schedule-only denial.
+// Reinstating 05b requires approving a 14th identity. See docs/questions.md.
 
 await run('05c-dana-supervision-jax-empty', 'As Dana (Jax\'s parent): supervisionCandidates(Jax) -> [] (authorized, none exist)', {
   user: 'p_dana',
@@ -346,6 +346,20 @@ await run('11f2-dana-absent-after-reset', 'After reset: Dana is gone from pickup
   user: 'p_mom',
   date: D_26,
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { person { displayName } } }`,
+});
+
+// ---------------------------------------------------------------- 14 (identity failures)
+await run('14a-no-token', 'No Authorization header -> UNAUTHENTICATED (unknown caller)', {
+  date: D_26,
+  note: 'No identity is sent at all. Failure code is UNAUTHENTICATED, not UNAUTHORIZED.',
+  query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { reason } }`,
+});
+
+await run('14b-garbage-token', 'Malformed bearer token -> UNAUTHENTICATED', {
+  date: D_26,
+  extraHeaders: { authorization: 'Bearer not-a-jwt' },
+  note: 'Signature verification fails; the caller is still unknown, not merely unprivileged.',
+  query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { reason } }`,
 });
 
 console.log('\nDone. Evidence written to docs/evidence/');

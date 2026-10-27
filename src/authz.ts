@@ -1,14 +1,14 @@
 /**
- * x-demo-user and x-demo-date are INSECURE test inputs for local development only.
- * Replaced by validated JWTs in Milestone 2. Never deploy with these headers trusted.
+ * Identity is a verified Supabase JWT (src/auth/verify.ts) resolved to a fixture person.
+ * x-demo-date survives only as a test clock and only under DEMO_CLOCK=1. x-demo-user is gone.
  *
  * Access rules live here and are called from every resolver. The router is not an
- * authorization boundary: it only forwards the two demo headers.
+ * authorization boundary: it only validates at the edge and forwards the token.
  */
 import { GraphQLError } from 'graphql';
 import { store } from './store';
 
-export type Ctx = { callerId?: string; today: string };
+export type Ctx = { callerId?: string; today: string; identityError?: string };
 
 /** Field-level scopes, as strings in data — never enums. */
 export const SCOPE = {
@@ -27,10 +27,18 @@ export function deny(): GraphQLError {
   return new GraphQLError('UNAUTHORIZED', { extensions: { code: 'UNAUTHORIZED' } });
 }
 
-/** Unknown or missing caller -> deny. Returns the caller id when valid. */
+/**
+ * No verified identity: absent, expired, wrong signature/issuer/audience, or an unmapped `sub`.
+ * UNAUTHENTICATED means "I do not know who you are"; UNAUTHORIZED means "I know, and no".
+ */
+export function unauthenticated(): GraphQLError {
+  return new GraphQLError('UNAUTHENTICATED', { extensions: { code: 'UNAUTHENTICATED' } });
+}
+
+/** Missing or unverifiable caller -> UNAUTHENTICATED. Returns the caller id when valid. */
 export function requireCaller(ctx: Ctx): string {
   const callerId = ctx?.callerId;
-  if (!callerId || !store.people.some((p) => p.id === callerId)) throw deny();
+  if (!callerId || !store.people.some((p) => p.id === callerId)) throw unauthenticated();
   return callerId;
 }
 

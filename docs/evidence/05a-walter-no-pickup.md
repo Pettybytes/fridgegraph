@@ -1,8 +1,8 @@
 # As Walter: pickupCandidates -> UNAUTHORIZED (no pickup.verify)
 
 - endpoint: `http://127.0.0.1:4010/`
-- x-demo-user: `p_walter`  (INSECURE dev header)
-- x-demo-date: `2026-10-26`
+- identity: Bearer eyJhbG…<redacted, 807 chars>  (verified Supabase JWT; token redacted, never stored)
+- x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - note: Walter holds schedule.read and goals.read only, so he may not read the candidate list at all.
 - HTTP status: 200
 
@@ -48,7 +48,7 @@ query { pickupCandidates(childId: "p_nora", asOf: "2026-10-26") { person { displ
           "    at executeOperation (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:579:14)",
           "    at execute (/Users/user/Desktop/bentley/fridgegraph/node_modules/graphql/execution/execute.js:309:20)",
           "    at executeIncrementally (/Users/user/Desktop/bentley/fridgegraph/node_modules/@apollo/server/dist/esm/incrementalDeliveryPolyfill.js:21:12)",
-          "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+          "    at async execute (/Users/user/Desktop/bentley/fridgegraph/node_modules/@apollo/server/src/requestPipeline.ts:550:31)"
         ],
         "service": "access"
       }

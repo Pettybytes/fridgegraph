@@ -10,13 +10,32 @@ health_check:
 include_subgraph_errors:
   all: true
 
-# The router forwards the two INSECURE demo headers; it never trusts them itself.
-# Authorization is enforced field-by-field inside the subgraphs (src/authz.ts).
+# NO router-level JWT validation here — and that is deliberate.
+#
+# `authentication.router.jwt` is a LICENSE-GATED feature. An unlicensed self-hosted router
+# refuses to start with it configured:
+#   ERROR "Not connected to GraphOS ... license for: Authentication plugin .authentication.router"
+#   ERROR "license violation ... [Authentication plugin]"
+# The failure is silent through `rover dev` (it only surfaces as "Failed healthcheck"); run the
+# router binary directly to see it. `router config validate router.yaml` passes, so it is purely
+# the licence check, not a schema error.
+#
+# Therefore the SUBGRAPHS are the verification boundary (src/auth/verify.ts). That is also the
+# stronger place for it: each subgraph port is independently reachable on localhost, so an
+# edge-only check would be bypassable. If a GraphOS licence is supplied later, add:
+#   authentication:
+#     router:
+#       jwt:
+#         jwks:
+#           - url: <project>/auth/v1/.well-known/jwks.json
+
+# The router does NOT forward Authorization on its own; it must be propagated explicitly.
+# x-demo-date is a test clock the subgraphs honour only when DEMO_CLOCK=1.
 headers:
   all:
     request:
       operations:
         - propagate:
-            named: x-demo-user
+            named: Authorization
         - propagate:
             named: x-demo-date

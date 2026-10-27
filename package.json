@@ -12,7 +12,8 @@
     "@apollo/server": "^4.12.2",
     "@apollo/subgraph": "^2.9.0",
     "express": "^4.21.2",
-    "graphql": "^16.9.0"
+    "graphql": "^16.9.0",
+    "jose": "^6.2.13"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

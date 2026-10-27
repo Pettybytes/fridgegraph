@@ -1,3 +1,4 @@
+import { loadEnv } from './env';
 import { startSubgraph, type SubgraphDef } from './server';
 import village from './subgraphs/village';
 import access from './subgraphs/access';
@@ -6,6 +7,8 @@ import schedule from './subgraphs/schedule';
 import school from './subgraphs/school';
 import transport from './subgraphs/transport';
 import activities from './subgraphs/activities';
+
+loadEnv();
 
 /**
  * One Node process, seven subgraphs, one shared store. Starts the whole federation locally;

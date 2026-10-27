@@ -1,8 +1,8 @@
 # As Dana (Jax's parent): supervisionCandidates(Jax) -> [] (authorized, none exist)
 
 - endpoint: `http://127.0.0.1:4010/`
-- x-demo-user: `p_dana`  (INSECURE dev header)
-- x-demo-date: `2026-10-26`
+- identity: Bearer eyJhbG…<redacted, 804 chars>  (verified Supabase JWT; token redacted, never stored)
+- x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - note: Authorized caller with no candidates returns an empty list, not an error.
 - HTTP status: 200
 
