@@ -223,9 +223,96 @@ at 1 because Nora is still a player).
 
 ### Still open
 
-1. **MCP on 5050 as Kendra → 4 pickup candidates: UNVERIFIED.** The server starts and the probe's
-   negative control behaves (unknown tool → error), but `tools/call PickupCandidates` returned
-   `ROUTER_FREE_PLAN_RATE_LIMIT_REACHED` from GraphOS. That is an account plan limit, not a code or
-   auth failure. Re-run `node ops/mcp-probe.mjs` on a plan that permits the call.
+1. **MCP PickupCandidates as Kendra → 4 candidates: RESOLVED (Oct 28, 2026).** Re-proved through
+   MCP → router → subgraph → RLS on both routers: see `docs/evidence/16b-b5-mcp-reproof.md`. The
+   earlier `ROUTER_FREE_PLAN_RATE_LIMIT_REACHED` was an account plan limit; a single paced probe on
+   the GraphOS-connected router now returns 4 candidates with no rate-limit response.
 2. `practices_read` authorizes on any group the player belongs to while the resolver surfaces only
    team groups. Scoping question, not a leak; left as-is and flagged in evidence 22.
+
+---
+
+## 15. MCP mutation exposure — pinned to `explicit` (Oct 28, 2026)
+
+`.apollo/mcp.local.yaml` now carries `overrides.mutation_mode: explicit`.
+
+Key and values verified against the **installed binary** (Apollo MCP Server v2.1.0), not only the
+skill docs: the field is `mutation_mode` inside `overrides`, and the enum is `none | explicit | all`.
+
+Measured on 2026-10-28 with one query file and one mutation file (`tools/list`):
+
+| `mutation_mode` | Tools exposed |
+| --- | --- |
+| `explicit` | `PickupCandidates`, `ApproveRelationship` |
+| `none` | `PickupCandidates` only (log: `Skipping mutation operation ApproveRelationship`) |
+| `all` | `PickupCandidates`, `ApproveRelationship` |
+
+A mutation that has **no operation file** is not exposed in any mode: `grantAccess` and
+`revokeGrant` both return `-32602 Tool <name> not found`. Ad-hoc `execute` is separately disabled,
+so there is no path to an arbitrary mutation.
+
+With the real repo config (only the port changed for the test) `tools/list` returns exactly
+`PickupCandidates`.
+
+**This is an exposure gate, not authorization.** Apollo states `mutation_mode` is a configuration
+gate, never per-invocation approval. Every write still runs as the caller's own JWT through the
+router and the subgraph resolvers, where identity, scope, parent checks and (for Station 06)
+idempotency and explicit parent approval must be enforced. Adding a mutation file must never be
+treated as granting it.
+
+## 16. Pre-exposure checklist — public hosting
+
+**Decision (Oct 28, 2026): Cloudflare Tunnel from Bryan's Mac.** It must stay up through judging.
+Not set up yet; do not create it until Station 06 needs it.
+
+**Exposure order.** Station 06 needs a public URL for the GHL Custom Action: expose **only the
+voice/webhook endpoint first**. The GraphQL router stays private until every gate below passes.
+
+| # | Gate before the router is public | State today | Where |
+| --- | --- | --- | --- |
+| 1 | `authentication.router.jwt.on_error: RedactedError` | **FAIL** — currently `Error`, returns detailed validation messages | `router.graphos.yaml` |
+| 2 | GraphQL introspection **off** | **FAIL** — `introspection: true` | both router configs |
+| 3 | Apollo sandbox / homepage explicitly disabled | not configured | both router configs |
+| 4 | `include_subgraph_errors` not `all` | **FAIL** — leaks subgraph error detail | both router configs |
+| 5 | CORS: no wildcard origin, explicit allowlist | not configured | both router configs |
+| 6 | `overrides.mutation_mode: explicit` | **PASS** (pinned) | `.apollo/mcp.local.yaml` |
+| 7 | Bind address / tunnel scope: only the intended listener is tunnelled | n/a (no tunnel yet) | Cloudflare |
+| 8 | Supabase password rotation | due **before the repo goes public**, not a merge gate | — |
+
+Both router configs are **localhost-only development configs** that bind `127.0.0.1`. They are
+correct for local work and must never be promoted as-is.
+
+## 17. SECURITY DEFINER audit — nine functions in `public` (Oct 28, 2026)
+
+Read-only. No policy, grant or migration was changed; any fix needs explicit approval.
+
+Every function sets `set search_path = public` (9 of 9), so search-path hijacking is not available.
+All nine live in `public`, the schema PostgREST exposes.
+
+Live probe through PostgREST RPC — as `anon` (publishable key, no user token), as `p_walter`
+(authenticated, unrelated adult) and, for child-scoped helpers, as `p_dana` (cross-village):
+
+| Function | `anon` | `p_walter` | `p_dana` | Notes |
+| --- | --- | --- | --- | --- |
+| `current_person()` | **200** `null` | 200 own id | — | anon-executable |
+| `local_today()` | **200** `2026-10-28` | 200 | — | anon-executable |
+| `is_parent_of(child)` | **200** `false` | `false` | `false` | anon-executable |
+| `has_scope(child, scope)` | **200** `false` | `false` | `false` | anon-executable |
+| `whoami()` | 401 `42501` | 200 own id | — | correctly locked |
+| `my_household_ids()` | 401 `42501` | `[]` | — | correctly locked |
+| `parent_ids_of(child)` | 401 `42501` | `[]` | `[]` | correctly locked, no leak |
+| `pickup_candidates_for(child, date)` | 401 `42501` | `[]` | `[]` | correctly locked, no leak |
+| `grant_holders_for(child, scope, date)` | 401 `42501` | `[]` | `[]` | correctly locked, no leak |
+
+**Result: no unauthorized data retrieval.** The three child-scoped helpers return empty for an
+unrelated adult and for a cross-village parent, and are refused outright for `anon`. Their internal
+`is_parent_of` / `pickup.verify` gates work.
+
+**Finding (low severity, posture not leak):** four functions — `current_person`, `local_today`,
+`is_parent_of`, `has_scope` — were created without `revoke all … from public`, so they keep
+Postgres's default PUBLIC execute and are callable by `anon`. What an unauthenticated caller
+actually gets is a null identity, the local date, and two booleans that are always false for them.
+No row data is disclosed. The defect is inconsistency: the other five were explicitly revoked.
+
+**Recommended fix (needs approval, not applied):** add `revoke all on function … from public, anon;`
+for those four, matching 0008/0009/0010. Low risk, but it is a migration change.

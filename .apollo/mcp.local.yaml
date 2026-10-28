@@ -21,6 +21,24 @@ introspection:
   validate:
     enabled: false
 
+# Mutations are exposed ONLY when a mutation exists as an explicit operation file.
+# Verified against the installed binary (Apollo MCP Server v2.1.0): the key is
+# `overrides.mutation_mode` and the accepted values are none | explicit | all. Measured on
+# 2026-10-28 with one query file and one mutation file:
+#   explicit -> tools = PickupCandidates, ApproveRelationship
+#   none     -> tools = PickupCandidates          (load log: "Skipping mutation operation")
+#   all      -> tools = PickupCandidates, ApproveRelationship
+# A mutation that has no operation file (grantAccess, revokeGrant) is not exposed in any mode:
+# calling it returns `-32602 Tool <name> not found`. Ad-hoc `execute` is separately disabled
+# above, so there is no path to an arbitrary mutation.
+#
+# This is an EXPOSURE gate, NOT an authorization mechanism. Apollo is explicit that mutation_mode
+# is a configuration gate, not per-invocation approval. Identity, action authorization, parent
+# approval and idempotency are enforced downstream, by the subgraph resolvers and Postgres RLS,
+# with the caller's own token. Adding a write operation here must not be treated as granting it.
+overrides:
+  mutation_mode: explicit
+
 # NOTHING is pinned here any more. The previous `headers:` block hard-coded x-demo-user: p_mom for
 # every request, which meant every MCP caller acted as one fixed person. The caller's own bearer
 # token is forwarded instead and verified by the subgraphs.
