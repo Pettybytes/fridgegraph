@@ -10,6 +10,24 @@ decisions): HMAC-signed webhook security, a documented weaker trust boundary for
 that can't sign, and Entry point A (§5a) for `acceptPickup`.** States, reason codes and the
 permission-vs-availability rule are not redefined here — they are **inherited exactly**.
 
+## Naming and attribution
+
+- **The in-app agent is named Rosina.** ("Muse" was a placeholder name in earlier drafts; every
+  reference to the agent itself is renamed in this revision. `Muse Spark`, `Muse Spark Open`, and
+  `Muse Voice Transcribe` are unrelated — those are Meta's own model names and are **not**
+  renamed.)
+- **Tagline:** "Rosina, FridgeGraph's AI family coordinator."
+- **Attribution, exactly this far and no further:** "planning and decisions powered by Meta's
+  Muse Spark Open." This credits the model that plans the ranking (`pickup-job.md` §5b) and
+  composes outbound messages (§5) — **never** the GHL voice itself. The voice a caller actually
+  hears is a GoHighLevel capability, not a Meta model, and nothing in this contract may imply
+  otherwise.
+- **No recording.** Call recording is off for this demo. The `voice-turn` request/response log —
+  not a GHL-side recording — is the record of what was said and decided (§10).
+- **No Jetsons, no robot-maid framing.** Rosina is an AI assistant/coordinator, full stop — never
+  described as a domestic robot, a maid, or any variant of that trope, anywhere this contract
+  specifies copy.
+
 ## 1. Topology
 
 ```
@@ -20,8 +38,8 @@ n8n workflow  (the existing LOOM n8n instance — new FridgeGraph-named workflow
    │           separate instance)
    │  places/sends via GHL API
    ▼
-GHL (GoHighLevel): SMS conversation, or voice call with the "Muse" AI agent
-   │  human replies, or Muse's Custom Action fires mid-call
+GHL (GoHighLevel): SMS conversation, or voice call with the "Rosina" AI agent
+   │  human replies, or Rosina's Custom Action fires mid-call
    ▼
 n8n workflow (webhook trigger)
    │  reply (HTTPS POST, HMAC-signed)
@@ -144,24 +162,27 @@ Tasha Ellison and Monique Davis in the same batch; see `docs/mocks/pickup-job-li
   "childId": "p_nora",
   "childDisplayName": "Nora",
   "requesterDisplayName": "Kendra",
-  "message": "Hi, this is Muse, an AI assistant with FridgeGraph. I'm calling on behalf of Kendra about Nora's pickup. Is now a good time?",
+  "message": "Hi, this is Rosina, an AI assistant with FridgeGraph. Am I speaking with Loretta?",
   "timeoutSeconds": 60
 }
 ```
 
 This example calls Loretta Brooks (`p_gma`) — one of the 4 real `pickupCandidates` for Nora in
 `src/fixtures.ts`/`src/derive.ts`, and the one reachable only by `CALL` in that seed (her sole
-contact method) — on Kendra's (`p_mom`) behalf.
+contact method) — on Kendra's (`p_mom`) behalf. `message` here is **only the first line** — see
+§10's two-step identity-confirmation sequence; the second line (and anything about Nora or the
+pickup) is never sent until the person on the other end has confirmed they're the right person.
 
 - `channel` is `SMS` or `CALL` only in this milestone.
 - `destinationMode` is `"test-responder"` for every candidate except the one real-call exception
   (§6a), where it is `"real-consented"`. There is no third value, and no default other than
   `"test-responder"`.
-- **Every call and text identifies Muse as an AI assistant acting for the parent** — not just the
-  `CALL` opening line reproduced above. The first SMS in a conversation carries the same
-  disclosure (e.g. "Hi, this is Muse, an AI assistant with FridgeGraph, texting on behalf of
-  Kendra about Nora's pickup...") — composed **before dispatch**, never assembled mid-conversation
-  by a live model call (§10a).
+- **Every call and text identifies Rosina as an AI assistant acting for the parent, as the very
+  first thing said or sent** — not just on `CALL`. The first SMS in a conversation carries the
+  same identity-confirmation line as the `message` above (e.g. "Hi, this is Rosina, an AI
+  assistant with FridgeGraph. Am I speaking with Loretta?"), with the second line ("I'm texting on
+  behalf of Kendra about a pickup...") held back the same way until identity is confirmed — composed
+  **before dispatch**, never assembled mid-conversation by a live model call (§10b).
 - `timeoutSeconds` is a **per-job** setting FridgeGraph sends on every dispatch — see §6 for demo
   defaults.
 
@@ -258,27 +279,40 @@ This is `pickup-job.md` §8's **Entry point A** for `acceptPickup` at the wire l
 
 ## 10. The GHL Custom Action — voice mid-call decision (§3b's weaker boundary)
 
-This is the one point where the voice agent ("Muse") calls back into FridgeGraph **during** a live
-call — also **Entry point A**, under the `voice-turn` endpoint's documented weaker trust boundary
-(§3b).
+This is the one point where the voice agent ("Rosina") calls back into FridgeGraph **during** a
+live call — also **Entry point A**, under the `voice-turn` endpoint's documented weaker trust
+boundary (§3b).
 
-Muse's opening line, verbatim, every call:
+### 10a. Turn 1 — identity confirmation, always first
 
-> "Hi, this is Muse, an AI assistant with FridgeGraph. I'm calling on behalf of Kendra about
-> Nora's pickup. Is now a good time?"
+Rosina's opening line, verbatim, every call, before anything else:
+
+> "Hi, this is Rosina, an AI assistant with FridgeGraph. Am I speaking with [Contact]?"
+
+**No child name, school, or reason is ever spoken before the contact confirms their identity.**
+Only once the person confirms (turn 1's `answer` classifies as a clear yes) does Rosina speak the
+second line:
+
+> "I'm calling on behalf of [Requester] about a pickup. Is now a good time?"
+
+— still no child name, school, or specific reason at this point either. If turn 1's answer
+classifies as "no" or "wrong number," the call ends (`decision: END_CALL`) without ever reaching
+the second line. This two-step sequence is itself governed by the same deterministic, sub-2-second
+classifier as every other turn (§10b) — identity confirmation is not exempt from the latency
+budget or the no-model-call rule.
 
 `POST https://<fridgegraph-host>/webhooks/coordination/voice-turn` (static shared-secret header +
 timestamp, per §3b — not HMAC-signed, because this is the one provider that may not support it)
 
-### 10a. Latency budget — no model call in the live path
+### 10b. Latency budget — no model call in the live path
 
 **Target: under 2 seconds**, end to end. The handler is **fast, deterministic coordination
 logic** — intent classification against the turn's `answer` text, a lookup against the job's
 current `CandidateEvaluation`, a canned/templated `say` line, and an **explicit fallback**
 (`CONTINUE` with a generic clarifying line) if classification isn't confident fast enough. **No
-model call may block a live turn.** Muse's actual reasoning happens **before dispatch** (composing
-the opening line/first SMS, §5) and **after the call ends** (summarizing for Mission Control),
-never inside a turn's request/response.
+model call may block a live turn.** Rosina's actual reasoning happens **before dispatch**
+(composing the opening line/first SMS, §5) and **after the call ends** (summarizing for Mission
+Control), never inside a turn's request/response.
 
 Request (GHL → FridgeGraph, one call per conversational turn that needs a decision):
 
@@ -288,13 +322,16 @@ Request (GHL → FridgeGraph, one call per conversational turn that needs a deci
   "jobId": "job_01HXYZ",
   "requestVersion": 1,
   "callId": "ghl_call_7781",
-  "turn": 2,
+  "turn": 3,
   "answer": "yes, I can pick her up around 3:30",
   "transcriptSnippet": "Caller: yes, I can pick her up around 3:30"
 }
 ```
 
-Response (FridgeGraph → GHL, consumed by Muse to keep talking or end the call):
+(`turn: 1` was identity confirmation, `turn: 2` was "is now a good time," and `turn: 3` here is
+the actual availability exchange — this example picks up after both earlier gates passed.)
+
+Response (FridgeGraph → GHL, consumed by Rosina to keep talking or end the call):
 
 ```json
 {
@@ -310,7 +347,7 @@ Response (FridgeGraph → GHL, consumed by Muse to keep talking or end the call)
 | `CONTINUE` | answer was unclear, or classification wasn't confident within budget (the explicit fallback) | opens/updates an `InformationRequest`; no state change; `say` asks a follow-up |
 | `ACCEPTED` | a clear, actionable yes | records **availability only**, via the same shared transactional logic as `acceptPickup` (`pickup-job.md` §8) — **never** `confirmed`. The candidate is told someone will confirm, not that they're confirmed. |
 | `DECLINED` | a clear no | records `declineReason` (**required**: `BUSY`, `NO_TRANSPORT`, or `OTHER`); job stays `discovering` for other candidates |
-| `ESCALATE` | Muse should hand off rather than keep deciding | `say` tells the human a person will follow up; no state change |
+| `ESCALATE` | Rosina should hand off rather than keep deciding | `say` tells the human a person will follow up; no state change |
 | `END_CALL` | nothing further to ask (deadline, repeat call, wrong number) | no state change |
 
 - **There is no `CONFIRMED` decision, and this endpoint can never produce one.** `confirmed`
@@ -342,7 +379,7 @@ Response (FridgeGraph → GHL, consumed by Muse to keep talking or end the call)
 ## 12. Open questions for Bryan
 
 Resolved this revision: webhook security mechanism and the two trust boundaries (§3), SMS
-deterministic-classifier behavior on ambiguity (§7), and Muse's AI-disclosure requirement on SMS
+deterministic-classifier behavior on ambiguity (§7), and Rosina's AI-disclosure requirement on SMS
 as well as voice (§5). Still open:
 
 1. **Cloudflare Tunnel operational ownership** — who provisions/monitors it, and what happens to

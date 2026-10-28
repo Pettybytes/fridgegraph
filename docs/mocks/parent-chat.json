@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Updated to match docs/contracts/pickup-job.md's reworked parallel-discovery / accept-then-approve model — not explicitly requested by this round's task list, but left showing the old sequential 'Bryan confirmed' narrative would directly contradict the revised contract (acceptance is availability, never permission). Illustrates the PROPOSED chatThread query (docs/contracts/frontend-data.md §2; no server aggregate in v1 — the client merges informationRequests/approval items in by timestamp itself). Matches the same job as docs/mocks/pickup-job-lifecycle.json. People match the real seed (src/fixtures.ts). Fictional data only.",
+  "_note": "Mock only. The agent is Rosina (renamed from the earlier placeholder 'Muse' — see docs/contracts/webhook.md's Naming and attribution section; ChatSender.ROSINA, not .MUSE). Matches docs/contracts/pickup-job.md's reworked parallel-discovery / accept-then-approve model (acceptance is availability, never permission). Illustrates the PROPOSED chatThread query (docs/contracts/frontend-data.md §2; no server aggregate in v1 — the client merges informationRequests/approval items in by timestamp itself). Matches the same job as docs/mocks/pickup-job-lifecycle.json. People match the real seed (src/fixtures.ts). Fictional data only.",
   "query": "chatThread",
   "variables": { "childId": "p_nora" },
   "data": {
@@ -18,7 +18,7 @@
       {
         "id": "msg_0002",
         "child": { "id": "p_nora" },
-        "from": "MUSE",
+        "from": "ROSINA",
         "kind": "TEXT",
         "text": "On it — I'm asking everyone who's authorized at once: Loretta, Bryan, Tasha and Monique. I'll bring you the best option to approve.",
         "voiceNoteUrl": null,
@@ -29,7 +29,7 @@
       {
         "id": "msg_0003",
         "child": { "id": "p_nora" },
-        "from": "MUSE",
+        "from": "ROSINA",
         "kind": "TEXT",
         "text": "Bryan can't today, and Monique hasn't answered yet. Loretta can, but her trip would be over your $10 ride-cost cap. Tasha said yes and she's within policy — still checking in case anyone else replies.",
         "voiceNoteUrl": null,
@@ -51,7 +51,7 @@
       {
         "id": "msg_0005",
         "child": { "id": "p_nora" },
-        "from": "MUSE",
+        "from": "ROSINA",
         "kind": "APPROVAL_REQUEST",
         "text": "Recommending Tasha for Nora's pickup today — she's available and within your ride-cost policy. You're today's approver. Want me to confirm it with her?",
         "voiceNoteUrl": null,
@@ -74,7 +74,7 @@
       {
         "id": "msg_0007",
         "child": { "id": "p_nora" },
-        "from": "MUSE",
+        "from": "ROSINA",
         "kind": "TEXT",
         "text": "Confirmed — Tasha has Nora's pickup today.",
         "voiceNoteUrl": null,

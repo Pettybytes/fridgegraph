@@ -83,7 +83,12 @@ exception into looking like an ordinary, unlabelled production call:
 
 ## 2. Surface: Parent chat (Kendra's phone)
 
-Type or voice note → Muse reply, in one thread that also shows Muse's questions and approval
+Display name and tagline, wherever the UI names the agent: **"Rosina, FridgeGraph's AI family
+coordinator."** Attribution copy, if shown, reads "planning and decisions powered by Meta's Muse
+Spark Open" — never implying the voice itself is a Meta model (full naming rule:
+`docs/contracts/webhook.md`'s "Naming and attribution" section).
+
+Type or voice note → Rosina reply, in one thread that also shows Rosina's questions and approval
 requests — i.e., the thread is not just a messages table, it interleaves three kinds of server
 truth (chat messages, coordination questions, approval requests) in time order. **Decided
 (Bryan): no aggregate query in v1** — `chatThread` returns only genuine `ChatMessage` rows; the
@@ -96,13 +101,13 @@ client-side-composition pattern as every other surface in this contract.
 | --- | --- | --- |
 | `chatThread(childId: ID!): [ChatMessage!]!` | **NEW** | no message/thread type exists anywhere in `schema/*.graphql` today |
 | `sendParentMessage(childId: ID!, text: String, voiceNoteUrl: String): ChatMessage!` | **NEW** | same — no chat mutation exists |
-| `informationRequests(childId: ID!): [InformationRequest!]!` | EXISTING | `schema/coordination.graphql` `Query.informationRequests` — Muse's questions, rendered inline in the thread by `at`-ish ordering (the type has no timestamp yet — see Requested changes) |
+| `informationRequests(childId: ID!): [InformationRequest!]!` | EXISTING | `schema/coordination.graphql` `Query.informationRequests` — Rosina's questions, rendered inline in the thread by `at`-ish ordering (the type has no timestamp yet — see Requested changes) |
 | `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` — read to show the thread's "can you approve this pickup?" banner when a job the parent is the named approver for (`pickup-job.md` §6) reaches `awaiting_approval` |
 
 `ChatMessage` (**NEW** type, proposed shape):
 
 ```graphql
-enum ChatSender { PARENT MUSE }
+enum ChatSender { PARENT ROSINA }
 enum ChatMessageKind { TEXT VOICE_NOTE QUESTION APPROVAL_REQUEST }
 
 type ChatMessage {
@@ -199,7 +204,7 @@ toward it by accident.
 2. Mapbox token: `frontend.md` §3 already names `VITE_MAPBOX_TOKEN` as optional publishable-only;
    MapLibre remains default per that contract, unchanged here.
 
-## 5. Surface: Muse Mission Control
+## 5. Surface: Rosina Mission Control
 
 Recorded tool calls, responses, approvals, state transitions. Acknowledge instantly, show
 progress, then verified results — i.e., three-stage rendering per event, not a flat log. This
