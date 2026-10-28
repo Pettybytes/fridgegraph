@@ -1,6 +1,7 @@
 {
-  "_note": "Mock only. Illustrates the job state machine, versioning and idempotency. Not a database dump.",
+  "_note": "Mock only. Matches docs/contracts/pickup-job.md Rev 3 (Bentley's implementer review): parallel discovery, acceptPickup's two entry points, the canonical location/cost model, and the approver-decline path. All 4 candidates are the real pickupCandidates for Nora (src/fixtures.ts / src/derive.ts): Loretta Brooks (p_gma), Bryan Brooks (p_bryan), Tasha Ellison (p_tasha), Monique Davis (p_monique). The approver is Kendra Ellison (p_mom) because 2026-10-28 is a Wednesday and her real parenting_schedules row covers MON/TUE/WED; Andre Ellison (p_dad) is the real fyiParent. Location/cost figures match docs/mocks/pickup-candidates.json's _demoCandidateEvaluations exactly. Not a database dump.",
   "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+  "requestVersion": 1,
   "childId": "p_nora",
   "asOf": "2026-10-28",
   "transitions": [
@@ -9,54 +10,111 @@
       "to": "pending",
       "version": 1,
       "actor": "agent",
-      "evidence": "job created",
-      "note": "Duplicate create with the same idempotencyKey must return THIS job and version, not a new row."
+      "evidence": "job created via requestPickup",
+      "note": "Duplicate requestPickup with the same idempotencyKey must return THIS job and version, not a new row."
     },
     {
       "from": "pending",
-      "to": "awaiting_parent",
+      "to": "discovering",
       "version": 2,
       "actor": "agent",
-      "evidence": "attempt: SMS -> +15550100001 (test responder), provider id test_msg_0001",
-      "note": "asked Kendra first: parent, verified SMS, preferred"
+      "evidence": "4 Attempts dispatched IN PARALLEL at requestVersion 1: CALL -> +1-313-555-0103 (Loretta Brooks), SMS -> +1-313-555-0104 (Bryan Brooks), SMS -> +1-313-555-0107 (Tasha Ellison), SMS -> +1-313-555-0108 (Monique Davis) — all test responders, all fired without waiting on each other",
+      "note": "Parallel discovery, not sequential escalation. discoveryTimeoutSeconds=60 per candidate (webhook.md §6 demo default)."
     },
     {
-      "from": "awaiting_parent",
-      "to": "awaiting_adult",
+      "from": "discovering",
+      "to": "awaiting_approval",
       "version": 3,
       "actor": "agent",
-      "evidence": "attempt: CALL -> +15550100003 (test responder), provider id test_call_0002",
-      "note": "Kendra did not reply in window; escalated to Loretta (holds pickup.verify)"
+      "evidence": "ranking selected Tasha Ellison (p_tasha) — see candidateEvaluations below",
+      "note": "Tasha's CandidateEvaluation flips RECOMMENDED -> APPROVAL_PENDING (the candidate-selection fact, distinct from her own acceptPickup write). Kendra Ellison (p_mom) is notified as the 2026-10-28 (Wednesday) approver per approverFor; Andre Ellison (p_dad) gets an FYI."
     },
     {
-      "from": "awaiting_adult",
+      "from": "awaiting_approval",
       "to": "confirmed",
       "version": 4,
       "actor": "inbound",
-      "evidence": "confirmation id conf_0003, receivedAt 2026-10-28T15:12:04Z, channel SMS",
-      "note": "REQUIRED: a Confirmation row. The agent may not perform this transition from prose."
+      "evidence": "confirmation id conf_0003, approvedBy p_mom, candidate p_tasha, decision APPROVED, receivedAt 2026-10-28T15:14:00Z",
+      "note": "REQUIRED: a Confirmation row written by approvePickup (the parent-approval fact). Tasha's earlier acceptPickup recorded availability only, via Entry point A (webhook callback) — never permission, never a Confirmation by itself."
+    }
+  ],
+  "candidateEvaluations": [
+    {
+      "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
+      "reasonCode": "OVER_POLICY",
+      "acceptedVia": "WEBHOOK_CALLBACK",
+      "evidence": "acceptPickup(available: true) via CALL +1-313-555-0103, bound to attemptId + recipient + channel + requestVersion 1, verified via the dialed number matching the Attempt's destination",
+      "estimatedRideCostUsd": 12.40,
+      "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+      "distanceMiles": 8.86,
+      "note": "Over the cap (Kendra's h_a ride_cost_cap_usd=10) is not the same as unavailable (pickup-job.md §6a) — she remains a candidate, just flagged, and was not chosen only because Tasha was available, within cap, and clean on every ranking key."
+    },
+    {
+      "person": { "id": "p_bryan", "displayName": "Bryan Brooks" },
+      "reasonCode": "UNAVAILABLE",
+      "acceptedVia": "WEBHOOK_CALLBACK",
+      "evidence": "acceptPickup(available: false, declineReason: BUSY) via SMS +1-313-555-0104, bound to attemptId + recipient + channel + requestVersion 1",
+      "note": "Explicit decline, not a timeout."
+    },
+    {
+      "person": { "id": "p_monique", "displayName": "Monique Davis" },
+      "reasonCode": "UNAVAILABLE",
+      "acceptedVia": null,
+      "evidence": "no reply to SMS +1-313-555-0108 within discoveryTimeoutSeconds=60",
+      "note": "Timeout, not a decline — pickup-job.md §5 does not distinguish the two; both are UNAVAILABLE. acceptedVia is null because no acceptPickup call, from either entry point, ever happened."
+    },
+    {
+      "person": { "id": "p_tasha", "displayName": "Tasha Ellison" },
+      "reasonCode": "APPROVAL_PENDING",
+      "acceptedVia": "WEBHOOK_CALLBACK",
+      "evidence": "acceptPickup(available: true) via SMS +1-313-555-0107, bound to attemptId + recipient + channel + requestVersion 1, verified via the replying number matching the Attempt's destination",
+      "estimatedRideCostUsd": 6.30,
+      "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+      "distanceMiles": 4.50,
+      "note": "RECOMMENDED the moment the ranking ran (version 3), immediately shown as APPROVAL_PENDING while the job waits on Kendra. Entry point B (candidate's own Supabase JWT via MCP) is P1 and not used in this demo run."
     }
   ],
   "rejectedExamples": [
     {
-      "attempt": { "from": "awaiting_adult", "to": "confirmed", "version": 3 },
+      "attempt": { "from": "awaiting_approval", "to": "confirmed", "version": 3 },
       "result": "REJECTED",
       "reason": "stale version (expected 4) — demonstrates optimistic concurrency"
     },
     {
-      "attempt": { "from": "awaiting_adult", "to": "confirmed", "version": 4 },
+      "attempt": { "from": "awaiting_approval", "to": "confirmed", "version": 4 },
       "result": "REJECTED",
-      "reason": "no Confirmation row — a model claim is not evidence"
+      "reason": "no Confirmation row — approvePickup was not called; an acceptPickup reply is not evidence of permission"
     },
     {
-      "attempt": { "person": "p_walter", "channel": "SMS" },
+      "attempt": { "approvePickup": true, "by": "p_dad" },
       "result": "REJECTED",
-      "reason": "only contact method has verified=false — must not send"
+      "reason": "p_dad (Andre Ellison) is not 2026-10-28's approverFor result — only p_mom (Kendra) may approve this job on a Wednesday"
+    },
+    {
+      "attempt": { "acceptPickup": true, "person": "p_dana", "channel": "SMS" },
+      "result": "REJECTED",
+      "reason": "p_dana (Dana Coleman) was never dispatched an Attempt in the first place — reasonCode NO_VERIFIED_CONTACT_METHOD (her only contact method, SMS +1-313-555-0111, is verified=false); she also fails authorization independently (relationship DISCOVERED, no grant) — see docs/mocks/pickup-candidates.json _notCandidates for the honest caveat on which code actually fires first"
+    },
+    {
+      "attempt": { "acceptPickup": true, "person": "p_bryan", "channel": "SMS", "note": "arrives after version 3" },
+      "result": "RECORDED, NOT APPLIED",
+      "reason": "late reply — the job already reached awaiting_approval with Tasha recommended; pickup-job.md §7: late replies never override the decision"
+    },
+    {
+      "attempt": { "acceptPickup": true, "person": "p_tasha", "channel": "SMS", "note": "a second, near-simultaneous accept racing the one that produced version 3" },
+      "result": "REJECTED",
+      "reason": "the unique-active-recommendation constraint on (job, requestVersion) already has a row — pickup-job.md §7's DB constraint resolves simultaneous acceptances deterministically, not by application-logic racing"
     }
   ],
+  "approverDeclinePath": {
+    "transitions": [
+      { "from": "awaiting_approval", "to": "failed", "version": 4, "evidence": "approvePickup(decision: DECLINED) by p_mom", "failureReason": "approver_declined" }
+    ],
+    "note": "Immutable audit history — this decline is never edited or removed after the fact. Re-picking a different candidate (e.g. falling back to Loretta's OVER_POLICY option) INSIDE this same job is explicitly P2, not built; the only modeled next step is a brand-new requestPickup call with a brand-new idempotency key."
+  },
   "failedPath": {
     "transitions": [
-      { "from": "awaiting_adult", "to": "failed", "version": 5, "evidence": "deadline passed, 3 attempts, 0 confirmations" }
+      { "from": "discovering", "to": "failed", "version": 3, "evidence": "all 4 candidates UNAVAILABLE or OVER_POLICY-with-no-clean-alternative by the discovery deadline, 0 confirmations", "failureReason": "no_usable_candidate" }
     ],
     "note": "Terminal. A retry is a NEW job with a NEW idempotency key; this row is never reopened."
   }

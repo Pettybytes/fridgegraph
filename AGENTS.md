@@ -55,7 +55,7 @@ Full branch policy: `docs/BRANCHES.md`.
 
 ## 4. Environment and credentials
 
-**Sources of truth:** environment variables are supplied by the machine at runtime. There is **no `.env.example` at the repo root** and you should not create one. `web/.env.example` exists and lists **variable names only, with no values** — that is the only acceptable form.
+**Sources of truth:** environment variables are supplied by the machine at runtime. A root **`.env.example` is tracked and allowed** — it lists **variable names only, with no values** (today: `META_API_KEY`, `META_BASE_URL`, `META_MODEL_ID`, `SUPABASE_JWKS_URL`). `web/.env.example` exists for the same purpose on the frontend side, also names only. A names-only `.env.example` is the only acceptable form, at root or in `web/`; a value in either file is a security defect, not a shortcut.
 
 - Values live in **1Password** (Bryan's vault) and in the machine's runtime environment. **Never paste a secret into chat, an issue, a commit, a log, a test fixture or a code comment.** If a value is needed, ask Bryan to supply it through the runtime environment.
 - **Frontend (`web/`) gets `VITE_*` publishable values only** — publishable key, GraphQL URL, Mapbox token. A service-role key, a database URL or any server credential in frontend code is a security defect, not a shortcut.
@@ -74,6 +74,11 @@ Automated guard (offline, no network, no credentials):
 ```bash
 npm run check          # scripts/check-secrets.mjs — scans tracked files + the staged diff
 ```
+
+**Coverage:** `check-secrets.mjs` scans **tracked files and the staged diff only** — it does not
+scan untracked files (nothing to catch a secret before `git add`) and it does not scan git
+history (a secret committed in the past stays invisible to it). Treat it as a pre-commit guard,
+not a full-repo or full-history audit.
 
 **Definition of Done — all four, in this order:**
 

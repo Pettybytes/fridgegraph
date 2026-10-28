@@ -5,7 +5,8 @@
  * Scans tracked files plus the staged diff. No network, no credentials, no dependencies.
  * Exits 1 on any finding, 0 when clean.
  *
- * Never prints a secret. Every finding is masked to first 4 characters + length.
+ * Never prints a secret, a preview, a partial value or a length. Each finding prints as exactly
+ * one line: `path:line [rule-id]`.
  *
  * Usage:  node scripts/check-secrets.mjs [--all|--staged] [--quiet]
  */
@@ -87,11 +88,6 @@ function git(listArgs) {
   }
 }
 
-function mask(s) {
-  if (!s) return '(empty)'
-  return `${s.slice(0, 4)}…(${s.length} chars)`
-}
-
 function skipped(path) {
   if (SKIP_DIRS.test(path) || SKIP_FILES.test(path)) return true
   if (SKIP_EXT.has(extname(path).toLowerCase())) return true
@@ -114,8 +110,8 @@ function scanFile(path) {
   const findings = []
   const base = path.split('/').pop()
 
-  for (const { re, why } of SENSITIVE_FILENAMES) {
-    if (re.test(path)) findings.push({ path, line: 0, rule: 'sensitive-filename', why, preview: base })
+  for (const { re } of SENSITIVE_FILENAMES) {
+    if (re.test(base) || re.test(path)) findings.push({ path, line: 0, rule: 'sensitive-filename' })
   }
 
   let text
@@ -134,16 +130,8 @@ function scanFile(path) {
     if (ALLOW.some((a) => a.test(line))) continue
 
     for (const rule of RULES) {
-      const m = line.match(rule.re)
-      if (!m) continue
-      const hit = rule.group ? m[rule.group] : m[0]
-      findings.push({
-        path,
-        line: i + 1,
-        rule: rule.id,
-        why: rule.why,
-        preview: mask(hit),
-      })
+      if (!rule.re.test(line)) continue
+      findings.push({ path, line: i + 1, rule: rule.id })
       break // one finding per line is enough
     }
   }
@@ -162,11 +150,8 @@ if (findings.length === 0) {
   process.exit(0)
 }
 
-console.error(`\ncheck-secrets: ${findings.length} finding(s)\n`)
+console.error(`check-secrets: ${findings.length} finding(s)`)
 for (const f of findings) {
-  console.error(`  ${f.path}${f.line ? `:${f.line}` : ''}  [${f.rule}]  ${f.why}`)
-  console.error(`      ${f.preview}`)
+  console.error(`${f.path}:${f.line} [${f.rule}]`)
 }
-console.error('\nNever commit a credential. Values live in 1Password and the runtime environment.')
-console.error('See AGENTS.md section 4.\n')
 process.exit(1)

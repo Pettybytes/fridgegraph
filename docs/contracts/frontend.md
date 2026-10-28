@@ -30,7 +30,7 @@ Pick by intent:
 
 - Frontend gets **`VITE_*` publishable values only**: `VITE_GRAPHQL_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_MAPBOX_TOKEN`.
 - **`VITE_` means "compiled into the browser bundle".** Treat every `VITE_` value as public. A service-role key, DB URL or server secret in `web/` is a security defect.
-- `web/.env.example` lists names only, no values. There is no root `.env.example` — do not create one.
+- `web/.env.example` lists names only, no values. A root `.env.example` is also tracked, names only — see `AGENTS.md` §4.
 - Auth: the browser signs in with Supabase and sends the **user's** token to the graph. It never holds a server credential.
 
 ## 4. Build and verify
