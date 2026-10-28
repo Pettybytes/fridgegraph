@@ -1,0 +1,63 @@
+{
+  "_note": "Mock only. Illustrates the job state machine, versioning and idempotency. Not a database dump.",
+  "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+  "childId": "p_nora",
+  "asOf": "2026-10-28",
+  "transitions": [
+    {
+      "from": null,
+      "to": "pending",
+      "version": 1,
+      "actor": "agent",
+      "evidence": "job created",
+      "note": "Duplicate create with the same idempotencyKey must return THIS job and version, not a new row."
+    },
+    {
+      "from": "pending",
+      "to": "awaiting_parent",
+      "version": 2,
+      "actor": "agent",
+      "evidence": "attempt: SMS -> +15550100001 (test responder), provider id test_msg_0001",
+      "note": "asked Kendra first: parent, verified SMS, preferred"
+    },
+    {
+      "from": "awaiting_parent",
+      "to": "awaiting_adult",
+      "version": 3,
+      "actor": "agent",
+      "evidence": "attempt: CALL -> +15550100003 (test responder), provider id test_call_0002",
+      "note": "Kendra did not reply in window; escalated to Loretta (holds pickup.verify)"
+    },
+    {
+      "from": "awaiting_adult",
+      "to": "confirmed",
+      "version": 4,
+      "actor": "inbound",
+      "evidence": "confirmation id conf_0003, receivedAt 2026-10-28T15:12:04Z, channel SMS",
+      "note": "REQUIRED: a Confirmation row. The agent may not perform this transition from prose."
+    }
+  ],
+  "rejectedExamples": [
+    {
+      "attempt": { "from": "awaiting_adult", "to": "confirmed", "version": 3 },
+      "result": "REJECTED",
+      "reason": "stale version (expected 4) — demonstrates optimistic concurrency"
+    },
+    {
+      "attempt": { "from": "awaiting_adult", "to": "confirmed", "version": 4 },
+      "result": "REJECTED",
+      "reason": "no Confirmation row — a model claim is not evidence"
+    },
+    {
+      "attempt": { "person": "p_walter", "channel": "SMS" },
+      "result": "REJECTED",
+      "reason": "only contact method has verified=false — must not send"
+    }
+  ],
+  "failedPath": {
+    "transitions": [
+      { "from": "awaiting_adult", "to": "failed", "version": 5, "evidence": "deadline passed, 3 attempts, 0 confirmations" }
+    ],
+    "note": "Terminal. A retry is a NEW job with a NEW idempotency key; this row is never reopened."
+  }
+}

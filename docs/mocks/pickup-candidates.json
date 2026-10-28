@@ -1,0 +1,68 @@
+{
+  "_note": "Mock only. All people, numbers and plates are fictional test fixtures. No live data.",
+  "query": "pickupCandidates",
+  "variables": { "childId": "p_nora", "asOf": "2026-10-28" },
+  "data": {
+    "pickupCandidates": [
+      {
+        "person": {
+          "id": "p_kendra",
+          "displayName": "Kendra Okafor",
+          "contactMethods": [
+            { "channel": "SMS", "value": "+15550100001", "preferred": true, "verified": true },
+            { "channel": "CALL", "value": "+15550100001", "preferred": false, "verified": true }
+          ],
+          "vehicles": [
+            { "year": 2021, "make": "Toyota", "model": "Sienna", "color": "Silver", "plate": "TEST-001" }
+          ]
+        },
+        "reason": "parent",
+        "authorization": "AUTHORIZED",
+        "availability": "UNKNOWN"
+      },
+      {
+        "person": {
+          "id": "p_chris",
+          "displayName": "Chris Okafor",
+          "contactMethods": [
+            { "channel": "SMS", "value": "+15550100002", "preferred": true, "verified": true }
+          ],
+          "vehicles": [
+            { "year": 2019, "make": "Honda", "model": "CR-V", "color": "Blue", "plate": "TEST-002" }
+          ]
+        },
+        "reason": "parent",
+        "authorization": "AUTHORIZED",
+        "availability": "CONTACTED"
+      },
+      {
+        "person": {
+          "id": "p_loretta",
+          "displayName": "Loretta Bell",
+          "contactMethods": [
+            { "channel": "CALL", "value": "+15550100003", "preferred": true, "verified": true },
+            { "channel": "EMAIL", "value": "loretta@example.invalid", "preferred": false, "verified": false }
+          ],
+          "vehicles": []
+        },
+        "reason": "holds pickup.verify grant valid on 2026-10-28",
+        "authorization": "AUTHORIZED",
+        "availability": "UNKNOWN"
+      },
+      {
+        "person": {
+          "id": "p_walter",
+          "displayName": "Walter Bell",
+          "contactMethods": [
+            { "channel": "SMS", "value": "+15550100004", "preferred": false, "verified": false }
+          ],
+          "vehicles": []
+        },
+        "reason": "grandparent (no pickup grant)",
+        "authorization": "AUTHORIZED",
+        "availability": "UNKNOWN",
+        "_testNote": "Only an UNVERIFIED method exists. The job must reject this candidate as unreachable and record the reason instead of sending."
+      }
+    ]
+  }
+}

@@ -100,6 +100,10 @@ Seed/reset: `npm run db:seed`, `npm run db:reset`, `npm run db:checksum`. Bounda
 5. **Stale evidence near-miss**: `14b` shipped from a rollback run and contradicted the live edge router.
 6. **Silent no-op `.env` append**: verify the line count after appending.
 7. `rover dev` **cannot** run edge auth (unlicensed); the GraphOS-connected **binary** must be used. `pkill rover dev` orphans the router child — kill by port.
+8. **Self-referencing RLS policy**: putting a table's own `SELECT` inside its own policy raises `42P17` at runtime — migration `0009` (`my_household_ids()`). Never do it.
+9. **RLS hides rows the derived queries need** (grants, co-parent membership, relationship types for a `pickup.verify` holder). Fix with narrow `SECURITY DEFINER` helpers (`0008`/`0010`), never by widening a policy.
+10. **`/__reset` re-seeds from the fixtures the process loaded at startup** — after editing `src/fixtures.ts`, restart the stack or in-process resets restore OLD values. This silently reverted a grant window once.
+11. **Single-day grant windows make the suite pass/fail on the wall clock** (`06a` went red at 00:00). Migration `0011` widened it to a covering window.
 
 ## 9. Decisions, mixed state, and what is NOT done
 
