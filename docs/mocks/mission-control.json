@@ -1,0 +1,72 @@
+{
+  "_note": "Mock only. Illustrates the CLIENT-COMPUTED three-stage feed (docs/contracts/frontend-data.md §5 — no server aggregate in v1) built from EXISTING coordinationJobs + NEW candidateEvaluations/confirmations fields (docs/contracts/pickup-job.md §5, §6a, §7, §8). Matches the exact same job as docs/mocks/pickup-job-lifecycle.json and docs/mocks/pickup-candidates.json's _demoCandidateEvaluations. Stage rule: ACKNOWLEDGED the moment the job exists, IN_PROGRESS while any candidateEvaluations row is unresolved, VERIFIED only once confirmations has a row — never from the model's own words. The final SIMULATED route-tracking event is a separate SimulatedTrackingState (frontend-data.md §4) — never the verified-location field, never implying a completed pickup. Real seed IDs only (src/fixtures.ts). Fictional data.",
+  "computedFrom": ["coordinationJobs", "candidateEvaluations", "confirmations", "simulatedTrackingState"],
+  "variables": { "childId": "p_nora" },
+  "feed": [
+    {
+      "id": "mc_0001",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "pending", "version": 1 },
+      "stage": "ACKNOWLEDGED",
+      "kind": "job_created",
+      "summary": "Pickup job created for Nora, afternoon window (requestPickup)",
+      "at": "2026-10-28T14:58:15Z"
+    },
+    {
+      "id": "mc_0002",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "discovering", "version": 2 },
+      "stage": "IN_PROGRESS",
+      "kind": "attempt",
+      "summary": "4 candidates asked in parallel: Loretta Brooks (CALL), Bryan Brooks (SMS), Tasha Ellison (SMS), Monique Davis (SMS)",
+      "at": "2026-10-28T14:58:16Z"
+    },
+    {
+      "id": "mc_0003",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "discovering", "version": 2 },
+      "stage": "IN_PROGRESS",
+      "kind": "candidate_evaluation",
+      "summary": "Loretta Brooks — OVER_POLICY ($12.40 estimated, exceeds Kendra's $10 cap). Entry point: WEBHOOK_CALLBACK.",
+      "at": "2026-10-28T14:59:02Z"
+    },
+    {
+      "id": "mc_0004",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "discovering", "version": 2 },
+      "stage": "IN_PROGRESS",
+      "kind": "candidate_evaluation",
+      "summary": "Bryan Brooks — UNAVAILABLE (declined: BUSY). Entry point: WEBHOOK_CALLBACK.",
+      "at": "2026-10-28T14:59:40Z"
+    },
+    {
+      "id": "mc_0005",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "discovering", "version": 2 },
+      "stage": "IN_PROGRESS",
+      "kind": "candidate_evaluation",
+      "summary": "Monique Davis — UNAVAILABLE (no reply within 60s). No entry point — never accepted.",
+      "at": "2026-10-28T14:59:16Z"
+    },
+    {
+      "id": "mc_0006",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "awaiting_approval", "version": 3 },
+      "stage": "IN_PROGRESS",
+      "kind": "candidate_evaluation",
+      "summary": "Tasha Ellison — RECOMMENDED (candidate-selection fact), now APPROVAL_PENDING. $6.30 estimated, within cap. Entry point: WEBHOOK_CALLBACK. Notified approver: Kendra Ellison (Wednesday). FYI: Andre Ellison.",
+      "at": "2026-10-28T14:59:45Z"
+    },
+    {
+      "id": "mc_0007",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "confirmed", "version": 4 },
+      "stage": "VERIFIED",
+      "kind": "confirmation",
+      "summary": "Confirmed: Kendra Ellison approved Tasha Ellison for pickup (approvePickup, decision: APPROVED). conf_0003. This is the parent-approval fact, separate from Tasha's earlier acceptance.",
+      "at": "2026-10-28T15:14:00Z"
+    },
+    {
+      "id": "mc_0008",
+      "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "confirmed", "version": 4 },
+      "stage": "VERIFIED",
+      "kind": "simulated_tracking",
+      "summary": "SIMULATED route animation started — Tasha's proposed route, Option B tracking (frontend-data.md §4). Not verified GPS, not an arrival, not a completed pickup.",
+      "at": "2026-10-28T15:14:05Z",
+      "label": "SIMULATED"
+    }
+  ]
+}

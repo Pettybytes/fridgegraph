@@ -65,8 +65,8 @@ A *missing* token is still not stopped at the edge, so every subgraph keeps veri
 The offline rollback is tested; see "Router topology" below.
 
 **Coming this week:** Muse reasoning and tool use with Meta's Muse Spark · the pickup coordination job
-with real calls and texts and labeled test responders · village data in Supabase · Add a Villager by
-conversation · live screens and a village health dashboard · voice signing and check-ins.
+with real calls and texts and labeled test responders · Add a Villager by conversation · live screens
+and a village health dashboard · voice signing and check-ins.
 
 *All people and data in this repo are fictional.*
 
@@ -91,7 +91,7 @@ APOLLO_ELV2_LICENSE=accept rover dev \
   --router-version 2.18.0 \
   --mcp .apollo/mcp.local.yaml     # drop --mcp to run only the router
 
-npm run reset                    # restore the in-memory store to the fixtures
+npm run reset                    # restore the database to the seed baseline
 node ops/run-evidence.mjs        # re-run the whole evidence suite against the router
 node ops/mcp-probe.mjs           # MCP handshake, tools/list, tools/call
 ```
@@ -260,7 +260,6 @@ explicit `asOf` / `date` arguments in `02`, `03`, `05c` and `11*`.
 
 ```
 src/fixtures.ts        fictional village: everyone, what they offer, what they were granted
-src/store.ts           one in-memory store, reset, approval recording
 src/authz.ts           field-level rules; UNAUTHENTICATED vs UNAUTHORIZED
 src/auth/verify.ts     Supabase JWT verification (ES256, iss, aud) + sub → person map
 src/context.ts         verified identity + local "today" (APP_TIME_ZONE)

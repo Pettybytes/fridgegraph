@@ -1,7 +1,9 @@
 # FridgeGraph schema plan (Milestone 1)
 
-One shared graph. Seven subgraphs, one in-memory store. Each subgraph **writes only its own
-tables**; in-process reads across tables are allowed (the store is replaced by Supabase later).
+One shared graph. Seven subgraphs, one Postgres database. Each subgraph **writes only its own
+tables**; cross-subgraph reads go through the graph. Every subgraph reads its tables through a
+per-request RLS client authenticated with the caller's token — there is no in-memory store any more
+(`src/store.ts` was deleted when the last subgraph moved to Postgres).
 
 ## Ownership
 
