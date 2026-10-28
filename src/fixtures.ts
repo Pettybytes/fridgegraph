@@ -319,6 +319,9 @@ export function createSeed(): Seed {
   const policies = [
     { householdId: 'h_a', rule: 'sibling_supervision_min_age', value: '16' },
     { householdId: 'h_a', rule: 'caregiver_approval', value: 'ANY_PARENT' },
+    // Station 06: the household's ride-cost cap. `over the cap` is a permissibility flag, never a
+    // refusal — the approver's approvePickup is what authorizes crossing it (pickup-job.md §6a).
+    { householdId: 'h_a', rule: 'ride_cost_cap_usd', value: '10' },
   ];
 
   const schedules = [
