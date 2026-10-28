@@ -124,6 +124,25 @@ plus a timestamp header, and compensates with stricter application-level binding
   exists because that was not assumed without checking, not because a weaker boundary is
   preferred.
 
+**Risk register entry.** The static-secret-plus-timestamp scheme above is **not cryptographic
+replay protection.** An HMAC signature over the body proves the body wasn't altered and (combined
+with a timestamp) that the request is fresh; a bare timestamp proves neither — it only bounds a
+window. **Anyone holding the shared secret can replay a request within that window**, because
+nothing here is signed. This is a known, accepted risk, not an oversight, carried because GHL may
+not offer a way to sign — see Open question 2. Compensating controls, all already in force:
+
+- binding every request to an existing `Attempt`, its recipient, its channel, and the job's
+  `requestVersion` (§10a's identity-confirmation turn gets the same check, not an exemption);
+- **availability-only effect** — this endpoint can change a `CandidateEvaluation`, never approve
+  anything;
+- **no route to parental approval** — `approvePickup` is unreachable from here regardless of what
+  a replayed request contains (§1);
+- the real-call exception's own second, independent gate (`pickup-job.md` §10, §6a above) — even
+  a successful replay against this endpoint cannot place a real call, because this endpoint has no
+  path to a `RealCallAuthorization`.
+
+Referenced from `pickup-job.md` §10 as the reason its second gate is load-bearing, not redundant.
+
 ## 4. Correlation ids
 
 Every outbound attempt already creates an `Attempt` row (`docs/contracts/data-model.md`,
@@ -203,11 +222,19 @@ A single candidate's discovery timeout tags that candidate `UNAVAILABLE` and let
 proceed with whoever else has replied; it does not fail the job. Only the job-level discovery
 deadline, the approval deadline, or an explicit approver decline produces `failed`.
 
-### 6a. Real-call exception
+### 6a. Real-call exception — two gates, both required
 
-Governed by `REAL_CALL_EXCEPTION_ENABLED`, **default `false` in code** (`pickup-job.md` §10). When
-`true` for a run, exactly one consented number — provisioned once, inside GHL, **never in this
-repo** — may be dialed. At the wire level:
+Full rule: `pickup-job.md` §10. **`REAL_CALL_EXCEPTION_ENABLED=true` is necessary but not
+sufficient.** The dispatch path checks two independent gates immediately before placing the call:
+
+1. `REAL_CALL_EXCEPTION_ENABLED=true`, default `false` in the executable dispatch logic — never
+   set by a test, a skipped step, or a simulated failure.
+2. A valid, unconsumed, unexpired `RealCallAuthorization` (**NEW**), issued only with Bryan's
+   explicit approval, single-use, bound to that specific recipient and that specific `Attempt`,
+   validated and consumed in one atomic backend operation.
+
+If either gate is missing or invalid, **no call is placed** — not a downgrade to a test responder,
+not a silent dial anyway. At the wire level, once both gates pass for a given attempt:
 
 - That dispatch's `destinationMode` is `"real-consented"`, never `"test-responder"` and never
   absent.
@@ -215,6 +242,10 @@ repo** — may be dialed. At the wire level:
   `destinationMode` end to end.
 - Outside of that one number, on that one enabled run, `destinationMode` is always
   `"test-responder"`. No code path defaults it to `"real-consented"`.
+
+This gate pairing is also why §3b's weaker trust boundary is an acceptable risk rather than a
+blocking one: even a compromised `voice-turn` endpoint cannot, by itself, cause a real call — it
+has no path to either gate.
 
 ## 7. Reply payload — n8n → FridgeGraph (SMS, and voice call-completed) — Entry point A
 
@@ -375,6 +406,11 @@ Response (FridgeGraph → GHL, consumed by Rosina to keep talking or end the cal
   secret anywhere a human-readable workflow log would capture it in full.
 - Storing the real-call exception's number in this repo, or claiming GHL supports HMAC signing
   without having confirmed it.
+- Placing a real call on `REAL_CALL_EXCEPTION_ENABLED=true` alone, without a valid, unconsumed,
+  unexpired `RealCallAuthorization` bound to that recipient and that attempt (`pickup-job.md` §10,
+  §6a above).
+- Treating this endpoint's static-secret-plus-timestamp scheme as replay-proof — it isn't (risk
+  register, §3b).
 
 ## 12. Open questions for Bryan
 

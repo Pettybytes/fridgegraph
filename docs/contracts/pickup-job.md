@@ -287,11 +287,35 @@ guard — detailed per-transport in `webhook.md` §4/§8.
 
 ## 10. Channels — test rules, and the one real-call exception
 
-No real person is contacted during development **except the one exception below.**
+No real person is contacted during development **except the one exception below — and even then,
+only when BOTH of two independent gates pass.** Neither gate is sufficient alone.
 
-**Real-call exception.** Governed by a named flag, `REAL_CALL_EXCEPTION_ENABLED`, **default
-`false` in code** — there is no environment or config path that makes it default-on. When `true`
-for a run:
+**Gate 1 — `REAL_CALL_EXCEPTION_ENABLED=true`, default `false` in the executable dispatch logic.**
+There is no environment or config path that makes it default-on. **A failed, skipped, or
+simulated test must never enable or trigger a real call** — no test harness, fixture, or failure
+path may set this flag, and nothing about a test run completing (successfully or not) may leave
+it set for a later run.
+
+**Gate 2 — a separate, run-specific authorization (NEW: `RealCallAuthorization`), issued only with
+Bryan's explicit approval.** It is:
+
+- **single-use** — validated and consumed in **one atomic backend operation**; there is no window
+  between "check" and "mark used" where a race or a retry could spend it twice;
+- **short-lived** — carries its own `expiresAt`; rejected once expired, even if otherwise
+  untouched;
+- **bound to the intended recipient and the specific call attempt** — not a standing grant. A
+  second call, even to the same consented number, needs a second authorization;
+- **rejected outright if expired or already consumed** — reuse is a hard failure, not a silent
+  no-op.
+
+**The flag is necessary but not sufficient.** Dispatch logic checks both gates, immediately before
+placing the call, in the backend — never in the workflow tool. If either gate is missing or
+invalid, **no call is placed** — the backend refuses to dispatch rather than silently downgrading
+to a test responder or silently placing the call anyway. See `webhook.md` §6a for the same rule
+mirrored at the wire level, and §3b's risk-register entry for why the `voice-turn` boundary's own
+weaker authentication makes this second gate load-bearing, not redundant.
+
+Once both gates pass for a given attempt:
 
 1. Exactly **one** explicitly consented recipient — a stand-in for "Grandma Loretta" — may be
    dialed.
@@ -335,6 +359,13 @@ new `address.read` gate (§3, §6).
   ETA, or a booking.
 - Enabling the real-call exception by default, storing its number in the repo, or dialing anything
   other than the one consented number while it's enabled.
+- Treating `REAL_CALL_EXCEPTION_ENABLED=true` as sufficient by itself — a valid, unconsumed,
+  unexpired `RealCallAuthorization` bound to that recipient and that attempt is also required,
+  every time, with no exception for "it worked last time."
+- Letting a failed, skipped, or simulated test leave the flag set, or leave a valid
+  `RealCallAuthorization` behind for a later run to pick up.
+- Reusing a `RealCallAuthorization` after it has been consumed or after it has expired — both are
+  hard rejections, never a silent re-check.
 - Re-sending after a crash without an idempotency guard.
 - Claiming a live call or text worked when only a mock (or an un-enabled real-call exception) ran.
 - Spending money (voice minutes, SMS credits, model calls at scale) without explicit approval.
@@ -357,9 +388,19 @@ new `address.read` gate (§3, §6).
 8. `confirmed` without a `Confirmation` row still fails.
 9. No candidate outside `pickupCandidates` is ever contacted — negative test.
 10. If the real-call exception was used, the run's logs show `REAL_CALL_EXCEPTION_ENABLED=true`
-    was set explicitly, the number came from GHL (not the repo), and every touched record is
-    labelled `real-consented`.
-11. Evidence file in `docs/evidence/`, plus `npm run check` and `npm run typecheck` clean.
+    was set explicitly, a `RealCallAuthorization` was issued, validated, and consumed exactly
+    once, the number came from GHL (not the repo), and every touched record is labelled
+    `real-consented`.
+11. **Both real-call gates are proven independently, by negative test:** flag `true` with no (or
+    an expired, or an already-consumed) `RealCallAuthorization` still places no call; a valid,
+    unexpired, unconsumed authorization with the flag `false` still places no call. Only flag
+    `true` **and** a fresh, matching authorization places the call — and the authorization is
+    unusable immediately afterward.
+12. `NO_VERIFIED_CONTACT_METHOD` (§5, §14) is proven by a **deterministic unit-level negative
+    test** against the ranking/evaluation logic directly — not by adding a new seed fixture. The
+    four-candidate baseline (`src/fixtures.ts`, `docs/mocks/pickup-candidates.json`) stays exactly
+    as it is.
+13. Evidence file in `docs/evidence/`, plus `npm run check` and `npm run typecheck` clean.
 
 ## 14. Open questions for Bryan
 
@@ -367,9 +408,17 @@ Resolved this revision (recorded in place above, not repeated here): the two `ac
 points and their shared transactional rules (§8); the approver-decline path and re-pick-in-same-job
 being explicitly P2 (§7); the exact ranking order and the authorization/availability/transport/
 deadline/distance/resolver-order sequence (§5b); `NO_VERIFIED_CONTACT_METHOD` vs. `UNREACHABLE`
-(§5); the canonical location model and its ownership/scope (§6); the ride-cost formula (§6a); and
-`REAL_CALL_EXCEPTION_ENABLED` as a named, default-off flag with the number provisioned only in GHL
-(§10).
+(§5); the canonical location model and its ownership/scope (§6); the ride-cost formula (§6a);
+`REAL_CALL_EXCEPTION_ENABLED` as a named, default-off flag with the number provisioned only in GHL,
+**now a necessary-but-not-sufficient gate paired with a required, single-use, short-lived
+`RealCallAuthorization`** (§10); and how `NO_VERIFIED_CONTACT_METHOD` gets proven — a
+**deterministic unit-level negative test against the policy logic, not a new seed fixture** (§13
+DoD item 12). Dana Coleman (`p_dana`) remains the real-seed illustration used in
+`docs/mocks/pickup-candidates.json` for what the code *means*, with the same honest caveat as
+before (she also independently fails `UNAUTHORIZED` — her relationship is `DISCOVERED`, not
+`ACTIVE`, and she holds no grant for Nora at all); the unit test, not her mock entry, is what
+actually proves the code in isolation. The four-candidate seed baseline is explicitly preserved,
+unchanged.
 
 Still genuinely open:
 
@@ -377,15 +426,12 @@ Still genuinely open:
    check-out integration, a parent self-report, something else — is undecided, and nothing in this
    milestone wires it to anything.
 2. **`AVAILABLE_NO_TRANSPORT` has no real seed example.** Every actual `pickup.request` holder for
-   Nora already has a vehicle in `src/fixtures.ts`.
-3. **No real seed example cleanly demonstrates `NO_VERIFIED_CONTACT_METHOD` either**, for a subtler
-   reason: Dana Coleman (`p_dana`) is used for it in `docs/mocks/pickup-candidates.json` because
-   her only contact method is unverified, but she **also** fails the authorization gate
-   independently (her relationship to Nora is `DISCOVERED`, not `ACTIVE`, and she holds no grant
-   for Nora at all) — in the strict gate order in §5, she would actually be caught as
-   `UNAUTHORIZED` first, never reaching the contact-method check. She is used anyway, per explicit
-   instruction, as the clearest available real-seed illustration of what the code means; a person
-   who is authorized but fails only the contact-method check does not exist in today's seed.
-4. **Where `PickupRoute`/`CandidateRouteLeg` data actually comes from for real people** — today's
+   Nora already has a vehicle in `src/fixtures.ts`. Unlike `NO_VERIFIED_CONTACT_METHOD`, no
+   decision has been made yet on whether this also gets a unit-level proof instead of a seed
+   change — flagged for the same treatment, not yet confirmed.
+3. **Where `PickupRoute`/`CandidateRouteLeg` data actually comes from for real people** — today's
    schema has zero stored addresses anywhere; §6 specifies the shape but seeding real (fictional)
    coordinates for Nora's school/home and each candidate's origin is unstarted work.
+4. **Who issues a `RealCallAuthorization`, and through what interface** — "with Bryan's explicit
+   approval" is the rule (§10); the actual issuance mechanism (a CLI command, an admin endpoint, a
+   manual DB row) is not specified here.
