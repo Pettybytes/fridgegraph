@@ -1,67 +1,85 @@
 {
-  "_note": "Mock only. All people, numbers and plates are fictional test fixtures. No live data.",
+  "_note": "Mock only. Matches the real seed (src/fixtures.ts) and the real resolver (src/derive.ts pickupCandidatesFor: ACTIVE relationship + transport.child capability + pickup.request grant valid at asOf). This is the exact 4-candidate answer referenced in AGENTS.md §8 (\"MCP on 5050 as Kendra returning 4 pickup candidates\"). Fictional people, real fixture IDs. No live data.",
   "query": "pickupCandidates",
   "variables": { "childId": "p_nora", "asOf": "2026-10-28" },
   "data": {
     "pickupCandidates": [
       {
         "person": {
-          "id": "p_kendra",
-          "displayName": "Kendra Okafor",
+          "id": "p_gma",
+          "displayName": "Loretta Brooks",
           "contactMethods": [
-            { "channel": "SMS", "value": "+15550100001", "preferred": true, "verified": true },
-            { "channel": "CALL", "value": "+15550100001", "preferred": false, "verified": true }
+            { "channel": "CALL", "value": "+1-313-555-0103", "preferred": true, "verified": true }
           ],
           "vehicles": [
-            { "year": 2021, "make": "Toyota", "model": "Sienna", "color": "Silver", "plate": "TEST-001" }
+            { "year": 2016, "make": "Buick", "model": "Enclave", "color": "white", "plate": "DEMO-103" }
           ]
         },
-        "reason": "parent",
+        "reason": "grandmother — transport.child offered, pickup.request grant valid 2026-10-28",
         "authorization": "AUTHORIZED",
         "availability": "UNKNOWN"
       },
       {
         "person": {
-          "id": "p_chris",
-          "displayName": "Chris Okafor",
+          "id": "p_bryan",
+          "displayName": "Bryan Brooks",
           "contactMethods": [
-            { "channel": "SMS", "value": "+15550100002", "preferred": true, "verified": true }
+            { "channel": "SMS", "value": "+1-313-555-0104", "preferred": true, "verified": true }
           ],
           "vehicles": [
-            { "year": 2019, "make": "Honda", "model": "CR-V", "color": "Blue", "plate": "TEST-002" }
+            { "year": 2020, "make": "Dodge", "model": "Charger", "color": "blue", "plate": "DEMO-104" }
           ]
         },
-        "reason": "parent",
-        "authorization": "AUTHORIZED",
-        "availability": "CONTACTED"
-      },
-      {
-        "person": {
-          "id": "p_loretta",
-          "displayName": "Loretta Bell",
-          "contactMethods": [
-            { "channel": "CALL", "value": "+15550100003", "preferred": true, "verified": true },
-            { "channel": "EMAIL", "value": "loretta@example.invalid", "preferred": false, "verified": false }
-          ],
-          "vehicles": []
-        },
-        "reason": "holds pickup.verify grant valid on 2026-10-28",
+        "reason": "uncle — transport.child offered, pickup.request grant valid 2026-10-28",
         "authorization": "AUTHORIZED",
         "availability": "UNKNOWN"
       },
       {
         "person": {
-          "id": "p_walter",
-          "displayName": "Walter Bell",
+          "id": "p_tasha",
+          "displayName": "Tasha Ellison",
           "contactMethods": [
-            { "channel": "SMS", "value": "+15550100004", "preferred": false, "verified": false }
+            { "channel": "SMS", "value": "+1-313-555-0107", "preferred": true, "verified": true }
           ],
-          "vehicles": []
+          "vehicles": [
+            { "year": 2022, "make": "Toyota", "model": "RAV4", "color": "red", "plate": "DEMO-105" }
+          ]
         },
-        "reason": "grandparent (no pickup grant)",
+        "reason": "aunt + godmother — transport.child offered, pickup.request grant valid 2026-10-28",
         "authorization": "AUTHORIZED",
-        "availability": "UNKNOWN",
-        "_testNote": "Only an UNVERIFIED method exists. The job must reject this candidate as unreachable and record the reason instead of sending."
+        "availability": "UNKNOWN"
+      },
+      {
+        "person": {
+          "id": "p_monique",
+          "displayName": "Monique Davis",
+          "contactMethods": [
+            { "channel": "SMS", "value": "+1-313-555-0108", "preferred": true, "verified": true }
+          ],
+          "vehicles": [
+            { "year": 2023, "make": "Kia", "model": "Telluride", "color": "silver", "plate": "DEMO-106" }
+          ]
+        },
+        "reason": "parent_friend — transport.child offered, pickup.request grant valid 2026-10-28",
+        "authorization": "AUTHORIZED",
+        "availability": "UNKNOWN"
+      }
+    ]
+  },
+  "_notCandidates": {
+    "_note": "People related to Nora who do NOT appear above, and why — against the real resolver logic, not invented.",
+    "examples": [
+      {
+        "person": { "id": "p_chris", "displayName": "Chris Harlan" },
+        "reason": "parent_friend relationship is ACTIVE and transport.child is offered, but the only grant held for Nora (g_chris_expired) is careplan.read, and its window closed 2026-09-30 — no pickup.request grant, so not a candidate."
+      },
+      {
+        "person": { "id": "p_walter", "displayName": "Walter Ellison" },
+        "reason": "grandfather relationship is ACTIVE and his CALL contact (+1-313-555-0105) is verified, but his grant (g_walter) holds only schedule.read and goals.read — no pickup.request, so not a candidate. (Previously this mock mislabelled Walter as reachable only by an unverified method; his real contact is verified — he is excluded for a different reason: no grant, not a bad channel.)"
+      },
+      {
+        "person": { "id": "p_dana", "displayName": "Dana Coleman" },
+        "reason": "the only relationship to Nora (r_dana_friend_parent) is status DISCOVERED, not ACTIVE, and her one contact method (SMS +1-313-555-0111) is verified: false. Either fact alone would exclude her; both apply. She is the real example for pickup-job.md's 'only an unverified method exists, must reject' rule — see docs/mocks/pickup-job-lifecycle.json."
       }
     ]
   }

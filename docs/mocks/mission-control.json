@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Illustrates the PROPOSED missionControlFeed aggregate (docs/contracts/frontend-data.md §5), built from EXISTING coordination.graphql / access.graphql data. The three-stage rendering rule: ACKNOWLEDGED -> IN_PROGRESS -> VERIFIED, where VERIFIED requires a Confirmation row, never the model's prose. Fictional data only.",
+  "_note": "Mock only. Illustrates the PROPOSED missionControlFeed aggregate (docs/contracts/frontend-data.md §5), built from EXISTING coordination.graphql / access.graphql data. The three-stage rendering rule: ACKNOWLEDGED -> IN_PROGRESS -> VERIFIED, where VERIFIED requires a Confirmation row, never the model's prose. Kendra Ellison (p_mom) and Bryan Brooks (p_bryan, uncle, one of the 4 real pickupCandidates) match the real seed (src/fixtures.ts) — see docs/mocks/pickup-job-lifecycle.json for the matching state-machine walk. Fictional data only.",
   "query": "missionControlFeed",
   "variables": { "childId": "p_nora" },
   "data": {
@@ -17,7 +17,7 @@
         "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "awaiting_parent", "version": 2 },
         "stage": "IN_PROGRESS",
         "kind": "attempt",
-        "summary": "SMS sent to Kendra (test responder), provider id test_msg_0001",
+        "summary": "SMS sent to Kendra Ellison (test responder), provider id test_msg_0001",
         "at": "2026-10-28T14:58:30Z"
       },
       {
@@ -25,7 +25,7 @@
         "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "awaiting_adult", "version": 3 },
         "stage": "IN_PROGRESS",
         "kind": "attempt",
-        "summary": "No reply from Kendra in window; called Loretta (test responder), provider id test_call_0002",
+        "summary": "No reply from Kendra in window; texted Bryan Brooks (test responder), provider id test_msg_0002",
         "at": "2026-10-28T15:08:30Z"
       },
       {
@@ -33,7 +33,7 @@
         "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "confirmed", "version": 4 },
         "stage": "VERIFIED",
         "kind": "confirmation",
-        "summary": "Confirmation received: Loretta, SMS, conf_0003",
+        "summary": "Confirmation received: Bryan Brooks, SMS, conf_0003",
         "at": "2026-10-28T15:12:04Z"
       }
     ]

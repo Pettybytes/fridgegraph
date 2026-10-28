@@ -86,18 +86,23 @@ Every outbound attempt already creates an `Attempt` row (`docs/contracts/data-mo
   "attemptId": "att_01HXYZ",
   "jobId": "job_01HXYZ",
   "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
-  "channel": "SMS",
-  "destination": "+15550100001",
-  "destinationLabel": "test-responder:kendra",
-  "personId": "p_kendra",
-  "personDisplayName": "Kendra Okafor",
+  "channel": "CALL",
+  "destination": "+1-313-555-0103",
+  "destinationLabel": "test-responder:loretta",
+  "personId": "p_gma",
+  "personDisplayName": "Loretta Brooks",
   "childId": "p_nora",
   "childDisplayName": "Nora",
   "requesterDisplayName": "Kendra",
   "message": "Hi, this is Muse, an AI assistant with FridgeGraph. I'm calling on behalf of Kendra about Nora's pickup. Is now a good time?",
-  "timeoutSeconds": 600
+  "timeoutSeconds": 120
 }
 ```
+
+This example calls Loretta Brooks (`p_gma`) — one of the 4 real `pickupCandidates` for Nora in
+`src/fixtures.ts`/`src/derive.ts`, and the one reachable only by `CALL` in that seed (her sole
+contact method) — on Kendra's (`p_mom`) behalf, which is why the opening line names Kendra as the
+requester, not as the callee.
 
 - `channel` is `SMS` or `CALL` only in this milestone (`pickup-job.md` §7: voice is accommodated,
   not yet live beyond the Custom Action spike below).

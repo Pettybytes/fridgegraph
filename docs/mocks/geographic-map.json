@@ -1,26 +1,26 @@
 {
-  "_note": "Mock only. Illustrates the PROPOSED mapLocations query and Location/LocationSource types (docs/contracts/frontend-data.md §4) — no geographic field exists in the schema yet. Fictional data only.",
+  "_note": "Mock only. Illustrates the PROPOSED mapLocations query and Location/LocationSource types (docs/contracts/frontend-data.md §4) — no geographic field exists in the schema yet, so coordinates here are invented. People, ids and households are real (src/fixtures.ts): Nora Ellison (p_nora, household h_a), Kendra Ellison (p_mom, household h_a), Loretta Brooks (p_gma, grandmother, not a household member in the seed — household is null, not invented). Fictional data only.",
   "query": "mapLocations",
   "variables": { "childId": "p_nora" },
   "data": {
     "mapLocations": [
       {
-        "person": { "id": "p_nora", "displayName": "Nora Okafor" },
-        "household": { "id": "h_okafor" },
+        "person": { "id": "p_nora", "displayName": "Nora Ellison" },
+        "household": { "id": "h_a" },
         "location": { "lat": 42.3314, "lng": -83.0458, "source": "VERIFIED" },
         "label": "Nora's school (verified address on file)"
       },
       {
-        "person": { "id": "p_kendra", "displayName": "Kendra Okafor" },
-        "household": { "id": "h_okafor" },
+        "person": { "id": "p_mom", "displayName": "Kendra Ellison" },
+        "household": { "id": "h_a" },
         "location": { "lat": 42.3223, "lng": -83.0381, "source": "SUPPLIED" },
         "label": "Kendra's workplace (supplied by Kendra)"
       },
       {
-        "person": { "id": "p_loretta", "displayName": "Loretta Bell" },
-        "household": { "id": "h_bell" },
+        "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
+        "household": null,
         "location": { "lat": 42.3401, "lng": -83.0556, "source": "ESTIMATED" },
-        "label": "Loretta's home (estimated from household ZIP — not confirmed)"
+        "label": "Loretta's home (estimated — not confirmed; she has no household row in the seed)"
       }
     ]
   }

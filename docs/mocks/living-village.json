@@ -1,36 +1,54 @@
 {
-  "_note": "Mock only. Illustrates the PROPOSED villageGraph aggregate (docs/contracts/frontend-data.md §3), built from EXISTING village.graphql data (village, householdMembers, relationships, groups, memberships). Fictional data only.",
+  "_note": "Mock only. Nodes, households, and relationship ids/types/statuses are copied verbatim from the real seed (src/fixtures.ts: people, households, householdMembers, relationships for p_nora) — not invented. Nora Ellison (p_nora) is a member of BOTH h_a and h_b (joint households); this mock shows her primary membership (h_a) only, since the PROPOSED VillageNode type carries one household per node (see docs/contracts/frontend-data.md §3 Requested changes). Loretta Brooks, Walter Ellison and Bryan Brooks are related to Nora but are not household members in the seed, so their household is null. Fictional data only.",
   "query": "villageGraph",
-  "variables": { "villageId": "v_main" },
+  "variables": { "villageId": "v_nora" },
   "data": {
     "villageGraph": {
       "nodes": [
-        { "person": { "id": "p_nora", "displayName": "Nora Okafor" }, "household": { "id": "h_okafor" }, "role": "child" },
-        { "person": { "id": "p_kendra", "displayName": "Kendra Okafor" }, "household": { "id": "h_okafor" }, "role": "parent" },
-        { "person": { "id": "p_chris", "displayName": "Chris Okafor" }, "household": { "id": "h_okafor" }, "role": "parent" },
-        { "person": { "id": "p_loretta", "displayName": "Loretta Bell" }, "household": { "id": "h_bell" }, "role": "adult" },
-        { "person": { "id": "p_walter", "displayName": "Walter Bell" }, "household": { "id": "h_bell" }, "role": "adult" }
+        { "person": { "id": "p_nora", "displayName": "Nora Ellison" }, "household": { "id": "h_a" }, "role": "child" },
+        { "person": { "id": "p_mom", "displayName": "Kendra Ellison" }, "household": { "id": "h_a" }, "role": "parent" },
+        { "person": { "id": "p_dad", "displayName": "Andre Ellison" }, "household": { "id": "h_b" }, "role": "parent" },
+        { "person": { "id": "p_leo", "displayName": "Leo Ellison" }, "household": { "id": "h_a" }, "role": "child" },
+        { "person": { "id": "p_max", "displayName": "Max Ellison" }, "household": { "id": "h_a" }, "role": "child" },
+        { "person": { "id": "p_gma", "displayName": "Loretta Brooks" }, "household": null, "role": "adult" },
+        { "person": { "id": "p_walter", "displayName": "Walter Ellison" }, "household": null, "role": "adult" },
+        { "person": { "id": "p_bryan", "displayName": "Bryan Brooks" }, "household": null, "role": "adult" }
       ],
       "edges": [
         {
-          "from": { "id": "p_kendra" },
+          "from": { "id": "p_mom" },
           "to": { "id": "p_nora" },
-          "relationship": { "id": "rel_0001", "type": "parent", "status": "ACTIVE" }
+          "relationship": { "id": "r_kendra_parent", "type": "parent", "status": "ACTIVE" }
         },
         {
-          "from": { "id": "p_chris" },
+          "from": { "id": "p_dad" },
           "to": { "id": "p_nora" },
-          "relationship": { "id": "rel_0002", "type": "parent", "status": "ACTIVE" }
+          "relationship": { "id": "r_andre_parent", "type": "parent", "status": "ACTIVE" }
         },
         {
-          "from": { "id": "p_loretta" },
+          "from": { "id": "p_leo" },
           "to": { "id": "p_nora" },
-          "relationship": { "id": "rel_0003", "type": "grandparent", "status": "APPROVED" }
+          "relationship": { "id": "r_leo_brother", "type": "brother", "status": "ACTIVE" }
+        },
+        {
+          "from": { "id": "p_max" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "r_max_brother", "type": "brother", "status": "ACTIVE" }
+        },
+        {
+          "from": { "id": "p_gma" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "r_loretta_grandmother", "type": "grandmother", "status": "ACTIVE" }
         },
         {
           "from": { "id": "p_walter" },
           "to": { "id": "p_nora" },
-          "relationship": { "id": "rel_0004", "type": "grandparent", "status": "DISCOVERED" }
+          "relationship": { "id": "r_walter_grandfather", "type": "grandfather", "status": "ACTIVE" }
+        },
+        {
+          "from": { "id": "p_bryan" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "r_bryan_uncle", "type": "uncle", "status": "ACTIVE" }
         }
       ]
     }

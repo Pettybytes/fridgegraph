@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Illustrates the PROPOSED calendarDay aggregate (docs/contracts/frontend-data.md §6), built entirely from EXISTING schedule/activities/school/transport/coordination data. Fictional data only.",
+  "_note": "Mock only. Illustrates the PROPOSED calendarDay aggregate (docs/contracts/frontend-data.md §6), built entirely from EXISTING schedule/activities/school/transport/coordination data. childId, the g_tigers group, and the bus route name match the real seed (src/fixtures.ts: Nora is a g_tigers player; her real bus route is 'Route 14' on g_route14). The specific event/practice/slip rows are illustrative, not literal seed rows. Fictional data only.",
   "query": "calendarDay",
   "variables": { "childId": "p_nora", "date": "2026-10-28" },
   "data": {
@@ -17,7 +17,7 @@
       "permissionSlips": [
         { "id": "slip_0001", "child": { "id": "p_nora" }, "title": "Field trip — science museum", "signed": true }
       ],
-      "busRoster": { "date": "2026-10-28", "child": { "id": "p_nora" }, "route": "Route 4", "riding": true },
+      "busRoster": { "date": "2026-10-28", "child": { "id": "p_nora" }, "route": "Route 14", "riding": true },
       "outcomes": [
         { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "confirmed", "version": 4 }
       ]

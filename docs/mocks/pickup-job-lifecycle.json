@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Illustrates the job state machine, versioning and idempotency. Not a database dump.",
+  "_note": "Mock only. Illustrates the job state machine, versioning and idempotency. Not a database dump. People and numbers match the real seed (src/fixtures.ts): Kendra Ellison (p_mom) is Nora's parent; Bryan Brooks (p_bryan) is one of the 4 real pickup candidates (see docs/mocks/pickup-candidates.json) and his only contact method is SMS +1-313-555-0104. Dana Coleman (p_dana) is used for the unverified-method rejection because her real contact is verified: false — Walter Ellison's real contact is verified: true, so he is the wrong example for that rule.",
   "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
   "childId": "p_nora",
   "asOf": "2026-10-28",
@@ -17,16 +17,16 @@
       "to": "awaiting_parent",
       "version": 2,
       "actor": "agent",
-      "evidence": "attempt: SMS -> +15550100001 (test responder), provider id test_msg_0001",
-      "note": "asked Kendra first: parent, verified SMS, preferred"
+      "evidence": "attempt: SMS -> +1-313-555-0101 (test responder), provider id test_msg_0001",
+      "note": "asked Kendra Ellison (p_mom) first: parent, verified SMS, preferred"
     },
     {
       "from": "awaiting_parent",
       "to": "awaiting_adult",
       "version": 3,
       "actor": "agent",
-      "evidence": "attempt: CALL -> +15550100003 (test responder), provider id test_call_0002",
-      "note": "Kendra did not reply in window; escalated to Loretta (holds pickup.verify)"
+      "evidence": "attempt: SMS -> +1-313-555-0104 (test responder), provider id test_msg_0002",
+      "note": "Kendra did not reply in window; escalated to Bryan Brooks (p_bryan), one of the 4 real pickupCandidates — uncle, transport.child offered, pickup.request grant valid 2026-10-28"
     },
     {
       "from": "awaiting_adult",
@@ -49,9 +49,9 @@
       "reason": "no Confirmation row — a model claim is not evidence"
     },
     {
-      "attempt": { "person": "p_walter", "channel": "SMS" },
+      "attempt": { "person": "p_dana", "channel": "SMS" },
       "result": "REJECTED",
-      "reason": "only contact method has verified=false — must not send"
+      "reason": "only contact method (SMS +1-313-555-0111) has verified=false — must not send"
     }
   ],
   "failedPath": {
