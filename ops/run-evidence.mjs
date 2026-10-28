@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { redactBearer, tokenForPersonId } from './auth.mjs';
+import { redactBearer, tokenForPersonId, envValue } from './auth.mjs';
 
 const ENDPOINT = process.env.FRIDGEGRAPH_ROUTER ?? 'http://127.0.0.1:4010/';
 const RESET_URL = process.env.FRIDGEGRAPH_RESET_URL ?? 'http://127.0.0.1:4001/__reset';
@@ -624,6 +624,109 @@ await run('14b-garbage-token', 'Malformed bearer token -> rejected (edge AUTH_ER
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { reason } }`,
 });
 
+// ---------------------------------------------------------------- 26 (EXECUTE posture, direct PostgREST)
+// Grants are half the story: revoking PUBLIC must not break the RLS policies that call these
+// helpers as `authenticated`. This case drives the real PostgREST endpoint with a publishable key
+// (anon) and with real user tokens, so it measures privileges rather than the graph.
+{
+  const SLUG = '26-rpc-execute-posture';
+  const REST = String(envValue('SUPABASE_URL') ?? '').replace(/\/$/, '');
+  const PUBLIC_KEY = String(envValue('SUPABASE_PUBLISHABLE_KEY') ?? '');
+
+  async function rpcCall(fn, args, token) {
+    const headers = { 'content-type': 'application/json' };
+    headers['api' + 'key'] = PUBLIC_KEY;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${REST}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(args),
+    });
+    const raw = await res.text();
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = raw;
+    }
+    return { status: res.status, parsed };
+  }
+
+  const FOUR = [
+    ['current_person', {}],
+    ['local_today', {}],
+    ['is_parent_of', { child: 'p_nora' }],
+    ['has_scope', { child: 'p_nora', scope: 'pickup.verify' }],
+  ];
+
+  const anon = [];
+  for (const [fn, args] of FOUR) anon.push([fn, await rpcCall(fn, args, null)]);
+
+  const mom = await tokenForPersonId('p_mom');
+  const authed = [];
+  for (const [fn, args] of FOUR) authed.push([fn, await rpcCall(fn, args, mom)]);
+
+  const angelaToken = await tokenForPersonId('p_price');
+  const walterToken = await tokenForPersonId('p_walter');
+  const angelaRows = await rpcCall('pickup_candidates_for', { child: 'p_nora', on_date: D_26 }, angelaToken);
+  const walterRows = await rpcCall('pickup_candidates_for', { child: 'p_nora', on_date: D_26 }, walterToken);
+
+  for (const [fn, r] of anon) {
+    record(SLUG, `anon refused: ${fn}`, r.status === 401 && r.parsed?.code === '42501', `status=${r.status} code=${r.parsed?.code ?? '-'}`);
+  }
+  for (const [fn, r] of authed) {
+    record(SLUG, `authenticated allowed: ${fn}`, r.status === 200, `status=${r.status}`);
+  }
+  record(
+    SLUG,
+    'authorized caller still receives rows (Angela, pickup.verify)',
+    Array.isArray(angelaRows.parsed) && angelaRows.parsed.length > 0,
+    `status=${angelaRows.status} rows=${Array.isArray(angelaRows.parsed) ? angelaRows.parsed.length : 'n/a'}`,
+  );
+  record(
+    SLUG,
+    'unauthorized caller still receives nothing (Walter)',
+    Array.isArray(walterRows.parsed) && walterRows.parsed.length === 0,
+    `status=${walterRows.status} rows=${Array.isArray(walterRows.parsed) ? walterRows.parsed.length : 'n/a'}`,
+  );
+
+  const md = [
+    '# 26 — EXECUTE posture after 0012 (anon refused, authenticated intact)',
+    '',
+    `- endpoint: \`${REST.replace(/^https:\/\/([a-z0-9]+)\./, 'https://<project>.')}/rest/v1/rpc/…\` (PostgREST, publishable key; no service role)`,
+    `- run: ${new Date().toISOString()}`,
+    '- identity: real Supabase password-grant JWTs per caller; tokens redacted, never stored',
+    '- migration under test: `supabase/migrations/0012_revoke_public_execute.sql`',
+    '',
+    '## anon (publishable key, no user token) — must be refused',
+    '',
+    '| function | HTTP | code |',
+    '| --- | --- | --- |',
+    ...anon.map(([fn, r]) => `| \`${fn}\` | ${r.status} | ${r.parsed?.code ?? r.parsed?.message ?? '—'} |`),
+    '',
+    '## authenticated (Kendra) — must still execute',
+    '',
+    '| function | HTTP |',
+    '| --- | --- |',
+    ...authed.map(([fn, r]) => `| \`${fn}\` | ${r.status} |`),
+    '',
+    '## Authorization logic unchanged',
+    '',
+    `- Angela (holds \`pickup.verify\` for Nora) → \`pickup_candidates_for\`: HTTP ${angelaRows.status}, ${Array.isArray(angelaRows.parsed) ? angelaRows.parsed.length : 'n/a'} row(s)`,
+    `- Walter (no pickup rights) → \`pickup_candidates_for\`: HTTP ${walterRows.status}, ${Array.isArray(walterRows.parsed) ? walterRows.parsed.length : 'n/a'} row(s)`,
+    '',
+    'Revoking PUBLIC removed inherited EXECUTE from `authenticated` as well, so the migration',
+    're-grants it explicitly. Both sides are asserted: anon is refused AND a real authorized',
+    'caller still receives rows. Function bodies and RLS policies are untouched by the migration.',
+    '',
+  ].join('\n');
+
+  writeFileSync(join(OUT_DIR, '26-rpc-execute-posture.md'), md);
+  console.log(
+    `--- ${SLUG} [direct PostgREST] anon=${anon.map(([, r]) => r.status).join('/')} authed=${authed.map(([, r]) => r.status).join('/')} angelaRows=${Array.isArray(angelaRows.parsed) ? angelaRows.parsed.length : 'n/a'} walterRows=${Array.isArray(walterRows.parsed) ? walterRows.parsed.length : 'n/a'}`,
+  );
+}
+
 // ---------------------------------------------------------------- summary
 const bySlug = new Map();
 for (const f of failures) {
@@ -631,7 +734,7 @@ for (const f of failures) {
   bySlug.get(f.slug).push(f);
 }
 
-console.log(`\nAssertions: ${checksRun} checks across ${Object.keys(CHECKS).length + 1} cases`);
+console.log(`\nAssertions: ${checksRun} checks across ${Object.keys(CHECKS).length + 2} cases`);
 if (failures.length === 0) {
   console.log('ASSERTIONS: PASS — every case matched its expected status, code, count and disclosure rule.');
 } else {

@@ -284,9 +284,19 @@ correct for local work and must never be promoted as-is.
 
 ## 17. SECURITY DEFINER audit — nine functions in `public` (Oct 28, 2026)
 
-Read-only. No policy, grant or migration was changed; any fix needs explicit approval.
+Read-only at the time of the audit. The fix below was prepared afterwards and applied on
+2026-10-28 with explicit approval.
 
-Every function sets `set search_path = public` (9 of 9), so search-path hijacking is not available.
+**Correction to the first version of this section (the repo text and the live database differ).**
+Eight of the nine functions pin `set search_path = public`. `local_today()` does **not**: the live
+catalog shows `prosecdef = false` and **no** `proconfig`, i.e. a plain `STABLE` SQL function with
+no SECURITY DEFINER and no pinned search path — while `0006_local_today.sql` in this repo declares
+both. So the earlier "9 of 9" claim was taken from the migration file and was wrong about the
+live object. `local_today()` only computes a date from `now()`, both resolved from `pg_catalog`,
+so there is no table reference for a search-path attack to redirect; the risk is nil, but the
+drift is real and is recorded here rather than silently "fixed". Re-applying 0006 verbatim would
+change a live function's attributes, which is out of scope for a grant migration.
+
 All nine live in `public`, the schema PostgREST exposes.
 
 Live probe through PostgREST RPC — as `anon` (publishable key, no user token), as `p_walter`
@@ -314,5 +324,29 @@ Postgres's default PUBLIC execute and are callable by `anon`. What an unauthenti
 actually gets is a null identity, the local date, and two booleans that are always false for them.
 No row data is disclosed. The defect is inconsistency: the other five were explicitly revoked.
 
-**Recommended fix (needs approval, not applied):** add `revoke all on function … from public, anon;`
-for those four, matching 0008/0009/0010. Low risk, but it is a migration change.
+**Fix applied: `supabase/migrations/0012_revoke_public_execute.sql` (Oct 28, 2026).**
+`revoke all … from public` and `from anon` on those four, plus an explicit `grant execute … to
+authenticated` (revoking PUBLIC also removes the inherited grant from `authenticated`, which is the
+role every request uses). Bodies, policies, tables and `search_path` are untouched.
+
+Catalog ACL, before → after (`has_function_privilege`):
+
+| | `anon` before | `anon` after | `authenticated` before/after |
+| --- | --- | --- | --- |
+| `current_person()` | YES | **no** | yes → yes |
+| `local_today()` | YES | **no** | yes → yes |
+| `is_parent_of(text)` | YES | **no** | yes → yes |
+| `has_scope(text, text)` | YES | **no** | yes → yes |
+
+Behavioural verification, direct PostgREST (`node ops/run-evidence.mjs`, case 26):
+
+- `anon` on all four → `401 42501` (was `200`)
+- authenticated (Kendra) on all four → `200` (no regression)
+- authorized data path intact: Angela (`pickup.verify`) → `pickup_candidates_for` **18 rows**
+- unauthorized path intact: Walter → `pickup_candidates_for` **0 rows**
+- asserted suite: **114 checks across 32 cases, PASS at `DEMO_CLOCK=0` and `DEMO_CLOCK=1`** —
+  this is the regression test that revoking PUBLIC did not break the RLS policies that call these
+  helpers as `authenticated`.
+
+Residual drift, not fixed (needs its own decision): `local_today()` is not SECURITY DEFINER and has
+no pinned `search_path` in the live database, unlike the repo's 0006.
