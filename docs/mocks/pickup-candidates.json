@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Matches the real seed (src/fixtures.ts) and the real resolver (src/derive.ts pickupCandidatesFor: ACTIVE relationship + transport.child capability + pickup.request grant valid at asOf). This is the exact 4-candidate answer referenced in AGENTS.md §8 (\"MCP on 5050 as Kendra returning 4 pickup candidates\"). `data.pickupCandidates` below is the EXISTING, stateless query result (schema/access.graphql) — it carries no reason code, because reason codes are a property of a specific job run, not of the static candidate list. See `_demoCandidateEvaluations` for the NEW per-job overlay (docs/contracts/pickup-job.md §5), matching the same job as docs/mocks/pickup-job-lifecycle.json. Fictional people, real fixture IDs. No live data.",
+  "_note": "Mock only. Matches the real seed (src/fixtures.ts) and the real resolver (src/derive.ts pickupCandidatesFor: ACTIVE relationship + transport.child capability + pickup.request grant valid at asOf). This is the exact 4-candidate answer referenced in AGENTS.md §8 (\"MCP on 5050 as Kendra returning 4 pickup candidates\"). `data.pickupCandidates` below is the EXISTING, stateless query result (schema/access.graphql) — it carries no reason code or location data, because those are properties of a specific job run, not of the static candidate list. See `_demoCandidateEvaluations` for the NEW per-job overlay (docs/contracts/pickup-job.md §5/§6a/§8), matching the same job as docs/mocks/pickup-job-lifecycle.json. Fictional people, real fixture IDs, fictional non-residential coordinates. No live data.",
   "query": "pickupCandidates",
   "variables": { "childId": "p_nora", "asOf": "2026-10-28" },
   "data": {
@@ -71,26 +71,89 @@
     "examples": [
       {
         "person": { "id": "p_chris", "displayName": "Chris Harlan" },
+        "reasonCode": "UNAUTHORIZED",
         "reason": "parent_friend relationship is ACTIVE and transport.child is offered, but the only grant held for Nora (g_chris_expired) is careplan.read, and its window closed 2026-09-30 — no pickup.request grant, so not a candidate."
       },
       {
         "person": { "id": "p_walter", "displayName": "Walter Ellison" },
+        "reasonCode": "UNAUTHORIZED",
         "reason": "grandfather relationship is ACTIVE and his CALL contact (+1-313-555-0105) is verified, but his grant (g_walter) holds only schedule.read and goals.read — no pickup.request, so not a candidate. (Previously this mock mislabelled Walter as reachable only by an unverified method; his real contact is verified — he is excluded for a different reason: no grant, not a bad channel.)"
       },
       {
         "person": { "id": "p_dana", "displayName": "Dana Coleman" },
-        "reason": "the only relationship to Nora (r_dana_friend_parent) is status DISCOVERED, not ACTIVE, and her one contact method (SMS +1-313-555-0111) is verified: false. Either fact alone would exclude her; both apply. She is the real example for pickup-job.md's 'only an unverified method exists, must reject' rule — see docs/mocks/pickup-job-lifecycle.json."
+        "reasonCode": "NO_VERIFIED_CONTACT_METHOD",
+        "reason": "her one contact method (SMS +1-313-555-0111) is verified: false — the real-seed illustration for this code, per explicit instruction.",
+        "_honestCaveat": "Dana's relationship to Nora (r_dana_friend_parent) is also status DISCOVERED, not ACTIVE, and she holds no grant for Nora at all — in the strict gate order in pickup-job.md §5, she would actually be caught as UNAUTHORIZED first, before her contact method is ever checked. She is used here anyway as the clearest available real-seed example of NO_VERIFIED_CONTACT_METHOD; no real person in this seed is authorized but fails only the contact-method check (pickup-job.md §14)."
       }
     ]
   },
   "_demoCandidateEvaluations": {
-    "_note": "NEW — illustrates CandidateEvaluation (docs/contracts/pickup-job.md §5), the per-job reason-code overlay on top of the 4 EXISTING candidates above, for the same job as docs/mocks/pickup-job-lifecycle.json (idempotencyKey pickup:p_nora:2026-10-28:afternoon). Set by deterministic policy, never by the model.",
+    "_note": "NEW — illustrates CandidateEvaluation (docs/contracts/pickup-job.md §5/§6a/§8), the per-job reason-code + location/cost + entry-point overlay on top of the 4 EXISTING candidates above, for the same job as docs/mocks/pickup-job-lifecycle.json (idempotencyKey pickup:p_nora:2026-10-28:afternoon). Reason codes set by deterministic policy, never by the model. All coordinates are fictional, non-residential reference points, not real addresses.",
     "jobId": "job_01HXYZ",
+    "pickupPoint": { "lat": 42.3314, "lng": -83.0458, "source": "VERIFIED", "capturedAt": "2026-09-01T00:00:00Z", "label": "Lincoln Elementary (fictional reference point)" },
+    "destinationPoint": { "lat": 42.3378, "lng": -83.0523, "source": "SUPPLIED", "capturedAt": "2026-09-01T00:00:00Z", "label": "Home (fictional reference point, supplied by Kendra)" },
     "evaluations": [
-      { "person": { "id": "p_gma", "displayName": "Loretta Brooks" }, "reasonCode": "OVER_POLICY" },
-      { "person": { "id": "p_bryan", "displayName": "Bryan Brooks" }, "reasonCode": "UNAVAILABLE" },
-      { "person": { "id": "p_tasha", "displayName": "Tasha Ellison" }, "reasonCode": "APPROVAL_PENDING" },
-      { "person": { "id": "p_monique", "displayName": "Monique Davis" }, "reasonCode": "UNAVAILABLE" }
+      {
+        "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
+        "reasonCode": "OVER_POLICY",
+        "acceptedVia": "WEBHOOK_CALLBACK",
+        "origin": { "lat": 42.2890, "lng": -83.1340, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+        "distanceMiles": 8.86,
+        "distanceBasis": "haversine straight-line",
+        "estimatedTravelMinutes": 17.72,
+        "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
+        "estimatedRideCostUsd": 12.40,
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "locationProvenance": "ESTIMATED",
+        "costCalculatedAt": "2026-10-28T14:59:02Z",
+        "_note": "$12.40 > Kendra's $10 ride_cost_cap_usd — over the cap, not unavailable."
+      },
+      {
+        "person": { "id": "p_bryan", "displayName": "Bryan Brooks" },
+        "reasonCode": "UNAVAILABLE",
+        "acceptedVia": "WEBHOOK_CALLBACK",
+        "declineReason": "BUSY",
+        "origin": { "lat": 42.3510, "lng": -83.0210, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+        "distanceMiles": 3.20,
+        "distanceBasis": "haversine straight-line",
+        "estimatedTravelMinutes": 6.40,
+        "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
+        "estimatedRideCostUsd": 4.48,
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "locationProvenance": "ESTIMATED",
+        "costCalculatedAt": "2026-10-28T14:59:40Z",
+        "_note": "Within cap, but declined — cost is computed regardless of decline, for audit completeness."
+      },
+      {
+        "person": { "id": "p_tasha", "displayName": "Tasha Ellison" },
+        "reasonCode": "APPROVAL_PENDING",
+        "acceptedVia": "WEBHOOK_CALLBACK",
+        "origin": { "lat": 42.3400, "lng": -83.0600, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+        "distanceMiles": 4.50,
+        "distanceBasis": "haversine straight-line",
+        "estimatedTravelMinutes": 9.00,
+        "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
+        "estimatedRideCostUsd": 6.30,
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "locationProvenance": "ESTIMATED",
+        "costCalculatedAt": "2026-10-28T14:59:45Z",
+        "_note": "RECOMMENDED the moment the ranking ran, immediately shown as APPROVAL_PENDING — within cap and clean on every ranking key (pickup-job.md §5b)."
+      },
+      {
+        "person": { "id": "p_monique", "displayName": "Monique Davis" },
+        "reasonCode": "UNAVAILABLE",
+        "acceptedVia": null,
+        "origin": { "lat": 42.3200, "lng": -83.0100, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+        "distanceMiles": 6.00,
+        "distanceBasis": "haversine straight-line",
+        "estimatedTravelMinutes": 12.00,
+        "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
+        "estimatedRideCostUsd": 8.40,
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "locationProvenance": "ESTIMATED",
+        "costCalculatedAt": "2026-10-28T14:59:16Z",
+        "_note": "Timed out — no reply within discoveryTimeoutSeconds=60, so acceptedVia is null (no acceptance was ever recorded)."
+      }
     ]
   }
 }

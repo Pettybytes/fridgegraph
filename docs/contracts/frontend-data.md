@@ -63,10 +63,11 @@ at 30s. No polling for the map (coordinates change rarely in this milestone).
 
 ### 1.4 Simulated / real-consented labels
 
-Milestone 3 contacts **no real person**, with exactly one narrow, Bryan-gated exception
-(`pickup-job.md` §10, `webhook.md` §6a — the one consented "Grandma Loretta" stand-in number). Any
-UI surfacing an `Attempt` must render one of **three** distinct visible states — never collapse
-the exception into looking like an ordinary, unlabelled production call:
+Milestone 3 contacts **no real person**, with exactly one narrow exception gated by a named,
+default-off flag — `REAL_CALL_EXCEPTION_ENABLED` (`pickup-job.md` §10, `webhook.md` §6a — the one
+consented "Grandma Loretta" stand-in number, provisioned only in GHL, never in this repo). Any UI
+surfacing an `Attempt` must render one of **three** distinct visible states — never collapse the
+exception into looking like an ordinary, unlabelled production call:
 
 - **NEW** field request: `Attempt.destinationMode: DestinationMode!` (**NEW** enum:
   `TEST_RESPONDER`, `REAL_CONSENTED`) on the coordination subgraph, mirroring the wire field of
@@ -157,33 +158,35 @@ still shows the shape of the assembled result for frontend reference, labelled a
 ## 4. Surface: Geographic Map (`react-map-gl` + MapLibre)
 
 Supplied coordinates vs. estimates vs. verified locations — the map must visually distinguish all
-three, never presenting an estimate as a fact.
+three, never presenting an estimate as a fact. **This surface now consumes the canonical location
+model defined once in `docs/contracts/pickup-job.md` §6** — `Location`/`LocationSource` are no
+longer defined separately here; the same types also power outreach prioritization and the
+ride-cost policy (`pickup-job.md` §5a/§6a) and the recommendation route mini-map, so there is one
+source of truth instead of three.
 
 ### Queries / mutations
 
 | Operation | Status | Cites |
 | --- | --- | --- |
-| `mapLocations(childId: ID!): [MapLocation!]!` | **NEW** | no geographic field exists in any subgraph today (`grep -rn "lat\|lng\|location" schema/*.graphql` finds nothing) |
+| `pickupRoute(childId: ID!, jobId: ID): PickupRoute!` | **NEW** | `pickup-job.md` §6 — the canonical `PickupRoute`/`CandidateRouteLeg` shape, reused as-is for this surface rather than a map-specific type |
 | `householdMembers(childId: ID!)` / `households(childId: ID!)` | EXISTING | `schema/village.graphql` — identifies **whose** locations to ask for |
 
-`MapLocation` / `Location` (**NEW**, proposed shape):
+`Location`, `PickupRoute`, `CandidateRouteLeg` — see `pickup-job.md` §6 for the full shape. All
+**NEW**, owned by the `village` subgraph, gated behind `address.read`, enforced **before** any
+coordinate or address is returned.
 
-```graphql
-enum LocationSource { SUPPLIED ESTIMATED VERIFIED }
+### Live tracking (future capability, not Station 06)
 
-type Location {
-  lat: Float!
-  lng: Float!
-  source: LocationSource!
-}
-
-type MapLocation {
-  person: Person!
-  household: Household
-  location: Location!
-  label: String!
-}
-```
+After an approval, the UI **may** animate a caregiver along the proposed route — **Option B for
+this hackathon**: a separate, explicitly **NEW** `SimulatedTrackingState` type
+(`{ job: CoordinationJob!, progress: Float!, currentPoint: Location!, startedAt: String!, label:
+String! }`), driven by client-side or server-side simulation, **never** the verified-location
+field. It must be visibly labelled **SIMULATED** everywhere it renders, including in any recorded
+demo video — it never implies verified GPS, arrival, or a completed pickup (`pickup-job.md` §2's
+`PickupCompletion` fact is separate and not built this milestone either). Real opted-in GPS
+tracking (consent capture, device update cadence, expiry, access control, revocation) is a
+**future capability** — explicitly out of scope for Station 06, noted here only so nobody builds
+toward it by accident.
 
 ### Mock
 
@@ -191,13 +194,8 @@ type MapLocation {
 
 ### Requested changes
 
-1. **Decided (Bryan): `Location` is owned by the `village` subgraph, gated behind a new
-   `address.read` scope.** `Location`/`LocationSource` is still genuinely new domain data —
-   nothing today models "where someone is," only "who they are related to" — but the ownership
-   question from the previous draft is now settled: `village`, not a separate `location` subgraph.
-   `address.read` is a **new** grant scope name; no `grants` row in `src/fixtures.ts` holds it
-   yet, so every `mapLocations` read is `UNAUTHORIZED` until seed data grants it to someone —
-   flagged as an implementation gap, not a frontend concern.
+1. `pickupRoute` and the canonical location model itself — genuinely new domain data company-wide,
+   not map-specific; tracked once in `pickup-job.md` §6/§14 rather than duplicated here.
 2. Mapbox token: `frontend.md` §3 already names `VITE_MAPBOX_TOKEN` as optional publishable-only;
    MapLibre remains default per that contract, unchanged here.
 
@@ -214,8 +212,8 @@ accept-then-approve model (states: `pending → discovering → awaiting_approva
 | Operation | Status | Cites |
 | --- | --- | --- |
 | `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` |
-| `attempts(jobId: ID): [Attempt!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` `Query.attempts` — `pickup-job.md` §5/§7 adds NEW `candidate: Person!`, `available: Boolean`, `declineReason: DeclineReason` to the existing `Attempt` type |
-| `candidateEvaluations(jobId: ID!): [CandidateEvaluation!]!` | **NEW** | the per-candidate reason-code record (`UNAUTHORIZED`/`UNAVAILABLE`/`AVAILABLE_NO_TRANSPORT`/`OVER_POLICY`/`RECOMMENDED`/`APPROVAL_PENDING`) — `pickup-job.md` §5, no such type exists today |
+| `attempts(jobId: ID): [Attempt!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` `Query.attempts` — `pickup-job.md` §5/§7 adds NEW `candidate: Person!`, `destinationMode: DestinationMode!` to the existing `Attempt` type |
+| `candidateEvaluations(jobId: ID!): [CandidateEvaluation!]!` | **NEW** | the per-candidate reason-code record (`UNAUTHORIZED` / `NO_VERIFIED_CONTACT_METHOD` / `UNREACHABLE` / `UNAVAILABLE` / `AVAILABLE_NO_TRANSPORT` / `OVER_POLICY` / `RECOMMENDED` / `APPROVAL_PENDING`, plus `acceptedVia: AcceptanceEntryPoint` and the ride-cost fields) — `pickup-job.md` §5/§6a/§8, no such type exists today |
 | `confirmations(childId: ID): [Confirmation!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` — `pickup-job.md` §7 adds NEW `candidate: Person!`, `approvedBy: Person!` |
 | `requestPickup` / `acceptPickup` / `approvePickup` | **NEW** | `pickup-job.md` §8 — `schema/coordination.graphql` has **no `Mutation` type at all** today; Mission Control cannot do anything beyond read-only playback until these ship |
 
@@ -303,6 +301,9 @@ Still genuinely open:
 1. **Signed URL expiry/retention for voice notes** (§2) — "P1, private bucket, signed URLs" is
    decided; how long a signed URL stays valid and how long a voice note is retained is not.
 2. **`address.read` has no grant rows yet** (§4) — the scope name and owning subgraph are decided,
-   but nobody in `src/fixtures.ts` holds it, so `mapLocations` is `UNAUTHORIZED` for everyone
-   until seed data is added. That's an implementation gap to track, not a contract question, but
-   it blocks the Geographic Map surface from returning anything until it's resolved.
+   but nobody in `src/fixtures.ts` holds it, so `pickupRoute` is `UNAUTHORIZED` for everyone until
+   seed data is added. That's an implementation gap to track, not a contract question, but it
+   blocks the Geographic Map surface from returning anything until it's resolved.
+3. **`SimulatedTrackingState`'s actual driver** (§4) — whether the route animation is computed
+   client-side (interpolating along `CandidateRouteLeg`) or server-pushed via polling is not
+   decided; either way it stays a separate type from `Location`, per `pickup-job.md` §6/§9.

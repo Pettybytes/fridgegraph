@@ -1,27 +1,60 @@
 {
-  "_note": "Mock only. Illustrates the PROPOSED mapLocations query and Location/LocationSource types (docs/contracts/frontend-data.md §4) — no geographic field exists in the schema yet, so coordinates here are invented. People, ids and households are real (src/fixtures.ts): Nora Ellison (p_nora, household h_a), Kendra Ellison (p_mom, household h_a), Loretta Brooks (p_gma, grandmother, not a household member in the seed — household is null, not invented). Fictional data only.",
-  "query": "mapLocations",
-  "variables": { "childId": "p_nora" },
+  "_note": "Mock only. Illustrates the canonical PickupRoute/CandidateRouteLeg model (docs/contracts/pickup-job.md §6 — one model shared with outreach prioritization, ride-cost policy, and the recommendation route mini-map; see docs/contracts/frontend-data.md §4). Replaces the previous draft's separate mapLocations/MapLocation shape. Gated behind address.read, enforced before any coordinate or address is returned. Coordinates are fictional, non-residential reference points — not real addresses — and match docs/mocks/pickup-candidates.json's _demoCandidateEvaluations exactly for the same job. People and ids are real (src/fixtures.ts). Fictional data only.",
+  "query": "pickupRoute",
+  "variables": { "childId": "p_nora", "jobId": "job_01HXYZ" },
   "data": {
-    "mapLocations": [
-      {
-        "person": { "id": "p_nora", "displayName": "Nora Ellison" },
-        "household": { "id": "h_a" },
-        "location": { "lat": 42.3314, "lng": -83.0458, "source": "VERIFIED" },
-        "label": "Nora's school (verified address on file)"
+    "pickupRoute": {
+      "child": { "id": "p_nora" },
+      "pickupPoint": {
+        "lat": 42.3314, "lng": -83.0458, "source": "VERIFIED", "capturedAt": "2026-09-01T00:00:00Z",
+        "_label": "Lincoln Elementary (fictional reference point — school on file, not a residence)"
       },
-      {
-        "person": { "id": "p_mom", "displayName": "Kendra Ellison" },
-        "household": { "id": "h_a" },
-        "location": { "lat": 42.3223, "lng": -83.0381, "source": "SUPPLIED" },
-        "label": "Kendra's workplace (supplied by Kendra)"
+      "destinationPoint": {
+        "lat": 42.3378, "lng": -83.0523, "source": "SUPPLIED", "capturedAt": "2026-09-01T00:00:00Z",
+        "_label": "Home (fictional reference point, supplied by Kendra — not a real address)"
       },
-      {
-        "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
-        "household": null,
-        "location": { "lat": 42.3401, "lng": -83.0556, "source": "ESTIMATED" },
-        "label": "Loretta's home (estimated — not confirmed; she has no household row in the seed)"
-      }
-    ]
+      "legs": [
+        {
+          "candidate": { "id": "p_gma", "displayName": "Loretta Brooks" },
+          "origin": { "lat": 42.2890, "lng": -83.1340, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+          "distanceMiles": 8.86,
+          "distanceBasis": "haversine straight-line",
+          "estimatedTravelMinutes": 17.72,
+          "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA"
+        },
+        {
+          "candidate": { "id": "p_bryan", "displayName": "Bryan Brooks" },
+          "origin": { "lat": 42.3510, "lng": -83.0210, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+          "distanceMiles": 3.20,
+          "distanceBasis": "haversine straight-line",
+          "estimatedTravelMinutes": 6.40,
+          "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA"
+        },
+        {
+          "candidate": { "id": "p_tasha", "displayName": "Tasha Ellison" },
+          "origin": { "lat": 42.3400, "lng": -83.0600, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+          "distanceMiles": 4.50,
+          "distanceBasis": "haversine straight-line",
+          "estimatedTravelMinutes": 9.00,
+          "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA"
+        },
+        {
+          "candidate": { "id": "p_monique", "displayName": "Monique Davis" },
+          "origin": { "lat": 42.3200, "lng": -83.0100, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
+          "distanceMiles": 6.00,
+          "distanceBasis": "haversine straight-line",
+          "estimatedTravelMinutes": 12.00,
+          "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA"
+        }
+      ]
+    }
+  },
+  "_simulatedTrackingState": {
+    "_note": "NEW, separate type (pickup-job.md §9, frontend-data.md §4) — SimulatedTrackingState, never the verified-location field above. Only exists after approval (here, Tasha's). Must render visibly SIMULATED everywhere, including in a recorded demo video.",
+    "job": { "id": "job_01HXYZ" },
+    "progress": 0.0,
+    "currentPoint": { "lat": 42.3400, "lng": -83.0600, "source": "ESTIMATED", "capturedAt": "2026-10-28T15:14:05Z" },
+    "startedAt": "2026-10-28T15:14:05Z",
+    "label": "SIMULATED"
   }
 }
