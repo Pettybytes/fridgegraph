@@ -1,0 +1,65 @@
+{
+  "_note": "Mock only. Illustrates the PROPOSED chatThread query (docs/contracts/frontend-data.md §2). ChatMessage does not exist in the schema yet. Fictional data only.",
+  "query": "chatThread",
+  "variables": { "childId": "p_nora" },
+  "data": {
+    "chatThread": [
+      {
+        "id": "msg_0001",
+        "child": { "id": "p_nora" },
+        "from": "PARENT",
+        "kind": "TEXT",
+        "text": "can someone grab Nora today? I'm stuck in a meeting",
+        "voiceNoteUrl": null,
+        "at": "2026-10-28T14:58:10Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": null
+      },
+      {
+        "id": "msg_0002",
+        "child": { "id": "p_nora" },
+        "from": "MUSE",
+        "kind": "TEXT",
+        "text": "On it. I'm checking who's available for Nora's pickup.",
+        "voiceNoteUrl": null,
+        "at": "2026-10-28T14:58:22Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ"
+      },
+      {
+        "id": "msg_0003",
+        "child": { "id": "p_nora" },
+        "from": "MUSE",
+        "kind": "QUESTION",
+        "text": "I texted Loretta since Chris already said he can't today. I'll let you know as soon as she replies.",
+        "voiceNoteUrl": null,
+        "at": "2026-10-28T15:01:03Z",
+        "relatedInformationRequestId": "ir_0007",
+        "relatedJobId": "job_01HXYZ"
+      },
+      {
+        "id": "msg_0004",
+        "child": { "id": "p_nora" },
+        "from": "PARENT",
+        "kind": "VOICE_NOTE",
+        "text": null,
+        "voiceNoteUrl": "https://storage.example.invalid/voice-notes/vn_0001.webm",
+        "at": "2026-10-28T15:02:40Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": null
+      },
+      {
+        "id": "msg_0005",
+        "child": { "id": "p_nora" },
+        "from": "MUSE",
+        "kind": "APPROVAL_REQUEST",
+        "text": "Loretta confirmed — she'll pick up Nora at 3:30. Want me to let the school know she's cleared for pickup?",
+        "voiceNoteUrl": null,
+        "at": "2026-10-28T15:12:30Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ",
+        "_testNote": "Simulated. Loretta is a test-labelled fixture — see docs/contracts/webhook.md §5 destinationLabel and §1.4 simulated badge rule."
+      }
+    ]
+  }
+}

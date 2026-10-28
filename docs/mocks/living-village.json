@@ -1,0 +1,38 @@
+{
+  "_note": "Mock only. Illustrates the PROPOSED villageGraph aggregate (docs/contracts/frontend-data.md §3), built from EXISTING village.graphql data (village, householdMembers, relationships, groups, memberships). Fictional data only.",
+  "query": "villageGraph",
+  "variables": { "villageId": "v_main" },
+  "data": {
+    "villageGraph": {
+      "nodes": [
+        { "person": { "id": "p_nora", "displayName": "Nora Okafor" }, "household": { "id": "h_okafor" }, "role": "child" },
+        { "person": { "id": "p_kendra", "displayName": "Kendra Okafor" }, "household": { "id": "h_okafor" }, "role": "parent" },
+        { "person": { "id": "p_chris", "displayName": "Chris Okafor" }, "household": { "id": "h_okafor" }, "role": "parent" },
+        { "person": { "id": "p_loretta", "displayName": "Loretta Bell" }, "household": { "id": "h_bell" }, "role": "adult" },
+        { "person": { "id": "p_walter", "displayName": "Walter Bell" }, "household": { "id": "h_bell" }, "role": "adult" }
+      ],
+      "edges": [
+        {
+          "from": { "id": "p_kendra" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "rel_0001", "type": "parent", "status": "ACTIVE" }
+        },
+        {
+          "from": { "id": "p_chris" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "rel_0002", "type": "parent", "status": "ACTIVE" }
+        },
+        {
+          "from": { "id": "p_loretta" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "rel_0003", "type": "grandparent", "status": "APPROVED" }
+        },
+        {
+          "from": { "id": "p_walter" },
+          "to": { "id": "p_nora" },
+          "relationship": { "id": "rel_0004", "type": "grandparent", "status": "DISCOVERED" }
+        }
+      ]
+    }
+  }
+}
