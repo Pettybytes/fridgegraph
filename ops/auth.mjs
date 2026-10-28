@@ -47,3 +47,8 @@ export function redactBearer(token) {
   if (!token) return '(none)';
   return `Bearer ${token.slice(0, 6)}…<redacted, ${token.length} chars>`;
 }
+
+/** A value from .env by name, for probes that need the endpoint or the publishable key. */
+export function envValue(name) {
+  return ENV[name] ?? '';
+}
