@@ -77,10 +77,11 @@ create table if not exists candidate_evaluations (
   job_id              text not null references coordination_jobs(id) on delete cascade,
   request_version     int  not null default 1,
   candidate_id        text not null references people(id) on delete cascade,
-  -- NULL means "determination pending": the person was asked and has not answered, and no gate has
-  -- failed yet. It is NOT a ninth code — the contract's eight codes are the only values written.
+  -- PENDING is a workflow state, not an outcome: outreach was sent and no reply has arrived yet.
+  -- `available` stays NULL until the person actually answers — availability is never inferred from a
+  -- calendar, a location or a route. The other eight values are outcomes written by policy code.
   reason_code         text check (reason_code in (
-                        'UNAUTHORIZED','NO_VERIFIED_CONTACT_METHOD','UNREACHABLE','UNAVAILABLE',
+                        'PENDING','UNAUTHORIZED','NO_VERIFIED_CONTACT_METHOD','UNREACHABLE','UNAVAILABLE',
                         'AVAILABLE_NO_TRANSPORT','OVER_POLICY','RECOMMENDED','APPROVAL_PENDING')),
   available           boolean,        -- null = UNKNOWN; set only by a human response
   decline_reason      text check (decline_reason in ('BUSY','NO_TRANSPORT','OTHER')),
@@ -241,7 +242,7 @@ begin
            when not exists (
              select 1 from contact_methods cm where cm.person_id = r.from_id and cm.verified
            ) then 'NO_VERIFIED_CONTACT_METHOD'
-           else null
+           else 'PENDING'
          end
     from pickup_candidates_for(p_child, p_as_of) r
   on conflict (job_id, request_version, candidate_id) do nothing;
@@ -256,7 +257,7 @@ begin
        where person_id = ce.candidate_id and verified
        order by preferred desc, channel limit 1
     ) cm on true
-   where ce.job_id = p_job and ce.reason_code is null
+   where ce.job_id = p_job and ce.reason_code = 'PENDING'
   on conflict (job_id, candidate_id) do nothing;
 end $$;
 revoke all on function _evaluate_candidates(text, text, date) from public, anon, authenticated;
@@ -277,7 +278,7 @@ begin
 
   select count(*) into v_pending
     from candidate_evaluations
-   where job_id = p_job and reason_code is null and available is null;
+   where job_id = p_job and reason_code = 'PENDING' and available is null;
 
   if v_pending > 0 and now() < v_created + make_interval(secs => v_timeout) then
     return;  -- still inside the discovery window
@@ -286,7 +287,7 @@ begin
   -- Whoever never answered is UNAVAILABLE (same code as an explicit no, per §5).
   update candidate_evaluations
      set reason_code = 'UNAVAILABLE', updated_at = now()
-   where job_id = p_job and reason_code is null and available is null;
+   where job_id = p_job and reason_code = 'PENDING' and available is null;
 
   select hp.value::numeric into v_cap
     from household_policies hp
@@ -439,7 +440,7 @@ begin
      set available = p_available,
          decline_reason = p_decline,
          accepted_via = p_entry,
-         reason_code = coalesce(v_code, reason_code),
+         reason_code = v_code,
          updated_at = now()
    where job_id = v_job and candidate_id = v_candidate;
 

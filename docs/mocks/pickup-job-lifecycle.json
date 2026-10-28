@@ -40,6 +40,12 @@
   ],
   "candidateEvaluations": [
     {
+      "person": { "id": "p_angel", "displayName": "Angela Price" },
+      "reasonCode": "PENDING",
+      "available": null,
+      "note": "Outreach was dispatched to her verified channel and no reply has arrived inside the discovery window. PENDING is a workflow state, not an outcome: availability stays UNKNOWN and is never inferred from a calendar, a location or a route. PENDING is not APPROVAL_PENDING and implies neither approval nor confirmation. (pickup-job.md §5)"
+    },
+    {
       "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
       "reasonCode": "OVER_POLICY",
       "acceptedVia": "WEBHOOK_CALLBACK",

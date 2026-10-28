@@ -77,12 +77,15 @@ required field still means **stop**, not guess.
 
 ## 5. Reason codes
 
-Every candidate the job evaluates gets exactly one reason code. All are assigned by **deterministic
-policy code** reacting to relationship, grant, contact, delivery, acceptance, transport, and
-location/cost data — **never chosen by the model.**
+Every candidate the job evaluates gets exactly one reason code. There are **nine** values:
+**`PENDING` is a workflow state**, while the other **eight are outcomes**. Every value is assigned by
+**deterministic policy code** reacting to relationship, grant, contact, delivery, acceptance,
+transport, and location/cost data — **never chosen by the model.** `PENDING` is **not**
+`APPROVAL_PENDING` and never implies approval or confirmation.
 
 | Code | Meaning | Assigned when |
 | --- | --- | --- |
+| `PENDING` **(NEW this revision)** | outreach was sent and no reply has arrived yet — a **workflow state, not an outcome** | at dispatch. `available` stays `NULL` until the person actually answers; availability is never inferred from a calendar, a location or a route |
 | `UNAUTHORIZED` | not a legitimate candidate at all | lacks an ACTIVE relationship + qualifying grant — recorded for audit; never contacted |
 | `NO_VERIFIED_CONTACT_METHOD` **(NEW this revision)** | authorized, but has no verified `ContactMethod` | checked before dispatch; no `Attempt` is ever created for this person |
 | `UNREACHABLE` **(NEW this revision)** | an `Attempt` was dispatched, but the channel itself failed to deliver (bounce, failed call setup) | a **technical delivery failure** — distinct from `UNAVAILABLE`, which means delivery succeeded and the person declined or never answered |
