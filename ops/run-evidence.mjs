@@ -65,9 +65,263 @@ function writeEvidence(slug, { title, user, date, query, variables, extraHeaders
   writeFileSync(join(OUT_DIR, `${slug}.md`), md);
 }
 
+// ---------------------------------------------------------------- assertions
+// One expectation table keyed by slug. The cases and their titles above are unchanged; this only
+// decides whether what came back is correct. A wrong status, a missing authorization code, a
+// changed candidate count, or a denied caller seeing candidate names fails the run with a
+// nonzero exit code.
+const BASELINE_CANDIDATES = ['Loretta Brooks', 'Bryan Brooks', 'Tasha Ellison', 'Monique Davis'];
+const DANA = 'Dana Coleman';
+const ALL_CANDIDATES = [...BASELINE_CANDIDATES, DANA];
+
+const failures = [];
+let checksRun = 0;
+
+function record(slug, label, ok, detail) {
+  checksRun += 1;
+  if (!ok) failures.push({ slug, label, detail });
+}
+
+const codesOf = (body) => (body?.errors ?? []).map((e) => e.extensions?.code ?? e.message);
+const namesOf = (body) =>
+  (body?.data?.pickupCandidates ?? []).map((c) => c.person?.displayName).filter(Boolean);
+
+/**
+ * A refused caller must not receive candidate data. This catches the failure mode where the
+ * correct error code is returned alongside leaked rows.
+ */
+function noCandidateDisclosure(body, ok) {
+  const raw = JSON.stringify(body ?? {});
+  const leaked = ALL_CANDIDATES.filter((name) => raw.includes(name));
+  ok('no candidate disclosure', leaked.length === 0, `leaked: ${leaked.join(', ')}`);
+}
+
+const CHECKS = {
+  '01-kendra-full-view': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('child is p_nora', r.body?.data?.child?.id === 'p_nora', String(r.body?.data?.child?.id));
+    const names = namesOf(r.body);
+    ok('candidate count 4', names.length === 4, `got ${names.length}`);
+    ok('Dana absent before onboarding', !names.includes(DANA), names.join(', '));
+    ok(
+      'approver is Kendra',
+      r.body?.data?.approverFor?.approver?.displayName === 'Kendra Ellison',
+      String(r.body?.data?.approverFor?.approver?.displayName),
+    );
+  },
+
+  '01b-query-plan': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('candidate count 4', namesOf(r.body).length === 4, `got ${namesOf(r.body).length}`);
+  },
+
+  '02-approver-thursday': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok(
+      'Thursday approver is Andre',
+      r.body?.data?.approverFor?.approver?.displayName === 'Andre Ellison',
+      String(r.body?.data?.approverFor?.approver?.displayName),
+    );
+    const fyi = (r.body?.data?.approverFor?.fyiParents ?? []).map((p) => p.displayName);
+    ok('Kendra is FYI', fyi.includes('Kendra Ellison'), fyi.join(', '));
+  },
+
+  '03-supervision-age-boundary': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    const at26 = (r.body?.data?.at1026 ?? []).map((c) => c.person?.displayName);
+    const at29 = (r.body?.data?.at1029 ?? []).map((c) => c.person?.displayName);
+    ok('Leo excluded at 15', !at26.includes('Leo Ellison'), at26.join(', '));
+    ok('Leo included at 16', at29.includes('Leo Ellison'), at29.join(', '));
+    ok('Priya present both days', at26.includes('Priya Nair') && at29.includes('Priya Nair'), `${at26.join(',')} / ${at29.join(',')}`);
+  },
+
+  '04-loretta-goals-careplan-contact': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    const codes = codesOf(r.body);
+    ok('two denials', codes.length === 2, codes.join('|'));
+    ok('both UNAUTHORIZED', codes.every((c) => c === 'UNAUTHORIZED'), codes.join('|'));
+    ok('carePlan withheld', r.body?.data?.carePlan === null, JSON.stringify(r.body?.data?.carePlan));
+    ok('contactMethods withheld', r.body?.data?.person === null, JSON.stringify(r.body?.data?.person));
+    ok(
+      'approved goal still visible',
+      r.body?.data?.goals?.[0]?.status === 'APPROVED',
+      String(r.body?.data?.goals?.[0]?.status),
+    );
+  },
+
+  '05a-walter-no-pickup': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+    noCandidateDisclosure(r.body, ok);
+  },
+
+  '05c-dana-supervision-jax-empty': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok(
+      'empty list, not an error',
+      Array.isArray(r.body?.data?.supervisionCandidates) && r.body.data.supervisionCandidates.length === 0,
+      JSON.stringify(r.body?.data?.supervisionCandidates),
+    );
+  },
+
+  '06a-daniel-careplan-today': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('carePlan visible', Boolean(r.body?.data?.carePlan?.text), JSON.stringify(r.body?.data?.carePlan));
+  },
+
+  '06b-chris-careplan-expired': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED (window closed)', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+    ok('carePlan withheld', r.body?.data?.carePlan === null, JSON.stringify(r.body?.data?.carePlan));
+  },
+
+  '06c-daniel-goals-denied': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+  },
+
+  '07a-gary-busroster-allowed': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('route 14', r.body?.data?.busRoster?.route === 'Route 14', String(r.body?.data?.busRoster?.route));
+    ok('riding true', r.body?.data?.busRoster?.riding === true, String(r.body?.data?.busRoster?.riding));
+  },
+
+  '07b-gary-schedule-denied': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+  },
+
+  '07c-gary-careplan-denied': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+    ok('carePlan withheld', r.body?.data?.carePlan === null, JSON.stringify(r.body?.data?.carePlan));
+  },
+
+  '08-angela-pickup-verify-vehicles': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('candidate count 4', namesOf(r.body).length === 4, `got ${namesOf(r.body).length}`);
+  },
+
+  '09a-ray-jax-careplan': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('carePlan visible to parent', Boolean(r.body?.data?.carePlan?.text), JSON.stringify(r.body?.data?.carePlan));
+  },
+
+  '09b-evelyn-jax-careplan': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+    ok('carePlan withheld', r.body?.data?.carePlan === null, JSON.stringify(r.body?.data?.carePlan));
+  },
+
+  '10a-dana-nora-schedule-denied': (r, ok) => denyCase(r, ok),
+  '10b-dana-nora-goals-denied': (r, ok) => denyCase(r, ok),
+  '10c-dana-nora-careplan-denied': (r, ok) => denyCase(r, ok),
+  '10d-loretta-jax-denied': (r, ok) => denyCase(r, ok),
+
+  '11a-dana-absent-before': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    const names = namesOf(r.body);
+    ok('candidate count 4', names.length === 4, `got ${names.length}`);
+    ok('Dana absent', !names.includes(DANA), names.join(', '));
+  },
+
+  '11b-loretta-cannot-approve': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+    ok('no status change', r.body?.data?.approveRelationship === null, JSON.stringify(r.body?.data?.approveRelationship));
+  },
+
+  '11c-kendra-approves': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    ok('ACTIVE', r.body?.data?.approveRelationship?.status === 'ACTIVE', String(r.body?.data?.approveRelationship?.status));
+  },
+
+  '11c2-kendra-grants': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    const scopes = r.body?.data?.grantAccess?.scopes ?? [];
+    ok('pickup.request granted', scopes.includes('pickup.request'), scopes.join(','));
+    ok('validUntil 2026-11-30', r.body?.data?.grantAccess?.validUntil === '2026-11-30', String(r.body?.data?.grantAccess?.validUntil));
+  },
+
+  '11c3-approvals-exist': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    const rows = r.body?.data?.approvals ?? [];
+    ok('two approval rows', rows.length === 2, `got ${rows.length}`);
+    const decisions = rows.map((a) => a.decision).sort();
+    ok('APPROVED + GRANTED', JSON.stringify(decisions) === JSON.stringify(['APPROVED', 'GRANTED']), decisions.join(','));
+  },
+
+  '11d-dana-now-candidate': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    const names = namesOf(r.body);
+    ok('candidate count 5', names.length === 5, `got ${names.length}`);
+    ok('Dana appears exactly once', names.filter((n) => n === DANA).length === 1, names.join(', '));
+  },
+
+  '11e-dana-careplan-still-denied': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHORIZED (scope is pickup.request only)', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+    ok('carePlan withheld', r.body?.data?.carePlan === null, JSON.stringify(r.body?.data?.carePlan));
+  },
+
+  '11f2-dana-absent-after-reset': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('no errors', codesOf(r.body).length === 0, codesOf(r.body).join('|'));
+    const names = namesOf(r.body);
+    ok('candidate count 4', names.length === 4, `got ${names.length}`);
+    ok('Dana gone after reset', !names.includes(DANA), names.join(', '));
+  },
+
+  '14a-no-token': (r, ok) => {
+    ok('status 200', r.status === 200, `got ${r.status}`);
+    ok('UNAUTHENTICATED', codesOf(r.body).includes('UNAUTHENTICATED'), codesOf(r.body).join('|'));
+    noCandidateDisclosure(r.body, ok);
+  },
+
+  // Rejection may come from the router (401 AUTH_ERROR) or downstream (200 UNAUTHENTICATED).
+  '14b-garbage-token': (r, ok) => {
+    const codes = codesOf(r.body);
+    const edge = r.status === 401 && codes.includes('AUTH_ERROR');
+    const downstream = r.status === 200 && codes.includes('UNAUTHENTICATED');
+    ok('rejected at edge or downstream', edge || downstream, `status=${r.status} codes=${codes.join('|') || 'none'}`);
+    noCandidateDisclosure(r.body, ok);
+  },
+};
+
+/** Shared shape for the cross-village denials: refused, and nothing leaked with the refusal. */
+function denyCase(r, ok) {
+  ok('status 200', r.status === 200, `got ${r.status}`);
+  ok('UNAUTHORIZED', codesOf(r.body).includes('UNAUTHORIZED'), codesOf(r.body).join('|'));
+  noCandidateDisclosure(r.body, ok);
+}
+
+function assertCase(slug, result) {
+  const spec = CHECKS[slug];
+  if (!spec) {
+    record(slug, 'has an expectation', false, 'no assertion defined for this case');
+    return;
+  }
+  spec(result, (label, pass, detail) => record(slug, label, pass, detail));
+}
+
 async function run(slug, title, req) {
   const result = await gql(req);
   writeEvidence(slug, { title, ...req }, result);
+  assertCase(slug, result);
   const codes = (result.body.errors ?? []).map((e) => e.extensions?.code ?? e.message);
   const dataKeys = Object.keys(result.body.data ?? {});
   const summary = JSON.stringify(result.body).replace(/\s+/g, ' ');
@@ -340,6 +594,14 @@ await run('11e-dana-careplan-still-denied', 'As Dana: Nora\'s carePlan still den
     ].join('\n'),
   );
   console.log(`--- 11f-reset status=${res.status} body=${body}`);
+  record('11f-reset', 'status 200', res.status === 200, `got ${res.status}`);
+  let parsed = null;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    parsed = null;
+  }
+  record('11f-reset', 'reset reported ok', parsed?.ok === true && parsed?.reset === true, body.slice(0, 200));
 }
 
 await run('11f2-dana-absent-after-reset', 'After reset: Dana is gone from pickupCandidates again', {
@@ -362,4 +624,22 @@ await run('14b-garbage-token', 'Malformed bearer token -> rejected (edge AUTH_ER
   query: `query { pickupCandidates(childId: "${N}", asOf: "${D_26}") { reason } }`,
 });
 
-console.log('\nDone. Evidence written to docs/evidence/');
+// ---------------------------------------------------------------- summary
+const bySlug = new Map();
+for (const f of failures) {
+  if (!bySlug.has(f.slug)) bySlug.set(f.slug, []);
+  bySlug.get(f.slug).push(f);
+}
+
+console.log(`\nAssertions: ${checksRun} checks across ${Object.keys(CHECKS).length + 1} cases`);
+if (failures.length === 0) {
+  console.log('ASSERTIONS: PASS — every case matched its expected status, code, count and disclosure rule.');
+} else {
+  console.error(`ASSERTIONS: FAIL — ${failures.length} failed check(s) in ${bySlug.size} case(s):`);
+  for (const [slug, list] of bySlug) {
+    for (const f of list) console.error(`  ${slug}: ${f.label} (${f.detail})`);
+  }
+  process.exitCode = 1;
+}
+
+console.log('Done. Evidence written to docs/evidence/');
