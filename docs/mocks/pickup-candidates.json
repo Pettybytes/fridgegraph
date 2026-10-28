@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Matches the real seed (src/fixtures.ts) and the real resolver (src/derive.ts pickupCandidatesFor: ACTIVE relationship + transport.child capability + pickup.request grant valid at asOf). This is the exact 4-candidate answer referenced in AGENTS.md §8 (\"MCP on 5050 as Kendra returning 4 pickup candidates\"). Fictional people, real fixture IDs. No live data.",
+  "_note": "Mock only. Matches the real seed (src/fixtures.ts) and the real resolver (src/derive.ts pickupCandidatesFor: ACTIVE relationship + transport.child capability + pickup.request grant valid at asOf). This is the exact 4-candidate answer referenced in AGENTS.md §8 (\"MCP on 5050 as Kendra returning 4 pickup candidates\"). `data.pickupCandidates` below is the EXISTING, stateless query result (schema/access.graphql) — it carries no reason code, because reason codes are a property of a specific job run, not of the static candidate list. See `_demoCandidateEvaluations` for the NEW per-job overlay (docs/contracts/pickup-job.md §5), matching the same job as docs/mocks/pickup-job-lifecycle.json. Fictional people, real fixture IDs. No live data.",
   "query": "pickupCandidates",
   "variables": { "childId": "p_nora", "asOf": "2026-10-28" },
   "data": {
@@ -81,6 +81,16 @@
         "person": { "id": "p_dana", "displayName": "Dana Coleman" },
         "reason": "the only relationship to Nora (r_dana_friend_parent) is status DISCOVERED, not ACTIVE, and her one contact method (SMS +1-313-555-0111) is verified: false. Either fact alone would exclude her; both apply. She is the real example for pickup-job.md's 'only an unverified method exists, must reject' rule — see docs/mocks/pickup-job-lifecycle.json."
       }
+    ]
+  },
+  "_demoCandidateEvaluations": {
+    "_note": "NEW — illustrates CandidateEvaluation (docs/contracts/pickup-job.md §5), the per-job reason-code overlay on top of the 4 EXISTING candidates above, for the same job as docs/mocks/pickup-job-lifecycle.json (idempotencyKey pickup:p_nora:2026-10-28:afternoon). Set by deterministic policy, never by the model.",
+    "jobId": "job_01HXYZ",
+    "evaluations": [
+      { "person": { "id": "p_gma", "displayName": "Loretta Brooks" }, "reasonCode": "OVER_POLICY" },
+      { "person": { "id": "p_bryan", "displayName": "Bryan Brooks" }, "reasonCode": "UNAVAILABLE" },
+      { "person": { "id": "p_tasha", "displayName": "Tasha Ellison" }, "reasonCode": "APPROVAL_PENDING" },
+      { "person": { "id": "p_monique", "displayName": "Monique Davis" }, "reasonCode": "UNAVAILABLE" }
     ]
   }
 }

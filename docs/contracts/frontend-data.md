@@ -15,12 +15,17 @@ every NEW item is a request, not an implementation.
   `frontend.md` §3). It never holds a service-role key or a DB URL.
 - Apollo Client attaches the signed-in user's Supabase **access token** as the GraphQL request's
   `Authorization: Bearer <token>` header. There is no separate FridgeGraph login.
-- Per `docs/auth-plan.md` §"Accepted decisions": router-level JWT is **not active today**
-  (licence-gated). The router must still be configured to propagate `Authorization` to every
-  subgraph unchanged; each subgraph verifies the token itself (ES256, `jose`, `sub` →
-  `personId` via the server-side identity map). The frontend does not need to know which layer
-  verifies — it only needs to always send the token and handle `UNAUTHENTICATED` /
-  `UNAUTHORIZED` distinctly (§1.3).
+- **Router-level JWT is active** on the GraphOS-connected router (`docs/evidence/15-graphos-jwt-router.md`,
+  `docs/evidence/16-edge-auth-and-mcp.md`) — this corrects the earlier draft, which cited
+  `docs/auth-plan.md`'s Oct 26 "licence-gated, not active" note; the licence was confirmed and
+  router-level JWT has been enforced at the edge since evidence 15/16. A tampered or malformed
+  token is rejected **at the router** (`AUTH_ERROR`, before any subgraph runs). A **missing**
+  token is **not** stopped at the edge — documented router behaviour — so it still reaches a
+  subgraph and is rejected there as `UNAUTHENTICATED`. That is why subgraph-level verification
+  stays regardless of the router: the edge only ever sees tokens that exist. Each subgraph still
+  verifies the same token itself (ES256, `jose`, `sub` → `personId` via the server-side identity
+  map). The frontend does not need to know which layer caught a given rejection — only that it
+  must always send the token and handle `UNAUTHENTICATED` / `UNAUTHORIZED` distinctly (§1.3).
 - No `x-demo-user` / `x-demo-date` header from the browser, ever. Those are server-side test-clock
   and historical dev-only inputs (`data-model.md` §7, `auth-plan.md` §0.1) — a production-shaped
   client does not send identity or clock hints, it sends a token and lets the server decide.
@@ -39,39 +44,50 @@ every NEW item is a request, not an implementation.
   (`p_nora`) only because Kendra is a parent of Nora in the graph — the same query run as a
   different signed-in person returns different (or no) data.
 
-### 1.3 Live updates: polling, not Realtime, for v1 — with one reason
+### 1.3 Live updates: polling, not Realtime — decided
 
-**Recommendation: Apollo Client `pollInterval`, not Supabase Realtime, for every surface below.**
+**Decided (Bryan): Apollo Client `pollInterval`, not Supabase Realtime, for v1.** Reason unchanged
+from the draft: **no subgraph defines a `Subscription` type today** (verified:
+`grep -rl "type Subscription" schema/` returns nothing), and Supabase Realtime would mean the
+browser reads raw Postgres tables directly under RLS, bypassing the per-resolver field-level
+authorization that `data-model.md` §4 calls "the real boundary." Polling against the
+existing/NEW GraphQL queries below reuses the exact same scope checks the rest of the graph
+already enforces, at the cost of latency (poll interval, not push). This was Open question #1 in
+the previous draft — it is now settled for v1; Realtime remains a possible future escalation if
+polling proves too slow, not a decision reopened here.
 
-Reason: **no subgraph defines a `Subscription` type today** (verified:
-`grep -rl "type Subscription" schema/` returns nothing). Supabase Realtime would mean the browser
-reads raw Postgres tables directly, under RLS, bypassing the per-resolver field-level
-authorization that `data-model.md` §4 calls "the real boundary." That is a bigger decision than a
-frontend contract should make unilaterally — it is called out in §7 Open questions, not decided
-here. Polling against the existing/NEW GraphQL queries below reuses the exact same scope checks
-the rest of the graph already enforces, at the cost of latency (poll interval, not push).
+Intervals: **Mission Control polls every 2–3 s** for the demo (tightened from the draft's generic
+5s — Mission Control's "acknowledge instantly, show progress, then verified results" requirement
+needs it). The parent chat thread also polls at 5s. The Living Village graph and the calendar poll
+at 30s. No polling for the map (coordinates change rarely in this milestone).
 
-Suggested intervals, tightened per surface where noted below: 5s for Mission Control and the chat
-thread (most latency-sensitive), 30s for the Living Village graph and the calendar, no polling for
-the map (coordinates change rarely in this milestone).
+### 1.4 Simulated / real-consented labels
 
-### 1.4 Simulated / test-fixture labels
+Milestone 3 contacts **no real person**, with exactly one narrow, Bryan-gated exception
+(`pickup-job.md` §10, `webhook.md` §6a — the one consented "Grandma Loretta" stand-in number). Any
+UI surfacing an `Attempt` must render one of **three** distinct visible states — never collapse
+the exception into looking like an ordinary, unlabelled production call:
 
-Milestone 3 contacts **no real person** (`pickup-job.md` §7). Any UI surfacing an `Attempt`,
-`Confirmation`, or chat message that rode on a test-labelled destination must render a visible
-"Simulated" badge — never let a demo screen look like a real call happened.
-
-- **NEW** field request: `Attempt.simulated: Boolean!` and `Confirmation.simulated: Boolean!`
-  (coordination subgraph), set `true` whenever the underlying destination/channel is a
-  test-responder fixture. Today that fact only exists as a naming convention
-  (`destinationLabel` in `docs/contracts/webhook.md` §5); promoting it to a real field is what
-  lets every surface badge it the same way without re-deriving the convention client-side.
+- **NEW** field request: `Attempt.destinationMode: DestinationMode!` (**NEW** enum:
+  `TEST_RESPONDER`, `REAL_CONSENTED`) on the coordination subgraph, mirroring the wire field of
+  the same name in `webhook.md` §5/§6a. This replaces the earlier boolean `simulated` field from
+  the previous draft — a boolean can't carry the three-way distinction the real-call exception
+  needs (ordinary test fixture vs. the one real-consented number vs., hypothetically, an
+  unlabelled real call that should never happen at all).
+- `TEST_RESPONDER` → "Simulated" badge. `REAL_CONSENTED` → a visually distinct "Real call
+  (consented)" badge — never styled identically to "Simulated," and never allowed to read as a
+  plain, unbadged production call.
+- A `Confirmation`'s badge is derived from its `Attempt`'s `destinationMode` (via the candidate
+  it confirms) rather than carrying its own copy of the field — one source of truth per job.
 
 ## 2. Surface: Parent chat (Kendra's phone)
 
 Type or voice note → Muse reply, in one thread that also shows Muse's questions and approval
-requests — i.e., the thread is not just a messages table, it interleaves three existing kinds of
-server truth (chat messages, coordination questions, approval requests) in time order.
+requests — i.e., the thread is not just a messages table, it interleaves three kinds of server
+truth (chat messages, coordination questions, approval requests) in time order. **Decided
+(Bryan): no aggregate query in v1** — `chatThread` returns only genuine `ChatMessage` rows; the
+client merges in `informationRequests` and job-approval items by timestamp itself, the same
+client-side-composition pattern as every other surface in this contract.
 
 ### Queries / mutations
 
@@ -80,7 +96,7 @@ server truth (chat messages, coordination questions, approval requests) in time 
 | `chatThread(childId: ID!): [ChatMessage!]!` | **NEW** | no message/thread type exists anywhere in `schema/*.graphql` today |
 | `sendParentMessage(childId: ID!, text: String, voiceNoteUrl: String): ChatMessage!` | **NEW** | same — no chat mutation exists |
 | `informationRequests(childId: ID!): [InformationRequest!]!` | EXISTING | `schema/coordination.graphql` `Query.informationRequests` — Muse's questions, rendered inline in the thread by `at`-ish ordering (the type has no timestamp yet — see Requested changes) |
-| `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` — read to show the thread "Kendra, can you confirm pickup?" banner when a job the parent is relevant to is `awaiting_parent` |
+| `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` — read to show the thread's "can you approve this pickup?" banner when a job the parent is the named approver for (`pickup-job.md` §6) reaches `awaiting_approval` |
 
 `ChatMessage` (**NEW** type, proposed shape):
 
@@ -111,7 +127,10 @@ type ChatMessage {
    persistence anywhere in the graph today; this is new surface, not a gap in an existing one.
 2. `InformationRequest` has no `at`/timestamp field (`schema/coordination.graphql`) — needed to
    interleave questions correctly into a time-ordered thread.
-3. Voice notes need a storage answer (Supabase Storage bucket, URL shape) — not decided here.
+3. **Decided (Bryan): voice notes live in a private Supabase Storage bucket with signed URLs,
+   priority P1** (not day-one blocking, but committed). `ChatMessage.voiceNoteUrl` resolves to a
+   time-limited signed URL, never a public bucket path — exact expiry/retention is still open
+   (§8).
 
 ## 3. Surface: Living Village (Obsidian Person Network style, `react-force-graph-2d`)
 
@@ -123,38 +142,17 @@ type ChatMessage {
 | `householdMembers(childId: ID!): [HouseholdMember!]!` | EXISTING | `schema/village.graphql` `Query.householdMembers` |
 | `relationships(childId: ID!): [Relationship!]!` | EXISTING | `schema/village.graphql` `Query.relationships` — edge type + status (`RelationshipStatus`) drives edge styling |
 | `groups: [Group!]!` / `memberships(groupId: ID): [Membership!]!` | EXISTING | `schema/village.graphql` |
-| `villageGraph(villageId: ID!): VillageGraph!` | **NEW** | convenience aggregate — see below |
 | `approveRelationship(relationshipId: ID!): Relationship` | EXISTING | `schema/village.graphql` `Mutation.approveRelationship` — used when a node's relationship needs promoting from the graph view itself |
 
-`VillageGraph` (**NEW**, proposed shape — purely a server-side join of the EXISTING queries above,
-to avoid the client doing 1 + N round trips to build one force-graph render):
-
-```graphql
-type VillageGraph {
-  nodes: [VillageNode!]!
-  edges: [VillageEdge!]!
-}
-type VillageNode {
-  person: Person!
-  household: Household
-  role: String
-}
-type VillageEdge {
-  from: Person!
-  to: Person!
-  relationship: Relationship!
-}
-```
+**Decided (Bryan): no aggregate queries in v1.** The `villageGraph` convenience aggregate
+proposed in the previous draft is **not building** for v1 — the client composes the four EXISTING
+queries above (`village`, `householdMembers`, `relationships`, `groups`/`memberships`) itself and
+assembles the force-graph's nodes/edges in the browser. The `docs/mocks/living-village.json` mock
+still shows the shape of the assembled result for frontend reference, labelled accordingly.
 
 ### Mock
 
-`docs/mocks/living-village.json`
-
-### Requested changes
-
-1. `villageGraph(villageId)` — pure convenience; everything it returns is already EXISTING data.
-   Could ship v1 without it (client composes the four EXISTING queries) if Bryan would rather not
-   add a server aggregate yet.
+`docs/mocks/living-village.json` (illustrates the client-assembled shape, not a server aggregate)
 
 ## 4. Surface: Geographic Map (`react-map-gl` + MapLibre)
 
@@ -193,61 +191,52 @@ type MapLocation {
 
 ### Requested changes
 
-1. `Location`/`LocationSource` is genuinely new domain data — nothing today models "where someone
-   is," only "who they are related to." This needs a schema + migration decision (which subgraph
-   owns it — likely `village`, since it is a `Person`/`Household` attribute, not school/transport
-   specific), not just a frontend ask.
+1. **Decided (Bryan): `Location` is owned by the `village` subgraph, gated behind a new
+   `address.read` scope.** `Location`/`LocationSource` is still genuinely new domain data —
+   nothing today models "where someone is," only "who they are related to" — but the ownership
+   question from the previous draft is now settled: `village`, not a separate `location` subgraph.
+   `address.read` is a **new** grant scope name; no `grants` row in `src/fixtures.ts` holds it
+   yet, so every `mapLocations` read is `UNAUTHORIZED` until seed data grants it to someone —
+   flagged as an implementation gap, not a frontend concern.
 2. Mapbox token: `frontend.md` §3 already names `VITE_MAPBOX_TOKEN` as optional publishable-only;
    MapLibre remains default per that contract, unchanged here.
 
 ## 5. Surface: Muse Mission Control
 
 Recorded tool calls, responses, approvals, state transitions. Acknowledge instantly, show
-progress, then verified results — i.e., three-stage rendering per event, not a flat log.
+progress, then verified results — i.e., three-stage rendering per event, not a flat log. This
+section now mirrors `docs/contracts/pickup-job.md`'s reworked parallel-discovery /
+accept-then-approve model (states: `pending → discovering → awaiting_approval → confirmed` /
+`failed`).
 
 ### Queries / mutations
 
 | Operation | Status | Cites |
 | --- | --- | --- |
 | `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` |
-| `attempts(jobId: ID): [Attempt!]!` | EXISTING | `schema/coordination.graphql` `Query.attempts` |
-| `informationRequests(childId: ID): [InformationRequest!]!` | EXISTING | `schema/coordination.graphql` |
-| `confirmations(childId: ID): [Confirmation!]!` | EXISTING | `schema/coordination.graphql` |
-| `approvals(subjectId: ID): [Approval!]!` | EXISTING | `schema/access.graphql` `Query.approvals` |
-| `missionControlFeed(childId: ID!): [MissionControlEvent!]!` | **NEW** | aggregate + the acknowledge/progress/verified tri-state — see below |
-| any job-creating/attempt-recording mutation | **NEW** — **does not exist** | `schema/coordination.graphql` has **no `Mutation` type at all** today; Milestone 3 is "not implemented" per `docs/spec/milestone-3-pickup-job.md` line 3. Mission Control cannot do anything beyond read-only playback until this ships. |
+| `attempts(jobId: ID): [Attempt!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` `Query.attempts` — `pickup-job.md` §5/§7 adds NEW `candidate: Person!`, `available: Boolean`, `declineReason: DeclineReason` to the existing `Attempt` type |
+| `candidateEvaluations(jobId: ID!): [CandidateEvaluation!]!` | **NEW** | the per-candidate reason-code record (`UNAUTHORIZED`/`UNAVAILABLE`/`AVAILABLE_NO_TRANSPORT`/`OVER_POLICY`/`RECOMMENDED`/`APPROVAL_PENDING`) — `pickup-job.md` §5, no such type exists today |
+| `confirmations(childId: ID): [Confirmation!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` — `pickup-job.md` §7 adds NEW `candidate: Person!`, `approvedBy: Person!` |
+| `requestPickup` / `acceptPickup` / `approvePickup` | **NEW** | `pickup-job.md` §8 — `schema/coordination.graphql` has **no `Mutation` type at all** today; Mission Control cannot do anything beyond read-only playback until these ship |
 
-`MissionControlEvent` (**NEW**, proposed shape):
-
-```graphql
-enum MissionControlStage { ACKNOWLEDGED IN_PROGRESS VERIFIED }
-
-type MissionControlEvent {
-  id: ID!
-  job: CoordinationJob!
-  stage: MissionControlStage!
-  kind: String!   # "attempt" | "information_request" | "confirmation" | "approval"
-  summary: String!
-  at: String!
-}
-```
-
-`stage` is the direct answer to "acknowledge instantly, show progress, then verified results":
-`ACKNOWLEDGED` the moment the job records intent to act, `IN_PROGRESS` while an `Attempt` is
-outstanding, `VERIFIED` only once backed by a `Confirmation` row — never by the model's own words,
-same rule as `pickup-job.md` §2.
+**Decided (Bryan): no aggregate query in v1.** The previous draft's `missionControlFeed`
+aggregate and its `MissionControlStage` enum are **not building**. The
+`ACKNOWLEDGED → IN_PROGRESS → VERIFIED` three-stage read is computed **client-side** from the
+primitive reads above: `ACKNOWLEDGED` the moment `coordinationJobs` shows the job exists,
+`IN_PROGRESS` while any `candidateEvaluations` row is still unresolved, `VERIFIED` only once
+`confirmations` has a row for that job — never from the model's own words, same rule as
+`pickup-job.md` §2.
 
 ### Mock
 
-`docs/mocks/mission-control.json`
+`docs/mocks/mission-control.json` (illustrates the client-computed shape, not a server aggregate)
 
 ### Requested changes
 
-1. The coordination mutations themselves (create job with enforced idempotency, record attempt,
-   record confirmation, transition state) — this is the Milestone 3 implementation gap, not a
-   Mission Control–specific ask, but Mission Control is the surface that makes the gap visible.
-2. `missionControlFeed` aggregate — convenience; v1 could instead compose the five EXISTING/NEW
-   reads client-side and compute `stage` in the browser.
+1. The coordination mutations and the `CandidateEvaluation` type themselves
+   (`requestPickup`/`acceptPickup`/`approvePickup`, reason codes) — this is the Milestone 3
+   implementation gap described fully in `pickup-job.md`, not a Mission Control–specific ask, but
+   Mission Control is the surface that makes the gap visible.
 
 ## 6. Surface: Family Calendar + outcomes
 
@@ -262,33 +251,13 @@ same rule as `pickup-job.md` §2.
 | `permissionSlips(childId: ID!): [PermissionSlip!]!` | EXISTING | `schema/school.graphql` |
 | `busRoster(childId: ID!, date: String!): BusRoster` | EXISTING | `schema/transport.graphql` |
 | `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` — the "outcomes" half: did the pickup actually get confirmed for that day |
-| `calendarDay(childId: ID!, date: String!): CalendarDay!` | **NEW** | aggregate of all of the above for one day — see below |
 
-`CalendarDay` (**NEW**, proposed shape, pure aggregate of EXISTING + EXISTING data):
-
-```graphql
-type CalendarDay {
-  date: String!
-  child: Child!
-  events: [Event!]!
-  practices: [Practice!]!
-  groupEvents: [GroupEvent!]!
-  schoolReports: [SchoolReport!]!
-  permissionSlips: [PermissionSlip!]!
-  busRoster: BusRoster
-  outcomes: [CoordinationJob!]!
-}
-```
+**Decided (Bryan): no aggregate query in v1.** The previous draft's `calendarDay` aggregate is
+**not building**. The client composes the seven EXISTING queries above itself for one day's view.
 
 ### Mock
 
-`docs/mocks/family-calendar.json`
-
-### Requested changes
-
-1. `calendarDay` — convenience only; v1 could compose the seven EXISTING queries client-side
-   instead of adding a server aggregate. Flagged the same way as `villageGraph` and
-   `missionControlFeed`: nice-to-have, not load-bearing.
+`docs/mocks/family-calendar.json` (illustrates the client-assembled shape, not a server aggregate)
 
 ## 7. PROPOSED — `web/` folder split
 
@@ -323,18 +292,17 @@ layer; a change there touching another surface's visual identity should say so i
 
 ## 8. Open questions for Bryan
 
-1. **Realtime vs. polling, for real.** §1.3 recommends polling for v1 because no `Subscription`
-   type exists. If Mission Control's "acknowledge instantly" requirement needs sub-second
-   feedback that polling cannot give cheaply, the alternative is Supabase Realtime on raw tables
-   — which means deciding whether the browser may read `coordination_jobs`/`attempts` directly
-   under RLS, bypassing the subgraph's field-level authorization layer that `data-model.md` §4
-   calls the real boundary. That trade-off is Bryan's call, not an implementation detail.
-2. **Which subgraph owns `Location`/`LocationSource`?** Proposed as `village` (§4) since it reads
-   as a `Person`/`Household` attribute, but it could just as easily be a new `location` subgraph if
-   the data model wants geo kept separate from identity/relationship data.
-3. **Do the four aggregate convenience queries (`villageGraph`, `missionControlFeed`,
-   `calendarDay`, and implicitly a chat aggregate) get built at all for v1**, or does the frontend
-   compose EXISTING/NEW primitive queries client-side and accept the extra round trips? Each
-   "Requested changes" section above flags its aggregate as optional for exactly this reason.
-4. **Voice note storage** for the parent chat surface (§2) — bucket, URL signing, retention — is
-   unspecified; blocks `ChatMessage.voiceNoteUrl` from being more than a placeholder string.
+Resolved from the previous draft (recorded in place above, not repeated here): Realtime vs.
+polling (§1.3 — polling, 2–3s for Mission Control), `Location`/`LocationSource` ownership (§4 —
+`village`, behind `address.read`), whether the four aggregate convenience queries ship in v1 (§3,
+§5, §6 — no, client composes primitives), and voice note storage (§2 — private Supabase Storage
+bucket, signed URLs, P1).
+
+Still genuinely open:
+
+1. **Signed URL expiry/retention for voice notes** (§2) — "P1, private bucket, signed URLs" is
+   decided; how long a signed URL stays valid and how long a voice note is retained is not.
+2. **`address.read` has no grant rows yet** (§4) — the scope name and owning subgraph are decided,
+   but nobody in `src/fixtures.ts` holds it, so `mapLocations` is `UNAUTHORIZED` for everyone
+   until seed data is added. That's an implementation gap to track, not a contract question, but
+   it blocks the Geographic Map surface from returning anything until it's resolved.

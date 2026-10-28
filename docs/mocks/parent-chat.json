@@ -1,5 +1,5 @@
 {
-  "_note": "Mock only. Illustrates the PROPOSED chatThread query (docs/contracts/frontend-data.md §2). ChatMessage does not exist in the schema yet. People match the real seed (src/fixtures.ts): Kendra Ellison (p_mom), Nora Ellison (p_nora), Bryan Brooks (p_bryan, uncle, one of the 4 real pickupCandidates). Fictional data only.",
+  "_note": "Mock only. Updated to match docs/contracts/pickup-job.md's reworked parallel-discovery / accept-then-approve model — not explicitly requested by this round's task list, but left showing the old sequential 'Bryan confirmed' narrative would directly contradict the revised contract (acceptance is availability, never permission). Illustrates the PROPOSED chatThread query (docs/contracts/frontend-data.md §2; no server aggregate in v1 — the client merges informationRequests/approval items in by timestamp itself). Matches the same job as docs/mocks/pickup-job-lifecycle.json. People match the real seed (src/fixtures.ts). Fictional data only.",
   "query": "chatThread",
   "variables": { "childId": "p_nora" },
   "data": {
@@ -20,7 +20,7 @@
         "child": { "id": "p_nora" },
         "from": "MUSE",
         "kind": "TEXT",
-        "text": "On it. I'm checking who's available for Nora's pickup.",
+        "text": "On it — I'm asking everyone who's authorized at once: Loretta, Bryan, Tasha and Monique. I'll bring you the best option to approve.",
         "voiceNoteUrl": null,
         "at": "2026-10-28T14:58:22Z",
         "relatedInformationRequestId": null,
@@ -30,10 +30,10 @@
         "id": "msg_0003",
         "child": { "id": "p_nora" },
         "from": "MUSE",
-        "kind": "QUESTION",
-        "text": "I texted Bryan since he's closest. I'll let you know as soon as he replies.",
+        "kind": "TEXT",
+        "text": "Bryan can't today, and Monique hasn't answered yet. Loretta can, but her trip would be over your $10 ride-cost cap. Tasha said yes and she's within policy — still checking in case anyone else replies.",
         "voiceNoteUrl": null,
-        "at": "2026-10-28T15:01:03Z",
+        "at": "2026-10-28T14:59:50Z",
         "relatedInformationRequestId": "ir_0007",
         "relatedJobId": "job_01HXYZ"
       },
@@ -44,7 +44,7 @@
         "kind": "VOICE_NOTE",
         "text": null,
         "voiceNoteUrl": "https://storage.example.invalid/voice-notes/vn_0001.webm",
-        "at": "2026-10-28T15:02:40Z",
+        "at": "2026-10-28T15:00:40Z",
         "relatedInformationRequestId": null,
         "relatedJobId": null
       },
@@ -53,12 +53,35 @@
         "child": { "id": "p_nora" },
         "from": "MUSE",
         "kind": "APPROVAL_REQUEST",
-        "text": "Bryan confirmed — he'll pick up Nora at 3:30. Want me to let the school know he's cleared for pickup?",
+        "text": "Recommending Tasha for Nora's pickup today — she's available and within your ride-cost policy. You're today's approver. Want me to confirm it with her?",
         "voiceNoteUrl": null,
-        "at": "2026-10-28T15:12:30Z",
+        "at": "2026-10-28T14:59:45Z",
         "relatedInformationRequestId": null,
         "relatedJobId": "job_01HXYZ",
-        "_testNote": "Simulated. Bryan Brooks (p_bryan) is a real fixture from src/fixtures.ts contacted at a test-labelled destination — see docs/contracts/webhook.md §5 destinationLabel and §1.4 simulated badge rule."
+        "_testNote": "This is APPROVAL_PENDING, not confirmed — Tasha's earlier 'yes' was availability only. Nothing is confirmed until Kendra (the real approverFor result for this Wednesday) calls approvePickup."
+      },
+      {
+        "id": "msg_0006",
+        "child": { "id": "p_nora" },
+        "from": "PARENT",
+        "kind": "TEXT",
+        "text": "yes, approved",
+        "voiceNoteUrl": null,
+        "at": "2026-10-28T15:14:00Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ"
+      },
+      {
+        "id": "msg_0007",
+        "child": { "id": "p_nora" },
+        "from": "MUSE",
+        "kind": "TEXT",
+        "text": "Confirmed — Tasha has Nora's pickup today.",
+        "voiceNoteUrl": null,
+        "at": "2026-10-28T15:14:05Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ",
+        "_testNote": "Simulated. Tasha Ellison (p_tasha) is a real fixture from src/fixtures.ts contacted at a test-labelled destination — see docs/contracts/webhook.md §5 destinationMode and docs/contracts/frontend-data.md §1.4 simulated/real-consented badge rule."
       }
     ]
   }
