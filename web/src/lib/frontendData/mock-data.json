@@ -14,7 +14,7 @@
         "reasonCode": "OVER_POLICY",
         "distanceMiles": 8.86,
         "estimatedRideCostUsd": 12.4,
-        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
       },
       {
         "id": "p_bryan",
@@ -23,7 +23,7 @@
         "reasonCode": "UNAVAILABLE",
         "distanceMiles": 3.2,
         "estimatedRideCostUsd": 4.48,
-        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
       },
       {
         "id": "p_tasha",
@@ -32,16 +32,16 @@
         "reasonCode": "APPROVAL_PENDING",
         "distanceMiles": 4.5,
         "estimatedRideCostUsd": 6.3,
-        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
       },
       {
         "id": "p_monique",
         "name": "Monique Davis",
         "channel": "SMS",
         "reasonCode": "UNAVAILABLE",
-        "distanceMiles": 6.0,
+        "distanceMiles": 6,
         "estimatedRideCostUsd": 8.4,
-        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
       }
     ],
     "events": [
@@ -225,5 +225,30 @@
         "hasVoiceNote": false
       }
     ]
+  },
+  "overLimitPath": {
+    "jobStatus": "awaiting_approval",
+    "overLimitCandidate": {
+      "id": "p_gma",
+      "displayName": "Loretta Brooks"
+    },
+    "reasonCode": "OVER_POLICY",
+    "distanceMiles": 8.86,
+    "estimatedRideCostUsd": 12.4,
+    "costBasis": "FridgeGraph synthetic planning estimate: haversine distance x $1.40/mi",
+    "implicitApproval": {
+      "acceptOverLimit": false,
+      "result": "OVER_LIMIT_NOT_ACCEPTED",
+      "confirmationWritten": false
+    },
+    "explicitApproval": {
+      "acceptOverLimit": true,
+      "result": "confirmed",
+      "confirmation": {
+        "candidateId": "p_gma",
+        "approvedBy": "p_mom",
+        "overLimitApproved": true
+      }
+    }
   }
 }

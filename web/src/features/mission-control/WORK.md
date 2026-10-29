@@ -1,25 +1,23 @@
-# Mission Control work in progress
+# Mission Control handoff
 
-Baseline main: f8dd86baef6e3ff7455154434bfcc2d4dd8ee276.
-Contract: frontend-data.md at ad188f2adaeb97b6bee6bda7ac395052e49822ab, section 5,
-plus Bryan's approved PENDING and label clarifications. API fields keep their contract names.
+The UI, recorded replay, dialog fix, over-limit projection handling, tests and browser evidence
+are implemented against main 21565be. See `web/evidence/mission-control/README.md` for the full
+integration receipt, exact verification counts, screenshots, limitations and handoff packet.
 
-Started the recorded-data view model and tests. Every caregiver row is preserved, including
-OVER_POLICY, leaving room for Bentley's upcoming alternative without implementing a new
-selection or approval path ahead of the contract. No new state or confirmation is inferred.
-
-Next: dark pickup card, caregiver selection/review, recommendation because-list sourced from
-recorded policy evidence, job timeline, Rosina activity trace, and required UI/smoke evidence.
-This is not a complete feature or a feature PR. No UI screenshots claimed for model-only work.
+No live GraphQL adapter is connected. Candidate, over-limit and confirmation states in connected
+mode must come only from authorized backend responses. Never fall back to the mock fixture.
+PENDING means Waiting for reply; a matching Confirmation row is required for approval evidence.
+The demo is explicitly simulated, not a real outreach or approval write.
 
 BRANCH: feat/web-mission-control-ui
 WORKTREE: /Users/user/orca/workspaces/fridgegraph/fridgegraph-mission-control-ui
-TASK: Build Mission Control against recorded mocks and the fixed frontend data contract.
+TASK: Review the implemented Mission Control UI and evidence.
 LAYER: frontend
-TOUCHED: web/src/features/mission-control/** (started); web/src/App.tsx,
-web/src/lib/frontendData/**, web/evidence/mission-control/** and web smoke config/tests (next).
-DONE WHEN: npm run typecheck; npm run check; npm --prefix web test;
-npm --prefix web run build; Playwright navigation, caregiver selection and approval UI smoke;
-1440px/390px screenshots plus interaction evidence.
-NOT DOING: village UI, backend/schema/DB/contracts, unapproved alternative path, merge/deploy.
-BLOCKERS: mutable coordination screens depend on backend operations; do not invent outcomes.
+TOUCHED: web/src/features/mission-control/**, web/src/App.tsx,
+web/src/lib/frontendData/**, web/evidence/mission-control/**, web/e2e/**,
+web/playwright.config.ts, web/scripts/sync-mocks.mjs, web/package.json, web/INTEGRATION.md.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (41 tests);
+npm --prefix web run build; npm --prefix web run test:e2e (10 tests); screenshot review.
+NOT DOING: parent chat, village UI, backend/schema/DB/contracts, live outreach, merge/deploy.
+BLOCKERS: live GraphQL adapter remains future integration work; unmatched p_angel mock needs
+upstream correction before adding it to the four-person authorized baseline.

@@ -1,10 +1,19 @@
 export const TRAVEL_COST_LABEL = 'Estimated travel cost'
 export type Scope = { childId: string; childName: string; parentName: string; villageId: string }
 export type ReasonCode = 'PENDING' | 'UNAUTHORIZED' | 'NO_VERIFIED_CONTACT_METHOD' | 'UNREACHABLE' | 'UNAVAILABLE' | 'AVAILABLE_NO_TRANSPORT' | 'OVER_POLICY' | 'RECOMMENDED' | 'APPROVAL_PENDING'
-export type Candidate = { id: string; name: string; channel: string; reasonCode: ReasonCode; distanceMiles: number; estimatedRideCostUsd: number; costBasis: string }
-export type RecordedEvent = { id: string; at: string; kind: string; summary: string; stage: string; job: { id: string; status: string; version: number } }
+export type Candidate = { id: string; name: string; channel: string; reasonCode: ReasonCode; distanceMiles: number | null; estimatedRideCostUsd: number | null; costBasis: string | null }
+export type RecordedEvent = { id: string; at: string; kind: string; summary: string; stage: string; job: { id: string; status: string; version: number; idempotencyKey?: string } }
 export type ChatMessage = { id: string; from: string; kind: string; text: string | null; at: string; relatedJobId: string | null; relatedInformationRequestId: string | null; hasVoiceNote: boolean }
-export type MissionControlData = { candidates: Candidate[]; events: RecordedEvent[] }
+export type CoordinationJob = { id: string; status: string; version: number; idempotencyKey?: string; overLimitCandidate?: { id: string; displayName: string } | null }
+export type Confirmation = {
+  id: string; job: { id: string }; receivedAt: string
+  candidate: { id: string; displayName: string }; approvedBy: { id: string; displayName: string }; overLimitApproved: boolean
+}
+export type ApprovalInput = { jobId: string; version: number; decision: 'APPROVED' | 'DECLINED'; declineReason?: string; acceptOverLimit?: boolean }
+export type MissionControlData = {
+  candidates: Candidate[]; events: RecordedEvent[]
+  coordinationJobs?: CoordinationJob[]; confirmations?: Confirmation[]
+}
 export type ParentChatData = { messages: ChatMessage[] }
 export type VillageNode = {
   person: { id: string; displayName: string }
@@ -23,6 +32,7 @@ export interface FrontendAdapter {
   readMissionControl(scope: Scope): Promise<MissionControlData>
   readParentChat(scope: Scope): Promise<ParentChatData>
   readVillage(scope: Scope): Promise<VillageData>
+  approvePickup?(scope: Scope, input: ApprovalInput): Promise<CoordinationJob>
 }
 export function reasonLabel(reason: ReasonCode): string {
   const labels: Record<ReasonCode, string> = {
