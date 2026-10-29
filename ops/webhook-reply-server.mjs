@@ -97,27 +97,32 @@ async function handleReply(req, res) {
     log(400, eventId, 'binding mismatch'); return send(res, 400, { error: 'BINDING_MISMATCH' })
   }
 
-  // 6: durable dedupe. The insert IS the lock.
+  // 6+7: dedupe and the state change commit together inside the function, one transaction.
+  // If processing raises, the event row rolls back with it, so a retry is not wrongly rejected.
   const digest = crypto.createHash('sha256').update(raw).digest('hex')
-  const ins = await db.query(
-    `insert into webhook_events (id, attempt_id, request_version, payload_sha256, outcome)
-     values ($1, $2, $3, $4, 'ACCEPTED') on conflict (id) do nothing`,
-    [eventId, attemptId, requestVersion, digest])
-  if (ins.rowCount === 0) { log(409, eventId, 'duplicate'); return send(res, 409, { error: 'DUPLICATE' }) }
-
-  // 7: the only privileged call, as service role.
   const r = await fetch(`${BASE}/rest/v1/rpc/accept_pickup_webhook`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', apikey: SVC },
     body: JSON.stringify({
-      p_attempt: attemptId, p_available: available, p_decline: declineReason, p_request_version: requestVersion,
+      p_attempt: attemptId, p_available: available, p_decline: declineReason,
+      p_request_version: requestVersion, p_event_id: eventId, p_payload_sha256: digest,
     }),
   })
   const text = await r.text()
-  if (!r.ok) { log(r.status, eventId, 'rpc rejected'); return send(res, r.status, { error: 'REJECTED', detail: JSON.parse(text || '{}').message ?? null }) }
+  if (!r.ok) {
+    const msg = (() => { try { return JSON.parse(text || '{}').message } catch { return null } })()
+    log(r.status, eventId, 'rejected: ' + (msg || 'unknown'))
+    if (msg === 'EVENT_ID_CONFLICT') return send(res, 409, { error: 'EVENT_ID_CONFLICT' })
+    return send(res, r.status, { error: 'REJECTED', detail: msg })
+  }
+
+  let status = 'recorded'
+  try { status = JSON.parse(text) } catch { /* plain text */ }
+  if (status === 'duplicate') { log(200, eventId, 'duplicate'); return send(res, 200, { status: 'duplicate' }) }
+  if (status === 'rejected_state') { log(409, eventId, 'rejected_state'); return send(res, 409, { status: 'rejected_state' }) }
 
   log(200, eventId, 'recorded')
-  return send(res, 200, { status: JSON.parse(text || '"recorded"') })
+  return send(res, 200, { status })
 }
 
 const server = http.createServer(async (req, res) => {

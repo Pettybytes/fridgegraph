@@ -34,6 +34,8 @@ if (!URL || !SVC || !PUB || !process.env.SUPABASE_DB_URL) {
 }
 
 const results = []
+const RUN = Date.now().toString(36)
+const evtFor = (key) => `evt-${RUN}-${key}`
 const rec = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`) }
 const svcHeaders = { apikey: SVC }
 const asUser = (tok) => ({ apikey: PUB, authorization: `Bearer ${tok}` })
@@ -103,8 +105,12 @@ rec('stale request_version refused', err(stale, 'STALE_REQUEST_VERSION'))
 
 // ---------------------------------------------------------------- C/D. webhook walk
 // The trusted handler calls this service-role function after verifying HMAC + timestamp + event id.
-const hook = (candidate, available, decline) =>
-  rpc('accept_pickup_webhook', { p_attempt: attempts[candidate], p_available: available, p_decline: decline, p_request_version: 1 })
+const hookOn = (attemptId, available, decline, rv = 1, key = attemptId) => {
+  const eid = evtFor(String(key))
+  return rpc('accept_pickup_webhook', { p_attempt: attemptId, p_available: available, p_decline: decline,
+    p_request_version: rv, p_event_id: eid, p_payload_sha256: `d-${eid}-${available}-${decline}` })
+}
+const hook = (candidate, available, decline) => hookOn(attempts[candidate], available, decline, 1, candidate)
 
 const gmaReply = await hook('p_gma', true, null)
 rec('webhook records Loretta available', gmaReply.status < 300 && gmaReply.body === 'recorded', `body=${JSON.stringify(gmaReply.body)}`)
@@ -136,14 +142,14 @@ rec('Tasha is inside the cap with a computed estimate',
 
 // ---------------------------------------------------------------- approval gate
 const v = job.rows[0].version
-const dadApprove = await rpc('approve_pickup', { p_job: jobId, p_version: v, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(dad))
+const dadApprove = await rpc('approve_pickup', { p_job: jobId, p_version: v, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(dad))
 rec('non-approver parent refused', err(dadApprove, 'UNAUTHORIZED'))
-const gmaApprove = await rpc('approve_pickup', { p_job: jobId, p_version: v, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(gma))
+const gmaApprove = await rpc('approve_pickup', { p_job: jobId, p_version: v, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(gma))
 rec('caregiver cannot approve', err(gmaApprove, 'UNAUTHORIZED'))
-const staleApprove = await rpc('approve_pickup', { p_job: jobId, p_version: 1, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(mom))
+const staleApprove = await rpc('approve_pickup', { p_job: jobId, p_version: 1, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(mom))
 rec('stale version refused', err(staleApprove, 'STALE_VERSION'))
 
-const approved = await rpc('approve_pickup', { p_job: jobId, p_version: v, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(mom))
+const approved = await rpc('approve_pickup', { p_job: jobId, p_version: v, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(mom))
 const conf = await db.query(`select candidate_id, approved_by from confirmations where job_id=$1`, [jobId])
 const fin = await db.query(`select status from coordination_jobs where id=$1`, [jobId])
 rec('Kendra approves and the job is confirmed', approved.status < 300 && fin.rows[0].status === 'confirmed', `status=${fin.rows[0].status}`)
@@ -151,9 +157,12 @@ rec('exactly one confirmation, naming candidate and approver',
   conf.rowCount === 1 && conf.rows[0].candidate_id === 'p_tasha' && conf.rows[0].approved_by === 'p_mom',
   `${conf.rows[0]?.candidate_id}/${conf.rows[0]?.approved_by}`)
 
-rec('terminal job rejects a late accept', err(await hook('p_tasha', false, 'BUSY'), 'JOB_TERMINAL'))
+const lateReply = await hookOn(attempts.p_tasha, false, 'BUSY', 1, 'p_tasha-late')
+rec('terminal job rejects a late accept', lateReply.status < 300 && /rejected_state/.test(String(lateReply.body)), `body=${String(lateReply.body)}`)
+const lateEvt = await db.query(`select outcome from webhook_events where id=$1`, [evtFor('p_tasha-late')])
+rec('state rejection recorded as REJECTED_STATE', lateEvt.rows[0]?.outcome === 'REJECTED_STATE', `outcome=${lateEvt.rows[0]?.outcome}`)
 rec('second approval refused',
-  err(await rpc('approve_pickup', { p_job: jobId, p_version: v + 1, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(mom)), 'JOB_TERMINAL'))
+  err(await rpc('approve_pickup', { p_job: jobId, p_version: v + 1, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(mom)), 'JOB_TERMINAL'))
 
 // ---------------------------------------------------------------- E. real-call gate
 const attemptA = attempts.p_tasha
@@ -178,8 +187,7 @@ rec('parent sees zero candidate origins', personRows.length === 0, `person_rows=
 rec('parent sees the child location', childRows.length > 0, `child_rows=${childRows.length}`)
 
 // ---------------------------------------------------------------- G. over-limit fallback (0017)
-const hookOn = (attemptId, available, decline, rv = 1) =>
-  rpc('accept_pickup_webhook', { p_attempt: attemptId, p_available: available, p_decline: decline, p_request_version: rv })
+
 
 if (hasOverLimit) {
   const mixed = await db.query(`select over_limit_candidate_id from coordination_jobs where id=$1`, [jobId])
@@ -205,7 +213,7 @@ if (hasOverLimit) {
     `approval_pending=${lonePending.rows[0].n}`)
 
   const loneVer = (await db.query(`select version from coordination_jobs where id=$1`, [loneId])).rows[0].version
-  const implicit = await rpc('approve_pickup', { p_job: loneId, p_version: loneVer, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(mom))
+  const implicit = await rpc('approve_pickup', { p_job: loneId, p_version: loneVer, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(mom))
   rec('approving an over-limit option implicitly is refused', err(implicit, 'OVER_LIMIT_NOT_ACCEPTED'), `status=${implicit.status}`)
   const none = await db.query(`select count(*)::int n from confirmations where job_id=$1`, [loneId])
   rec('the refused approval created no confirmation', none.rows[0].n === 0, `confirmations=${none.rows[0].n}`)
@@ -275,26 +283,56 @@ if (hasEvents) {
   rec('rejections left state untouched', before.rows[0].available === null, `pre_available=${before.rows[0].available}`)
 
   const dup = await post(payload, ts, sign(ts, payload))
-  rec('duplicate event id rejected 409', dup.status === 409, `status=${dup.status}`)
+  rec('same event id + same payload is an idempotent duplicate', dup.status === 200 && /duplicate/.test(dup.body), `status=${dup.status}`)
+
+  const conflictPayload = JSON.stringify({ ...JSON.parse(payload), available: true, declineReason: null })
+  const conflict = await post(conflictPayload, ts, sign(ts, conflictPayload))
+  rec('same event id + different payload is rejected', conflict.status === 409 && /EVENT_ID_CONFLICT/.test(conflict.body), `status=${conflict.status}`)
 
   const ev = await db.query(`select count(*)::int n from webhook_events where id='evt-http-1'`)
-  rec('event id recorded once', ev.rows[0].n === 1, `rows=${ev.rows[0].n}`)
+  rec('event id recorded exactly once', ev.rows[0].n === 1, `rows=${ev.rows[0].n}`)
+
+  // Two identical deliveries in flight at the same time: exactly one transition.
+  const t2 = httpAttempts.rows.find(r => r.candidate_id === 'p_monique')
+  const p2 = JSON.stringify({ eventId: 'evt-http-conc', attemptId: t2.id, requestVersion: 1, available: false, declineReason: 'BUSY', recipient: t2.destination, channel: t2.channel })
+  const [c1, c2] = await Promise.all([post(p2, ts, sign(ts, p2)), post(p2, ts, sign(ts, p2))])
+  const bodies = [c1.body, c2.body]
+  const recorded = bodies.filter(b => /recorded/.test(b)).length
+  const duplicated = bodies.filter(b => /duplicate/.test(b)).length
+  rec('concurrent duplicates apply exactly one transition', recorded === 1 && duplicated === 1, `recorded=${recorded} duplicate=${duplicated}`)
+  const concRows = await db.query(`select count(*)::int n from webhook_events where id='evt-http-conc'`)
+  rec('concurrent duplicates write one event row', concRows.rows[0].n === 1, `rows=${concRows.rows[0].n}`)
+
+  // Atomicity: the event row lives in the same transaction as the state change, so a rolled-back
+  // processing leaves nothing recorded and the retry is free to succeed.
+  const t3 = httpAttempts.rows.find(r => r.candidate_id === 'p_chris') || httpAttempts.rows[3]
+  await db.query('begin')
+  await db.query(`select accept_pickup_webhook($1,$2,$3,$4,$5,$6)`, [t3.id, false, 'BUSY', 1, 'evt-rollback', 'digest-rollback'])
+  await db.query('rollback')
+  const rb = await db.query(`select count(*)::int n from webhook_events where id='evt-rollback'`)
+  rec('rolled-back processing leaves no event record', rb.rows[0].n === 0, `rows=${rb.rows[0].n}`)
 
   // The same state is visible through GraphQL when a router is provided.
   if (process.env.FRIDGEGRAPH_ROUTER) {
     const q = await fetch(process.env.FRIDGEGRAPH_ROUTER, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${mom}` },
-      body: JSON.stringify({ query: `query($id: ID!){ coordinationJob(id:$id){ id status } }`, variables: { id: httpJob } }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + mom },
+      body: JSON.stringify({
+        query: `query($c: ID!){ coordinationJobs(childId:$c){ id status version } }`,
+        variables: { c: 'p_nora' },
+      }),
     })
     const qb = await q.json()
-    rec('job state visible through GraphQL', !!qb?.data?.coordinationJob, JSON.stringify(qb?.data ?? qb?.errors ?? {}).slice(0, 80))
+    const found = (qb?.data?.coordinationJobs || []).find((j) => j.id === httpJob)
+    rec('job state visible through GraphQL', !!found,
+      `job=${String(found?.id).slice(0, 10)} status=${found?.status} v=${found?.version}`)
   } else {
     console.log('SKIP  graphql visibility (no FRIDGEGRAPH_ROUTER)')
   }
 
   srv.kill()
   if (!KEEP) await db.query(`delete from coordination_jobs where id=$1`, [httpJob])
-  await db.query(`delete from webhook_events where id='evt-http-1'`)
+  await db.query(`delete from webhook_events where id in ('evt-http-1','evt-http-conc','evt-rollback')`)
 } else {
   console.log('SKIP  signed HTTP boundary cases (0018 not applied)')
 }
