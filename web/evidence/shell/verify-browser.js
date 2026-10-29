@@ -72,7 +72,7 @@ async page => {
   verify(adapter.candidates.length === 4, 'Adapter returns four recorded real-seed caregivers')
   verify(adapter.pending === 'Waiting for reply' && adapter.overPolicy === 'Over your travel limit', 'Waiting and travel-limit labels follow the approved wording')
   verify(adapter.label === 'Estimated travel cost', 'Cost label is Estimated travel cost')
-  verify(adapter.candidates.every(candidate => Math.abs(candidate.estimatedTravelCostUsd - candidate.distanceMiles * 1.4) < .005), 'Synthetic travel estimate uses $1.40 per mile for every caregiver')
+  verify(adapter.candidates.every(candidate => Math.abs(candidate.estimatedRideCostUsd - candidate.distanceMiles * 1.4) < .005), 'Synthetic travel estimate uses $1.40 per mile for every caregiver')
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('link', { name: 'Mission Control', exact: true }).click()

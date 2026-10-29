@@ -13,7 +13,7 @@
         "channel": "CALL",
         "reasonCode": "OVER_POLICY",
         "distanceMiles": 8.86,
-        "estimatedTravelCostUsd": 12.4,
+        "estimatedRideCostUsd": 12.4,
         "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
       },
       {
@@ -22,7 +22,7 @@
         "channel": "SMS",
         "reasonCode": "UNAVAILABLE",
         "distanceMiles": 3.2,
-        "estimatedTravelCostUsd": 4.48,
+        "estimatedRideCostUsd": 4.48,
         "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
       },
       {
@@ -31,7 +31,7 @@
         "channel": "SMS",
         "reasonCode": "APPROVAL_PENDING",
         "distanceMiles": 4.5,
-        "estimatedTravelCostUsd": 6.3,
+        "estimatedRideCostUsd": 6.3,
         "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
       },
       {
@@ -40,7 +40,7 @@
         "channel": "SMS",
         "reasonCode": "UNAVAILABLE",
         "distanceMiles": 6.0,
-        "estimatedTravelCostUsd": 8.4,
+        "estimatedRideCostUsd": 8.4,
         "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
       }
     ],

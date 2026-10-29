@@ -5,7 +5,7 @@ Frontend data contract: `ad188f2adaeb97b6bee6bda7ac395052e49822ab`.
 Bryan approved the contract in the task and added `PENDING` (outreach sent, no reply).
 The approved wording update uses **Estimated travel cost**, a synthetic $1.40/mile estimate
 for every caregiver, including drivers. `OVER_POLICY` reads **Over your travel limit**.
-The screen-facing field is `estimatedTravelCostUsd`; the adapter maps backend fields into it.
+The contract and backend field remains `estimatedRideCostUsd`; only user-facing labels change.
 The contract file still labels itself draft. No contract edits in this frontend lane.
 
 ## Integration points
