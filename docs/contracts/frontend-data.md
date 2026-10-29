@@ -81,6 +81,23 @@ exception into looking like an ordinary, unlabelled production call:
 - A `Confirmation`'s badge is derived from its `Attempt`'s `destinationMode` (via the candidate
   it confirms) rather than carrying its own copy of the field — one source of truth per job.
 
+### 1.5 User-facing labels (binding)
+
+Cost and policy copy is not free-form. These exact strings are required, and the prohibited words
+must not appear in any label, badge, toast or notification:
+
+| Concept | Required label |
+| --- | --- |
+| `estimatedRideCostUsd` / `distanceMiles` on a candidate | **"Estimated travel cost"** |
+| `OVER_POLICY` state | **"Over your travel limit"** |
+
+- Never "ride fare", "Uber", "quote", "reimbursement", "charge" or "spend". The figure is a
+  synthetic planning estimate of the candidate's trip to the pickup point (`pickup-job.md` §6a),
+  applied consistently to every candidate including those using their own vehicles.
+- Kendra's $10 is a **household travel-cost policy threshold**, not a spending authorization for
+  any ride provider. Reviewing an over-limit option is an explicit exception, never a purchase.
+- Where the estimate is displayed, `costBasis` must be shown verbatim.
+
 ## 2. Surface: Parent chat (Kendra's phone)
 
 Display name and tagline, wherever the UI names the agent: **"Rosina, FridgeGraph's AI family

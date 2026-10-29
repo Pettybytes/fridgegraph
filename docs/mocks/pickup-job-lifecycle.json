@@ -53,7 +53,7 @@
       "estimatedRideCostUsd": 12.40,
       "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
       "distanceMiles": 8.86,
-      "note": "Over the cap (Kendra's h_a ride_cost_cap_usd=10) is not the same as unavailable (pickup-job.md §6a) — she remains a candidate, just flagged, and was not chosen only because Tasha was available, within cap, and clean on every ranking key."
+      "note": "Over your travel limit (Kendra's h_a ride_cost_cap_usd=10, a household travel-cost policy threshold — not a spending authorization) is not the same as unavailable (pickup-job.md §6a) — she remains a candidate, just flagged as \"Estimated travel cost\" above the threshold, and was not chosen only because Tasha was available, within the limit, and clean on every ranking key."
     },
     {
       "person": { "id": "p_bryan", "displayName": "Bryan Brooks" },
