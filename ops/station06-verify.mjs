@@ -18,6 +18,8 @@
  * token is printed. Test artifacts are removed in the same run unless --keep is passed.
  */
 import pg from 'pg'
+import crypto from 'node:crypto'
+import { spawn } from 'node:child_process'
 import { tokenForPersonId } from './auth.mjs'
 
 const URL = process.env.SUPABASE_URL?.replace(/\/$/, '')
@@ -38,6 +40,13 @@ const asUser = (tok) => ({ apikey: PUB, authorization: `Bearer ${tok}` })
 
 const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
 await db.connect()
+
+// Capability gates: the fallback and dedupe cases only activate once 0017/0018 are applied, so this
+// harness stays green (and honest about what it has not yet proven) in between.
+const hasOverLimit = (await db.query(`select count(*)::int n from information_schema.columns
+  where table_name='coordination_jobs' and column_name='over_limit_candidate_id'`)).rows[0].n > 0
+const hasEvents = (await db.query(`select count(*)::int n from information_schema.tables
+  where table_name='webhook_events'`)).rows[0].n > 0
 
 async function rpc(fn, args, headers = svcHeaders) {
   const r = await fetch(`${URL}/rest/v1/rpc/${fn}`, {
@@ -167,6 +176,128 @@ const personRows = Array.isArray(rows) ? rows.filter(r => r.owner_type === 'PERS
 const childRows = Array.isArray(rows) ? rows.filter(r => r.owner_type === 'CHILD') : []
 rec('parent sees zero candidate origins', personRows.length === 0, `person_rows=${personRows.length}`)
 rec('parent sees the child location', childRows.length > 0, `child_rows=${childRows.length}`)
+
+// ---------------------------------------------------------------- G. over-limit fallback (0017)
+const hookOn = (attemptId, available, decline, rv = 1) =>
+  rpc('accept_pickup_webhook', { p_attempt: attemptId, p_available: available, p_decline: decline, p_request_version: rv })
+
+if (hasOverLimit) {
+  const mixed = await db.query(`select over_limit_candidate_id from coordination_jobs where id=$1`, [jobId])
+  rec('mixed night: no over-limit alternative recorded', mixed.rows[0].over_limit_candidate_id === null,
+    `over_limit=${mixed.rows[0].over_limit_candidate_id}`)
+
+  // Loretta-only night: only she replies, everyone else times out.
+  const lon = await rpc('request_pickup', { p_child: 'p_nora', p_as_of: AS_OF, p_window: 'loretta-only' }, asUser(mom))
+  const loneId = lon.body
+  const loneAttempts = await db.query(`select a.id, a.candidate_id from attempts a where a.job_id=$1`, [loneId])
+  const gmaA = loneAttempts.rows.find(r => r.candidate_id === 'p_gma')?.id
+  await hookOn(gmaA, true, null)
+  await db.query(`update coordination_jobs set discovery_timeout_seconds=0 where id=$1`, [loneId])
+  await db.query(`select close_discovery($1)`, [loneId])
+
+  const lone = await db.query(`select status, over_limit_candidate_id from coordination_jobs where id=$1`, [loneId])
+  rec('Loretta-only night surfaces her as the over-limit alternative',
+    lone.rows[0].status === 'awaiting_approval' && lone.rows[0].over_limit_candidate_id === 'p_gma',
+    `status=${lone.rows[0].status} alt=${lone.rows[0].over_limit_candidate_id}`)
+
+  const lonePending = await db.query(`select count(*)::int n from candidate_evaluations where job_id=$1 and reason_code='APPROVAL_PENDING'`, [loneId])
+  rec('over-limit alternative never looks like APPROVAL_PENDING', lonePending.rows[0].n === 0,
+    `approval_pending=${lonePending.rows[0].n}`)
+
+  const loneVer = (await db.query(`select version from coordination_jobs where id=$1`, [loneId])).rows[0].version
+  const implicit = await rpc('approve_pickup', { p_job: loneId, p_version: loneVer, p_request_version: 1, p_decision: 'APPROVED', p_reason: null }, asUser(mom))
+  rec('approving an over-limit option implicitly is refused', err(implicit, 'OVER_LIMIT_NOT_ACCEPTED'), `status=${implicit.status}`)
+  const none = await db.query(`select count(*)::int n from confirmations where job_id=$1`, [loneId])
+  rec('the refused approval created no confirmation', none.rows[0].n === 0, `confirmations=${none.rows[0].n}`)
+
+  const explicit = await rpc('approve_pickup', { p_job: loneId, p_version: loneVer, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: true }, asUser(mom))
+  const conf2 = await db.query(`select candidate_id, over_limit_approved from confirmations where job_id=$1`, [loneId])
+  rec('the explicit exception approves and is recorded',
+    explicit.status < 300 && conf2.rowCount === 1 && conf2.rows[0].over_limit_approved === true,
+    `candidate=${conf2.rows[0]?.candidate_id} flag=${conf2.rows[0]?.over_limit_approved}`)
+  if (!KEEP) await db.query(`delete from coordination_jobs where id=$1`, [loneId])
+} else {
+  console.log('SKIP  over-limit fallback cases (0017 not applied)')
+}
+
+// ---------------------------------------------------------------- H. signed HTTP boundary (0018)
+if (hasEvents) {
+  const port = 4117
+  const srv = spawn(process.execPath, ['ops/webhook-reply-server.mjs'], {
+    env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let srvErr = ''
+  srv.stderr.on('data', d => { srvErr += String(d) })
+  await new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('server timeout: ' + srvErr.slice(0, 120))), 8000)
+    srv.stdout.on('data', d => { if (String(d).includes('webhook-reply-server on')) { clearTimeout(t); resolve() } })
+    srv.on('exit', c => { clearTimeout(t); reject(new Error('server exited ' + c + ' ' + srvErr.slice(0, 120))) })
+  }).catch(e => { console.log('SKIP  http cases (' + e.message + ')') })
+
+  const url = `http://127.0.0.1:${port}/webhooks/coordination/reply`
+  const secret = process.env.N8N_WEBHOOK_SECRET
+  const sign = (ts, raw) => crypto.createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex')
+  const now = () => Math.floor(Date.now() / 1000)
+  const post = async (raw, ts, sig) => {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-fridgegraph-timestamp': String(ts), 'x-fridgegraph-signature': String(sig) }, body: raw })
+    return { status: r.status, body: await r.text() }
+  }
+
+  // A fresh job, so the HTTP cases cannot disturb the walk above.
+  const h = await rpc('request_pickup', { p_child: 'p_nora', p_as_of: AS_OF, p_window: 'http' }, asUser(mom))
+  const httpJob = h.body
+  const httpAttempts = await db.query(`select a.id, a.candidate_id, a.destination, a.channel from attempts a where a.job_id=$1`, [httpJob])
+  const t = httpAttempts.rows.find(r => r.candidate_id === 'p_bryan')
+  const payload = JSON.stringify({ eventId: 'evt-http-1', attemptId: t.id, requestVersion: 1, available: false, declineReason: 'BUSY', recipient: t.destination, channel: t.channel })
+  const ts = now()
+
+  const bad = await post(payload, ts, 'deadbeef'.repeat(8))
+  rec('bad signature rejected 401', bad.status === 401, `status=${bad.status}`)
+
+  const expired = await post(payload, ts - 400, sign(ts - 400, payload))
+  rec('expired timestamp rejected 401', expired.status === 401, `status=${expired.status}`)
+
+  const malformed = await post('{not json', ts, sign(ts, '{not json'))
+  rec('malformed body rejected 400', malformed.status === 400, `status=${malformed.status}`)
+
+  const mismatched = JSON.stringify({ ...JSON.parse(payload), recipient: 'wrong-recipient' })
+  const mis = await post(mismatched, ts, sign(ts, mismatched))
+  rec('binding mismatch rejected 400', mis.status === 400 && /BINDING/.test(mis.body), `status=${mis.status}`)
+
+  const before = await db.query(`select reason_code, available from candidate_evaluations where job_id=$1 and candidate_id='p_bryan'`, [httpJob])
+  const good = await post(payload, ts, sign(ts, payload))
+  rec('valid signed reply accepted 200', good.status === 200, `status=${good.status} body=${good.body.slice(0, 40)}`)
+
+  const after = await db.query(`select reason_code, available from candidate_evaluations where job_id=$1 and candidate_id='p_bryan'`, [httpJob])
+  rec('the valid reply is persisted', after.rows[0].available === false && after.rows[0].reason_code === 'UNAVAILABLE',
+    `available=${after.rows[0].available} code=${after.rows[0].reason_code}`)
+
+  rec('rejections left state untouched', before.rows[0].available === null, `pre_available=${before.rows[0].available}`)
+
+  const dup = await post(payload, ts, sign(ts, payload))
+  rec('duplicate event id rejected 409', dup.status === 409, `status=${dup.status}`)
+
+  const ev = await db.query(`select count(*)::int n from webhook_events where id='evt-http-1'`)
+  rec('event id recorded once', ev.rows[0].n === 1, `rows=${ev.rows[0].n}`)
+
+  // The same state is visible through GraphQL when a router is provided.
+  if (process.env.FRIDGEGRAPH_ROUTER) {
+    const q = await fetch(process.env.FRIDGEGRAPH_ROUTER, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${mom}` },
+      body: JSON.stringify({ query: `query($id: ID!){ coordinationJob(id:$id){ id status } }`, variables: { id: httpJob } }),
+    })
+    const qb = await q.json()
+    rec('job state visible through GraphQL', !!qb?.data?.coordinationJob, JSON.stringify(qb?.data ?? qb?.errors ?? {}).slice(0, 80))
+  } else {
+    console.log('SKIP  graphql visibility (no FRIDGEGRAPH_ROUTER)')
+  }
+
+  srv.kill()
+  if (!KEEP) await db.query(`delete from coordination_jobs where id=$1`, [httpJob])
+  await db.query(`delete from webhook_events where id='evt-http-1'`)
+} else {
+  console.log('SKIP  signed HTTP boundary cases (0018 not applied)')
+}
 
 // ---------------------------------------------------------------- cleanup
 await db.query(`delete from real_call_authorizations where id like 'rca_%'`)
