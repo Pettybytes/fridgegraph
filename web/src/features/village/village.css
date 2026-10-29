@@ -1,0 +1,326 @@
+/* ── Living Village ─────────────────────────────────────── */
+
+.village-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 480px;
+  border-radius: 18px;
+  background: #f5f0fa;
+  overflow: hidden;
+}
+
+/* ── Controls ───────────────────────────────────────────── */
+
+.village-controls {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.village-search-wrap {
+  position: relative;
+  width: 240px;
+}
+
+.village-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8b9ab5;
+  pointer-events: none;
+}
+
+.village-search {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid rgba(117,89,161,0.18);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(10px);
+  font-size: 13px;
+  color: #26344b;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.village-search:focus {
+  border-color: #7559a1;
+  box-shadow: 0 0 0 3px rgba(117,89,161,0.12);
+}
+
+.village-search::placeholder {
+  color: #9aa5b8;
+}
+
+.village-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.village-chip {
+  padding: 5px 12px;
+  border: 1px solid rgba(117,89,161,0.15);
+  border-radius: 20px;
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 500;
+  color: #657086;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.village-chip:hover {
+  background: rgba(255,255,255,0.95);
+  border-color: rgba(117,89,161,0.3);
+}
+
+.village-chip.active {
+  background: #7559a1;
+  color: #fff;
+  border-color: #7559a1;
+}
+
+/* ── Canvas ─────────────────────────────────────────────── */
+
+.village-canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 380px;
+}
+
+.village-canvas-wrap canvas {
+  display: block;
+  cursor: pointer;
+}
+
+.village-no-results {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 24px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  font-size: 14px;
+  color: #657086;
+  text-align: center;
+}
+
+/* ── Legend ──────────────────────────────────────────────── */
+
+.village-legend {
+  position: absolute;
+  bottom: 16px;
+  right: 18px;
+  display: flex;
+  gap: 16px;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #657086;
+}
+
+.village-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.village-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ── Person card ────────────────────────────────────────── */
+
+.village-card-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(38,52,75,0.18);
+}
+
+.village-card {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  margin-bottom: 24px;
+  padding: 32px 28px 28px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(38,52,75,0.14), 0 1px 4px rgba(38,52,75,0.06);
+  text-align: center;
+}
+
+.village-card-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #94a1b5;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.village-card-close:hover {
+  color: #3e4a5e;
+}
+
+.village-card-portrait {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 22px;
+  box-shadow: 0 4px 16px rgba(117,89,161,0.18);
+}
+
+.village-card-name {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: #26344b;
+}
+
+.village-card-relation {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #657086;
+}
+
+.village-card-status {
+  color: #94a1b5;
+}
+
+.village-card-role {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: #f0ebf7;
+  color: #65498e;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.village-card-highlight {
+  margin-top: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.village-card-highlight[data-reason="RECOMMENDED"] {
+  background: #e8f5f0;
+  color: #2d7a5e;
+}
+
+.village-card-highlight[data-reason="APPROVAL_PENDING"],
+.village-card-highlight[data-reason="PENDING"] {
+  background: #fef6e4;
+  color: #96741e;
+}
+
+.village-card-highlight[data-reason="OVER_POLICY"] {
+  background: #fde8e8;
+  color: #9e3e3e;
+}
+
+.village-card-highlight[data-reason="UNAVAILABLE"],
+.village-card-highlight[data-reason="UNREACHABLE"],
+.village-card-highlight[data-reason="NO_VERIFIED_CONTACT_METHOD"],
+.village-card-highlight[data-reason="AVAILABLE_NO_TRANSPORT"],
+.village-card-highlight[data-reason="UNAUTHORIZED"] {
+  background: #eef1f6;
+  color: #5c6980;
+}
+
+.village-card-household {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: #8b9ab5;
+}
+
+/* ── Loading / empty ────────────────────────────────────── */
+
+.village-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: #758096;
+  font-size: 14px;
+  gap: 16px;
+}
+
+.village-loading-ring {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e0dae8;
+  border-top-color: #7559a1;
+  border-radius: 50%;
+  animation: village-spin 0.8s linear infinite;
+}
+
+.village-error {
+  color: #c05e5e;
+}
+
+/* ── Animations ─────────────────────────────────────────── */
+
+@keyframes village-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Mobile ─────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .village-controls {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .village-search-wrap {
+    width: 100%;
+  }
+
+  .village-legend {
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    justify-content: center;
+  }
+
+  .village-card {
+    margin-bottom: 0;
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+  }
+}
