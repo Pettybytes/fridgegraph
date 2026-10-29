@@ -45,10 +45,10 @@ readVillage(scope: Scope): Promise<VillageData>
 - Read hook: `useSurfaceData<VillageData>('village')`; village polls at 30 seconds.
 - Hermes supplies the named React component `LivingVillage` from
   `web/src/features/village/index.ts`.
-- App imports `LivingVillage` from `@/features/village` and integrates it with
-  `slots={{ village: <LivingVillage /> }}` once that export exists.
-- No village implementation is owned by this integration work. The slot remains in place
-  while the export is absent. Production authorization stays on the server as specified above.
+- App lazily imports the named `LivingVillage` export from `@/features/village` and
+  integrates its village slot under a local Suspense boundary; Mission Control stays wired.
+- PR #11 provides the village export. This integration changes no village-owned implementation
+  files. Production authorization stays on the server as specified above.
 
 ## Scope and dependencies
 
@@ -116,3 +116,11 @@ When requestPickup is connected, forward its optional `window` argument exactly 
 the backend's default is afternoon, and different windows produce different idempotency keys.
 The UI reads the window from the supplied job's idempotencyKey rather than choosing a new one.
 No GraphQL adapter is connected by this UI PR, and no live API or database writes are claimed.
+
+## Current route integration on main 3055fbf
+
+Village is now wired on demand via React.lazy and Suspense, preserving Mission Control's slot.
+The static loading text is quiet and accessible. At 390px, route-scoped CSS reserves space for
+search/filter controls above the canvas; no files in features/village are changed.
+See [bundle sizes, all six tab screenshots and verification](evidence/village-route/README.md).
+Parent chat is still the existing placeholder tab; its feature implementation is separate.

@@ -1,0 +1,45 @@
+{
+  "baselineMain": {
+    "sha": "3055fbf666d2375f779a9136b5891bd42bd28ad9",
+    "javascript": [
+      {
+        "file": "index-CIwcsgXc.js",
+        "bytes": 506971,
+        "gzipBytes": 155545
+      }
+    ],
+    "note": "Village is not wired on the untouched main baseline.",
+    "viteReportedGzipKB": 157.91
+  },
+  "eagerVillageReference": {
+    "javascript": [
+      {
+        "file": "index-DIlD3mC9.js",
+        "bytes": 835204,
+        "gzipBytes": 263030
+      }
+    ],
+    "note": "Measured intermediate App wiring with static LivingVillage import; not the final implementation.",
+    "viteReportedGzipKB": 266.59
+  },
+  "compressionMethod": "Python gzip level 9, mtime=0, consistently applied to byte metrics; Vite console reports its default gzip sizes separately.",
+  "lazyVillage": {
+    "javascript": [
+      {
+        "file": "index-BPpvtudp.js",
+        "bytes": 509104,
+        "gzipBytes": 156403
+      },
+      {
+        "file": "village-8uXgrmMf.js",
+        "bytes": 327553,
+        "gzipBytes": 107097
+      }
+    ],
+    "note": "Final App uses React.lazy from @/features/village and a quiet Suspense fallback.",
+    "viteReportedGzipKB": {
+      "entry": 158.77,
+      "village": 108.73
+    }
+  }
+}
