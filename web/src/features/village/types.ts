@@ -1,66 +1,11 @@
 /**
- * Village graph types — matches the client-assembled shape
- * described in frontend-data.md §3 and docs/mocks/living-village.json.
+ * Internal village graph types.
  *
- * Field names are verbatim from the contract. Never rename a field.
+ * Shared types (VillageNode, VillageEdge, VillageData, ReasonCode, etc.)
+ * come from @/lib/frontendData/types — only force-graph internals live here.
  */
 
 import type { ReasonCode } from '@/lib/frontendData/types'
-
-/* ── Node ───────────────────────────────────────────────── */
-
-export type VillagePerson = {
-  id: string
-  displayName: string
-}
-
-export type VillageHousehold = {
-  id: string
-}
-
-export type VillageNode = {
-  person: VillagePerson
-  household: VillageHousehold | null
-  role: string // 'child' | 'parent' | 'adult'
-}
-
-/* ── Edge ───────────────────────────────────────────────── */
-
-export type VillageRelationship = {
-  id: string
-  type: string
-  status: string // 'ACTIVE' | 'PENDING' | …
-}
-
-export type VillageEdge = {
-  from: { id: string }
-  to: { id: string }
-  relationship: VillageRelationship
-}
-
-/* ── Assembled graph (§3 mock shape) ────────────────────── */
-
-export type VillageGraphData = {
-  nodes: VillageNode[]
-  edges: VillageEdge[]
-}
-
-/* ── Highlight overlay from active job state ────────────── */
-
-export type PersonHighlight = {
-  reasonCode: ReasonCode
-}
-
-/* ── Component props ────────────────────────────────────── */
-
-export type LivingVillageProps = {
-  /** Assembled village graph — nodes + edges. */
-  data?: VillageGraphData
-  /** Per-person highlight driven by the coordination job state. */
-  highlights?: Record<string, PersonHighlight>
-  /** ID of the center person (default: first child node). */
-  centerId?: string
-}
 
 /* ── Internal force-graph node ──────────────────────────── */
 

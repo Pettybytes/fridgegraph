@@ -1,5 +1,5 @@
 import type { GraphNode } from './types'
-import type { VillageEdge } from './types'
+import type { VillageEdge } from '@/lib/frontendData/types'
 import { reasonLabel } from '@/lib/frontendData/types'
 
 type PersonCardProps = {

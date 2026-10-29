@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { VillageGraphData, LivingVillageProps, GraphNode, GraphLink, PersonHighlight } from './types'
+import type { GraphNode, GraphLink } from './types'
+import { useSurfaceData, useDataContext, dataErrorMessage } from '@/lib/frontendData/provider'
 import { reasonLabel } from '@/lib/frontendData/types'
-import type { ReasonCode } from '@/lib/frontendData/types'
+import type { ReasonCode, VillageData, MissionControlData } from '@/lib/frontendData/types'
 import { PersonCard } from './PersonCard'
 import './village.css'
 
@@ -12,8 +13,8 @@ function initials(name: string): string {
 }
 
 function toGraph(
-  data: VillageGraphData,
-  highlights: Record<string, PersonHighlight>,
+  data: VillageData,
+  highlights: Record<string, ReasonCode>,
   centerId: string,
 ): { nodes: GraphNode[]; links: GraphLink[] } {
   const nodes: GraphNode[] = data.nodes.map(n => ({
@@ -22,7 +23,7 @@ function toGraph(
     initials: initials(n.person.displayName),
     role: n.role,
     household: n.household?.id ?? null,
-    highlight: highlights[n.person.id]?.reasonCode ?? null,
+    highlight: highlights[n.person.id] ?? null,
     isCenter: n.person.id === centerId,
   }))
 
@@ -70,18 +71,34 @@ const ROLE_FILL: Record<string, string> = {
 
 /* ── main component ─────────────────────────────────────── */
 
-export function LivingVillage({ data, highlights = {}, centerId }: LivingVillageProps) {
+export function LivingVillage() {
+  const { scope } = useDataContext()
+  const { data: villageResult, loading: villageLoading, error: villageError } = useSurfaceData<VillageData>('village')
+  const { data: mcResult } = useSurfaceData<MissionControlData>('mission-control')
+
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
   const [selected, setSelected] = useState<GraphNode | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
   const nodesRef = useRef<GraphNode[]>([])
-  const linksRef = useRef<GraphLink[]>([])
-  const simTickRef = useRef(0)
 
-  // Determine center
-  const resolvedCenter = centerId ?? data?.nodes.find(n => n.role === 'child')?.person.id ?? ''
+  const data = villageResult?.frontendSnapshot ?? null
+
+  // Derive highlights from mission-control candidates
+  const highlights = useMemo(() => {
+    const map: Record<string, ReasonCode> = {}
+    const candidates = mcResult?.frontendSnapshot?.candidates
+    if (candidates) {
+      for (const c of candidates) {
+        map[c.id] = c.reasonCode
+      }
+    }
+    return map
+  }, [mcResult])
+
+  // Determine center person
+  const resolvedCenter = data?.nodes.find(n => n.role === 'child')?.person.id ?? ''
 
   // Build graph data
   const graph = useMemo(() => {
@@ -100,21 +117,20 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
       nodes = nodes.filter(n => n.role === roleFilter)
     }
     const nodeIds = new Set(nodes.map(n => n.id))
-    const links = graph.links.filter(l => nodeIds.has(l.source as string) && nodeIds.has(l.target as string))
+    const links = graph.links.filter(l => nodeIds.has(l.source) && nodeIds.has(l.target))
     return { nodes, links }
   }, [graph, search, roleFilter])
 
   // Find edge for selected node
   const selectedEdge = useMemo(() => {
     if (!selected || !data) return null
-    const edge = data.edges.find(
+    return data.edges.find(
       e => (e.from.id === selected.id && e.to.id === resolvedCenter) ||
            (e.to.id === selected.id && e.from.id === resolvedCenter)
-    )
-    return edge ?? null
+    ) ?? null
   }, [selected, data, resolvedCenter])
 
-  // Simple force simulation (no dependency on react-force-graph-2d rendering in tests)
+  // Force simulation
   const runSimulation = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -123,22 +139,24 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
 
     const { nodes, links } = filtered
     nodesRef.current = nodes
-    linksRef.current = links
 
-    // Initialize positions in a circle around center
-    const w = canvas.width
-    const h = canvas.height
+    const dpr = window.devicePixelRatio || 1
+    const w = canvas.width / dpr
+    const h = canvas.height / dpr
     const cx = w / 2
     const cy = h / 2
 
-    nodes.forEach((node, i) => {
+    // Initialize positions in a circle around center
+    const nonCenter = nodes.filter(n => !n.isCenter)
+    nodes.forEach(node => {
       if (node.isCenter) {
         node.x = cx
         node.y = cy
         node.fx = cx
         node.fy = cy
       } else {
-        const angle = (i / (nodes.length - 1 || 1)) * Math.PI * 2 - Math.PI / 2
+        const idx = nonCenter.indexOf(node)
+        const angle = (idx / (nonCenter.length || 1)) * Math.PI * 2 - Math.PI / 2
         const radius = Math.min(w, h) * 0.28
         if (node.x === undefined) {
           node.x = cx + Math.cos(angle) * radius
@@ -152,26 +170,24 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
     // Build adjacency for force
     const linkMap = new Map<string, string[]>()
     links.forEach(l => {
-      const s = l.source as string
-      const t = l.target as string
-      if (!linkMap.has(s)) linkMap.set(s, [])
-      if (!linkMap.has(t)) linkMap.set(t, [])
-      linkMap.get(s)!.push(t)
-      linkMap.get(t)!.push(s)
+      if (!linkMap.has(l.source)) linkMap.set(l.source, [])
+      if (!linkMap.has(l.target)) linkMap.set(l.target, [])
+      linkMap.get(l.source)!.push(l.target)
+      linkMap.get(l.target)!.push(l.source)
     })
 
-    simTickRef.current = 0
+    let tick = 0
+    cancelAnimationFrame(animRef.current)
 
-    function tick() {
-      simTickRef.current++
-      const alpha = Math.max(0.001, 1 - simTickRef.current / 300)
+    function step() {
+      tick++
+      const alpha = Math.max(0.001, 1 - tick / 300)
 
-      // Simple forces
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i]!
         if (a.fx !== undefined) continue
 
-        // Repulsion from all other nodes
+        // Repulsion
         for (let j = 0; j < nodes.length; j++) {
           if (i === j) continue
           const b = nodes[j]!
@@ -183,7 +199,7 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
           a.vy = (a.vy ?? 0) + (dy / dist) * force
         }
 
-        // Attraction along links
+        // Link attraction
         const neighbors = linkMap.get(a.id) ?? []
         for (const nid of neighbors) {
           const b = nodes.find(n => n.id === nid)
@@ -209,14 +225,14 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
         a.y = (a.y ?? 0) + (a.vy ?? 0)
       }
 
-      draw(ctx, w, h, nodes, links)
+      draw(ctx!, w, h, nodes, links)
 
       if (alpha > 0.002) {
-        animRef.current = requestAnimationFrame(tick)
+        animRef.current = requestAnimationFrame(step)
       }
     }
 
-    tick()
+    step()
   }, [filtered])
 
   // Resize canvas
@@ -234,8 +250,6 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
       canvas.height = rect.height * dpr
       canvas.style.width = `${rect.width}px`
       canvas.style.height = `${rect.height}px`
-      const resizeCtx = canvas.getContext('2d')
-      if (resizeCtx) resizeCtx.scale(dpr, dpr)
       // Reset node positions on resize
       nodesRef.current.forEach(n => { n.x = undefined; n.y = undefined })
       runSimulation()
@@ -258,13 +272,9 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
     const y = e.clientY - rect.top
     const nodeRadius = 26
 
-    // Node positions are stored in canvas-pixel space, we need CSS-pixel comparison
-    const dpr = window.devicePixelRatio || 1
     const hit = nodesRef.current.find(n => {
-      const nx = (n.x ?? 0) / dpr
-      const ny = (n.y ?? 0) / dpr
-      const dx = nx - x
-      const dy = ny - y
+      const dx = (n.x ?? 0) - x
+      const dy = (n.y ?? 0) - y
       return Math.sqrt(dx * dx + dy * dy) < nodeRadius
     })
 
@@ -282,6 +292,26 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
     return Array.from(set).sort()
   }, [data])
 
+  // Loading state
+  if (villageLoading && !data) {
+    return (
+      <div className="village-empty" role="status" data-testid="living-village-loading">
+        <div className="village-loading-ring" />
+        <p>Loading the village…</p>
+      </div>
+    )
+  }
+
+  // Error state
+  if (villageError) {
+    return (
+      <div className="village-empty village-error" role="alert" data-testid="living-village-error">
+        <p>{dataErrorMessage(villageError)}</p>
+      </div>
+    )
+  }
+
+  // No data
   if (!data) {
     return (
       <div className="village-empty" role="status">
@@ -309,7 +339,7 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
         </div>
         <div className="village-filters" role="group" aria-label="Filter by role">
           <button
-            className={`village-chip ${roleFilter === null ? 'active' : ''}`}
+            className={`village-chip${roleFilter === null ? ' active' : ''}`}
             onClick={() => setRoleFilter(null)}
             aria-pressed={roleFilter === null}
           >
@@ -318,7 +348,7 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
           {roles.map(role => (
             <button
               key={role}
-              className={`village-chip ${roleFilter === role ? 'active' : ''}`}
+              className={`village-chip${roleFilter === role ? ' active' : ''}`}
               onClick={() => setRoleFilter(roleFilter === role ? null : role)}
               aria-pressed={roleFilter === role}
             >
@@ -335,11 +365,11 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
           className="village-canvas"
           onClick={handleCanvasClick}
           role="img"
-          aria-label={`Village graph centered on ${data.nodes.find(n => n.person.id === resolvedCenter)?.person.displayName ?? 'the child'}. ${filtered.nodes.length} people shown.`}
+          aria-label={`Village graph centered on ${scope.childName}. ${filtered.nodes.length} people shown.`}
         />
         {filtered.nodes.length === 0 && search && (
           <div className="village-no-results" role="status">
-            No people match "{search}"
+            No people match &ldquo;{search}&rdquo;
           </div>
         )}
       </div>
@@ -355,7 +385,7 @@ export function LivingVillage({ data, highlights = {}, centerId }: LivingVillage
       <PersonCard
         node={selected}
         edge={selectedEdge}
-        centerName={data.nodes.find(n => n.person.id === resolvedCenter)?.person.displayName ?? ''}
+        centerName={scope.childName}
         onClose={() => setSelected(null)}
       />
     </div>
@@ -371,39 +401,39 @@ function draw(
   nodes: GraphNode[],
   links: GraphLink[],
 ) {
-  const dpr = window.devicePixelRatio || 1
   ctx.save()
-  ctx.clearRect(0, 0, w / dpr, h / dpr)
+  ctx.clearRect(0, 0, w, h)
 
   // Background gradient
-  const bg = ctx.createRadialGradient(w / (2 * dpr), h / (2 * dpr), 0, w / (2 * dpr), h / (2 * dpr), Math.max(w, h) / (2 * dpr))
+  const bg = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2)
   bg.addColorStop(0, '#f5f0fa')
   bg.addColorStop(1, '#eef2f9')
   ctx.fillStyle = bg
-  ctx.fillRect(0, 0, w / dpr, h / dpr)
+  ctx.fillRect(0, 0, w, h)
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
   // Draw links
   ctx.lineWidth = 1.5
   for (const link of links) {
-    const src = nodeMap.get(link.source as string)
-    const tgt = nodeMap.get(link.target as string)
+    const src = nodeMap.get(link.source)
+    const tgt = nodeMap.get(link.target)
     if (!src || !tgt) continue
 
-    const sx = (src.x ?? 0) / dpr
-    const sy = (src.y ?? 0) / dpr
-    const tx = (tgt.x ?? 0) / dpr
-    const ty = (tgt.y ?? 0) / dpr
+    const sx = src.x ?? 0
+    const sy = src.y ?? 0
+    const tx = tgt.x ?? 0
+    const ty = tgt.y ?? 0
 
     // Gentle curve
     const mx = (sx + tx) / 2
     const my = (sy + ty) / 2
     const dx = tx - sx
     const dy = ty - sy
-    const off = Math.min(20, Math.sqrt(dx * dx + dy * dy) * 0.1)
-    const cpx = mx - dy * off / Math.sqrt(dx * dx + dy * dy || 1)
-    const cpy = my + dx * off / Math.sqrt(dx * dx + dy * dy || 1)
+    const len = Math.sqrt(dx * dx + dy * dy) || 1
+    const off = Math.min(20, len * 0.1)
+    const cpx = mx - (dy / len) * off
+    const cpy = my + (dx / len) * off
 
     ctx.beginPath()
     ctx.moveTo(sx, sy)
@@ -415,8 +445,8 @@ function draw(
   // Draw nodes
   const baseR = 24
   for (const node of nodes) {
-    const nx = (node.x ?? 0) / dpr
-    const ny = (node.y ?? 0) / dpr
+    const nx = node.x ?? 0
+    const ny = node.y ?? 0
     const r = node.isCenter ? baseR + 6 : baseR
     const fill = ROLE_FILL[node.role] ?? '#657086'
 
@@ -456,7 +486,7 @@ function draw(
     // Highlight badge
     if (node.highlight) {
       const label = reasonLabel(node.highlight)
-      ctx.font = `600 9px 'Geist Variable', sans-serif`
+      ctx.font = '600 9px sans-serif'
       const tw = ctx.measureText(label).width
       const bx = nx - tw / 2 - 6
       const by = ny - r - 18
