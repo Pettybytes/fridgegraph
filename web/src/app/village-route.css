@@ -1,0 +1,21 @@
+.village-route { min-width: 0; }
+.village-route-loading {
+  display: grid;
+  place-items: center;
+  min-height: 480px;
+  margin: 0;
+  color: #758096;
+  font-size: 13px;
+}
+
+/* Reserve space for controls on phones instead of covering the graph's top ring. */
+@media (max-width: 700px) {
+  .village-route .village-controls {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    padding: 12px;
+    flex-shrink: 0;
+  }
+}
