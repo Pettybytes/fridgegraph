@@ -67,7 +67,7 @@ const TABLES = [
 const RESET_SCOPED = [
   'relationships', 'grants', 'goals', 'approvals', 'events', 'bus_rosters', 'vehicles',
   'practices', 'school_reports', 'permission_slips', 'coordination_jobs', 'attempts',
-  'information_requests', 'confirmations', 'conversation_state', 'locations',
+  'information_requests', 'confirmations', 'conversation_state', 'locations', 'webhook_events',
 ] as const;
 
 function headers() {

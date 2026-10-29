@@ -255,10 +255,15 @@ pending ──> discovering ──> awaiting_approval ──> confirmed
 All mutations below are **NEW** — `schema/coordination.graphql` has no `Mutation` type today.
 
 ```graphql
-requestPickup(childId: ID!, asOf: String): CoordinationJob!
+requestPickup(childId: ID!, asOf: String, window: String): CoordinationJob!
 acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation!
 approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String): CoordinationJob!
 ```
+
+`window` is optional and defaults to `afternoon`; it is part of the job's idempotency key
+(`pickup:<child>:<asOf>:<window>`), so the same child and date with two different windows are two
+different jobs, while repeating the same triple returns the existing one. No migration was needed:
+the database function already took the window and already folded it into the key.
 
 `acceptPickup` is **one transactional transition with two documented entry points.** Both apply
 **identical** rules — job version / `requestVersion`, intended recipient, channel, idempotency,
@@ -339,6 +344,13 @@ Once both gates pass for a given attempt:
 `DeclineReason` (**NEW** enum, used by `acceptPickup` and the voice-turn `DECLINED` decision,
 `webhook.md` §10): `BUSY`, `NO_TRANSPORT`, `OTHER`. `NO_TRANSPORT` feeds `AVAILABLE_NO_TRANSPORT`
 in the ranking; `BUSY`/`OTHER` feed plain `UNAVAILABLE`.
+
+**Demo identities.** Kendra (`p_mom`), Andre (`p_dad`), Loretta (`p_gma`), Bryan (`p_bryan`) and
+Walter (`p_walter`) have seeded logins. **Tasha (`p_tasha`) does not** — she has no credential in
+`.demo-credentials`, so she replies through the signed webhook callback or the voice turn in the
+demo, never through a candidate JWT. Her permissions are identical to any other candidate's
+(`candidate_id = current_person()`); the candidate-class authorization tests use Loretta and Bryan
+for that reason.
 
 ## 11. Authorization
 

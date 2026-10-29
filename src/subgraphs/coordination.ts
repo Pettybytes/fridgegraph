@@ -23,7 +23,7 @@ const typeDefs = parse(`
   }
 
   type Mutation {
-    requestPickup(childId: ID!, asOf: String): CoordinationJob!
+    requestPickup(childId: ID!, asOf: String, window: String): CoordinationJob!
     acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation!
     approvePickup(
       jobId: ID!
@@ -250,15 +250,15 @@ const resolvers = {
   Mutation: {
     requestPickup: async (
       _: unknown,
-      { childId, asOf }: { childId: string; asOf?: string },
+      { childId, asOf, window }: { childId: string; asOf?: string; window?: string },
       ctx: Ctx,
     ) => {
       requireCaller(ctx);
-      // The window is part of the idempotency key; v1 runs the afternoon window.
+      // The window is part of the idempotency key; it defaults to the afternoon window.
       const { data, error } = await dbFor(ctx).rpc('request_pickup', {
         p_child: childId,
         p_as_of: asOf ?? null,
-        p_window: 'afternoon',
+        p_window: window ?? 'afternoon',
       });
       if (error) rpcError(error);
       return jobById(ctx, String(data));

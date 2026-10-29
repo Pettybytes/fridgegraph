@@ -8,7 +8,7 @@ type Query {
 }
 
 type Mutation {
-  requestPickup(childId: ID!, asOf: String): CoordinationJob!
+  requestPickup(childId: ID!, asOf: String, window: String): CoordinationJob!
   acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation!
   approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String, acceptOverLimit: Boolean = false): CoordinationJob!
 }

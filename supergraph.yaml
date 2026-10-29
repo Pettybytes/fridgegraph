@@ -1,4 +1,6 @@
-# Local federation only — no graph refs, nothing published to GraphOS tonight.
+# Local federation config for `rover supergraph compose`.
+# The coordination subgraph IS published to GraphOS under fridgegraph@dev (the routing URL is a
+# local host, so it is reachable only from this machine). Nothing here publishes by itself.
 federation_version: =2.9.0
 subgraphs:
   village:

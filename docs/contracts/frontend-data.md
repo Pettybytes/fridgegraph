@@ -256,7 +256,8 @@ When no candidate is inside the household travel-cost threshold, the job does **
 | `attempts(jobId: ID): [Attempt!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` `Query.attempts` — `pickup-job.md` §5/§7 adds NEW `candidate: Person!`, `destinationMode: DestinationMode!` to the existing `Attempt` type |
 | `candidateEvaluations(jobId: ID!): [CandidateEvaluation!]!` | **NEW** | the per-candidate reason-code record (`PENDING` / `UNAUTHORIZED` / `NO_VERIFIED_CONTACT_METHOD` / `UNREACHABLE` / `UNAVAILABLE` / `AVAILABLE_NO_TRANSPORT` / `OVER_POLICY` / `RECOMMENDED` / `APPROVAL_PENDING`, plus `acceptedVia: AcceptanceEntryPoint` and the ride-cost fields) — `pickup-job.md` §5/§6a/§8, no such type exists today. **`PENDING` is a workflow state** (outreach sent, no reply yet; `available` is null) and is not `APPROVAL_PENDING` |
 | `confirmations(childId: ID): [Confirmation!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` — `pickup-job.md` §7 adds NEW `candidate: Person!`, `approvedBy: Person!` |
-| `requestPickup` / `acceptPickup` / `approvePickup` | **NEW** | `pickup-job.md` §8 — `schema/coordination.graphql` has **no `Mutation` type at all** today; Mission Control cannot do anything beyond read-only playback until these ship |
+| `requestPickup(childId: ID!, asOf: String, window: String)` | **NEW** | `window` optional, defaults to `'afternoon'`; part of the idempotency key, so two windows are two jobs |
+| `acceptPickup` / `approvePickup` | **NEW** | `pickup-job.md` §8 — `schema/coordination.graphql` has **no `Mutation` type at all** today; Mission Control cannot do anything beyond read-only playback until these ship |
 
 **Decided (Bryan): no aggregate query in v1.** The previous draft's `missionControlFeed`
 aggregate and its `MissionControlStage` enum are **not building**. The

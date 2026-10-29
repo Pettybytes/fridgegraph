@@ -89,6 +89,12 @@ rec('parent creates the job', created.status < 300 && !!jobId, `job=${jobId?.sli
 const again = await rpc('request_pickup', { p_child: 'p_nora', p_as_of: AS_OF, p_window: 'verify' }, asUser(mom))
 rec('create is idempotent', again.body === jobId)
 
+// The window is part of the idempotency key: a different window is a different job.
+const otherWindow = await rpc('request_pickup', { p_child: 'p_nora', p_as_of: AS_OF, p_window: 'window-b' }, asUser(mom))
+const otherWindowId = otherWindow.body
+rec('a different window on the same day creates a second job',
+  otherWindowId && otherWindowId !== jobId, `a=${String(jobId).slice(0, 10)} b=${String(otherWindowId).slice(0, 10)}`)
+
 const evals = await db.query(`select ce.candidate_id, ce.reason_code, a.id as attempt_id
   from candidate_evaluations ce
   left join attempts a on a.job_id = ce.job_id and a.candidate_id = ce.candidate_id
@@ -339,7 +345,7 @@ if (hasEvents) {
 
 // ---------------------------------------------------------------- cleanup
 await db.query(`delete from real_call_authorizations where id like 'rca_%'`)
-if (!KEEP) await db.query(`delete from coordination_jobs where id=$1`, [jobId])
+if (!KEEP) await db.query(`delete from coordination_jobs where id = any($1)`, [[jobId, otherWindowId].filter(Boolean)])
 else console.log(`\nkept job ${jobId}`)
 await db.end()
 
