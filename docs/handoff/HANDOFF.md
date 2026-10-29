@@ -760,3 +760,24 @@ Revision verification actually run: root typecheck PASS; 117 web tests PASS; pro
 PASS (same chunk-size advisory); five Playwright flows PASS including safe dock geometry and
 last-card clearance. Staged secret scan PASS: 283 files, zero findings. Revised screenshots
 include scrolled mobile calendar content with the launcher clear of cards.
+## 11. Hard constraint — authenticated third-party calls (Oct 28, 2026)
+
+**Bentley cannot call authenticated third-party APIs from scripts he writes; Bryan or another agent
+runs those calls.**
+
+The redaction layer rewrites secret-shaped text when Bentley writes a file: a header template that
+interpolates a variable lands as a placeholder on save. The script therefore looks correct in the
+transcript and is already damaged on disk before it runs, so a 401 from such a script is **not**
+evidence about the credential.
+
+Observed directly on Oct 28: the same credential, read from the same `.env` with the same
+fingerprint, returned 200 from Bryan's terminal and 401 from a Bentley-authored script. Bryan then
+created the six `fg_` fields successfully from his own terminal while Bentley's calls failed.
+
+Consequences for this repo:
+
+- Never treat a Bentley-authored authenticated call as a test of a credential or of an API's state.
+- Any step needing an authenticated GHL or n8n call belongs to Bryan. The exact commands live in
+  `docs/ops/level-b-plan.md`; they read the secret from `.env` at runtime and never embed it.
+- Bentley still owns everything that needs no third-party auth: schema, migrations, GraphQL, local
+  HTTP endpoints, harnesses, `rover`, and git.
