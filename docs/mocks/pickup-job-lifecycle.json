@@ -118,6 +118,21 @@
     ],
     "note": "Immutable audit history — this decline is never edited or removed after the fact. Re-picking a different candidate (e.g. falling back to Loretta's OVER_POLICY option) INSIDE this same job is explicitly P2, not built; the only modeled next step is a brand-new requestPickup call with a brand-new idempotency key."
   },
+  "overLimitPath": {
+    "_note": "Loretta-only night (Station 06). No candidate is inside the household travel-cost threshold, so the job does NOT fail and does NOT carry an APPROVAL_PENDING candidate. The best over-limit candidate is recorded on the job as overLimitCandidate and keeps reasonCode OVER_POLICY. Mission Control labels it 'Over your travel limit' and requires a separate explicit approval; without acceptOverLimit the backend refuses with OVER_LIMIT_NOT_ACCEPTED and writes no confirmation. Nothing here books a ride or spends money.",
+    "jobStatus": "awaiting_approval",
+    "overLimitCandidate": { "id": "p_gma", "displayName": "Loretta Brooks" },
+    "reasonCode": "OVER_POLICY",
+    "distanceMiles": 8.86,
+    "estimatedRideCostUsd": 12.40,
+    "costBasis": "FridgeGraph synthetic planning estimate: haversine distance x $1.40/mi",
+    "implicitApproval": { "acceptOverLimit": false, "result": "OVER_LIMIT_NOT_ACCEPTED", "confirmationWritten": false },
+    "explicitApproval": {
+      "acceptOverLimit": true,
+      "result": "confirmed",
+      "confirmation": { "candidateId": "p_gma", "approvedBy": "p_mom", "overLimitApproved": true }
+    }
+  },
   "failedPath": {
     "transitions": [
       { "from": "discovering", "to": "failed", "version": 3, "evidence": "all 4 candidates UNAVAILABLE or OVER_POLICY-with-no-clean-alternative by the discovery deadline, 0 confirmations", "failureReason": "no_usable_candidate" }

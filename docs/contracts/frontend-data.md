@@ -229,6 +229,25 @@ section now mirrors `docs/contracts/pickup-job.md`'s reworked parallel-discovery
 accept-then-approve model (states: `pending → discovering → awaiting_approval → confirmed` /
 `failed`).
 
+### Over-limit alternative (NEW — Station 06)
+
+When no candidate is inside the household travel-cost threshold, the job does **not** fail and does
+**not** present a policy-compliant recommendation. It carries the best over-limit candidate instead.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `CoordinationJob.overLimitCandidate` | `Person` (nullable) | the candidate offered for review when nothing meets the threshold. That candidate keeps `reasonCode: OVER_POLICY` and is **never** `APPROVAL_PENDING` |
+| `Confirmation.overLimitApproved` | `Boolean` | true only when the approver explicitly accepted an over-limit option |
+
+- Label: **"Over your travel limit"**. Never "fare", "Uber", "spend".
+- The candidate's `estimatedRideCostUsd` and `costBasis` are shown verbatim; the figure is a
+  synthetic planning estimate, not a charge.
+- **Approving an over-limit candidate is a separate, explicit action.** The mutation must send
+  `acceptOverLimit: true`; without it the backend refuses with `OVER_LIMIT_NOT_ACCEPTED` and no
+  confirmation is written. There is no single-tap path from "review" to "approved".
+- `overLimitCandidate` and `APPROVAL_PENDING` are mutually exclusive: a job has at most one, never
+  both. Nothing in this flow books a ride, spends money, or raises the threshold.
+
 ### Queries / mutations
 
 | Operation | Status | Cites |
