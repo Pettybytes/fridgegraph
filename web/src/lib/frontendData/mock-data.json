@@ -1,0 +1,229 @@
+{
+  "scope": {
+    "childId": "p_nora",
+    "childName": "Nora Ellison",
+    "parentName": "Kendra",
+    "villageId": "v_nora"
+  },
+  "missionControl": {
+    "candidates": [
+      {
+        "id": "p_gma",
+        "name": "Loretta Brooks",
+        "channel": "CALL",
+        "reasonCode": "OVER_POLICY",
+        "distanceMiles": 8.86,
+        "estimatedRideCostUsd": 12.4,
+        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+      },
+      {
+        "id": "p_bryan",
+        "name": "Bryan Brooks",
+        "channel": "SMS",
+        "reasonCode": "UNAVAILABLE",
+        "distanceMiles": 3.2,
+        "estimatedRideCostUsd": 4.48,
+        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+      },
+      {
+        "id": "p_tasha",
+        "name": "Tasha Ellison",
+        "channel": "SMS",
+        "reasonCode": "APPROVAL_PENDING",
+        "distanceMiles": 4.5,
+        "estimatedRideCostUsd": 6.3,
+        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+      },
+      {
+        "id": "p_monique",
+        "name": "Monique Davis",
+        "channel": "SMS",
+        "reasonCode": "UNAVAILABLE",
+        "distanceMiles": 6.0,
+        "estimatedRideCostUsd": 8.4,
+        "costBasis": "Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers"
+      }
+    ],
+    "events": [
+      {
+        "id": "mc_0001",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "pending",
+          "version": 1
+        },
+        "stage": "ACKNOWLEDGED",
+        "kind": "job_created",
+        "summary": "Pickup job created for Nora, afternoon window (requestPickup)",
+        "at": "2026-10-28T14:58:15Z"
+      },
+      {
+        "id": "mc_0002",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "discovering",
+          "version": 2
+        },
+        "stage": "IN_PROGRESS",
+        "kind": "attempt",
+        "summary": "4 candidates asked in parallel: Loretta Brooks (CALL), Bryan Brooks (SMS), Tasha Ellison (SMS), Monique Davis (SMS)",
+        "at": "2026-10-28T14:58:16Z"
+      },
+      {
+        "id": "mc_0003",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "discovering",
+          "version": 2
+        },
+        "stage": "IN_PROGRESS",
+        "kind": "candidate_evaluation",
+        "summary": "Loretta Brooks — OVER_POLICY ($12.40 estimated, exceeds Kendra's $10 cap). Entry point: WEBHOOK_CALLBACK.",
+        "at": "2026-10-28T14:59:02Z"
+      },
+      {
+        "id": "mc_0004",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "discovering",
+          "version": 2
+        },
+        "stage": "IN_PROGRESS",
+        "kind": "candidate_evaluation",
+        "summary": "Bryan Brooks — UNAVAILABLE (declined: BUSY). Entry point: WEBHOOK_CALLBACK.",
+        "at": "2026-10-28T14:59:40Z"
+      },
+      {
+        "id": "mc_0005",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "discovering",
+          "version": 2
+        },
+        "stage": "IN_PROGRESS",
+        "kind": "candidate_evaluation",
+        "summary": "Monique Davis — UNAVAILABLE (no reply within 60s). No entry point — never accepted.",
+        "at": "2026-10-28T14:59:16Z"
+      },
+      {
+        "id": "mc_0006",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "awaiting_approval",
+          "version": 3
+        },
+        "stage": "IN_PROGRESS",
+        "kind": "candidate_evaluation",
+        "summary": "Tasha Ellison — RECOMMENDED (candidate-selection fact), now APPROVAL_PENDING. $6.30 estimated, within cap. Entry point: WEBHOOK_CALLBACK. Notified approver: Kendra Ellison (Wednesday). FYI: Andre Ellison.",
+        "at": "2026-10-28T14:59:45Z"
+      },
+      {
+        "id": "mc_0007",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "confirmed",
+          "version": 4
+        },
+        "stage": "VERIFIED",
+        "kind": "confirmation",
+        "summary": "Confirmed: Kendra Ellison approved Tasha Ellison for pickup (approvePickup, decision: APPROVED). conf_0003. This is the parent-approval fact, separate from Tasha's earlier acceptance.",
+        "at": "2026-10-28T15:14:00Z"
+      },
+      {
+        "id": "mc_0008",
+        "job": {
+          "id": "job_01HXYZ",
+          "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon",
+          "status": "confirmed",
+          "version": 4
+        },
+        "stage": "VERIFIED",
+        "kind": "simulated_tracking",
+        "summary": "SIMULATED route animation started — Tasha's proposed route, Option B tracking (frontend-data.md §4). Not verified GPS, not an arrival, not a completed pickup.",
+        "at": "2026-10-28T15:14:05Z",
+        "label": "SIMULATED"
+      }
+    ]
+  },
+  "parentChat": {
+    "messages": [
+      {
+        "id": "msg_0001",
+        "from": "PARENT",
+        "kind": "TEXT",
+        "text": "can someone grab Nora today? I'm stuck in a meeting",
+        "at": "2026-10-28T14:58:10Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": null,
+        "hasVoiceNote": false
+      },
+      {
+        "id": "msg_0002",
+        "from": "ROSINA",
+        "kind": "TEXT",
+        "text": "On it — I'm asking everyone who's authorized at once: Loretta, Bryan, Tasha and Monique. I'll bring you the best option to approve.",
+        "at": "2026-10-28T14:58:22Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ",
+        "hasVoiceNote": false
+      },
+      {
+        "id": "msg_0005",
+        "from": "ROSINA",
+        "kind": "APPROVAL_REQUEST",
+        "text": "Recommending Tasha for Nora's pickup today — she's available and within your travel limit. You're today's approver. Want me to confirm it with her?",
+        "at": "2026-10-28T14:59:45Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ",
+        "hasVoiceNote": false
+      },
+      {
+        "id": "msg_0003",
+        "from": "ROSINA",
+        "kind": "TEXT",
+        "text": "Bryan can't today, and Monique hasn't answered yet. Loretta can, but her trip would be over your $10 travel limit. Tasha said yes and she's within policy — still checking in case anyone else replies.",
+        "at": "2026-10-28T14:59:50Z",
+        "relatedInformationRequestId": "ir_0007",
+        "relatedJobId": "job_01HXYZ",
+        "hasVoiceNote": false
+      },
+      {
+        "id": "msg_0004",
+        "from": "PARENT",
+        "kind": "VOICE_NOTE",
+        "text": null,
+        "at": "2026-10-28T15:00:40Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": null,
+        "hasVoiceNote": true
+      },
+      {
+        "id": "msg_0006",
+        "from": "PARENT",
+        "kind": "TEXT",
+        "text": "yes, approved",
+        "at": "2026-10-28T15:14:00Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ",
+        "hasVoiceNote": false
+      },
+      {
+        "id": "msg_0007",
+        "from": "ROSINA",
+        "kind": "TEXT",
+        "text": "Confirmed — Tasha has Nora's pickup today.",
+        "at": "2026-10-28T15:14:05Z",
+        "relatedInformationRequestId": null,
+        "relatedJobId": "job_01HXYZ",
+        "hasVoiceNote": false
+      }
+    ]
+  }
+}

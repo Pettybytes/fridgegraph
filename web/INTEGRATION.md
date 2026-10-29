@@ -1,0 +1,71 @@
+# Shell integration receipt
+
+Baseline main: `34973a506571bf71b78f02b1ae19ed30afc8ec14`.
+Frontend data contract: `ad188f2adaeb97b6bee6bda7ac395052e49822ab`.
+Bryan approved the contract in the task and added `PENDING` (outreach sent, no reply).
+The approved wording update uses **Estimated travel cost**, a synthetic $1.40/mile estimate
+for every caregiver, including drivers. `OVER_POLICY` reads **Over your travel limit**.
+The contract and backend field remains `estimatedRideCostUsd`; only user-facing labels change.
+The contract file still labels itself draft. No contract edits in this frontend lane.
+
+## Integration points
+
+- `src/app/Shell.tsx`: hash routes `#/mission-control`, `#/parent-chat`, `#/village`.
+  Pass `slots={{ village: <LivingVillage /> }}` to integrate Hermes's component.
+  No files under `src/features/village/` are owned or changed here.
+- `src/lib/frontendData/types.ts`: screen-facing `FrontendAdapter`, scoped reads and safe projections.
+- `src/lib/frontendData/mockAdapter.ts`: mock-only scope and sanitized copies of approved JSON.
+  Fixtures do not expose contact values, addresses, coordinates or voice-note URLs.
+- `src/lib/frontendData/provider.tsx`: inject adapter + identity-derived scope at the app root.
+  Hooks use Apollo `pollInterval: 2500`, paused when hidden. Apollo's local link calls the
+  adapter; `LocalFrontendSnapshot` is an internal message, **never a server aggregate query**.
+  A future GraphQL adapter must compose the contract's primitive queries with Apollo Client,
+  use the signed-in user's Supabase session, and return the same projections.
+  It must never forward the local document to the router. Real auth/transport is not wired.
+- `reasonLabel('PENDING')`: Waiting for reply. Distinct from Awaiting parent approval.
+- `cn` is imported only through `@/lib/utils`.
+
+## Scope and dependencies
+
+This is the first, deliberately separate shell PR. Feature cards, chat and the integrated
+caregiver/approval smoke test follow in separate task worktrees. No live graph, auth or DB probes.
+No merge or deployment performed. Real GraphQL integration depends on Bentley's coordination work.
+
+Drift found: frontend.md §5.1 says the shadcn files are misplaced, but baseline already has
+`src/components/ui/button.tsx` and `src/lib/utils.ts`. No move is necessary. The prescribed
+frontend-only lane prevents correcting docs/contracts in this PR.
+
+## Validation and changed files
+
+Full Vitest suite: 15/15 tests, 3/3 files. Root typecheck and web build passed.
+Secret scan is run again after staging so new files are included. Browser verification passed
+14 checks with a 2508ms real poll, two adapter reads, and no page errors.
+See [screenshots and interaction steps](evidence/shell/README.md).
+
+Changed source/config files:
+
+- `web/package.json`, `web/package-lock.json`
+- `web/src/App.tsx`, `web/src/index.css`
+- `web/src/app/Shell.tsx`, `web/src/app/Shell.test.tsx`
+- `web/src/lib/frontendData/types.ts`, `mockAdapter.ts`, `mock-data.json`, `provider.tsx`,
+  `mockAdapter.test.ts`, `provider.test.tsx`
+- `web/src/test/setup.ts`, `web/vitest.config.ts`
+- `web/INTEGRATION.md` and `web/evidence/shell/**` (screenshots, browser verification and receipt)
+
+The resumed investigation changed only test timing and the explicitly approved travel-cost
+projection/copy. No production polling behavior changed. Mission Control and parent chat
+feature implementation has not begun. The shell draft PR is the next integration gate.
+
+## Handoff packet
+
+BRANCH: feat/web-mission-control
+WORKTREE: /Users/user/orca/workspaces/fridgegraph/web-mission-control
+TASK: Integrate the shell and mock adapter as the frontend foundation.
+LAYER: frontend
+TOUCHED: web/package.json, web/package-lock.json, web/src/App.tsx, web/src/index.css,
+web/src/app/**, web/src/lib/frontendData/**, web/src/test/setup.ts,
+web/vitest.config.ts, web/INTEGRATION.md, web/evidence/shell/**.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test; npm --prefix web run build;
+Playwright CLI navigation at 1440px and 390px with screenshots.
+NOT DOING: live auth, server/schema/DB changes, village implementation, merge or deploy.
+BLOCKERS: feature work requires subsequent task worktrees; live integration needs backend fields.
