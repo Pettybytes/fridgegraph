@@ -89,7 +89,7 @@ must not appear in any label, badge, toast or notification:
 | Concept | Required label |
 | --- | --- |
 | `estimatedRideCostUsd` / `distanceMiles` on a candidate | **"Estimated travel cost"** |
-| `OVER_POLICY` state | **"Over your travel limit"** |
+| `OVER_POLICY` state | **"Ride estimate over your limit"** |
 
 - Never "ride fare", "Uber", "quote", "reimbursement", "charge" or "spend". The figure is a
   synthetic planning estimate of the candidate's trip to the pickup point (`pickup-job.md` §6a),
@@ -236,10 +236,10 @@ When no candidate is inside the household travel-cost threshold, the job does **
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `CoordinationJob.overLimitCandidate` | `Person` (nullable) | the candidate offered for review when nothing meets the threshold. That candidate keeps `reasonCode: OVER_POLICY` and is **never** `APPROVAL_PENDING` |
+| `CoordinationJob.overLimitCandidate` | `Person` (nullable) | the no-transport caregiver whose paid-ride estimate exceeds the household limit — surfaced for explicit review. That candidate keeps `reasonCode: OVER_POLICY` and is **never** `APPROVAL_PENDING` |
 | `Confirmation.overLimitApproved` | `Boolean` | true only when the approver explicitly accepted an over-limit option |
 
-- Label: **"Over your travel limit"**. Never "fare", "Uber", "spend".
+- Label: **"Ride estimate over your limit"**. Never "fare", "Uber", "spend".
 - The candidate's `estimatedRideCostUsd` and `costBasis` are shown verbatim; the figure is a
   synthetic planning estimate, not a charge.
 - **Approving an over-limit candidate is a separate, explicit action.** The mutation must send

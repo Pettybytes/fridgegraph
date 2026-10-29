@@ -101,18 +101,18 @@
       },
       {
         "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
-        "reasonCode": "OVER_POLICY",
+        "reasonCode": "AVAILABLE_NO_TRANSPORT",
         "acceptedVia": "WEBHOOK_CALLBACK",
         "origin": { "lat": 42.2890, "lng": -83.1340, "source": "ESTIMATED", "capturedAt": "2026-10-28T14:59:00Z" },
         "distanceMiles": 8.86,
         "distanceBasis": "haversine straight-line",
         "estimatedTravelMinutes": 17.72,
         "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
-        "estimatedRideCostUsd": 12.40,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "estimatedRideCostUsd": null,
+        "costBasis": null,
         "locationProvenance": "ESTIMATED",
-        "costCalculatedAt": "2026-10-28T14:59:02Z",
-        "_note": "$12.40 > Kendra's $10 ride_cost_cap_usd — over the cap, not unavailable."
+        "costCalculatedAt": null,
+        "_note": "Willing but has no car. Tasha drives, so paid transport is not explored and no cost is attached to Loretta. A ride estimate appears only when no driver can do the pickup (pickup-job.md §6a)."
       },
       {
         "person": { "id": "p_bryan", "displayName": "Bryan Brooks" },

@@ -48,7 +48,7 @@ immutable audit trail.
 2. **Candidate selection** — the ranking picked exactly one candidate. A distinct write, by
    deterministic policy, that flips one `CandidateEvaluation.reasonCode` to `RECOMMENDED` →
    `APPROVAL_PENDING` (§5b). This is not the same event as #1 — a candidate can respond without
-   being selected (e.g. over the cost cap).
+   being selected (e.g. flagged as an over-limit ride option).
 3. **Parent approval** — the correct parent said yes. `Confirmation` (**NEW** fields, §7).
 4. **Pickup completion** — the child was actually picked up. `PickupCompletion` (**NEW type**,
    **not built this milestone** — see §14). Approval is not completion; nothing in this contract
@@ -90,8 +90,8 @@ transport, and location/cost data — **never chosen by the model.** `PENDING` i
 | `NO_VERIFIED_CONTACT_METHOD` **(NEW this revision)** | authorized, but has no verified `ContactMethod` | checked before dispatch; no `Attempt` is ever created for this person |
 | `UNREACHABLE` **(NEW this revision)** | an `Attempt` was dispatched, but the channel itself failed to deliver (bounce, failed call setup) | a **technical delivery failure** — distinct from `UNAVAILABLE`, which means delivery succeeded and the person declined or never answered |
 | `UNAVAILABLE` | delivered, but the candidate said no or never replied in the discovery window | from `acceptPickup`'s shared logic (§8) with `available: false`, or a discovery-window timeout — a timeout and an explicit "no" carry the **same** code |
-| `AVAILABLE_NO_TRANSPORT` | said yes, but has no usable transport | crossed with `transport.child` capability / `Person.vehicles` — today's real seed gives every actual `pickup.request` holder for Nora a vehicle too, so this code is specified but not demonstrable; flagged in §14 |
-| `OVER_POLICY` | said yes, has transport, but the estimated travel cost (§6a) exceeds the household's travel limit | **the cap decides permissibility, not availability** — the candidate stays a candidate; approval is a separate authorization (§6a) |
+| `AVAILABLE_NO_TRANSPORT` | said yes, but has no usable transport | crossed with the `transport.child` capability and `Person.vehicles`; the seed gives Loretta no vehicle so the code is demonstrable (§14) |
+| `OVER_POLICY` | willing but has no usable transport, and the paid-ride estimate (§6a) exceeds the household's limit | surfaced as a flagged option requiring explicit acceptance; never `APPROVAL_PENDING` and never arranged automatically (§6a) |
 | `RECOMMENDED` | the one candidate the ranking (§5b) selects — the **candidate selection** fact | assigned once per job, by the ranking write, distinct from the candidate's own response |
 | `APPROVAL_PENDING` | the same candidate as `RECOMMENDED`, now the one waiting on the approver | the job's externally visible tag while `status = awaiting_approval` |
 
@@ -121,20 +121,22 @@ Operates only on candidates with a **human-confirmed** response. In order:
 
 1. **Authorization** — must be authorized (already true of anyone with a response).
 2. **Human-confirmed availability** — must have replied `available: true`.
-3. **Transport** — must have usable transport (`transport.child` + a vehicle); never recommend
-   `AVAILABLE_NO_TRANSPORT`, however willing.
-4. **Estimated ability to meet the deadline** — using the canonical location model's
-   `estimatedTravelMinutes` (§6) against the job's pickup deadline.
+3. **Transport** — must have usable transport (`transport.child` + a vehicle). A caregiver without
+   it is `AVAILABLE_NO_TRANSPORT` and is never recommended as a driver, however willing.
+4. **Arrival feasibility** — **distance is the documented proxy for this release**, because a job
+   carries no pickup-deadline column. `distanceMiles` stands in for `estimatedTravelMinutes` (§6);
+   if a deadline is added later it takes precedence over the proxy.
 5. **Distance from the pickup point** — shorter `distanceMiles` (§6) wins among remaining ties.
 6. **Stable resolver order** — `pickupCandidates`' own deterministic ordering, as the final,
    never-ambiguous tie-break.
 
-**Permissibility gate, separate from the six keys above:** among candidates who pass 1–6, only
-those **within the household's ride-cost cap** (not `OVER_POLICY`) are placed in the normal
-recommendation pool. If that pool is empty but at least one `OVER_POLICY` candidate passed 1–6,
-the best `OVER_POLICY` candidate is recommended anyway, explicitly flagged, and the approver's
-`approvePickup` call is what authorizes spending over the cap — the cap decides permissibility;
-approval decides permission; these are deliberately two different gates (§6a).
+**Cost is not a ranking input.** A caregiver with their own usable transport is never checked
+against the household's ride-cost limit, and no cost figure is attached to a driver. The limit
+applies only to a paid ride for a caregiver who has no transport, which is explored only when no
+driver can do the pickup (§6a).
+
+**If no driver is available and a ride estimate is within the limit, Rosina reports no driver
+available; approved-ride arrangements are out of scope this release.** Nothing is booked.
 
 ## 6. The canonical location model
 
@@ -180,13 +182,18 @@ type CandidateRouteLeg {
 
 ### 6a. Estimated travel cost — a documented, synthetic formula
 
-**Formula, the same for every candidate, no exceptions:**
+**Formula, applied only on the paid-ride path:**
 `estimatedRideCostUsd = distanceMiles (haversine straight-line) × $1.40/mile`
 
-The estimated travel cost models the candidate's trip to the pickup point. The caregiver collects
-the child in person. The estimate is applied consistently to all candidates, including those using
-their own vehicles, and is a synthetic planning estimate: never a fare, quote, reimbursement,
-charge or amount anyone pays.
+The estimate models a paid trip for a caregiver who is willing but has no usable transport. It is
+computed **only** when no driver can do the pickup, and it is compared with the household's
+paid-ride limit.
+
+**A caregiver with their own transport is never costed.** Drivers carry `estimatedRideCostUsd:
+null`, `costBasis: null` and `costCalculatedAt: null`; a cost figure on a driver is a defect.
+
+The figure is a synthetic planning estimate: never a fare, quote, reimbursement, charge or amount
+anyone pays — and never presented as booked without a real provider receipt.
 
 Stored on `CandidateEvaluation` (**NEW fields**): `estimatedRideCostUsd: Float`,
 `costBasis: String!` (always `"FridgeGraph synthetic planning estimate: haversine distance ×

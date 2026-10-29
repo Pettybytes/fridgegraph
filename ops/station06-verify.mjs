@@ -9,8 +9,9 @@
  *   A. Direct write paths are closed (anon RPC, authenticated table write, authenticated consume)
  *   B. Every transition is gated by the contract's rule (parent / candidate / approverFor)
  *   C. The webhook entry point records availability only, and is idempotent under duplicate delivery
- *   D. The demo walk: Loretta available -> OVER_POLICY at the computed cost; Tasha available ->
- *      APPROVAL_PENDING; Kendra's approval creates the single confirmation
+ *   D. The demo walk: Loretta available -> AVAILABLE_NO_TRANSPORT (no car, never costed); Tasha
+ *      available -> APPROVAL_PENDING with no cost attached; Kendra's approval creates the single
+ *      confirmation
  *   E. The real-call authorization is single-use and bound to id + attempt + recipient + version
  *   F. Candidate origins are invisible through the child's scope
  *
@@ -122,9 +123,9 @@ const gmaReply = await hook('p_gma', true, null)
 rec('webhook records Loretta available', gmaReply.status < 300 && gmaReply.body === 'recorded', `body=${JSON.stringify(gmaReply.body)}`)
 
 const gmaEval = await db.query(`select reason_code, available, distance_miles, estimated_ride_cost_usd from candidate_evaluations where job_id=$1 and candidate_id='p_gma'`, [jobId])
-rec('Loretta ends OVER_POLICY at the computed cost',
-  gmaEval.rows[0]?.reason_code === 'OVER_POLICY' && Number(gmaEval.rows[0]?.estimated_ride_cost_usd) === 12.40,
-  `code=${gmaEval.rows[0]?.reason_code} miles=${gmaEval.rows[0]?.distance_miles} cost=${gmaEval.rows[0]?.estimated_ride_cost_usd}`)
+rec('Loretta ends AVAILABLE_NO_TRANSPORT and is never costed',
+  gmaEval.rows[0]?.reason_code === 'AVAILABLE_NO_TRANSPORT' && gmaEval.rows[0]?.estimated_ride_cost_usd === null,
+  `code=${gmaEval.rows[0]?.reason_code} cost=${gmaEval.rows[0]?.estimated_ride_cost_usd}`)
 
 const replay = await hook('p_gma', true, null)
 rec('duplicate delivery changes nothing', replay.body === 'duplicate', `body=${JSON.stringify(replay.body)}`)
@@ -142,9 +143,16 @@ rec('exactly one APPROVAL_PENDING, and it is Tasha',
   recs.rowCount === 1 && recs.rows[0].candidate_id === 'p_tasha', `candidate=${recs.rows[0]?.candidate_id}`)
 
 const tashaEval = await db.query(`select distance_miles, estimated_ride_cost_usd, location_provenance from candidate_evaluations where job_id=$1 and candidate_id='p_tasha'`, [jobId])
-rec('Tasha is inside the cap with a computed estimate',
-  Number(tashaEval.rows[0]?.estimated_ride_cost_usd) <= 10 && tashaEval.rows[0]?.location_provenance === 'ESTIMATED',
+rec('Tasha is recommended with no cost attached',
+  tashaEval.rows[0]?.estimated_ride_cost_usd === null && tashaEval.rows[0]?.distance_miles !== null
+    && tashaEval.rows[0]?.location_provenance === 'ESTIMATED',
   `miles=${tashaEval.rows[0]?.distance_miles} cost=${tashaEval.rows[0]?.estimated_ride_cost_usd} provenance=${tashaEval.rows[0]?.location_provenance}`)
+
+// A caregiver with usable transport is never cost-checked, so a driver can never carry OVER_POLICY.
+const driversOver = await db.query(`select count(*)::int n from candidate_evaluations ce
+   where ce.job_id=$1 and ce.reason_code='OVER_POLICY'
+     and exists (select 1 from vehicles v where v.owner_id = ce.candidate_id)`, [jobId])
+rec('a driver is never OVER_POLICY', driversOver.rows[0].n === 0, `driver_over_policy=${driversOver.rows[0].n}`)
 
 // ---------------------------------------------------------------- approval gate
 const v = job.rows[0].version
@@ -213,6 +221,14 @@ if (hasOverLimit) {
   rec('Loretta-only night surfaces her as the over-limit alternative',
     lone.rows[0].status === 'awaiting_approval' && lone.rows[0].over_limit_candidate_id === 'p_gma',
     `status=${lone.rows[0].status} alt=${lone.rows[0].over_limit_candidate_id}`)
+
+  const loneNoCar = await db.query(`select count(*)::int n from vehicles v
+     where v.owner_id = (select over_limit_candidate_id from coordination_jobs where id=$1)`, [loneId])
+  rec('the flagged option is a caregiver with no vehicle', loneNoCar.rows[0].n === 0, `vehicles=${loneNoCar.rows[0].n}`)
+
+  const loneCost = await db.query(`select estimated_ride_cost_usd from candidate_evaluations where job_id=$1 and candidate_id='p_gma'`, [loneId])
+  rec('the flagged option carries the ride estimate',
+    Number(loneCost.rows[0]?.estimated_ride_cost_usd) === 12.40, `cost=${loneCost.rows[0]?.estimated_ride_cost_usd}`)
 
   const lonePending = await db.query(`select count(*)::int n from candidate_evaluations where job_id=$1 and reason_code='APPROVAL_PENDING'`, [loneId])
   rec('over-limit alternative never looks like APPROVAL_PENDING', lonePending.rows[0].n === 0,
