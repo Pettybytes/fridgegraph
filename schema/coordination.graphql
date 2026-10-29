@@ -7,7 +7,17 @@ type Query {
   confirmations(childId: ID): [Confirmation!]!
 }
 
+type Mutation {
+  requestPickup(childId: ID!, asOf: String): CoordinationJob!
+  acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation!
+  approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String, acceptOverLimit: Boolean = false): CoordinationJob!
+}
+
 type Child @key(fields: "id") {
+  id: ID!
+}
+
+type Person @key(fields: "id") {
   id: ID!
 }
 
@@ -17,6 +27,22 @@ enum CoordinationType {
   ONBOARDING
 }
 
+enum DeclineReason {
+  BUSY
+  NO_TRANSPORT
+  OTHER
+}
+
+enum ApprovalDecision {
+  APPROVED
+  DECLINED
+}
+
+enum AcceptanceEntryPoint {
+  WEBHOOK_CALLBACK
+  CANDIDATE_JWT
+}
+
 type CoordinationJob {
   id: ID!
   idempotencyKey: String!
@@ -24,6 +50,22 @@ type CoordinationJob {
   child: Child!
   status: String!
   version: Int!
+  candidateEvaluations: [CandidateEvaluation!]!
+  overLimitCandidate: Person
+  confirmation: Confirmation
+}
+
+type CandidateEvaluation {
+  candidate: Person!
+  reasonCode: String
+  available: Boolean
+  declineReason: DeclineReason
+  acceptedVia: AcceptanceEntryPoint
+  estimatedRideCostUsd: Float
+  costBasis: String
+  distanceMiles: Float
+  locationProvenance: String
+  costCalculatedAt: String
 }
 
 type Attempt {
@@ -44,6 +86,9 @@ type Confirmation {
   id: ID!
   job: CoordinationJob!
   receivedAt: String!
+  candidate: Person!
+  approvedBy: Person!
+  overLimitApproved: Boolean!
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
