@@ -25,6 +25,31 @@ The contract file still labels itself draft. No contract edits in this frontend 
 - `reasonLabel('PENDING')`: Waiting for reply. Distinct from Awaiting parent approval.
 - `cn` is imported only through `@/lib/utils`.
 
+## Authorization boundary for the GraphQL adapter
+
+The mock adapter's scope check is a demo convenience, **not a security boundary**.
+When implementing the GraphQL adapter, `readVillage` must request only the server's
+authorized projection, using the signed-in user's identity and the requested child/village
+scope. The browser must never receive the full village and filter it locally for access.
+Server-side RLS and per-resolver authorization remain the boundary; client sanitizing is
+presentation/data-minimization only. Handle UNAUTHENTICATED and UNAUTHORIZED distinctly.
+
+PR #8 is merged as `0f287e7`. Hermes's handoff is now consolidated here:
+
+```ts
+readVillage(scope: Scope): Promise<VillageData>
+```
+
+- `FrontendAdapter`, `Scope`, and `VillageData`: `web/src/lib/frontendData/types.ts`.
+- Mock implementation: `web/src/lib/frontendData/mockAdapter.ts`.
+- Read hook: `useSurfaceData<VillageData>('village')`; village polls at 30 seconds.
+- Hermes supplies the named React component `LivingVillage` from
+  `web/src/features/village/index.ts`.
+- App imports `LivingVillage` from `@/features/village` and integrates it with
+  `slots={{ village: <LivingVillage /> }}` once that export exists.
+- No village implementation is owned by this integration work. The slot remains in place
+  while the export is absent. Production authorization stays on the server as specified above.
+
 ## Scope and dependencies
 
 This is the first, deliberately separate shell PR. Feature cards, chat and the integrated
@@ -69,3 +94,25 @@ DONE WHEN: npm run typecheck; npm run check; npm --prefix web test; npm --prefix
 Playwright CLI navigation at 1440px and 390px with screenshots.
 NOT DOING: live auth, server/schema/DB changes, village implementation, merge or deploy.
 BLOCKERS: feature work requires subsequent task worktrees; live integration needs backend fields.
+
+## Mission Control integration after Station 06
+
+Current baseline: main `21565be8eb0be9552fed38e68e5001badd6bc172`, which also owns the
+current frontend-data.md contract. Parent chat remains on its separate branch.
+
+Mission Control consumes the injected adapter's candidates, CoordinationJob.overLimitCandidate,
+and Confirmation.overLimitApproved. A connected GraphQL adapter must source **every candidate,
+over-limit and confirmation state from authorized backend responses**. Never merge in mock
+rows, replay a mock decision, infer approval from a reason code or mutation status, or use
+mock data as a network-error fallback. The mock replay is isolated to the explicit demo adapter
+and mode. The UI waits for a matching Confirmation row from the subsequent read.
+
+Over-limit review requires a separate checkbox and sends acceptOverLimit:true only after that
+explicit action. An OVER_POLICY row alone is not an over-limit offer: the job must carry
+`overLimitCandidate`. Estimates display the supplied `costBasis` verbatim. Missing estimates
+remain unrecorded; PENDING never implies availability or approval.
+
+When requestPickup is connected, forward its optional `window` argument exactly as requested;
+the backend's default is afternoon, and different windows produce different idempotency keys.
+The UI reads the window from the supplied job's idempotencyKey rather than choosing a new one.
+No GraphQL adapter is connected by this UI PR, and no live API or database writes are claimed.

@@ -38,8 +38,9 @@ describe('shared adapter', () => {
     expect(TRAVEL_COST_LABEL).toBe('Estimated travel cost')
     expect(reasonLabel('OVER_POLICY')).toBe('Over your travel limit')
     for (const candidate of candidates) {
-      expect(candidate.estimatedRideCostUsd).toBeCloseTo(candidate.distanceMiles * 1.40, 2)
-      expect(candidate.costBasis).toBe('Synthetic estimated travel cost: straight-line distance × $1.40/mile for every caregiver, including drivers')
+      expect(candidate.distanceMiles).not.toBeNull()
+      expect(candidate.estimatedRideCostUsd).toBeCloseTo(candidate.distanceMiles! * 1.40, 2)
+      expect(candidate.costBasis).toBe('FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi')
       expect(candidate).not.toHaveProperty('estimatedTravelCostUsd')
     }
     expect(JSON.stringify(await createMockAdapter().readParentChat(demoScope))).not.toMatch(/ride.cost|ride fare|Uber|spend/i)

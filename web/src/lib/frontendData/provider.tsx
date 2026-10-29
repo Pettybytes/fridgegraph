@@ -11,7 +11,7 @@ const SNAPSHOT = gql`query LocalFrontendSnapshot($scope: FrontendScope!, $surfac
 }`
 export const POLL_INTERVAL_MS = 2500
 export const VILLAGE_POLL_INTERVAL_MS = 30000
-const DataContext = createContext<{ scope: Scope; mode: FrontendAdapter['mode'] } | null>(null)
+const DataContext = createContext<{ scope: Scope; mode: FrontendAdapter['mode']; adapter: FrontendAdapter } | null>(null)
 export function DataProvider({ adapter, scope, children }: { adapter: FrontendAdapter; scope: Scope; children: ReactNode }) {
   const client = useMemo(() => new ApolloClient({
     cache: new InMemoryCache(),
@@ -29,7 +29,7 @@ export function DataProvider({ adapter, scope, children }: { adapter: FrontendAd
       return () => { active = false }
     })),
   }), [adapter])
-  return <DataContext.Provider value={{ scope, mode: adapter.mode }}><ApolloProvider client={client}>{children}</ApolloProvider></DataContext.Provider>
+  return <DataContext.Provider value={{ scope, mode: adapter.mode, adapter }}><ApolloProvider client={client}>{children}</ApolloProvider></DataContext.Provider>
 }
 export function useDataContext() {
   const context = useContext(DataContext)
