@@ -122,10 +122,12 @@ const hook = (candidate, available, decline) => hookOn(attempts[candidate], avai
 const gmaReply = await hook('p_gma', true, null)
 rec('webhook records Loretta available', gmaReply.status < 300 && gmaReply.body === 'recorded', `body=${JSON.stringify(gmaReply.body)}`)
 
-const gmaEval = await db.query(`select reason_code, available, distance_miles, estimated_ride_cost_usd from candidate_evaluations where job_id=$1 and candidate_id='p_gma'`, [jobId])
+const gmaEval = await db.query(`select reason_code, available, distance_miles, estimated_ride_cost_usd, cost_basis from candidate_evaluations where job_id=$1 and candidate_id='p_gma'`, [jobId])
 rec('Loretta ends AVAILABLE_NO_TRANSPORT and is never costed',
-  gmaEval.rows[0]?.reason_code === 'AVAILABLE_NO_TRANSPORT' && gmaEval.rows[0]?.estimated_ride_cost_usd === null,
-  `code=${gmaEval.rows[0]?.reason_code} cost=${gmaEval.rows[0]?.estimated_ride_cost_usd}`)
+  gmaEval.rows[0]?.reason_code === 'AVAILABLE_NO_TRANSPORT'
+    && gmaEval.rows[0]?.estimated_ride_cost_usd === null
+    && gmaEval.rows[0]?.cost_basis === null,
+  `code=${gmaEval.rows[0]?.reason_code} cost=${gmaEval.rows[0]?.estimated_ride_cost_usd} basis=${gmaEval.rows[0]?.cost_basis}`)
 
 const replay = await hook('p_gma', true, null)
 rec('duplicate delivery changes nothing', replay.body === 'duplicate', `body=${JSON.stringify(replay.body)}`)
@@ -153,6 +155,16 @@ const driversOver = await db.query(`select count(*)::int n from candidate_evalua
    where ce.job_id=$1 and ce.reason_code='OVER_POLICY'
      and exists (select 1 from vehicles v where v.owner_id = ce.candidate_id)`, [jobId])
 rec('a driver is never OVER_POLICY', driversOver.rows[0].n === 0, `driver_over_policy=${driversOver.rows[0].n}`)
+
+const declined = await db.query(`select candidate_id, estimated_ride_cost_usd, cost_basis from candidate_evaluations where job_id=$1 and candidate_id in ('p_bryan','p_monique')`, [jobId])
+rec('declining candidates carry no cost',
+  declined.rowCount === 2 && declined.rows.every(r => r.estimated_ride_cost_usd === null && r.cost_basis === null),
+  declined.rows.map(r => `${r.candidate_id}=${r.estimated_ride_cost_usd}`).join(' '))
+
+const driverCost = await db.query(`select count(*)::int n from candidate_evaluations ce
+   where ce.job_id=$1 and ce.estimated_ride_cost_usd is not null
+     and exists (select 1 from vehicles v where v.owner_id = ce.candidate_id)`, [jobId])
+rec('a driver is never costed', driverCost.rows[0].n === 0, `costed_drivers=${driverCost.rows[0].n}`)
 
 // ---------------------------------------------------------------- approval gate
 const v = job.rows[0].version
