@@ -59,7 +59,7 @@ const TABLES = [
   'villages', 'people', 'children', 'households', 'household_members', 'relationships',
   'contact_methods', 'capabilities', 'groups', 'memberships', 'goals', 'care_plans', 'grants',
   'approvals', 'household_policies', 'parenting_schedules', 'events', 'school_reports',
-  'permission_slips', 'bus_rosters', 'vehicles', 'practices', 'coordination_jobs', 'attempts',
+  'permission_slips', 'bus_rosters', 'vehicles', 'practices', 'locations', 'coordination_jobs', 'attempts',
   'information_requests', 'confirmations', 'conversation_state', 'village_event',
 ] as const;
 
@@ -67,7 +67,7 @@ const TABLES = [
 const RESET_SCOPED = [
   'relationships', 'grants', 'goals', 'approvals', 'events', 'bus_rosters', 'vehicles',
   'practices', 'school_reports', 'permission_slips', 'coordination_jobs', 'attempts',
-  'information_requests', 'confirmations', 'conversation_state',
+  'information_requests', 'confirmations', 'conversation_state', 'locations',
 ] as const;
 
 function headers() {
@@ -143,6 +143,10 @@ function baseline() {
       id: v.id, owner_id: v.ownerId, year: v.year, make: v.make, model: v.model, color: v.color, plate: v.plate,
     })),
     practices: s.practices.map((p) => ({ id: p.id, group_id: p.groupId, start_at: p.start, location: p.location })),
+    locations: s.locations.map((l) => ({
+      id: l.id, owner_type: l.ownerType, owner_id: l.ownerId, label: l.label,
+      lat: l.lat, lng: l.lng, source: l.source, captured_at: l.capturedAt,
+    })),
   } as Record<string, Record<string, unknown>[]>;
 }
 
@@ -151,6 +155,7 @@ const CONFLICT: Record<string, string | undefined> = {
   parenting_schedules: 'child_id,parent_id', bus_rosters: 'date,child_id',
   household_members: 'person_id,household_id', memberships: 'person_id,group_id',
   capabilities: 'person_id,name', contact_methods: 'person_id,channel,value',
+  locations: 'id',
 };
 
 export async function seedDatabase() {
