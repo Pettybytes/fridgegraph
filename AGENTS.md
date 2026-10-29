@@ -85,7 +85,7 @@ not a full-repo or full-history audit.
 1. `npm run typecheck` passes.
 2. `npm run check` passes (secret scan clean).
 3. The relevant suite/probe was **run by you** and its output is in your report:
-   - evidence suite: 31 cases, identical outcome at `DEMO_CLOCK=1` and `DEMO_CLOCK=0`
+   - evidence suite: 32 cases, identical outcome at `DEMO_CLOCK=1` and `DEMO_CLOCK=0`
    - per-step proofs: `node ops/b3-proof.mjs`, `node ops/b4-proof.mjs <owner>`
 4. The diff touches only the layer named in your task.
 
@@ -139,7 +139,10 @@ Numbered prompts are **stages**, not one job. Run them one at a time.
 
 When you find drift, **fix the doc in the same PR that finds it** and note it in the handoff.
 
-**Open, genuinely unresolved:** MCP on 5050 as Kendra returning 4 pickup candidates is **UNVERIFIED** — the last attempt hit a GraphOS plan rate limit (`ROUTER_FREE_PLAN_RATE_LIMIT_REACHED`), which is an account limit, not a code failure. Do not report it as passing.
+**Resolved:** MCP on 5050 as Kendra returning 4 pickup candidates is now **proven** through
+MCP → router → subgraph → RLS on both routers — `docs/evidence/16b-b5-mcp-reproof.md`. The earlier
+`ROUTER_FREE_PLAN_RATE_LIMIT_REACHED` was an account plan limit, not a code failure; a single paced
+probe on the GraphOS-connected router returns 4 candidates with no rate-limit response.
 
 ---
 

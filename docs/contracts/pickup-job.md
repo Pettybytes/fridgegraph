@@ -77,18 +77,21 @@ required field still means **stop**, not guess.
 
 ## 5. Reason codes
 
-Every candidate the job evaluates gets exactly one reason code. All are assigned by **deterministic
-policy code** reacting to relationship, grant, contact, delivery, acceptance, transport, and
-location/cost data — **never chosen by the model.**
+Every candidate the job evaluates gets exactly one reason code. There are **nine** values:
+**`PENDING` is a workflow state**, while the other **eight are outcomes**. Every value is assigned by
+**deterministic policy code** reacting to relationship, grant, contact, delivery, acceptance,
+transport, and location/cost data — **never chosen by the model.** `PENDING` is **not**
+`APPROVAL_PENDING` and never implies approval or confirmation.
 
 | Code | Meaning | Assigned when |
 | --- | --- | --- |
+| `PENDING` **(NEW this revision)** | outreach was sent and no reply has arrived yet — a **workflow state, not an outcome** | at dispatch. `available` stays `NULL` until the person actually answers; availability is never inferred from a calendar, a location or a route |
 | `UNAUTHORIZED` | not a legitimate candidate at all | lacks an ACTIVE relationship + qualifying grant — recorded for audit; never contacted |
 | `NO_VERIFIED_CONTACT_METHOD` **(NEW this revision)** | authorized, but has no verified `ContactMethod` | checked before dispatch; no `Attempt` is ever created for this person |
 | `UNREACHABLE` **(NEW this revision)** | an `Attempt` was dispatched, but the channel itself failed to deliver (bounce, failed call setup) | a **technical delivery failure** — distinct from `UNAVAILABLE`, which means delivery succeeded and the person declined or never answered |
 | `UNAVAILABLE` | delivered, but the candidate said no or never replied in the discovery window | from `acceptPickup`'s shared logic (§8) with `available: false`, or a discovery-window timeout — a timeout and an explicit "no" carry the **same** code |
 | `AVAILABLE_NO_TRANSPORT` | said yes, but has no usable transport | crossed with `transport.child` capability / `Person.vehicles` — today's real seed gives every actual `pickup.request` holder for Nora a vehicle too, so this code is specified but not demonstrable; flagged in §14 |
-| `OVER_POLICY` | said yes, has transport, but the estimated ride cost (§6a) exceeds the household's cap | **the cap decides permissibility, not availability** — the candidate stays a candidate; approval is a separate authorization (§6a) |
+| `OVER_POLICY` | said yes, has transport, but the estimated travel cost (§6a) exceeds the household's travel limit | **the cap decides permissibility, not availability** — the candidate stays a candidate; approval is a separate authorization (§6a) |
 | `RECOMMENDED` | the one candidate the ranking (§5b) selects — the **candidate selection** fact | assigned once per job, by the ranking write, distinct from the candidate's own response |
 | `APPROVAL_PENDING` | the same candidate as `RECOMMENDED`, now the one waiting on the approver | the job's externally visible tag while `status = awaiting_approval` |
 
@@ -175,26 +178,33 @@ type CandidateRouteLeg {
 - Demo coordinates are **fictional and non-residential** — reference points, not real addresses,
   even though the underlying concept ("Nora's school," "Nora's home") is a real-shaped one.
 
-### 6a. Ride cost — a documented, fictional formula
+### 6a. Estimated travel cost — a documented, synthetic formula
 
 **Formula, the same for every candidate, no exceptions:**
 `estimatedRideCostUsd = distanceMiles (haversine straight-line) × $1.40/mile`
+
+The estimated travel cost models the candidate's trip to the pickup point. The caregiver collects
+the child in person. The estimate is applied consistently to all candidates, including those using
+their own vehicles, and is a synthetic planning estimate: never a fare, quote, reimbursement,
+charge or amount anyone pays.
 
 Stored on `CandidateEvaluation` (**NEW fields**): `estimatedRideCostUsd: Float`,
 `costBasis: String!` (always `"FridgeGraph synthetic planning estimate: haversine distance ×
 $1.40/mi"`), `distanceMiles: Float`, `locationProvenance: LocationSource` (copied from the
 candidate's origin `Location.source`), `costCalculatedAt: String!`.
 
-- **This is never an Uber quote, a fare, a road distance, a verified ETA, or a booking.** The
-  `costBasis` string says so on every record; nothing in the UI may relabel it as a real quote.
+- **Never a fare, quote, reimbursement, charge or amount anyone pays** — and never a road distance,
+  routed ETA or booking. The `costBasis` string says so on every record; nothing in the UI may
+  relabel it. User-facing copy calls this **"Estimated travel cost"**.
 - Travel time (`CandidateRouteLeg.estimatedTravelMinutes`) is a **labelled modelling assumption**
   (flat average speed over straight-line distance), not a routed ETA — same honesty rule as the
   cost.
 - The household's `ride_cost_cap_usd` policy value (`HouseholdPolicy`, EXISTING type, decided in
-  the previous revision) decides **permissibility** (§5b). Kendra's real demo cap is $10; Loretta
-  Brooks' real demo estimate is **≈ $12.40** (8.86 mi × $1.40/mi), which is why she is
-  `OVER_POLICY` — not unavailable, not disqualified, just over the line a parent would need to
-  explicitly cross.
+  the previous revision) is a **household travel-cost policy threshold, not a spending
+  authorization for any ride provider**, and it decides **permissibility** (§5b). Kendra's real
+  demo cap is $10; Loretta Brooks' real demo estimate is **≈ $12.40** (8.86 mi × $1.40/mi), which is
+  why she is `OVER_POLICY` — not unavailable, not disqualified, just over the line a parent would
+  need to explicitly cross. The UI label for that state is **"Over your travel limit"**.
 - **Parent approval stays a separate authorization.** Even an in-cap recommendation still needs
   `approvePickup` — the cap never substitutes for consent, and consent never substitutes for the
   cap check having run.
@@ -245,10 +255,15 @@ pending ──> discovering ──> awaiting_approval ──> confirmed
 All mutations below are **NEW** — `schema/coordination.graphql` has no `Mutation` type today.
 
 ```graphql
-requestPickup(childId: ID!, asOf: String): CoordinationJob!
+requestPickup(childId: ID!, asOf: String, window: String): CoordinationJob!
 acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation!
 approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String): CoordinationJob!
 ```
+
+`window` is optional and defaults to `afternoon`; it is part of the job's idempotency key
+(`pickup:<child>:<asOf>:<window>`), so the same child and date with two different windows are two
+different jobs, while repeating the same triple returns the existing one. No migration was needed:
+the database function already took the window and already folded it into the key.
 
 `acceptPickup` is **one transactional transition with two documented entry points.** Both apply
 **identical** rules — job version / `requestVersion`, intended recipient, channel, idempotency,
@@ -330,6 +345,13 @@ Once both gates pass for a given attempt:
 `webhook.md` §10): `BUSY`, `NO_TRANSPORT`, `OTHER`. `NO_TRANSPORT` feeds `AVAILABLE_NO_TRANSPORT`
 in the ranking; `BUSY`/`OTHER` feed plain `UNAVAILABLE`.
 
+**Demo identities.** Kendra (`p_mom`), Andre (`p_dad`), Loretta (`p_gma`), Bryan (`p_bryan`) and
+Walter (`p_walter`) have seeded logins. **Tasha (`p_tasha`) does not** — she has no credential in
+`.demo-credentials`, so she replies through the signed webhook callback or the voice turn in the
+demo, never through a candidate JWT. Her permissions are identical to any other candidate's
+(`candidate_id = current_person()`); the candidate-class authorization tests use Loretta and Bryan
+for that reason.
+
 ## 11. Authorization
 
 Unchanged: the job runs as the caller's identity through the normal per-request client; no
@@ -355,8 +377,8 @@ new `address.read` gate (§3, §6).
 - Inferring availability from a calendar gap, a home location, or a route/distance estimate —
   those drive outreach order (§5a) and ranking among responders (§5b), never a claim that someone
   is free.
-- Presenting the ride-cost estimate (§6a) as an Uber quote, a fare, a road distance, a verified
-  ETA, or a booking.
+- Presenting the estimated travel cost (§6a) as a fare, quote, reimbursement, charge, road
+  distance, routed ETA or booking.
 - Enabling the real-call exception by default, storing its number in the repo, or dialing anything
   other than the one consented number while it's enabled.
 - Treating `REAL_CALL_EXCEPTION_ENABLED=true` as sufficient by itself — a valid, unconsumed,

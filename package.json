@@ -10,7 +10,8 @@
     "check": "node scripts/check-secrets.mjs",
     "db:seed": "tsx scripts/db.ts seed",
     "db:reset": "tsx scripts/db.ts reset",
-    "db:checksum": "tsx scripts/db.ts checksum"
+    "db:checksum": "tsx scripts/db.ts checksum",
+    "verify:station06": "tsx ops/station06-verify.mjs"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",

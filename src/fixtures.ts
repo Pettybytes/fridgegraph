@@ -92,6 +92,16 @@ export type Seed = {
   attempts: { id: string; jobId: string; channel: string; at: string }[];
   informationRequests: { id: string; jobId: string; question: string; status: string }[];
   confirmations: { id: string; jobId: string; receivedAt: string }[];
+  locations: {
+    id: string;
+    ownerType: 'CHILD' | 'PERSON' | 'PLACE';
+    ownerId: string;
+    label: string | null;
+    lat: number;
+    lng: number;
+    source: 'SUPPLIED' | 'ESTIMATED' | 'VERIFIED';
+    capturedAt: string;
+  }[];
 };
 
 export function createSeed(): Seed {
@@ -319,6 +329,24 @@ export function createSeed(): Seed {
   const policies = [
     { householdId: 'h_a', rule: 'sibling_supervision_min_age', value: '16' },
     { householdId: 'h_a', rule: 'caregiver_approval', value: 'ANY_PARENT' },
+    // Station 06: the household's ride-cost cap. `over the cap` is a permissibility flag, never a
+    // refusal — the approver's approvePickup is what authorizes crossing it (pickup-job.md §6a).
+    { householdId: 'h_a', rule: 'ride_cost_cap_usd', value: '10' },
+  ];
+
+  // Station 06 — fictional, non-residential reference points. ESTIMATED means a modelled
+  // placeholder: never a real address and never a device location (no GPS in this milestone).
+  // Nothing hard-codes a distance or a price — these coordinates are the only input, and the
+  // ranking computes miles and cost with the haversine helper.
+  //   school -> Loretta = 8.86 mi -> $12.40 (over Kendra's $10 cap; she stays a candidate)
+  //   school -> Tasha   = 5.00 mi -> $7.00  (inside the cap)
+  const locations: Seed['locations'] = [
+    { id: 'loc_nora_school', ownerType: 'CHILD', ownerId: 'p_nora', label: 'school',
+      lat: 42.3314, lng: -83.0458, source: 'ESTIMATED', capturedAt: '2026-09-01T00:00:00Z' },
+    { id: 'loc_gma_home', ownerType: 'PERSON', ownerId: 'p_gma', label: null,
+      lat: 42.2031, lng: -83.0458, source: 'ESTIMATED', capturedAt: '2026-09-01T00:00:00Z' },
+    { id: 'loc_tasha_home', ownerType: 'PERSON', ownerId: 'p_tasha', label: null,
+      lat: 42.2590, lng: -83.0458, source: 'ESTIMATED', capturedAt: '2026-09-01T00:00:00Z' },
   ];
 
   const schedules = [
@@ -376,6 +404,7 @@ export function createSeed(): Seed {
     grants,
     approvals,
     policies,
+    locations,
     schedules,
     events,
     busRosters,

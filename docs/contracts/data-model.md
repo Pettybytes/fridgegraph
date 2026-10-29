@@ -35,7 +35,9 @@ Every subgraph writes **only its own tables**. Cross-table reads happen through 
 
 - Migrations live in `supabase/migrations/` and are **append-only**. Never edit an applied migration — the database already ran it.
 - One logical change per migration. Name it for the outcome, not the mechanism.
-- **Current head:** `0011` (widened a grant window so the suite stops depending on the wall clock).
+- **Current head:** `0012` (`0012_revoke_public_execute.sql` revoked PUBLIC/anon EXECUTE on the four
+  definer helpers that had kept Postgres defaults, and re-granted `authenticated` explicitly;
+  `0011` widened a grant window so the suite stops depending on the wall clock).
 - Policy rule learned the hard way: **never put a table's own `SELECT` inside its own RLS policy** — it raises `42P17` at runtime. `0009` (`my_household_ids()`) exists for that reason.
 - RLS legitimately hides rows that a derived query needs (grants, co-parent membership, relationship types). The fix is a narrow `SECURITY DEFINER` helper (`0008`, `0010`), **never** widening a policy.
 

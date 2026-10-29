@@ -40,6 +40,12 @@
   ],
   "candidateEvaluations": [
     {
+      "person": { "id": "p_angel", "displayName": "Angela Price" },
+      "reasonCode": "PENDING",
+      "available": null,
+      "note": "Outreach was dispatched to her verified channel and no reply has arrived inside the discovery window. PENDING is a workflow state, not an outcome: availability stays UNKNOWN and is never inferred from a calendar, a location or a route. PENDING is not APPROVAL_PENDING and implies neither approval nor confirmation. (pickup-job.md §5)"
+    },
+    {
       "person": { "id": "p_gma", "displayName": "Loretta Brooks" },
       "reasonCode": "OVER_POLICY",
       "acceptedVia": "WEBHOOK_CALLBACK",
@@ -47,7 +53,7 @@
       "estimatedRideCostUsd": 12.40,
       "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
       "distanceMiles": 8.86,
-      "note": "Over the cap (Kendra's h_a ride_cost_cap_usd=10) is not the same as unavailable (pickup-job.md §6a) — she remains a candidate, just flagged, and was not chosen only because Tasha was available, within cap, and clean on every ranking key."
+      "note": "Over your travel limit (Kendra's h_a ride_cost_cap_usd=10, a household travel-cost policy threshold — not a spending authorization) is not the same as unavailable (pickup-job.md §6a) — she remains a candidate, just flagged as \"Estimated travel cost\" above the threshold, and was not chosen only because Tasha was available, within the limit, and clean on every ranking key."
     },
     {
       "person": { "id": "p_bryan", "displayName": "Bryan Brooks" },
@@ -111,6 +117,21 @@
       { "from": "awaiting_approval", "to": "failed", "version": 4, "evidence": "approvePickup(decision: DECLINED) by p_mom", "failureReason": "approver_declined" }
     ],
     "note": "Immutable audit history — this decline is never edited or removed after the fact. Re-picking a different candidate (e.g. falling back to Loretta's OVER_POLICY option) INSIDE this same job is explicitly P2, not built; the only modeled next step is a brand-new requestPickup call with a brand-new idempotency key."
+  },
+  "overLimitPath": {
+    "_note": "Loretta-only night (Station 06). No candidate is inside the household travel-cost threshold, so the job does NOT fail and does NOT carry an APPROVAL_PENDING candidate. The best over-limit candidate is recorded on the job as overLimitCandidate and keeps reasonCode OVER_POLICY. Mission Control labels it 'Over your travel limit' and requires a separate explicit approval; without acceptOverLimit the backend refuses with OVER_LIMIT_NOT_ACCEPTED and writes no confirmation. Nothing here books a ride or spends money.",
+    "jobStatus": "awaiting_approval",
+    "overLimitCandidate": { "id": "p_gma", "displayName": "Loretta Brooks" },
+    "reasonCode": "OVER_POLICY",
+    "distanceMiles": 8.86,
+    "estimatedRideCostUsd": 12.40,
+    "costBasis": "FridgeGraph synthetic planning estimate: haversine distance x $1.40/mi",
+    "implicitApproval": { "acceptOverLimit": false, "result": "OVER_LIMIT_NOT_ACCEPTED", "confirmationWritten": false },
+    "explicitApproval": {
+      "acceptOverLimit": true,
+      "result": "confirmed",
+      "confirmation": { "candidateId": "p_gma", "approvedBy": "p_mom", "overLimitApproved": true }
+    }
   },
   "failedPath": {
     "transitions": [

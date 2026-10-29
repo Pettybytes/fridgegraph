@@ -81,6 +81,23 @@ exception into looking like an ordinary, unlabelled production call:
 - A `Confirmation`'s badge is derived from its `Attempt`'s `destinationMode` (via the candidate
   it confirms) rather than carrying its own copy of the field — one source of truth per job.
 
+### 1.5 User-facing labels (binding)
+
+Cost and policy copy is not free-form. These exact strings are required, and the prohibited words
+must not appear in any label, badge, toast or notification:
+
+| Concept | Required label |
+| --- | --- |
+| `estimatedRideCostUsd` / `distanceMiles` on a candidate | **"Estimated travel cost"** |
+| `OVER_POLICY` state | **"Over your travel limit"** |
+
+- Never "ride fare", "Uber", "quote", "reimbursement", "charge" or "spend". The figure is a
+  synthetic planning estimate of the candidate's trip to the pickup point (`pickup-job.md` §6a),
+  applied consistently to every candidate including those using their own vehicles.
+- Kendra's $10 is a **household travel-cost policy threshold**, not a spending authorization for
+  any ride provider. Reviewing an over-limit option is an explicit exception, never a purchase.
+- Where the estimate is displayed, `costBasis` must be shown verbatim.
+
 ## 2. Surface: Parent chat (Kendra's phone)
 
 Display name and tagline, wherever the UI names the agent: **"Rosina, FridgeGraph's AI family
@@ -212,15 +229,35 @@ section now mirrors `docs/contracts/pickup-job.md`'s reworked parallel-discovery
 accept-then-approve model (states: `pending → discovering → awaiting_approval → confirmed` /
 `failed`).
 
+### Over-limit alternative (NEW — Station 06)
+
+When no candidate is inside the household travel-cost threshold, the job does **not** fail and does
+**not** present a policy-compliant recommendation. It carries the best over-limit candidate instead.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `CoordinationJob.overLimitCandidate` | `Person` (nullable) | the candidate offered for review when nothing meets the threshold. That candidate keeps `reasonCode: OVER_POLICY` and is **never** `APPROVAL_PENDING` |
+| `Confirmation.overLimitApproved` | `Boolean` | true only when the approver explicitly accepted an over-limit option |
+
+- Label: **"Over your travel limit"**. Never "fare", "Uber", "spend".
+- The candidate's `estimatedRideCostUsd` and `costBasis` are shown verbatim; the figure is a
+  synthetic planning estimate, not a charge.
+- **Approving an over-limit candidate is a separate, explicit action.** The mutation must send
+  `acceptOverLimit: true`; without it the backend refuses with `OVER_LIMIT_NOT_ACCEPTED` and no
+  confirmation is written. There is no single-tap path from "review" to "approved".
+- `overLimitCandidate` and `APPROVAL_PENDING` are mutually exclusive: a job has at most one, never
+  both. Nothing in this flow books a ride, spends money, or raises the threshold.
+
 ### Queries / mutations
 
 | Operation | Status | Cites |
 | --- | --- | --- |
 | `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` |
 | `attempts(jobId: ID): [Attempt!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` `Query.attempts` — `pickup-job.md` §5/§7 adds NEW `candidate: Person!`, `destinationMode: DestinationMode!` to the existing `Attempt` type |
-| `candidateEvaluations(jobId: ID!): [CandidateEvaluation!]!` | **NEW** | the per-candidate reason-code record (`UNAUTHORIZED` / `NO_VERIFIED_CONTACT_METHOD` / `UNREACHABLE` / `UNAVAILABLE` / `AVAILABLE_NO_TRANSPORT` / `OVER_POLICY` / `RECOMMENDED` / `APPROVAL_PENDING`, plus `acceptedVia: AcceptanceEntryPoint` and the ride-cost fields) — `pickup-job.md` §5/§6a/§8, no such type exists today |
+| `candidateEvaluations(jobId: ID!): [CandidateEvaluation!]!` | **NEW** | the per-candidate reason-code record (`PENDING` / `UNAUTHORIZED` / `NO_VERIFIED_CONTACT_METHOD` / `UNREACHABLE` / `UNAVAILABLE` / `AVAILABLE_NO_TRANSPORT` / `OVER_POLICY` / `RECOMMENDED` / `APPROVAL_PENDING`, plus `acceptedVia: AcceptanceEntryPoint` and the ride-cost fields) — `pickup-job.md` §5/§6a/§8, no such type exists today. **`PENDING` is a workflow state** (outreach sent, no reply yet; `available` is null) and is not `APPROVAL_PENDING` |
 | `confirmations(childId: ID): [Confirmation!]!` | EXISTING, **+ NEW fields** | `schema/coordination.graphql` — `pickup-job.md` §7 adds NEW `candidate: Person!`, `approvedBy: Person!` |
-| `requestPickup` / `acceptPickup` / `approvePickup` | **NEW** | `pickup-job.md` §8 — `schema/coordination.graphql` has **no `Mutation` type at all** today; Mission Control cannot do anything beyond read-only playback until these ship |
+| `requestPickup(childId: ID!, asOf: String, window: String)` | **NEW** | `window` optional, defaults to `'afternoon'`; part of the idempotency key, so two windows are two jobs |
+| `acceptPickup` / `approvePickup` | **NEW** | `pickup-job.md` §8 — `schema/coordination.graphql` has **no `Mutation` type at all** today; Mission Control cannot do anything beyond read-only playback until these ship |
 
 **Decided (Bryan): no aggregate query in v1.** The previous draft's `missionControlFeed`
 aggregate and its `MissionControlStage` enum are **not building**. The
