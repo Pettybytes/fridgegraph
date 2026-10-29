@@ -25,6 +25,19 @@ The contract file still labels itself draft. No contract edits in this frontend 
 - `reasonLabel('PENDING')`: Waiting for reply. Distinct from Awaiting parent approval.
 - `cn` is imported only through `@/lib/utils`.
 
+## Authorization boundary for the GraphQL adapter
+
+The mock adapter's scope check is a demo convenience, **not a security boundary**.
+When implementing the GraphQL adapter, `readVillage` must request only the server's
+authorized projection, using the signed-in user's identity and the requested child/village
+scope. The browser must never receive the full village and filter it locally for access.
+Server-side RLS and per-resolver authorization remain the boundary; client sanitizing is
+presentation/data-minimization only. Handle UNAUTHENTICATED and UNAUTHORIZED distinctly.
+
+The exact village signature/type/export handoff will be consolidated here after PR #8
+is confirmed merged. Until then, its route slot remains unchanged because Hermes's export
+was absent on the reviewed baseline.
+
 ## Scope and dependencies
 
 This is the first, deliberately separate shell PR. Feature cards, chat and the integrated
