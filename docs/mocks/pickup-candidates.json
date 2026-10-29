@@ -94,7 +94,7 @@
     "destinationPoint": { "lat": 42.3378, "lng": -83.0523, "source": "SUPPLIED", "capturedAt": "2026-09-01T00:00:00Z", "label": "Home (fictional reference point, supplied by Kendra)" },
     "evaluations": [
       {
-        "person": { "id": "p_angel", "displayName": "Angela Price" },
+        "person": { "id": "p_price", "displayName": "Angela Price" },
         "reasonCode": "PENDING",
         "available": null,
         "note": "Dispatched, no reply yet — a workflow state, not an outcome. Availability is UNKNOWN and is never inferred from a calendar, a location or a route."
