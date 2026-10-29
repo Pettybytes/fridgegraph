@@ -6,10 +6,23 @@ export type RecordedEvent = { id: string; at: string; kind: string; summary: str
 export type ChatMessage = { id: string; from: string; kind: string; text: string | null; at: string; relatedJobId: string | null; relatedInformationRequestId: string | null; hasVoiceNote: boolean }
 export type MissionControlData = { candidates: Candidate[]; events: RecordedEvent[] }
 export type ParentChatData = { messages: ChatMessage[] }
+export type VillageNode = {
+  person: { id: string; displayName: string }
+  household: { id: string } | null
+  role: string
+}
+export type VillageEdge = {
+  from: { id: string }
+  to: { id: string }
+  relationship: { id: string; type: string; status: string }
+}
+// Client-assembled graph projection; not a server aggregate operation.
+export type VillageData = { nodes: VillageNode[]; edges: VillageEdge[] }
 export interface FrontendAdapter {
   readonly mode: 'mock' | 'graphql'
   readMissionControl(scope: Scope): Promise<MissionControlData>
   readParentChat(scope: Scope): Promise<ParentChatData>
+  readVillage(scope: Scope): Promise<VillageData>
 }
 export function reasonLabel(reason: ReasonCode): string {
   const labels: Record<ReasonCode, string> = {
