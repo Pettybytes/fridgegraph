@@ -25,6 +25,7 @@ function toGraph(
   data: VillageData,
   centerId: string,
   knownPositions: Record<string, { x: number; y: number }>,
+  ringRadius: number,
 ): { nodes: GraphNode[]; links: GraphLink[] } {
   const others = data.nodes.filter(n => n.person.id !== centerId)
   const nodes: GraphNode[] = data.nodes.map(n => {
@@ -34,9 +35,10 @@ function toGraph(
     // appears in frame immediately, instead of wherever d3-force's default
     // initializer happens to drop it (which can be far outside the canvas
     // once a node re-enters the simulation after being filtered out).
+    // Scaled to the canvas so the ring fits on a 390px-wide phone too.
     const idx = others.findIndex(o => o.person.id === n.person.id)
     const angle = others.length ? (idx / others.length) * Math.PI * 2 : 0
-    const seed = known ?? { x: Math.cos(angle) * 160, y: Math.sin(angle) * 160 }
+    const seed = known ?? { x: Math.cos(angle) * ringRadius, y: Math.sin(angle) * ringRadius }
     return {
       id: n.person.id,
       displayName: n.person.displayName,
@@ -144,10 +146,16 @@ export function LivingVillage() {
   // the layout never settles. nodeCanvasObject reads `highlights` live
   // via closure at paint time instead (safe: changing that prop only
   // repaints, per the library's triggerUpdate:false for it).
+  // Before the container is measured, seed at a desktop-sized default —
+  // dimensions will be real by the time ForceGraph2D actually mounts.
+  const ringRadius = dimensions.width > 0
+    ? Math.max(70, Math.min(dimensions.width, dimensions.height) * 0.24)
+    : 160
+
   const graph = useMemo(() => {
     if (!data) return { nodes: [], links: [] }
-    return toGraph(data, centerId, positionsRef.current)
-  }, [data, centerId])
+    return toGraph(data, centerId, positionsRef.current, ringRadius)
+  }, [data, centerId, ringRadius])
 
   // Filter
   const filtered = useMemo(() => {
@@ -227,12 +235,14 @@ export function LivingVillage() {
     // was tuned empirically to stay stable across repeated reheats.
     if (charge) charge.strength(-90)
     const link = fg.d3Force('link')
-    if (link && 'distance' in link) (link as unknown as { distance: (d: number) => void }).distance(140)
+    // Matches the ring radius nodes are seeded at, so the layout fits a
+    // 390px-wide phone canvas as well as a desktop-sized one.
+    if (link && 'distance' in link) (link as unknown as { distance: (d: number) => void }).distance(ringRadius * 0.9)
     forcesConfigured.current = true
     // The engine already ticked a few frames under the default (weak)
     // charge before this ran; reheat so the new forces actually move nodes.
     fg.d3ReheatSimulation()
-  }, [filtered, dimensions.width, dimensions.height])
+  }, [filtered, dimensions.width, dimensions.height, ringRadius])
 
   const handleNodeClick = useCallback((node: NodeObject<GraphNode>) => {
     setSelected(prev => (prev?.id === node.id ? null : (node as GraphNode)))
