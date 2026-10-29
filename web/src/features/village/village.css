@@ -97,10 +97,8 @@
   min-height: 380px;
 }
 
-.village-canvas {
+.village-canvas-wrap canvas {
   display: block;
-  width: 100%;
-  height: 100%;
   cursor: pointer;
 }
 
@@ -157,7 +155,6 @@
   align-items: flex-end;
   justify-content: center;
   background: rgba(38,52,75,0.18);
-  animation: village-overlay-in 0.25s ease-out;
 }
 
 .village-card {
@@ -168,7 +165,6 @@
   background: #fff;
   border-radius: 20px;
   box-shadow: 0 8px 40px rgba(38,52,75,0.14), 0 1px 4px rgba(38,52,75,0.06);
-  animation: village-card-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   text-align: center;
 }
 
@@ -297,22 +293,6 @@
 }
 
 /* ── Animations ─────────────────────────────────────────── */
-
-@keyframes village-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(40px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes village-overlay-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
 @keyframes village-spin {
   to { transform: rotate(360deg); }

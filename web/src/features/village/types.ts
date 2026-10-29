@@ -2,12 +2,13 @@
  * Internal village graph types.
  *
  * Shared types (VillageNode, VillageEdge, VillageData, ReasonCode, etc.)
- * come from @/lib/frontendData/types — only force-graph internals live here.
+ * come from @/lib/frontendData/types — only react-force-graph-2d node/link
+ * shapes live here. fx/fy are set once, to pin the center person in place.
  */
 
 import type { ReasonCode } from '@/lib/frontendData/types'
 
-/* ── Internal force-graph node ──────────────────────────── */
+/* ── Force-graph node/link (react-force-graph-2d) ───────── */
 
 export type GraphNode = {
   id: string
@@ -17,12 +18,8 @@ export type GraphNode = {
   household: string | null
   highlight: ReasonCode | null
   isCenter: boolean
-  x?: number
-  y?: number
   fx?: number
   fy?: number
-  vx?: number
-  vy?: number
 }
 
 export type GraphLink = {

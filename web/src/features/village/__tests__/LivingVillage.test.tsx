@@ -62,6 +62,9 @@ function mockCanvasContext() {
     fillText: vi.fn(),
     measureText: vi.fn(() => ({ width: 40 })),
     scale: vi.fn(),
+    translate: vi.fn(),
+    setTransform: vi.fn(),
+    setLineDash: vi.fn(),
     createRadialGradient: vi.fn(() => ({
       addColorStop: vi.fn(),
     })),
@@ -85,8 +88,10 @@ beforeEach(() => {
     width: 800, height: 600, top: 0, left: 0, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => {},
   })
 
-  // Mock requestAnimationFrame
-  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => { cb(0); return 0 })
+  // react-force-graph-2d's internal render loop calls rAF recursively from
+  // inside its own callback. Invoking synchronously here would recurse the
+  // call stack to overflow, so this mock only ever renders the first frame.
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 })
 
