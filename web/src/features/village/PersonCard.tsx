@@ -1,16 +1,17 @@
 import { motion } from 'motion/react'
 import type { GraphNode } from './types'
-import type { VillageEdge } from '@/lib/frontendData/types'
+import type { ReasonCode, VillageEdge } from '@/lib/frontendData/types'
 import { reasonLabel } from '@/lib/frontendData/types'
 
 type PersonCardProps = {
   node: GraphNode
   edge: VillageEdge | null
   centerName: string
+  highlight: ReasonCode | null
   onClose: () => void
 }
 
-export function PersonCard({ node, edge, centerName, onClose }: PersonCardProps) {
+export function PersonCard({ node, edge, centerName, highlight, onClose }: PersonCardProps) {
   const relationshipType = edge?.relationship.type ?? null
   const relationshipStatus = edge?.relationship.status ?? null
 
@@ -62,9 +63,9 @@ export function PersonCard({ node, edge, centerName, onClose }: PersonCardProps)
         <span className="village-card-role">{node.role.charAt(0).toUpperCase() + node.role.slice(1)}</span>
 
         {/* Highlight badge */}
-        {node.highlight && (
-          <div className="village-card-highlight" data-reason={node.highlight}>
-            {reasonLabel(node.highlight)}
+        {highlight && (
+          <div className="village-card-highlight" data-reason={highlight}>
+            {reasonLabel(highlight)}
           </div>
         )}
 
