@@ -1,6 +1,6 @@
 import { parse } from 'graphql';
 import { GraphQLError } from 'graphql';
-import { requireCaller, type Ctx } from '../authz';
+import { requireCaller, refuseDemoGuideWrite, type Ctx } from '../authz';
 import { dbFor, rows } from '../db';
 
 /**
@@ -253,6 +253,8 @@ const resolvers = {
       { childId, asOf, window }: { childId: string; asOf?: string; window?: string },
       ctx: Ctx,
     ) => {
+      // A guide is a read-only view of sandbox records: refuse before anything else happens.
+      refuseDemoGuideWrite(ctx);
       requireCaller(ctx);
       // The window is part of the idempotency key; it defaults to the afternoon window.
       const { data, error } = await dbFor(ctx).rpc('request_pickup', {
@@ -269,6 +271,7 @@ const resolvers = {
       { attemptId, available, declineReason }: { attemptId: string; available: boolean; declineReason?: string | null },
       ctx: Ctx,
     ) => {
+      refuseDemoGuideWrite(ctx);
       const callerId = requireCaller(ctx);
       // The contract requires the job's requestVersion, so read the Attempt's job first.
       const a = await rows(
@@ -305,6 +308,7 @@ const resolvers = {
       args: { jobId: string; version: number; decision: string; declineReason?: string | null; acceptOverLimit?: boolean },
       ctx: Ctx,
     ) => {
+      refuseDemoGuideWrite(ctx);
       requireCaller(ctx);
       const j = await rows(
         dbFor(ctx).from('coordination_jobs').select('id,request_version').eq('id', args.jobId),

@@ -16,7 +16,7 @@ service). Always check `docs/evidence/` before numbering.
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **DONE — merged as #9 (`ebb7a2c`)** |
 | 1 | `feat/e-group1` (PR #23) | off main **`275461e`** | **DONE — merged as #23 (`cccbbd2`)** |
-| 2 | `feat/e-group2` (PR #26) | off `origin/main` **`cccbbd2`** | **E1 DONE — head `0d798e2`; E2/E3 not started** |
+| 2 | `feat/e-group2` (PR #26) | off `origin/main` **`cccbbd2`** | **E1 DONE; E2a DONE (demo login, 46/46); E2b/E2c/E3 in progress** |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
 | 5 | `feat/e-group5` | | not started |
@@ -48,7 +48,24 @@ Evidence `36-e1-authority-model.md` (35 stays reserved for Task R). No Rosina to
 **PR #26** (draft, base `main`, head `0d798e2`) carries E1 only. E2/E3 will be added to the same
 branch, so #26 stays draft until they are green.
 
-**E2 demo login + sandbox enforcement + demo-guide scope — NOT STARTED.**
+**E2 demo login + sandbox enforcement + demo-guide scope.**
+
+**E2a DONE — demo login.** Contract and full response shape: `docs/handoff/E2A-REPORT.md` (this is
+what W4 builds against). `POST http://127.0.0.1:4008/api/demo/login { personaId }`, loopback only,
+`DEMO_LOGIN_ENABLED=1`, refuses production mode, localhost origins only. Sessions come from Supabase
+Auth via `admin.generateLink(magiclink)` + `verifyOtp(token_hash)` — **no password, and no server
+reads `.demo-credentials`** (the fallback was not needed; that rule is unchanged). Clients are per
+request with persistence off. `app_metadata.demo` marks every demo identity;
+`app_metadata.demo_guide` marks the guide alone; `verify.ts` exposes both from the verified token and
+defaults them false. READY personas (derived from the identity map, never hardcoded): demo-guide,
+kendra, andre, loretta, priya, dana, jax-family. UNAVAILABLE: rosa, felicia, simone, dwayne, plus any
+unknown id — never a substitute identity. Limits 20/min per IP, 8/min per persona.
+Proofs `npx tsx ops/e2a-proof.mjs` **46/46 PASS** (a endpoint+existing verifier, b marker, c parallel
+isolation, d UNAVAILABLE, e live GraphQL scoping incl. Dana UNAUTHORIZED and guide
+DEMO_GUIDE_READ_ONLY, f rate limit). Evidence `37-e2-demo-login-sandbox.md` §E2a.
+
+**New rule, unchanged in substance:** servers never read `.demo-credentials`; the demo login path
+needs no password at all. The guide identity `p_demo_guide` belongs to no household.
 **E3 Attempt.candidate + jobTimeline — NOT STARTED.**
 
 ### Group 0 (E-2, E-1) — DONE

@@ -16,7 +16,20 @@ const CLOCK_TOLERANCE_SECONDS = 5;
 const AUDIENCE = 'authenticated';
 
 export type IdentityResult =
-  | { ok: true; personId: string; sub: string }
+  | {
+      ok: true;
+      personId: string;
+      sub: string;
+      /**
+       * Trusted markers, read ONLY from the verified token's `app_metadata`.
+       *
+       * `app_metadata` is server-writable only. A client can send `user_metadata`, a header or a
+       * browser flag instead, and none of them reach here. Both markers default to false, so a
+       * token minted before they existed can never be read as demo or guide.
+       */
+      demo: boolean;
+      demoGuide: boolean;
+    }
   | { ok: false; reason: 'missing' | 'malformed' | 'invalid' | 'unmapped'; detail?: string };
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
@@ -83,7 +96,12 @@ export async function verifyBearer(header?: string): Promise<IdentityResult> {
     const personId = getIdentityMap()[sub];
     if (!personId) return { ok: false, reason: 'unmapped', detail: 'sub is not a known person' };
 
-    return { ok: true, personId, sub };
+    // Only the literal true (or the string "true") counts. Anything else is not a marker.
+    const appMetadata = (payload as { app_metadata?: Record<string, unknown> }).app_metadata;
+    const demo = appMetadata?.demo === true || appMetadata?.demo === 'true';
+    const demoGuide = appMetadata?.demo_guide === true || appMetadata?.demo_guide === 'true';
+
+    return { ok: true, personId, sub, demo, demoGuide };
   } catch (error) {
     const code = (error as { code?: string }).code ?? 'verification failed';
     return { ok: false, reason: 'invalid', detail: code };

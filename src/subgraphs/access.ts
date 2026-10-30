@@ -7,6 +7,7 @@ import {
   hasAnyGrant,
   hasScope,
   isParentOf,
+  refuseDemoGuideWrite,
   requireCaller,
   type Ctx,
 } from '../authz';
@@ -315,6 +316,7 @@ const resolvers = {
       }: { actorId: string; childId: string; scopes: string[]; validFrom?: string; validUntil?: string },
       ctx: Ctx,
     ) => {
+      refuseDemoGuideWrite(ctx);
       const callerId = requireCaller(ctx);
       // HouseholdPolicy caregiver_approval = ANY_PARENT: any parent of this child may grant.
       if (!(await isParentOf(ctx, childId))) throw deny();
@@ -339,6 +341,7 @@ const resolvers = {
       return toGrant(inserted);
     },
     revokeGrant: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
       requireCaller(ctx);
       const existing = await one(
         dbFor(ctx).from('grants').select(GRANT_COLUMNS).eq('id', id).maybeSingle(),
