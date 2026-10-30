@@ -17,8 +17,8 @@ describe('Family Calendar', () => {
     const sheet = screen.getByRole('dialog', { name: 'Tigers soccer practice' })
     expect(within(sheet).getByText('Kendra Ellison')).toBeVisible()
     expect(within(sheet).getByText(/Field 3/)).toBeVisible()
-    expect(within(sheet).getByText('Tuesday, Oct 27, 16:30 EDT')).toBeVisible()
-    expect(within(sheet).getByText('Tuesday, Oct 27, 17:30 EDT')).toBeVisible()
+    expect(within(sheet).getByText('Tuesday, Oct 27, 4:30 PM')).toBeVisible()
+    expect(within(sheet).getByText('Tuesday, Oct 27, 5:30 PM')).toBeVisible()
   })
   it('shows missing confirmation honestly and supports day view', async () => {
     show()
@@ -31,8 +31,8 @@ describe('Family Calendar', () => {
   })
   it('shows both repeated-hour events in the DST week and only Busy for an adult', async () => {
     show('p_dwayne', '#/calendar?day=2026-11-01&childId=p_malik')
-    expect(await screen.findByRole('button', { name: /First overnight care check-in/ })).toHaveTextContent('01:15 EDT')
-    expect(screen.getByRole('button', { name: /Second overnight care check-in/ })).toHaveTextContent('01:15 EST')
+    expect(await screen.findByRole('button', { name: /First overnight care check-in/ })).toHaveTextContent('1:15 AM EDT')
+    expect(screen.getByRole('button', { name: /Second overnight care check-in/ })).toHaveTextContent('1:15 AM EST')
     expect(screen.getByText('25-hour day · clocks change')).toBeVisible()
     expect(screen.queryByText(/employer|WORK_SHIFT|PRIVATE/)).not.toBeInTheDocument()
     fireEvent.click(screen.getAllByRole('button', { name: /Dwayne Ferris · Busy/ })[0])

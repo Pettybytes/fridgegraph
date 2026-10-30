@@ -34,7 +34,11 @@
 .rosina-panel button:focus-visible, .rosina-launcher:focus-visible, .rosina-confirm button:focus-visible { outline: 3px solid #7559a1; outline-offset: 3px; }
 @media(min-width: 1200px) { body:has(.rosina-panel) .workspace { padding-right: 375px; } body:has(.rosina-panel) .persona-entry { margin-right: 375px; max-width: 1000px; } body:has(.rosina-panel) .persona-grid { grid-template-columns: repeat(2, 1fr); } .rosina-panel header button { display: none; } }
 @media(max-width: 1199px) {
- .rosina-launcher { position: fixed; bottom: 1.1rem; right: 1.1rem; z-index: 26; display: flex; align-items: center; gap: .55rem; color: white; background: #7559a1; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
+ /* Reserve a viewport dock so the launcher never paints over scrollable content. */
+ body:has(.rosina-launcher) #root { height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+ .workspace main { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+ .cal-board { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+ .rosina-launcher { position: fixed; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; color: white; background: #7559a1; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
  .rosina-panel { display: none; top: auto; left: .6rem; right: .6rem; bottom: .6rem; width: auto; height: min(82dvh, 720px); z-index: 40; border-radius: 1.2rem; box-shadow: 0 -10px 60px #26344c33; }
  .rosina-panel.is-open { display: flex; }
 }

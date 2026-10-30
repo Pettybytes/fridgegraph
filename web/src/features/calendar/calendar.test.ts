@@ -12,14 +12,14 @@ describe('Detroit calendar time', () => {
     expect(dayHours('2026-10-31')).toBe(24)
     expect(dayHours('2026-11-01')).toBe(25)
     expect(dayHours('2026-11-02')).toBe(24)
-    expect(formatTime('2026-10-30T16:00:00Z')).toBe('12:00 EDT')
-    expect(formatTime('2026-11-02T17:00:00Z')).toBe('12:00 EST')
+    expect(formatTime('2026-10-30T16:00:00Z')).toBe('12:00 PM')
+    expect(formatTime('2026-11-02T17:00:00Z')).toBe('12:00 PM')
   })
   it('distinguishes both occurrences of 01:15 without dropping or duplicating source events', async () => {
     const data = await createMockCalendarAdapter('p_dwayne').readCalendar({ childId: 'p_malik', ...range })
     const sunday = dayItems(data, '2026-11-01').events
     expect(sunday.map(e => e.id)).toEqual(['cal-dst-first', 'cal-dst-second'])
-    expect(sunday.map(e => formatTime(e.start))).toEqual(['01:15 EDT', '01:15 EST'])
+    expect(sunday.map(e => formatTime(e.start))).toEqual(['1:15 AM EDT', '1:15 AM EST'])
     expect(new Set(sunday.map(e => e.id)).size).toBe(2)
   })
   it('splits Dwayne overnight shifts at Detroit midnight, including the extra DST hour', async () => {
@@ -30,8 +30,8 @@ describe('Detroit calendar time', () => {
     expect((Date.parse(dst.end) - Date.parse(dst.start)) / 3600000).toBe(9)
     expect(dayItems(data, '2026-10-29').busy.map(e => e.id)).toContain(regular.id)
     expect(dayItems(data, '2026-10-30').busy.map(e => e.id)).toContain(regular.id)
-    expect(segmentLabel(dst.start, dst.end, '2026-10-31')).toBe('22:00 EDT – continues next day')
-    expect(segmentLabel(dst.start, dst.end, '2026-11-01')).toBe('Continues – 06:00 EST')
+    expect(segmentLabel(dst.start, dst.end, '2026-10-31')).toBe('10:00 PM EDT – continues next day')
+    expect(segmentLabel(dst.start, dst.end, '2026-11-01')).toBe('Continues – 6:00 AM EST')
     expect(localDay(dst.end)).toBe('2026-11-01')
   })
 })
@@ -101,7 +101,7 @@ describe('holiday precedence and day boundaries', () => {
     const after = dayItems(data, '2026-11-26').events.find(e => e.id === before.id)!
     expect(after.id).toBe(before.id)
     expect(segmentLabel(before.start, before.end, '2026-11-25')).toContain('continues next day')
-    expect(segmentLabel(after.start, after.end, '2026-11-26')).toBe('Continues – 01:30 EST')
+    expect(segmentLabel(after.start, after.end, '2026-11-26')).toBe('Continues – 1:30 AM')
     expect(dayItems(data, '2026-11-27').events.some(e => e.id === before.id)).toBe(false)
   })
   it('surfaces overlapping approved arrangements and missing weekly records rather than guessing', async () => {

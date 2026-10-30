@@ -748,3 +748,15 @@ UI complete · backend unavailable (Bentley) · mock integrated + tested / live 
 Published: draft PR **#21**, https://github.com/Pettybytes/fridgegraph/pull/21.
 Implementation commit 9b94808; GitHub reports MERGEABLE. Not merged; live integration still
 NOT DONE. Inclusive mock dates confirmed by Bryan in-session.
+
+PR #21 pre-merge presentation revision: US 12-hour times without routine zone suffixes;
+EDT/EST retained on DST days and both endpoints of clock-change-spanning records. Removed
+the duplicate Rosina eyebrow; footer now reads “Planning and decisions powered by Meta's
+Muse Spark”, with no specific model name. Mobile launcher has a safe-area-aware bottom-right
+dock outside the scrollable content viewport, plus list/main bottom padding. New screenshots
+and repeatable five-persona proof live in web/evidence/task-cal/revision-1/; original evidence
+is preserved. UI/backend/live-integration states remain unchanged.
+Revision verification actually run: root typecheck PASS; 117 web tests PASS; production build
+PASS (same chunk-size advisory); five Playwright flows PASS including safe dock geometry and
+last-card clearance. Staged secret scan PASS: 283 files, zero findings. Revised screenshots
+include scrolled mobile calendar content with the launcher clear of cards.
