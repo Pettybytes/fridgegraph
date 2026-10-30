@@ -1578,3 +1578,7 @@ BLOCKERS: none for this fix. Follow-up for Bentley: a `MyChildren`/`myVillages` 
   by RLS to the caller, would let `roster.ts` stop depending on `src/demo/personas.ts` and read
   the graph directly instead — add it to "Rosina tools available" when it ships, with the usual
   persona-boundary tests.
+
+**Final state (2026-10-30):** PR #30 head `c9553ab`. `gh pr ready 30` run; `gh pr view 30` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (17s), `web build` (25s). Not merged — Bryan merges.
