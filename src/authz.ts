@@ -184,7 +184,7 @@ export type AccessLevel = 'parent' | 'grant' | 'guide';
  * Read through the guide's own RLS-scoped client, so the demo_guide_household_members policy (sandbox
  * only) decides the answer. A non-guide never reaches this call.
  */
-async function guideCanReadChild(ctx: Ctx, childId: string): Promise<boolean> {
+async function guideCanReadChildImpl(ctx: Ctx, childId: string): Promise<boolean> {
   if (ctx.demoGuide !== true) return false;
   const data = await memo(ctx, `guide:child:${childId}`, async () =>
     rows(
@@ -196,6 +196,14 @@ async function guideCanReadChild(ctx: Ctx, childId: string): Promise<boolean> {
     ),
   );
   return data.length > 0;
+}
+
+/**
+ * Public form of the same check, for the subgraphs whose gates are not authorizeChild()
+ * (pickup/supervision/approver). Read-only by construction: the demo_guide_* policies decide it.
+ */
+export async function guideCanReadChild(ctx: Ctx, childId: string): Promise<boolean> {
+  return guideCanReadChildImpl(ctx, childId);
 }
 
 /** Parents of the child have full access; a guide reads sandbox children; otherwise the field scope. */

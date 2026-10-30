@@ -32,11 +32,17 @@ const check = (label, ok, detail = '') => {
 }
 
 const login = async (personaId) => {
-  const r = await fetch(LOGIN, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ personaId }),
-  })
-  return r.json()
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const r = await fetch(LOGIN, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ personaId }),
+    })
+    if (r.status !== 429) return r.json()
+    const wait = Number(r.headers.get('retry-after') ?? 10)
+    console.log(`  (rate limited; waiting ${wait}s)`)
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000))
+  }
+  throw new Error(`login for ${personaId} stayed rate limited`)
 }
 
 const gql = async (token, query, variables) => {

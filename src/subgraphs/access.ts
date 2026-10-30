@@ -4,6 +4,7 @@ import {
   SCOPE,
   authorizeChild,
   deny,
+  guideCanReadChild,
   hasAnyGrant,
   hasScope,
   isParentOf,
@@ -156,6 +157,8 @@ async function recordApproval(
 async function requireDerivedAccess(ctx: Ctx, childId: string, onDate: string): Promise<void> {
   requireCaller(ctx);
   if (await isParentOf(ctx, childId)) return;
+  // The guide reads sandbox derived data read-only (E2c). Mutations never come through here.
+  if (await guideCanReadChild(ctx, childId)) return;
   if (await hasAnyGrant(ctx, childId, onDate)) return;
   throw deny();
 }
@@ -168,6 +171,8 @@ async function requireDerivedAccess(ctx: Ctx, childId: string, onDate: string): 
 async function requirePickupAccess(ctx: Ctx, childId: string, onDate: string): Promise<void> {
   requireCaller(ctx);
   if (await isParentOf(ctx, childId)) return;
+  // Read-only guide scope over sandbox records (E2c). The list is derived, never a write.
+  if (await guideCanReadChild(ctx, childId)) return;
   if (await hasScope(ctx, childId, SCOPE.pickupVerify, onDate)) return;
   throw deny();
 }
@@ -176,6 +181,7 @@ async function requirePickupAccess(ctx: Ctx, childId: string, onDate: string): P
 async function requireSupervisionAccess(ctx: Ctx, childId: string): Promise<void> {
   requireCaller(ctx);
   if (await isParentOf(ctx, childId)) return;
+  if (await guideCanReadChild(ctx, childId)) return;
   throw deny();
 }
 

@@ -52,7 +52,7 @@ query {
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
-          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:209:9)",
+          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:217:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
           "    at async carePlan (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:312:7)"
         ],
@@ -76,7 +76,7 @@ query {
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
-          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:209:9)",
+          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:217:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
           "    at async contactMethods (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:406:9)"
         ],

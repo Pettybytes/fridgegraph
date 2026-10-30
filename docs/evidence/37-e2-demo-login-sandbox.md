@@ -169,3 +169,89 @@ every refused write.
    Milestone-1 directory posture. Any signed-in user reads those, so for those tables the guide adds
    nothing and nothing is claimed. The guide-specific policies matter exactly where the base policy
    is parent/scope-gated, which is what the discriminator above tests.
+
+---
+
+## E2d — the MCP boundary (alt stack on 5051, server NOT restarted)
+
+Surface: MCP `PickupCandidates`, already listening on `127.0.0.1:5051` → endpoint
+`127.0.0.1:4012` (alt-stack router). Nothing was started, restarted or reconfigured for this proof;
+only the subgraph processes were reloaded with the code change described in §E2e.
+
+`ops/mcp-e2-proof.mjs` — every call carries the caller's own minted session; the tool payload is not
+just ids (it returns `displayName`, contact method values and vehicle plates).
+
+| # | Caller | Observed |
+|---|---|---|
+| 0 | handshake | `initialize` 200; `tools/list` = **PickupCandidates** only |
+| 1 | Kendra (parent) | **4 candidates**, each with id + reason; payload includes names, contact methods and vehicles |
+| 2 | Dana (unrelated adult) | **`UNAUTHORIZED`**, `isError`, no data field; leak probe: **0 of 12** sensitive strings present |
+| 3 | Demo guide | **4 of 4**, same recorded people — permitted sandbox read |
+| 4 | no token | `UNAUTHENTICATED`, no data, 0 strings leaked |
+| 4 | garbage token | `UNAUTHENTICATED`, no data, 0 strings leaked |
+| 5 | mutations | **none exposed** on this surface |
+
+**Mutations — "not exposed" is not "refusal exercised".** No mutation operation file exists, so
+`tools/list` shows none and no MCP authorization refusal for a mutation can be exercised. Calling
+`ApproveRelationship` or `grantAccess` returns `-32602 Tool not found` — that is the tool registry's
+**exposure** gate, not authorization. The unexposed paths are: `approveRelationship`, `requestPickup`,
+`acceptPickup`, `approvePickup`, `grantAccess`, `revokeGrant`. Their **authorization** refusals are
+proven over GraphQL instead (`DEMO_GUIDE_READ_ONLY` in e2a-e6 / e3-5, `DEMO_OUTREACH_REFUSED` in
+e2b 6–13). Nothing in §E2d claims more than that.
+
+**Harness caveat, recorded because it produced false passes.** The first two runs reported Dana
+"refused" while every call was in fact **anonymous**: the Authorization header had been written into
+the script as a literal masked placeholder instead of a bearer value, so the scheme word and the token
+never reached the server. Anonymous calls fail `UNAUTHENTICATED`, which superficially looks like a
+refusal. Fixed by building the header from parts and by asserting, on every authorised call, that the
+result is **not** `UNAUTHENTICATED` (and on the denied call, that it is `UNAUTHORIZED`, i.e. a known
+caller refused). Those assertions are what make the table above meaningful.
+
+---
+
+## E2e — the guide seam this exposed (migration 0026)
+
+With the resolver allowed to serve the guide, `PickupCandidates` came back **empty** rather than
+refused. Cause: the read is derived through two `SECURITY DEFINER` helpers that authorise the caller
+themselves — `pickup_candidates_for` (0008) and `grant_holders_for` (0010) accept a parent or a
+`pickup.verify` holder only. The guide was neither, so the definer returned zero rows. An empty
+candidate list is not a harmless zero: it states "nobody can collect this child".
+
+`0026_demo_guide_derived_reads.sql` adds one clause to each helper:
+`or (is_demo_guide() and is_sandbox_child(child))`. Justification, in the file and here: the guide may
+already read these same rows directly through 0025's policies, the projection stays narrow
+(`(from_id,type)` and actor ids only), every non-guide caller keeps the previous gate, and a guide on
+a **non-sandbox** child still gets nothing. No table policy is relaxed and no service-role read is
+performed on a caller's behalf.
+
+Resolver-side companion change (same seam): `access.ts` `requirePickupAccess`,
+`requireSupervisionAccess`, `requireDerivedAccess` and `transport.ts` `mayReadVehicles` now accept the
+guide for a sandbox child. Village topology reads (`households`, `householdMembers`, `relationships`)
+remain **parent-only** — deliberately not opened, so the guide's GraphQL surface is exactly what is
+listed under "Rosina tools available" and nothing wider.
+
+Dry run `node ops/0026-dry-run.mjs` — **9/9 PASS** in a rolled-back transaction: parent rows unchanged
+(18 → 18); guide == parent (18/18); unrelated adult 0; guide on a non-sandbox child 0; grant holders
+equal for guide and parent, empty for the unrelated adult; `authenticated` keeps EXECUTE on both;
+rollback leaves the deployed function without the clause.
+
+Applied (`ops/0026-apply.mjs`): both helpers carry the guide clause, `authenticated` EXECUTE retained.
+Re-run of the MCP proof then gave the guide **4 of 4** candidates.
+
+---
+
+## Rate limits (adjusted during verification)
+
+Per IP: **60/minute** (was 20). Eleven personas exist and a demo session may switch between them; the
+per-IP window was never the thing being protected. Per persona: **8/minute**, unchanged — that is what
+bounds minting for one identity.
+
+`ops/e2a-proof.mjs` f1–f3 no longer assume a fresh window: they drain the persona window until a 429
+arrives, then assert every earlier response was 200 and that the refusal is 429 with `Retry-After` and
+no session. All proofs now wait out a 429 instead of failing, so a re-run is not broken by the windows
+a previous run consumed.
+
+**Known limit observed during verification:** Supabase Auth rate-limits magic-link generation per user.
+A full battery (≈16 mints across five proofs in a few minutes) can exhaust it, and the endpoint then
+returns `UNAVAILABLE` with a `MINT_*` reason — fail-closed, correct behaviour, but it means a full
+battery should be run once per window rather than repeatedly.

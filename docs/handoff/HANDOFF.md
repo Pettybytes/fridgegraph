@@ -115,7 +115,29 @@ new app reads are GraphQL operations on the coordination subgraph:
 
 Both are refused to the guide for writes (`DEMO_GUIDE_READ_ONLY`) and to a demo session for outreach
 (`DEMO_OUTREACH_REFUSED`, E2b). Nothing here dials, sends, approves or spends.
-**E3 Attempt.candidate + jobTimeline — NOT STARTED.**
+
+**E3 is DONE** — evidence `38-e3-attempt-candidate-timeline.md`, `ops/e3-proof.mjs` 21/21. (The old
+"E3 — NOT STARTED" line here was stale and has been removed.)
+
+### Which router each run used, and the 115 vs 114 count
+
+**`ops/run-evidence.mjs` is byte-identical to `origin/main`** (`git diff origin/main -- ops/run-evidence.mjs`
+is empty; last touched by `cccbbd2`), and #23's 14b assertions are intact: `edge` requires 400/401 **with**
+`AUTH_ERROR` plus "edge rejection carries no protected data"; `downstream` requires 200 **with**
+`UNAUTHENTICATED`. A bare status never counts.
+
+The count therefore depends on WHICH router the suite is driven through, not on the suite:
+
+| Run | Router | 14b path | Assertions |
+|---|---|---|---|
+| graph suite at `0940fd4` (this task) | `router.yaml` on `127.0.0.1:4010` — **no** router-level JWT by design (it is licence-gated; subgraphs verify) | downstream: 200 `UNAUTHENTICATED` | **114 checks / 32 cases, PASS** |
+| same suite on a GraphOS-connected router | `router.graphos.yaml` — `authentication.router.jwt` on | edge: 400/401 `AUTH_ERROR` + the extra no-data assertion | **115** |
+| E2a / E2b / E2c / E3 proofs | `127.0.0.1:4010` (`router.yaml`) | n/a | as recorded in evidence 37/38 |
+| MCP boundary proof | MCP `127.0.0.1:5051` → endpoint `127.0.0.1:4012` (alt-stack router) | n/a | evidence 37 §E2d |
+
+The 115 figure was **not** re-measured here: it needs the GraphOS licence connection, and starting
+that router would have replaced the one serving 4010. What is proven is that the difference is exactly
+the one conditional assertion inside 14b, and that neither the runner nor the assertion changed.
 
 ### Group 0 (E-2, E-1) — DONE
 

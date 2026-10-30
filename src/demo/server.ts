@@ -22,8 +22,10 @@ import { MintError, mintSession } from './session';
 
 /** Sliding-window counters. Small, pruned, and only ever used for refusals. */
 type Window = { hits: number[]; };
+// Per IP: a whole demo session switching personas quickly must not self-limit (11 personas exist).
+// Per persona: still protective against minting storms for one identity.
 const IP_WINDOW_MS = 60_000;
-const IP_LIMIT = 20;
+const IP_LIMIT = 60;
 const PERSONA_WINDOW_MS = 60_000;
 const PERSONA_LIMIT = 8;
 

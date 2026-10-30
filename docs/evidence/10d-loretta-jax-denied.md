@@ -39,7 +39,7 @@ query { events(childId: "p_jax", date: "2026-10-26") { title } }
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
-          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:209:9)",
+          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:217:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
           "    at async events (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/schedule.ts:31:7)"
         ],

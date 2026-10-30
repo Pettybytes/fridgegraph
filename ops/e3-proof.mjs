@@ -35,11 +35,33 @@ const check = (label, ok, detail = '') => {
 }
 
 const login = async (personaId) => {
-  const r = await fetch(LOGIN, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ personaId }),
-  })
-  return r.json()
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const r = await fetch(LOGIN, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ personaId }),
+    })
+    if (r.status !== 429) return r.json()
+    const wait = Number(r.headers.get('retry-after') ?? 10)
+    console.log(`  (rate limited; waiting ${wait}s)`)
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000))
+  }
+  throw new Error(`login for ${personaId} stayed rate limited`)
+}
+
+const { tokenForPersonId } = await import('./auth.mjs')
+
+/**
+ * Demo login first — that is the path under test.
+ *
+ * If Supabase THROTTLES minting (repeated magic links for one user within the hour), fall back to the
+ * ops password grant in auth.mjs so the read proof can still run against a real session. The fallback
+ * is harness-only and is reported in the evidence; the product path is unchanged.
+ */
+const sessionFor = async (personaId, personId) => {
+  const r = await login(personaId)
+  if (r.status === 'READY') return { token: r.session?.access_token, via: 'demo-login' }
+  const token = await tokenForPersonId(personId)
+  return { token, via: 'password-grant (ops)', reason: r.reason }
 }
 const gql = async (token, query, variables) => {
   const r = await fetch(ROUTER, {
@@ -59,12 +81,17 @@ const svc = async (path, opts = {}) => {
 
 console.log('=== E3 proof: Attempt.candidate + jobTimeline ===')
 
-const kendra = await login('kendra')
-const andre = await login('andre')
-const dana = await login('dana')
-const guide = await login('demo-guide')
-for (const [n, s] of [['kendra', kendra], ['andre', andre], ['dana', dana], ['guide', guide]]) {
-  if (s.status !== 'READY') { console.log(`  cannot proceed: ${n} is ${s.status}`); process.exit(1) }
+const kendraS = await sessionFor('kendra', 'p_mom')
+const andreS = await sessionFor('andre', 'p_dad')
+const danaS = await sessionFor('dana', 'p_dana')
+const guideS = await sessionFor('demo-guide', 'p_demo_guide')
+const kendra = { session: { access_token: kendraS.token } }
+const andre = { session: { access_token: andreS.token } }
+const dana = { session: { access_token: danaS.token } }
+const guide = { session: { access_token: guideS.token } }
+console.log(`  identity source: ${[kendraS, andreS, danaS, guideS].map((s) => s.via).join(', ')}`)
+for (const [n, s] of [['kendra', kendraS], ['andre', andreS], ['dana', danaS], ['guide', guideS]]) {
+  if (!s.token) { console.log(`  cannot proceed: ${n} has no session`); process.exit(1) }
 }
 
 const created = await gql(kendra.session.access_token,

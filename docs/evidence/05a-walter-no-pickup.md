@@ -40,9 +40,9 @@ query { pickupCandidates(childId: "p_nora", asOf: "2026-10-26") { person { displ
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
           "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
-          "    at requirePickupAccess (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/access.ts:172:9)",
+          "    at requirePickupAccess (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/access.ts:177:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
-          "    at async pickupCandidates (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/access.ts:268:7)"
+          "    at async pickupCandidates (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/access.ts:274:7)"
         ],
         "service": "access"
       }

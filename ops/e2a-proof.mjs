@@ -34,13 +34,33 @@ const check = (label, ok, detail = '') => {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ': ' + detail : ''}`)
 }
 
-const login = async (personaId) => {
+/** One attempt, no waiting. Used by the limiter case, which must SEE the 429. */
+const loginOnce = async (personaId) => {
   const res = await fetch(LOGIN, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ personaId }),
   })
-  return { http: res.status, body: await res.json() }
+  return {
+    http: res.status,
+    retryAfter: res.headers.get('retry-after'),
+    body: await res.json(),
+  }
+}
+
+/**
+ * Default login: waits out a 429 instead of failing. A proof run must not be broken by the windows a
+ * previous run consumed, and the limiter is proven separately by loginOnce above.
+ */
+const login = async (personaId) => {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const r = await loginOnce(personaId)
+    if (r.http !== 429) return r
+    const wait = Number(r.retryAfter ?? 10)
+    console.log(`  (rate limited; waiting ${wait}s)`)
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000))
+  }
+  return loginOnce(personaId)
 }
 
 const gql = async (token, query, variables) => {
@@ -175,10 +195,21 @@ check('e7 no token -> UNAUTHENTICATED',
 
 // ---------------------------------------------------------------- rate limit
 console.log('\nf) rate limiting (per persona), last because it consumes the window')
-const limited = []
-for (let i = 0; i < 9; i++) limited.push((await login('jax-family')).http)
-check('f1 the per-persona limit refuses after 8 in a minute',
-  limited.slice(0, 8).every((s) => s === 200) && limited[8] === 429, limited.join(','))
+// Drain rather than assume a fresh window: ask until a 429 arrives, then assert the shape of the
+// refusal. The per-persona limit is 8/minute, so a 429 must arrive within 8 + a small allowance.
+const outcomes = []
+let limited = null
+for (let i = 0; i < 12 && !limited; i += 1) {
+  const r = await loginOnce('jax-family')
+  outcomes.push(r.http)
+  if (r.http === 429) limited = r
+}
+check('f1 the per-persona limit produces a 429', Boolean(limited), outcomes.join(','))
+check('f2 every response before the 429 was a success',
+  outcomes.slice(0, -1).every((s) => s === 200), outcomes.join(','))
+check('f3 the refusal is 429 with Retry-After and no session',
+  Boolean(limited) && Number(limited.retryAfter) > 0 && !limited.body?.session,
+  `retryAfter=${limited?.retryAfter ?? '-'}`)
 
 console.log(failed ? `\nE2a PROOF FAILED: ${failed}` : '\nE2a PROOF PASSED')
 process.exit(failed ? 1 : 0)
