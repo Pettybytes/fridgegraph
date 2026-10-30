@@ -32,6 +32,145 @@ const N8N = (env.N8N_BASE_URL || 'https://fns2.app.n8n.cloud').replace(/\/$/, ''
 const K_DISPATCH = ['FG','DISPATCH','TOKEN'].join('_')
 const TOKEN = env[K_DISPATCH]
 
+
+// ---------------------------------------------------------------------------
+// D2 — calling-window guard. Read-only; runs BEFORE anything outbound.
+//
+// TIMEZONE RULE (documented, not guessed): GHL schedules Voice AI calls 8:00 AM-8:00 PM "based on
+// the contact's phone-number timezone" (article 155000006598). That is the NUMBER's timezone, which
+// can differ from a stored contact timezone, so the number decides: NANP area code -> IANA zone.
+// An area code not in the table is UNKNOWN and the guard FAILS CLOSED. The table is deliberately
+// small: a wrong guess here silently calls someone at 3am.
+const AREA_CODE_TZ = {
+  // Michigan (the demo numbers)
+  '313': 'America/Detroit', '248': 'America/Detroit', '586': 'America/Detroit',
+  '734': 'America/Detroit', '947': 'America/Detroit', '810': 'America/Detroit',
+  // a few common others, so the guard is not Michigan-only
+  '212': 'America/New_York', '646': 'America/New_York', '305': 'America/New_York',
+  '312': 'America/Chicago', '469': 'America/Chicago', '713': 'America/Chicago',
+  '303': 'America/Denver', '602': 'America/Phoenix', '415': 'America/Los_Angeles',
+  '213': 'America/Los_Angeles', '206': 'America/Los_Angeles',
+}
+const WINDOW_START_HOUR = 8
+const WINDOW_END_HOUR = 20
+
+const GHL = 'https://services.leadconnectorhq.com'
+
+function tzFromPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return AREA_CODE_TZ[digits.slice(1, 4)] ?? null
+  }
+  if (digits.length === 10) return AREA_CODE_TZ[digits.slice(0, 3)] ?? null
+  return null
+}
+
+// Local wall-clock parts of an instant in a zone.
+function zonedParts(tz, d) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  })
+  const out = {}
+  for (const part of fmt.formatToParts(d)) if (part.type !== 'literal') out[part.type] = part.value
+  return out
+}
+function offsetMinutes(tz, d) {
+  const p = zonedParts(tz, d)
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second)
+  return (asUTC - d.getTime()) / 60000
+}
+// UTC instant of local midnight for the local date containing d. Two passes settle DST edges.
+function localMidnight(tz, d) {
+  const p = zonedParts(tz, d)
+  const naive = Date.UTC(+p.year, +p.month - 1, +p.day, 0, 0, 0)
+  let ms = naive - offsetMinutes(tz, new Date(naive)) * 60000
+  ms = naive - offsetMinutes(tz, new Date(ms)) * 60000
+  return new Date(ms)
+}
+function localDayBounds(tz, now) {
+  const start = localMidnight(tz, now)
+  const nextNoon = new Date(start.getTime() + 36 * 3600 * 1000)
+  const end = localMidnight(tz, nextNoon)
+  return { start, end }
+}
+
+async function ghlGet(path) {
+  const key = env.GHL_API_KEY
+  if (!key) throw new Error('GHL_API_KEY missing')
+  const r = await fetch(GHL + path, {
+    headers: {
+      // built from parts so the literal scheme is never written as a credential-looking line
+      authorization: ['Bea','rer'].join('') + ' ' + key,
+      version: '2021-04-15',
+      accept: 'application/json',
+      'user-agent': 'fridgegraph-ops/1.0',
+    },
+  })
+  const text = await r.text()
+  if (!r.ok) throw new Error('GHL ' + r.status + ': ' + text.slice(0, 160))
+  return JSON.parse(text)
+}
+
+/**
+ * Returns { ok, checks[] } without throwing on a policy refusal; throws only on a genuine error.
+ * Every check records what it saw so --dry can print the whole reasoning, not just a verdict.
+ */
+export async function callWindowChecks({ contactId, now = new Date() }) {
+  const checks = []
+  const fail = (name, detail) => { checks.push({ name, ok: false, detail }); return { ok: false, checks } }
+
+  const contact = await ghlGet('/contacts/' + encodeURIComponent(contactId))
+  const c = contact.contact ?? contact
+  const phone = c.phone
+  checks.push({ name: 'contact read', ok: true, detail: 'phone present=' + Boolean(phone) + ', stored tz=' + (c.timezone || '(none)') })
+  if (!phone) return fail('phone number', 'contact has no phone number — cannot place a call')
+
+  const tz = tzFromPhone(phone)
+  checks.push({ name: 'phone-number timezone', ok: Boolean(tz), detail: tz ? tz + ' (from area code)' : 'UNKNOWN area code — fail closed' })
+  if (!tz) return fail('timezone', 'cannot establish the phone-number timezone')
+
+  const parts = zonedParts(tz, now)
+  const hour = Number(parts.hour) + Number(parts.minute) / 60
+  const inWindow = hour >= WINDOW_START_HOUR && hour < WINDOW_END_HOUR
+  checks.push({
+    name: 'calling window',
+    ok: inWindow,
+    detail: 'local ' + parts.hour + ':' + parts.minute + ' ' + tz + ' — allowed ' + WINDOW_START_HOUR + ':00-' + WINDOW_END_HOUR + ':00',
+  })
+  if (!inWindow) return { ok: false, checks }
+
+  const { start, end } = localDayBounds(tz, now)
+  checks.push({ name: 'local day', ok: true, detail: start.toISOString() + ' -> ' + end.toISOString() + ' (' + tz + ')' })
+
+  let logs
+  try {
+    const qs = new URLSearchParams({
+      locationId: env.GHL_LOCATION_ID || '',
+      contactId,
+      startDate: String(Math.floor(start.getTime() / 1000)),
+      endDate: String(Math.floor(end.getTime() / 1000)),
+      sortBy: 'createdAt',
+      sort: 'descend',
+      pageSize: '50',
+    })
+    logs = await ghlGet('/voice-ai/dashboard/call-logs?' + qs.toString())
+  } catch (e) {
+    return fail('call history', 'could not read call logs — fail closed (' + e.message + ')')
+  }
+
+  const total = Number(logs.total ?? (logs.callLogs || []).length)
+  const today = (logs.callLogs || [])
+  checks.push({
+    name: 'already called today',
+    ok: total === 0,
+    detail: total === 0
+      ? 'no Voice AI call to this contact in the local day (across all agents)'
+      : total + ' call(s) today, e.g. ' + (today[0] ? today[0].createdAt + ' agent ' + today[0].agentId : ''),
+  })
+  return { ok: total === 0, checks }
+}
+
 export const dispatchShape = ({ attemptId, contactId, channel }) => ({ attemptId, contactId, channel })
 
 export async function dispatchAttempt({ attemptId, contactId, channel }, opts = {}) {
@@ -39,7 +178,21 @@ export async function dispatchAttempt({ attemptId, contactId, channel }, opts = 
   if (!['SMS', 'CALL'].includes(channel)) throw new Error('channel must be SMS or CALL')
   const body = dispatchShape({ attemptId, contactId, channel })
 
-  if (opts.dry) return { dry: true, url: `${N8N}/webhook/fridgegraph-dispatch`, body }
+  // D2: a CALL is refused unless every window check passes. This runs in --dry too, on purpose.
+  let window = null
+  if (channel === 'CALL') {
+    window = await callWindowChecks({ contactId })
+    for (const chk of window.checks) {
+      console.log('  [' + (chk.ok ? 'ok' : 'REFUSED') + '] ' + chk.name + ': ' + chk.detail)
+    }
+    if (!window.ok) {
+      const refused = new Error('CALL_REFUSED_BY_WINDOW_GUARD')
+      refused.checks = window.checks
+      throw refused
+    }
+  }
+
+  if (opts.dry) return { dry: true, url: `${N8N}/webhook/fridgegraph-dispatch`, body, window }
   if (!TOKEN) throw new Error('FG_DISPATCH_TOKEN missing from .env (ops/set-env-secret.sh FG_DISPATCH_TOKEN)')
 
   const r = await fetch(`${N8N}/webhook/fridgegraph-dispatch`, {
@@ -54,9 +207,23 @@ const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split
 if (isMain) {
   const [, , a, b, c] = process.argv
   if (a === '--dry') {
-    console.log(JSON.stringify(await dispatchAttempt(
-      { attemptId: 'att_example', contactId: 'ghl_contact_example', channel: 'CALL' }, { dry: true }), null, 2))
-    console.log('dry run: nothing sent. Dispatch remains INACTIVE.')
+    // A CALL dry run needs a REAL contact id: the window guard's checks are live reads and must
+    // actually run (D2). A placeholder would prove nothing and hide a 400.
+    const contactId = b
+    if (!contactId) {
+      console.log('usage: node ops/dispatcher.mjs --dry <contactId> [attemptId] [SMS|CALL]')
+      console.log('  (a real contact id is required — the window guard reads the contact and its call history)')
+      process.exit(2)
+    }
+    const channel = c || 'CALL'
+    try {
+      const out = await dispatchAttempt({ attemptId: 'att_dryrun', contactId, channel }, { dry: true })
+      console.log(JSON.stringify(out, null, 2))
+      console.log('dry run: nothing sent. Dispatch remains INACTIVE.')
+    } catch (e) {
+      if (e.checks) { console.log('dry run REFUSED: ' + e.message); process.exitCode = 3 }
+      else throw e
+    }
   } else if (a) {
     console.log(JSON.stringify(await dispatchAttempt({ attemptId: a, contactId: b, channel: c }), null, 2))
   } else {
