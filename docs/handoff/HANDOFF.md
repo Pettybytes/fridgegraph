@@ -929,3 +929,5 @@ only when actually recorded. Live integration stays queued; no Task MC step is m
 Diff reviewed: web + companion docs only. Never merged/tagged/released this task's branch.
 Final staged secret scan PASS: 303 files, zero findings. Mock evidence only; no live service
 acceptance claimed. Task MC remains UI complete · backend pending · mock integrated/tested.
+Published draft PR **#25**: https://github.com/Pettybytes/fridgegraph/pull/25.
+Implementation 0236ad0; GitHub reports MERGEABLE. Task MC not merged; live integration NOT DONE.
