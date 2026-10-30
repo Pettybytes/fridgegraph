@@ -130,3 +130,40 @@ these three cases**, and the evidence deliberately does not claim it.
 npm run typecheck  -> clean
 npm run check      -> scanned 247 files, 0 findings
 ```
+
+### B1 addendum — the wedge the first apply exposed (found, fixed, re-proven)
+
+Immediately after the first apply, `ops/voice-turn-check.mjs` fell from 12/12 to 6/12. Cause, not
+guesswork: the check asks for a pickup for contacts that already had an open attempt left over from
+an older rehearsal job. Migration 0021 correctly refused to create a second attempt, the new job
+therefore had no attempt, and the check posted `attemptId: undefined`, which the server rejects as
+MALFORMED.
+
+That is not a fixture problem. A job that never leaves `discovering` (nothing sweeps it) would hold
+its contact's only slot open forever, so D2 as first written could wedge a real contact shut.
+
+Fix, forward in 0021: `_expire_stale_attempts(candidate)` closes any open attempt whose job is no
+longer `discovering` **or** whose job's discovery window has already passed, by TIME and not by a
+vote:
+
+```sql
+and not exists (select 1 from coordination_jobs j
+                 where j.id = a.job_id and j.status = 'discovering'
+                   and now() < coalesce(j.created_at, now())
+                               + make_interval(secs => coalesce(j.discovery_timeout_seconds, 60)))
+```
+
+It runs at the start of `open_attempt()` and once per PENDING candidate inside `_evaluate_candidates`,
+in the same transaction as the insert. The partial unique index is still the enforcement.
+
+Re-proven after the change:
+
+```
+0021 dry run   -> 20/20 PASS, rollback hash restored
+0021 applied   -> all cases PASS (race: opened/refused, one open row, close->reopen, rejected_closed, delta 0)
+voice-turn-check -> SUMMARY 12/12 passed
+```
+
+One behaviour change worth stating: a replayed decision now returns `note=rejected_closed` instead
+of `note=duplicate`, because the first answer already closed the attempt. The observable state is
+identical — no second write — and the check still passes.

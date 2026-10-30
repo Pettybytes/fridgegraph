@@ -6,16 +6,22 @@
  * GHL Custom Actions may not be able to sign. Compensating controls, all enforced here:
  *
  *   - every request binds to an existing Attempt and that job's requestVersion
- *   - AVAILABILITY ONLY: the only write this endpoint can reach is accept_pickup_webhook. It has no
- *     route to approve_pickup and cannot create a confirmation. A replay's worst case is a false
- *     availability signal into the same deterministic ranking.
+ *   - AVAILABILITY ONLY: the only write this endpoint can reach is accept_pickup_webhook (and, for
+ *     a no-answer, record_no_answer). It has no route to approve_pickup and cannot create a
+ *     confirmation. A replay's worst case is a false availability signal into the same
+ *     deterministic ranking.
  *   - a ±300 s timestamp bounds replay; the secret is never logged
  *
  * Request  { attemptId, decision, declineReason?, eventId? }
- * Response { status, note, say }   — `say` is the single line Rosina speaks next.
+ * Response { status, note, say }   — `say` is the single line Rosina speaks next (null when the
+ *            turn is a system-observed call outcome rather than a live conversation).
  *
  * Decision statuses: CONTINUE | ACCEPTED | DECLINED | ESCALATE | END_CALL.
  * CONTINUE, ESCALATE and END_CALL change no state at all.
+ *
+ * NO_ANSWER (D4) is not a caregiver decision. It is the system's observation that an outbound call
+ * was not answered. It routes to record_no_answer(), which stores source='no_answer' and writes
+ * nothing to candidate_evaluations — a missed call is never shown as the person declining.
  *
  * Spoken lines follow docs/ghl/rosina-kb.md §16. Where the guide writes [Requester] the returned
  * line says "the family": the requester's display name is not stored on the job, and Rosina must
@@ -39,6 +45,7 @@ if (!SECRET || !BASE || !SVC || !DB) {
 }
 
 const DECISIONS = new Set(['CONTINUE', 'ACCEPTED', 'DECLINED', 'ESCALATE', 'END_CALL'])
+const SYSTEM_OUTCOMES = new Set(['NO_ANSWER'])
 const SAY = {
   CONTINUE: "I'm calling on behalf of the family about a pickup. Is now a good time?",
   ACCEPTED: "Thank you. I've recorded that you're available. The family still needs to approve the arrangement, and you'll hear back once it's decided.",
@@ -70,7 +77,9 @@ async function handle(req, res) {
   let body
   try { body = JSON.parse(await readBody(req)) } catch { return send(res, 400, { error: 'MALFORMED' }) }
   const { attemptId, decision, declineReason = null, eventId } = body ?? {}
-  if (typeof attemptId !== 'string' || !DECISIONS.has(String(decision))) return send(res, 400, { error: 'MALFORMED' })
+  if (typeof attemptId !== 'string' ||
+      (!DECISIONS.has(String(decision)) && !SYSTEM_OUTCOMES.has(String(decision))))
+    return send(res, 400, { error: 'MALFORMED' })
 
   const a = await db.query(
     `select a.id, a.job_id, j.request_version, j.status
@@ -79,6 +88,26 @@ async function handle(req, res) {
   const row = a.rows[0]
   if (row.status === 'confirmed' || row.status === 'failed')
     return send(res, 409, { status: 'END_CALL', note: 'terminal', say: SAY.END_CALL })
+
+  // D4: a system-observed call outcome. Not a decline, and nothing is spoken.
+  if (SYSTEM_OUTCOMES.has(String(decision))) {
+    const neid = typeof eventId === 'string' && eventId ? eventId
+      : `noanswer:${attemptId}:${row.request_version}`
+    const nr = await fetch(`${BASE}/rest/v1/rpc/record_no_answer`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', apikey: SVC },
+      body: JSON.stringify({ p_attempt: attemptId, p_event_id: neid, p_payload_sha256: neid }),
+    })
+    const ntext = await nr.text()
+    if (!nr.ok) {
+      const msg = (() => { try { return JSON.parse(ntext || '{}').message } catch { return null } })()
+      console.log(`[voice-turn] NO_ANSWER rejected ${msg} ${Date.now() - started}ms`)
+      return send(res, 200, { status: 'NO_ANSWER', note: 'not_recorded', say: null })
+    }
+    const nout = (() => { try { return JSON.parse(ntext) } catch { return 'recorded' } })()
+    console.log(`[voice-turn] NO_ANSWER ${nout} ${Date.now() - started}ms`)
+    return send(res, 200, { status: 'NO_ANSWER', note: String(nout), say: null })
+  }
 
   // Non-committal turns change nothing.
   if (decision !== 'ACCEPTED' && decision !== 'DECLINED')

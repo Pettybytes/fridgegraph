@@ -9,6 +9,7 @@
  * Never prints the connection string.
  */
 import pg from 'pg'
+import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 
 const env = readFileSync(new URL('./.env', `file://${process.cwd()}/`), 'utf8')
@@ -53,7 +54,7 @@ await c.query(`update attempts set closed_at=now(), closed_reason='PROOF_RESET'
 
 const child = (await c.query(`select person_id from children limit 1`)).rows[0].person_id
 const mkJob = async (tag) => {
-  const id = 'job_' + Buffer.from('lb-proof-' + tag + '-' + Date.now()).toString('hex').slice(0, 26)
+  const id = 'job_' + (tag + randomUUID()).replace(/[^a-z0-9]/g, '').slice(0, 26)
   await c.query(`insert into coordination_jobs
       (id, idempotency_key, type, child_id, status, version, request_version, as_of)
       values ($1,$2,'PICKUP',$3,'discovering',1,1,current_date)`, [id, 'proof:' + id, child])

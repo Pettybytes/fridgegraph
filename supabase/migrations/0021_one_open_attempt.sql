@@ -95,6 +95,30 @@ comment on index attempts_one_open_per_contact is
 -- 3. Open / close write paths
 -- ---------------------------------------------------------------------------
 
+-- A job that sits in `discovering` forever would otherwise hold its contact's only slot open
+-- forever, because nothing advances it. An attempt whose job's discovery window has passed is no
+-- longer a live question, so it is closed deterministically by TIME (never by a read-then-write
+-- vote). Callers run this for the contact they are about to open, inside the same transaction.
+create or replace function _expire_stale_attempts(p_candidate text)
+returns int language plpgsql security definer set search_path = public as $$
+declare v_n int;
+begin
+  update attempts a
+     set closed_at = now(), closed_reason = 'DISCOVERY_WINDOW_EXPIRED'
+   where a.candidate_id = p_candidate
+     and a.closed_at is null
+     and not exists (
+       select 1 from coordination_jobs j
+        where j.id = a.job_id
+          and j.status = 'discovering'
+          and now() < coalesce(j.created_at, now())
+                      + make_interval(secs => coalesce(j.discovery_timeout_seconds, 60)));
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+revoke all on function _expire_stale_attempts(text) from public, anon, authenticated;
+grant execute on function _expire_stale_attempts(text) to service_role;
+
 -- Returns 'opened:<attempt id>' or 'refused:<id of the attempt already open>'.
 create or replace function open_attempt(p_job text, p_candidate text, p_channel text,
                                         p_destination text default null)
@@ -110,6 +134,8 @@ begin
   select j.id into v_job from coordination_jobs j
    where j.id = p_job and j.status = 'discovering';
   if v_job is null then raise exception 'JOB_NOT_DISCOVERING'; end if;
+
+  perform _expire_stale_attempts(p_candidate);
 
   insert into attempts (id, job_id, channel, at, candidate_id, destination, destination_mode)
   values ('att_' || substr(md5(p_job || p_candidate || clock_timestamp()::text), 1, 24),
@@ -380,6 +406,12 @@ begin
 
   -- D2: a candidate who already has an open attempt is refused, not duplicated. That candidate
   -- keeps her PENDING evaluation and will time out; the refusal is visible as the absent attempt.
+  -- Stale attempts (window expired, job still discovering) are closed first so a dead job cannot
+  -- wedge a contact shut.
+  perform _expire_stale_attempts(ce.candidate_id)
+    from candidate_evaluations ce
+   where ce.job_id = p_job and ce.reason_code = 'PENDING';
+
   insert into attempts (id, job_id, channel, at, candidate_id, destination, destination_mode)
   select 'att_' || substr(md5(p_job || ce.candidate_id), 1, 24), p_job, cm.channel, now(),
          ce.candidate_id, cm.value, 'TEST_RESPONDER'
@@ -405,6 +437,7 @@ commit;
 -- drop function if exists record_no_answer(text, text, text);
 -- drop function if exists close_attempt(text, text);
 -- drop function if exists open_attempt(text, text, text, text);
+-- drop function if exists _expire_stale_attempts(text);
 -- drop index if exists attempts_one_open_per_contact;
 -- alter table attempts drop column if exists opened_by, drop column if exists closed_reason,
 --   drop column if exists closed_at;
