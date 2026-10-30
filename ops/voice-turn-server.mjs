@@ -117,7 +117,7 @@ async function handle(req, res) {
     return send(res, 400, { error: 'MALFORMED' })
 
   const a = await db.query(
-    `select a.id, a.job_id, j.request_version, j.status
+    `select a.id, a.job_id, a.closed_at, j.request_version, j.status
        from attempts a join coordination_jobs j on j.id = a.job_id where a.id = $1`, [attemptId])
   if (!a.rowCount) return send(res, 404, { error: 'UNKNOWN_ATTEMPT' })
   const row = a.rows[0]
@@ -126,6 +126,14 @@ async function handle(req, res) {
 
   // D5: resolved once per request, from the attempt's own job.
   const names = await resolveNames(row.job_id)
+
+  // D3: a reply on a CLOSED attempt ends the conversation. It changes NO coordination state --
+  // the attempt is already closed and accept_pickup_webhook would reject the event anyway -- but
+  // Rosina must stop talking rather than ask more questions into a finished thread.
+  if (row.closed_at) {
+    console.log(`[voice-turn] ${decision} on closed attempt -> END_CALL`)
+    return send(res, 200, { status: 'END_CALL', note: 'attempt_closed', say: say('END_CALL', names) })
+  }
 
   // D4: a system-observed call outcome. Not a decline, and nothing is spoken.
   if (SYSTEM_OUTCOMES.has(String(decision))) {
