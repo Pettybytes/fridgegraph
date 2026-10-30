@@ -1,131 +1,93 @@
 # Session 3 runbook — one dial, one real call
 
-**Read this top to bottom before touching anything. The order is the safety property, not a
-suggestion.** Total time from step 2 to step 4 should be under 15 minutes.
+**Order is the safety property.** Every pre-flight item is a check with the result observed on
+2026-10-30, not an assumption. If any check fails, there is no call.
 
-Hard stops that still hold: no real SMS is sent, Dispatch starts INACTIVE, no
-`RealCallAuthorization` exists today, `REAL_CALL_EXCEPTION_ENABLED` is unset.
+Hard stops that still hold: no real SMS, Dispatch INACTIVE, `REAL_CALL_EXCEPTION_ENABLED` unset,
+`FG - Dial Rosina` in draft, no `fg-dial` tag on any contact, no `RealCallAuthorization` persisted.
+**`READY` only prepares the call; Bryan's explicit "go" in chat authorizes it.**
 
 ---
 
-## 1. Pre-flight — everything verified before anyone is told a call is coming
+## 1. Pre-flight — every item observed, not assumed
 
-| Check | Command / place | Pass looks like |
-|---|---|---|
-| Stack up | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4001/health` (and 4002-4007) | `200` |
-| Router | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4010/` | not `000` |
-| Voice-turn server | `lsof -nP -iTCP:4118 -sTCP:LISTEN` | one listener |
-| Tunnel, unauthenticated | `curl -s -o /dev/null -w '%{http_code}' -X POST https://fridgegraph.loomz.stream/voice-turn` | **`401`** (not 404, not 000) |
-| Voice Turn workflow | `xOfmO6T4mKbYnjqb` | **active** |
-| Reply and Timeout | `addWpgFfxXmq7GF1` | **active** |
-| FG-SMS-Reply / FG - No Answer | GHL | **published** |
-| Dispatch | `A2vnWF2L58Lvquqg` | **INACTIVE** |
-| `FG - Dial Rosina` | GHL | **unpublished (draft)** |
-| Rosina's `pickup_decision` action | GHL Custom Action | query param `attemptId` = `{{contact.fg_attempt_id}}` |
-| Contact fields | GHL contact | `fg_attempt_id`, `fg_child_name`, `fg_pickup_place`, `fg_pickup_time`, `fg_reason` exist |
-| Action token | `.env` | `FG_GHL_ACTION_TOKEN` present; `FG_DISPATCH_TOKEN` present only if Dispatch is used |
+| # | Check | How | Observed 2026-10-30 |
+|---|---|---|---|
+| 1 | Stack up | `curl -o /dev/null -w '%{http_code}' http://127.0.0.1:4001/` (+4002–4007) | **400** on 4001 (subgraph answering; a bare `GET /` is a 400 by design) — **up** |
+| 2 | Router up | same on `:4010` | **400** — **up** |
+| 3 | Voice-turn up | `lsof -nP -iTCP:4118 -sTCP:LISTEN` | listening; bare `GET /` → **404** (route is `POST /voice-turn` only) |
+| 4 | Tunnel authenticates | `curl -X POST https://fridgegraph.loomz.stream/voice-turn` with no secret | **401** — correct. A 404 means the route is missing; 000 means it is down |
+| 5 | Voice Turn workflow | `python3 ops/n8n-workflow-summary.py xOfmO6T4mKbYnjqb` | `FridgeGraph - Voice Turn` — **active: true** |
+| 6 | Reply and Timeout | `… addWpgFfxXmq7GF1` | `FridgeGraph - Reply and Timeout` — **active: true** |
+| 7 | Dispatch | `… A2vnWF2L58Lvquqg` | `FridgeGraph - Dispatch Pickup Attempt` — **active: false** |
+| 8 | Dial workflow | `python3 ops/ghl-workflows.py` | `FG - Dial Rosina` **6f2b386e-60ed-4848-959b-ed97f1307d92, state=draft** |
+| 9 | 0022 deployed | query `pg_proc` for the live signatures | `open_attempt` **5 args**, `consume_real_call_authorization` **2 args** — the 0014 4-arg form is gone |
+| 10 | Window + daily guard | `node ops/dispatcher.mjs --dry <contactId>` | runs the real reads; last run: contact ok, tz `America/Detroit` (from area code), window ok, local day `04:00Z→04:00Z`, **already-called-today = 0** |
+| 11 | Call-history coverage | the guard reads `total` from `GET /voice-ai/dashboard/call-logs` filtered by `locationId` + `contactId` + the local-day `startDate`/`endDate`, **no `agentId` filter** | `total` is the full match count for that filter, independent of `pageSize`, so the cross-agent daily check covers every agent and every page |
+| 12 | Rosina's action query param | GHL → Rosina's `pickup_decision` Custom Action | must read **`{{contact.fg_attempt_id}}`** — **confirm by eye**, the API returns 403 on agent detail |
+| 13 | Contact `fg_` fields | GHL contact | `fg_attempt_id`, `fg_child_name`, `fg_pickup_place`, `fg_pickup_time`, `fg_reason` present |
+| 14 | Dial workflow's FROM number | GHL workflow detail | **NOT verifiable read-only** — `/workflows/{id}` returns 404 for this token, and the agent object exposes only `inboundNumber`. Rosina's deployed number **is +1 248 246 6922** (`voice-ai/agents`, verified), which is the number the FROM field must hold. **Confirm the action's FROM dropdown by eye.** If it is anything else, the pre-flight FAILS |
+| 15 | Two pending voice checks (observed on the call) | live call | Rosina says her opener **once**; "no car" → **DECLINED / NO_TRANSPORT** |
 
-`python3 ops/n8n-workflow-summary.py <id>` prints each workflow's state and credentials without
-dumping a body.
-
-**Abort here** if the tunnel answers anything but 401: a 404 means the route is missing, and a 000
-means it is down. Either way the dial would place a call nobody can record.
-
-### The one call-window fact that can waste the whole session
-
-GHL schedules Voice AI outbound calls **8:00 AM – 8:00 PM in the contact's phone-number timezone**,
-allows **one call per phone number per day**, and up to 14 in 14 days. Do not spend the day's call on
-a stack that has not passed the table above.
+Items 12 and 14 are **human confirmations** because the platform does not expose them to this token.
+The pre-flight passes only when both are confirmed aloud, not silently skipped.
 
 ---
 
 ## 2. Tell Bryan FIRST — 60 seconds before anything is armed
 
-Send, verbatim:
+Send verbatim:
 
-> Dialing Rosina in 60 seconds. Your phone will ring from the FridgeGraph number. Let it ring twice,
-> answer, and say "no car" when she asks. Don't call back if it drops — I'll know from the log.
+> Dialing Rosina in 60 seconds. Your phone will ring from (248) 246-6922. Let it ring twice, answer,
+> and say "no car" when she asks. Don't call back if it drops — I'll know from the log.
 
-Then wait the 60 seconds. This exists because the call arrives before any log can be read, and an
-unanswered test call still burns the number's one call for the day.
-
----
-
-## 3. Arm it — mint, then flip, in this order
-
-```bash
-# 3a. create the job + attempt (the attempt is the thing the call is bound to)
-#     one open attempt per contact is enforced; a fresh contact/job is required.
-# 3b. mint the RealCallAuthorization for that attempt, short expiry (<= 15 min)
-#     Gate 2: no authorization, no call. Consumed once.
-# 3c. export REAL_CALL_EXCEPTION_ENABLED=1  (test window only)
-# 3d. enable the dial node in Dispatch; set Dispatch ACTIVE
-# 3e. publish "FG - Dial Rosina" in GHL
-```
-
-Order matters: the authorization must exist **before** the flag, and the flag before any node that
-could dial. If a step fails, stop and roll back rather than skipping forward.
-
-Record the attempt id and contact id — every later check keys off them.
+Wait the 60 seconds. An unanswered test call still spends the number's one call for the day.
 
 ---
 
-## 4. Dial
+## 3. Arm it — in this order
 
-Trigger the dispatch once (`node ops/dispatcher.mjs <attemptId> <contactId> CALL`, or the tag action).
-Then watch, in this order:
+1. **Mint the job + authorization.** One open attempt per contact is enforced; a fresh job is
+   required. The authorization is bound to job + candidate + the **GHL contact id**.
+2. **Open a `REAL_CONSENTED` attempt.** `open_attempt(job, candidate, 'CALL', <contactId>,
+   'REAL_CONSENTED')`. Without a valid authorization this **raises** — it never downgrades.
+3. **Consume the authorization.** `consume_real_call_authorization(<attemptId>, <contactId>)` must
+   return **true** before anything outbound. A false means **stop**.
+4. **Flag on:** `REAL_CALL_EXCEPTION_ENABLED=1` for the test window only.
+5. **Dispatch on**, **publish `FG - Dial Rosina`**, then **apply the `fg-dial` tag**.
 
-1. Dispatch execution in n8n — did the tag action succeed?
-2. `FG - Dial Rosina` execution in GHL — did the Voice AI Outbound Call action schedule?
-3. Rosina's `pickup_decision` call → n8n Voice Turn → `/voice-turn` → `accept_pickup_webhook`.
-4. Row check: `candidate_evaluations` for that attempt's candidate — `available=false`,
-   `decline_reason=NO_TRANSPORT`, `reason_code=AVAILABLE_NO_TRANSPORT`.
-
-**Expected answer when she picks up "no car":** DECLINED / NO_TRANSPORT → `AVAILABLE_NO_TRANSPORT`,
-and the attempt closes. If the job then ranks, the no-driver branch prices a ride; the reply itself
-never does.
-
-### Which job states still accept her answer, and for how long
-
-From the code (evidence 30 §B4), **the discovery window is not a gate on the reply**:
-
-| Job state | Answer accepted? |
-|---|---|
-| `discovering` | yes |
-| `awaiting_approval` | yes |
-| `confirmed` / `failed` | no — `REJECTED_STATE` / 409 `END_CALL` |
-| attempt already closed | no — `rejected_closed`, zero change |
-| candidate already answered | no — `duplicate` |
-
-It stays true until one of: the job goes terminal, the attempt is closed by an outcome, a new
-attempt-creation for that contact sweeps the stale attempt, or `request_version` moves. In practice,
-during a live call that means the answer will land as long as the call happens while the job is still
-`discovering` or `awaiting_approval`. **Do not shorten the window to make a test pass** — the window
-is a ranking input, not a reply gate.
+Never tag before every item in §1 passes and §3.1–3.4 are green. The tag is the last action.
 
 ---
 
-## 5. Rollback — do this even if everything worked
+## 4. Dial, then watch
 
-```bash
-# 5a. Dispatch INACTIVE; dial node DISABLED again
-# 5b. unpublish (or leave draft) "FG - Dial Rosina"
-# 5c. unset REAL_CALL_EXCEPTION_ENABLED
-# 5d. consume or expire the RealCallAuthorization  (both are acceptable; an expired one is inert)
-# 5e. confirm: no open attempts left behind
-```
+Dispatch once, then read in order: Dispatch execution → `FG - Dial Rosina` execution → Rosina's
+`pickup_decision` → n8n Voice Turn → `/voice-turn` → `candidate_evaluations`.
 
-Final verification, all three must be true:
+Expected on "no car": `available=false`, `decline_reason=NO_TRANSPORT`,
+`reason_code=AVAILABLE_NO_TRANSPORT`, attempt closed.
 
-* `select count(*) from real_call_authorizations where consumed_at is null and expires_at > now();`
-  → `0` (or the row expired)
-* Dispatch `A2vnWF2L58Lvquqg` → inactive; `FG - Dial Rosina` → unpublished
-* `REAL_CALL_EXCEPTION_ENABLED` → unset in the environment
+**A reply is still accepted while the job is `discovering` or `awaiting_approval`** — the discovery
+window is not a gate on the reply. It stops being accepted once the job is `confirmed`/`failed`, the
+attempt is closed, or the candidate has already answered.
 
-**Leave no open attempt behind.** A job abandoned mid-discovery holds its contact's only slot, and
-the next pickup request for that contact will correctly create no attempt — which looks like a bug
-and is not one (evidence 30 §B5). Close it explicitly:
+---
 
-```sql
-select close_attempt('<attemptId>', 'SESSION_3_DONE');
-```
+## 5. Then the rollback
+
+`node ops/session3-rollback.mjs --dry <attemptId> <contactId>` first, then without `--dry`.
+
+It runs **local shutdown first** — Dispatch deactivate, flag check, close attempt, **expire** any
+unused authorization — so a slow GHL request cannot leave anything live locally. Then it removes the
+`fg-dial` tag and prints the final state.
+
+**Residual risk, unchanged by a clean exit.** There is **no documented way to cancel a Voice AI call
+GHL has already queued**. The docs only describe scheduling and limits, and a call can take minutes
+to go out. Being inside 8am–8pm removes one reason for deferral but does **not** prove immediate
+placement. A deferred call may still ring (248) 246-6922 after rollback; a reply on the closed
+attempt protects **app state only** — Rosina can still answer and say her greeting before the
+`END_CALL` line.
+
+**Manual steps this script cannot perform** (no documented API): confirming the contact is not
+enrolled in `FG - Dial Rosina`, and confirming the workflow is back in draft.
