@@ -8,11 +8,15 @@
  * as received. This module never signs in, never holds a service key, never invents a person.
  */
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
-import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderId, resolveProvider } from '../muse/providers';
+import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { validateActions, type CatalogAction } from './catalog';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string };
+
+/** The subset of McpToolClient this module actually calls — small enough to stub in a test
+ * without a real network connection. */
+export type McpClientLike = Pick<McpToolClient, 'initialize' | 'listTools' | 'callTool'>;
 
 export type RosinaTurnOptions = {
   message: string;
@@ -22,6 +26,14 @@ export type RosinaTurnOptions = {
   provider: ProviderId;
   mcpUrl: string;
   maxRounds?: number;
+  /** Injectable for tests — never set in production. Defaults to the real provider call. */
+  chatFn?: typeof chat;
+  /** Injectable for tests — never set in production. Defaults to a real McpToolClient. */
+  mcpClientFactory?: (url: string, bearer: string) => McpClientLike;
+  /** Injectable for tests — never set in production. Defaults to resolveProvider(options.provider),
+   * which reads the META_ or BASETEN_ variables from the environment; a stubbed chatFn never
+   * needs real credentials to run, so tests supply a fake config here instead of real env vars. */
+  providerConfig?: ProviderConfig;
 };
 
 export type ToolCallEvidence = {
@@ -62,8 +74,11 @@ function truncate(text: string, max = 600): string {
 }
 
 export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaTurnResult> {
-  const config = resolveProvider(options.provider);
-  const mcp = new McpToolClient(options.mcpUrl, options.bearer);
+  const config = options.providerConfig ?? resolveProvider(options.provider);
+  const chatImpl = options.chatFn ?? chat;
+  const mcp: McpClientLike = options.mcpClientFactory
+    ? options.mcpClientFactory(options.mcpUrl, options.bearer)
+    : new McpToolClient(options.mcpUrl, options.bearer);
   await mcp.initialize();
   const mcpTools = await mcp.listTools();
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), ...ACTION_TOOLS];
@@ -79,11 +94,17 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const toolCallEvidence: ToolCallEvidence[] = [];
   const proposedActions: unknown[] = [];
   const rounds: ChatResult[] = [];
+  // Catalog presence never implies permission. The ONLY proof this service has that the caller
+  // has real standing over a given child is a PickupCandidates call for that exact childId that
+  // came back without error, in THIS turn. start-pickup — the one consequential, data-changing
+  // action — requires that proof; every other proposeAction_* is navigation/explanation only and
+  // carries no such requirement.
+  const verifiedChildIds = new Set<string>();
 
   let finalContent = '';
 
   for (let round = 1; round <= maxRounds; round += 1) {
-    const result = await chat(config, messages, tools, { maxTokens: 3000 });
+    const result = await chatImpl(config, messages, tools, { maxTokens: 3000 });
     rounds.push(result);
 
     if (result.toolCalls.length === 0) {
@@ -97,23 +118,24 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       tool_calls: result.toolCalls.map((c) => ({ id: c.id, type: 'function' as const, function: { name: c.name, arguments: c.args } })),
     });
 
-    for (const call of result.toolCalls) {
+    // Real MCP reads are processed before action-tool proposals in EVERY round, regardless of the
+    // order the model emitted them in — otherwise whether a same-round start-pickup gets the
+    // benefit of a same-round PickupCandidates call would depend on model call-ordering, which is
+    // not something to trust. Tool-result messages may be appended in any order; only the
+    // tool_call_id pairing matters.
+    const parsedCalls = result.toolCalls.map((call) => {
       let args: Record<string, unknown>;
       try {
         args = JSON.parse(call.args) as Record<string, unknown>;
       } catch {
         args = {};
       }
+      return { call, args };
+    });
+    const mcpCalls = parsedCalls.filter(({ call }) => !call.name.startsWith(ACTION_TOOL_PREFIX));
+    const actionCalls = parsedCalls.filter(({ call }) => call.name.startsWith(ACTION_TOOL_PREFIX));
 
-      if (call.name.startsWith(ACTION_TOOL_PREFIX)) {
-        const id = call.name.slice(ACTION_TOOL_PREFIX.length);
-        const validated = validateActions([{ id, args }]);
-        if (validated.length) proposedActions.push(validated[0]);
-        toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: validated.length === 0, errorCodes: validated.length ? [] : ['INVALID_ACTION'] });
-        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(validated.length ? { ok: true } : { ok: false, error: 'invalid or unimplemented action' }) });
-        continue;
-      }
-
+    for (const { call, args } of mcpCalls) {
       if (!ALLOWED_MCP_TOOL_NAMES.has(call.name)) {
         toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['TOOL_NOT_ALLOWED'] });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'TOOL_NOT_ALLOWED' }) });
@@ -127,6 +149,9 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         raw: null,
       }));
       const errorCodes = callResult.errors.map((e) => e.extensions?.code ?? e.message ?? 'ERROR').filter((c): c is string => Boolean(c));
+      if (call.name === 'PickupCandidates' && !callResult.isError && typeof args.childId === 'string') {
+        verifiedChildIds.add(args.childId);
+      }
       toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: callResult.isError, errorCodes });
       messages.push({
         role: 'tool',
@@ -135,8 +160,27 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       });
     }
 
+    for (const { call, args } of actionCalls) {
+      const id = call.name.slice(ACTION_TOOL_PREFIX.length);
+      let validated = validateActions([{ id, args }]);
+      let refusalReason: string | null = null;
+      // Catalog presence never implies permission: start-pickup additionally requires a
+      // same-turn, successful PickupCandidates call for this exact child (see verifiedChildIds
+      // above) — the only live proof this service has of real standing over that child.
+      if (validated.length && id === 'start-pickup') {
+        const childId = (validated[0].args as { childId: string }).childId;
+        if (!verifiedChildIds.has(childId)) {
+          validated = [];
+          refusalReason = 'no verified access to this child yet — call PickupCandidates for this exact childId first';
+        }
+      }
+      if (validated.length) proposedActions.push(validated[0]);
+      toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: validated.length === 0, errorCodes: validated.length ? [] : [refusalReason ? 'UNVERIFIED_CHILD' : 'INVALID_ACTION'] });
+      messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(validated.length ? { ok: true } : { ok: false, error: refusalReason ?? 'invalid or unimplemented action' }) });
+    }
+
     if (round === maxRounds) {
-      const closing = await chat(config, messages, undefined, { maxTokens: 3000 });
+      const closing = await chatImpl(config, messages, undefined, { maxTokens: 3000 });
       rounds.push(closing);
       finalContent = closing.content.trim();
     }

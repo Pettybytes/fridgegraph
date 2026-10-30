@@ -1,4 +1,10 @@
-# Evidence 34 — the live Ask Rosina service (Task R)
+# Evidence 35 — the live Ask Rosina service (Task R)
+
+**Renumbered 34 → 35 (2026-10-30, Task R-FIX):** evidence 34 is reserved for Bentley's E0
+(`docs/evidence/34-e0-real-call-mint.md`, PR #23). This file was originally written and filed as
+34 before that reservation was known; content below is unchanged from the original except this
+note and the filename/title. Per `docs/handoff/HANDOFF.md` "Reserved evidence numbers": 34 = E0,
+35 = Task R (this file), next free = 36.
 
 Date: 2026-10-30. Branch `feat/rosina-service`, worktree `../fridgegraph-rosina-service`.
 Contract: `docs/contracts/ask-rosina.md`. Prerequisite proof: evidence 31 (Meta Model API, 4/4 on
@@ -268,3 +274,64 @@ local validation unit test with no network call. The only `web/` touch is the on
 required by the task ("add it to the stack scripts"); no component, test, or catalog file in
 `web/` was changed. `src/rosina/catalog.ts` is a new, additive mirror — `web/src/features/rosina/
 catalog.ts` itself is untouched. Not merged, not tagged, not released.
+
+## 9. Task R-FIX (2026-10-30) — the Priya finding, turned into an enforced rule, not just a prompt
+
+§6/§7 above reported a real model mistake: the first version of the system prompt let the model
+tell Priya (a sitter with no pickup grant for Nora) *"you can manage pickups here."* The fix
+shipped at the time was prompt-only (`systemPrompt.ts` rule 8: the model is told it cannot see
+the caller's role). That closes the *text* half of the problem but left a second, more serious
+half open: nothing stopped the model from actually *proposing* `start-pickup` for a child the
+caller has no real standing over — catalog presence (`implemented: true`) was being treated as
+sufficient, which it never is.
+
+**Fix, in code, not just in the prompt** (`src/rosina/model.ts`): `start-pickup` now additionally
+requires a same-turn, successful `PickupCandidates` call for the EXACT `childId` in its args
+before the service will accept the proposal — the only live proof this service has of real
+standing over that child. Verification is tracked per-turn (`verifiedChildIds`), is per-child (an
+authorized read for `p_jax` does NOT verify `p_nora`), and is checked regardless of which order
+the model emits its tool calls in within a round (real MCP reads are processed before action
+proposals every round, so an adversarial or just-unlucky ordering can't bypass the gate). The
+other two `proposeAction_*` tools (`open-screen`, `explain-screen`) carry no such gate — they are
+navigation/explanation only, with no data claim and nothing consequential to protect.
+
+**Regression test**, stubbed model + stubbed MCP client, zero network calls, zero Meta API cost —
+`src/rosina/model.test.ts` (`npm run test:rosina`), 8/8 PASS:
+
+```
+ok 1 - an unauthorized persona (Priya case): start-pickup proposed with no PickupCandidates call at all is dropped
+ok 2 - an unauthorized persona who DOES call PickupCandidates first, but gets UNAUTHORIZED: start-pickup still dropped
+ok 3 - a permitted persona (Kendra case): PickupCandidates succeeds, then start-pickup for the SAME child is kept
+ok 4 - verification is order-independent WITHIN a round: start-pickup listed before PickupCandidates in the same batch still gets verified
+ok 5 - a permitted persona for a DIFFERENT child does not verify an unrelated child (no cross-child leakage of the grant)
+ok 6 - an unknown action id is dropped even if the model names it
+ok 7 - a non-allowlisted MCP tool name is refused without ever calling the MCP client
+ok 8 - the system prompt tells the model it cannot see the caller's role (the actual fix for the capability-fabrication finding)
+```
+
+**Live confirmation**, real alt-stack MCP (5051), real tokens, same message for both personas:
+
+```
+Kendra (p_mom), "Arrange a pickup for Nora on 2026-11-02 in the afternoon":
+  "Your pickup review for Nora on 2026-11-02 afternoon is ready — open the card to confirm in the app.
+  The pickup records show Loretta Brooks, Bryan Brooks, Tasha Ellison and Monique Davis as authorized."
+  actions: [{"id":"start-pickup","args":{"childId":"p_nora","date":"2026-11-02","window":"afternoon"}}]
+
+Priya (p_priya), same message:
+  "I can't arrange that pickup for Nora on 2026-11-02 in the afternoon right now.
+  The pickup records didn't return access for Nora, so I can't see who may pick her up — that's
+  the graph protecting the family, not a bug."
+  actions: []
+```
+
+Priya's own model turn never even proposed `start-pickup` here — it correctly recognized the
+`PickupCandidates` denial and stopped. The server-side gate exists precisely so that this does
+not depend on the model behaving well: §7's reported variance (sometimes claiming an action
+without calling the tool, or — the inverse risk — calling a tool it shouldn't) is a model-
+reliability gap this gate is designed to survive, not merely a known quirk to document.
+
+**Allowlist extension rule**, added to `docs/handoff/HANDOFF.md`: any future MCP read added to
+`ALLOWED_MCP_TOOL_NAMES` must ship in the same PR as persona-boundary tests for it (allowed
+persona sees data; out-of-network persona gets refusal with no leak), following this same
+pattern — the allowlist is a gate enforced in code, never a trust placed in `.apollo/mcp*.yaml`
+alone.

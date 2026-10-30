@@ -761,9 +761,25 @@ PASS (same chunk-size advisory); five Playwright flows PASS including safe dock 
 last-card clearance. Staged secret scan PASS: 283 files, zero findings. Revised screenshots
 include scrolled mobile calendar content with the launcher clear of cards.
 
+## Reserved evidence numbers
+
+Evidence files are append-only and numbered by whoever claims the number first — collisions
+happen when two tasks file in parallel without checking both `docs/evidence/` AND open PRs.
+Current reservations (always check both before taking the next number):
+
+| # | Owner | File |
+|---|---|---|
+| 34 | Bentley, E0 | `docs/evidence/34-e0-real-call-mint.md` (PR #23) |
+| 35 | Claude Code, Task R | `docs/evidence/35-rosina-service.md` (this PR) |
+| 36 | next free (Task H, public hosting, at the time of writing) | — |
+
+Evidence 34/35 collided once (Task R originally filed as 34; renumbered to 35 in Task R-FIX,
+2026-10-30, after Bentley's E0 reservation was reported). The content of 35 is otherwise unchanged
+from the original filing — see its own renumber note at the top of the file.
+
 ## Task R — live Ask Rosina service (2026-10-30)
 
-Full writeup, tool table, and real per-persona transcripts: `docs/evidence/34-rosina-service.md`.
+Full writeup, tool table, and real per-persona transcripts: `docs/evidence/35-rosina-service.md`.
 Summary here is for the next agent picking this up; read the evidence file before trusting a
 number from this summary.
 
@@ -800,6 +816,14 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 | Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person` |
 | Events/practices read (coordination-v2 Area A) | not yet exposed via MCP, and Area A itself hasn't shipped — needed for calendar/event questions |
 
+**Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
+new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
+tests for it — at minimum: an allowed persona sees the data; an out-of-network persona gets a
+plain refusal with no data leaked; the test runs against the alt stack read-only (no mutation, no
+GraphOS router). An unknown tool name stays rejected in code regardless of what `.apollo/mcp*.yaml`
+exposes — the allowlist is the actual gate, the MCP config is not trusted alone. See
+`src/rosina/model.test.ts` for the shape this takes (Priya capability-fabrication regression).
+
 **Known model variance (reported, not hidden):** the model occasionally describes an action/card
 in text without actually calling the matching `proposeAction_*` tool (so `actions` stays empty
 when a card was implied). A stronger tool description measurably reduced but did not eliminate
@@ -808,16 +832,63 @@ the default was raised to 30s; that number is not exhaustively tuned.
 
 BRANCH: feat/rosina-service; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-service
 TASK: live POST /api/rosina — Muse Spark 1.3 + MCP (caller-token, read-only, catalog-validated),
-  rate limit, graceful timeout, alt-stack test harness, evidence 34.
+  rate limit, graceful timeout, alt-stack test harness, evidence 35.
 LAYER: server (plus one proxy line in web/vite.config.ts, explicitly requested by the task).
 TOUCHED: src/rosina/, ops/alt-stack.sh, ops/rosina-catalog-drift.mjs, ops/rosina-probe.mjs,
   router.alt.yaml, .apollo/mcp.alt.yaml, package.json, web/vite.config.ts (one line),
-  docs/evidence/34-rosina-service.md, this handoff.
+  docs/evidence/35-rosina-service.md, this handoff.
 DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm --prefix web test
-  (117); live scenario matrix against the alt stack (not GraphOS) in docs/evidence/34 — all
+  (117); live scenario matrix against the alt stack (not GraphOS) in docs/evidence/35 — all
   actually run above, not just described.
 NOT DOING: schema/auth changes, minting identity, exposing any mutation tool, Family Calendar,
   care-plan/village-directory/coordination-job reads (blocked, see table above), merge/tag/release.
 BLOCKERS: CoordinationJobs/CandidateEvaluations, CarePlan, village-directory, and events/practices
   MCP operations are not yet available (Task E) — four acceptance-example scenarios stay BLOCKED
   until Bentley ships and lists them under "Rosina tools available" above.
+
+## Task R-FIX — making PR #24 mergeable (2026-10-30, in progress)
+
+Full detail: `docs/evidence/35-rosina-service.md` §9 (the Priya finding, turned into an enforced
+code rule + regression test, not just a prompt). This section tracks the mergeability work itself.
+
+**Done so far:**
+1. Evidence renumbered 34 → 35 (see "Reserved evidence numbers" above) — every reference updated
+   (this handoff, `ops/rosina-probe.mjs`, `ops/rosina-catalog-drift.mjs`, `systemPrompt.ts`).
+2. `src/rosina/model.ts`: `start-pickup` now requires a same-turn, successful `PickupCandidates`
+   call for the exact `childId` before the service accepts the proposal (`verifiedChildIds`,
+   per-child, order-independent within a round). Catalog presence never implies permission.
+3. `src/rosina/model.test.ts` (`npm run test:rosina`), stubbed model + stubbed MCP, no network,
+   no Meta cost — 8/8 PASS, including the Priya regression and an order-independence case.
+4. `src/rosina/model.ts` is now dependency-injectable (`chatFn`, `mcpClientFactory`,
+   `providerConfig`) purely so the above test can stub both without touching production code
+   paths — production still calls the real Meta/Baseten provider and a real `McpToolClient`.
+5. Allowlist-extension rule documented above ("Rule for adding a tool to the allowlist").
+6. Re-verified live against the real alt stack after the code change: Kendra (parent) still gets
+   the `start-pickup` card; Priya (sitter, no grant) gets a clean refusal with `actions: []` —
+   see evidence §9 for the transcripts.
+7. Full battery re-run and green: `npm run typecheck`; `npm run check` (294 files, 0 findings);
+   `npm run check:rosina-catalog`; `npm run test:rosina` (8/8); `npm --prefix web test` (117).
+
+**Still pending — blocked on PR #16:**
+- PR #16 (`chore/alt-stack`, `ops/alt-stack.sh` + `ops/alt-stack-check.mjs` + `ops/stack-alt.mjs`
+  changes) is open, not yet merged (`gh api repos/Pettybytes/fridgegraph/pulls/16 -q .merged` →
+  `false` as of this writing). Once it merges, this branch must `git merge origin/main` (merge
+  commit, not rebase — PR #24 gets squashed on the way in) and resolve `ops/alt-stack.sh` in
+  #16's favor: #16's script (ports 4101-4107/4012/8092/5051, `--up`/`--check`/`--down`, config
+  GENERATED from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml` into `/tmp` rather than
+  committed) becomes the one reproducible setup. This PR's own `router.alt.yaml` and
+  `.apollo/mcp.alt.yaml` are then redundant — #16's generator produces an equivalent config from
+  the same source files automatically — and should be deleted rather than kept alongside a second
+  copy. Nothing in this PR's `src/rosina/` code depends on those two files directly (the service
+  only ever takes `ROSINA_MCP_URL` as a plain env var), so removing them is a clean delete, not a
+  rewrite. `ops/rosina-probe.mjs` and `ops/rosina-catalog-drift.mjs` are this PR's own tools and
+  do not collide with #16's additions.
+- PR #9 (Level B drafts) also open; not yet known to touch anything in this PR's diff — re-check
+  after #16 lands in case ordering changed.
+- Until #16 merges, this section stays open; do not attempt the merge against a `chore/alt-stack`
+  that could still change shape.
+
+**NOT DOING (hard stops, unchanged):** no schema/auth/DB change; no mutation tool exposed; no
+identity minted — every MCP call is still made as the signed-in caller only; the four BLOCKED
+scenarios stay BLOCKED until Bentley lists their operations under "Rosina tools available"; no
+`--auto`/bypass/merge override; this agent does not merge — Bryan merges.

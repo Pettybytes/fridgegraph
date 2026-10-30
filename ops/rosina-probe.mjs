@@ -5,7 +5,7 @@
  *     [--route '#/mission-control'] [--history '[{"role":"user","content":"..."}]']
  *     [--url http://127.0.0.1:4200/api/rosina] [--no-token]
  *
- * Never prints the token. Used for docs/evidence/34-rosina-service.md transcripts.
+ * Never prints the token. Used for docs/evidence/35-rosina-service.md transcripts.
  */
 import { redactBearer, tokenForPersonId } from './auth.mjs';
 

@@ -15,7 +15,7 @@
  * name even if that ever changed.
  *
  * Action-tool coverage is deliberately narrower than the full catalog: only entries this service
- * can actually ground go here. See docs/evidence/34-rosina-service.md for the live/blocked table
+ * can actually ground go here. See docs/evidence/35-rosina-service.md for the live/blocked table
  * and the Bentley follow-up each blocked row needs.
  */
 import type { ModelTool } from '../muse/providers';

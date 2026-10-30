@@ -7,7 +7,7 @@
  * have. Instead it parses both catalog object literals as text. That is enough to catch the
  * actual drift this check exists for: an id added/removed/renamed on one side only, or a flag
  * flipped on one side only. It does NOT prove the two argsSchema parsers accept/reject the exact
- * same values — see docs/evidence/34-rosina-service.md for that limitation.
+ * same values — see docs/evidence/35-rosina-service.md for that limitation.
  */
 import { readFileSync } from 'node:fs';
 
