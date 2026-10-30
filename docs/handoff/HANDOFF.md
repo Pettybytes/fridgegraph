@@ -554,7 +554,7 @@ integration. PR #19 stays based on main; no main merge. W3 must be rebased onto 
 |---|---|---|---|
 | W1 — PR #17 | yes | primitive reads exist; real login unavailable | fixture-tested; live not tested; NOT DONE |
 | W2 — PR #19 | yes, six personas | login/reset/create unavailable | mock-tested, 61 tests; live not tested; NOT DONE |
-| W3 — this branch | yes, mock | Rosina endpoint/proxy target unavailable | mock-tested, 78 tests; live not tested; NOT DONE |
+| W3 — PR #20 | yes, mock | Rosina endpoint/proxy target unavailable | mock-tested, 78 tests; live not tested; NOT DONE |
 | W4 | not started | awaiting real services | not tested |
 
 This branch was created from main 72c1cf5 and carries shared policy + W2 prerequisite commits,
@@ -613,3 +613,8 @@ NOT DOING: schema/auth/DB, service implementation, Family Calendar, future v2 ca
 BLOCKERS: Bentley's authenticated demo login/scopes, Rosina service URL/port and endpoint,
   no-history-persistence guarantee, live pickup handler integration, reset/create APIs,
   jobTimeline and Attempt.candidate. W4 must report actual model mistakes verbatim.
+
+W3 PR: https://github.com/Pettybytes/fridgegraph/pull/20 (draft, pushed). Resume map: W1 #17
+(61 tests), W2 #19 (61 tests), W3 #20 (78 tests). No steps DONE; UI complete and explicit mocks
+are tested, while real backend integration remains untested. Main still 72c1cf5. After Bryan
+merges earlier steps, rebase/deduplicate prerequisites and reconcile App with W1; never merge.
