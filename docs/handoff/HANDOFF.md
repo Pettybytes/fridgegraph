@@ -11,27 +11,32 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 | Sub-task | Branch | State |
 |---|---|---|
 | 1 Persona sessions | `feat/e-next-persona-sessions` | **DONE** — evidence `39-persona-sessions.md`, proofs 26/26 |
-| 2 Rosina read tools | `feat/e-next-rosina-tools` | **PARTIAL — tools exposed; boundary proof blocked on missing coordination fixture.** Evidence `40-rosina-read-tools.md` |
+| 2 Rosina read tools | `feat/e-next-rosina-tools` | **DONE — evidence `40-rosina-read-tools.md`, proof 23/23 on MCP 5051** |
 | 3 Group 3 (events + adult schedules) | | not started |
 | 4 Group 4 (care + Cast v2 seed) | | not started |
 | 5 Group 5 (reset, demo family, consent) | | not started |
 
-### 2 Rosina read tools — PARTIAL (blocked on data, not on code)
+### 2 Rosina read tools — DONE
 
-`ops/JobTimeline.graphql` + `ops/Attempts.graphql` added to `.apollo/mcp.local.yaml`; MCP on **5051**
-restarted and `tools/list` now returns `Attempts, JobTimeline, PickupCandidates` with **no mutation
-tool**. `mutation_mode: explicit` and `forward_headers: [authorization]` unchanged. Both documents
-validate against `supergraph.graphql`.
+`ops/JobTimeline.graphql` + `ops/Attempts.graphql` added to `.apollo/mcp.local.yaml`; MCP **5051**
+exposes `Attempts, JobTimeline, PickupCandidates` and **no mutation tool**. `mutation_mode: explicit`
+and `forward_headers: [authorization]` unchanged.
 
-**Blocker:** the demo dataset has **no coordination jobs and no attempts**. `scripts/db.ts#baseline()`
-maps no coordination table at all, and `src/fixtures.ts` has `coordinationJobs: []`, `attempts: []`.
-Measured: `coordinationJobs` is `[]` for Kendra, the guide and Dana on both 4010 and 4012, so
-"allowed persona sees data" cannot be distinguished from an empty table.
+`node ops/mcp-rosina-tools-proof.mjs` **23/23 PASS** — Kendra (parent): 5 timeline entries, 2
+attempts with candidates; Dana (out-of-network, known caller): `UNAUTHORIZED`, zero rows, never
+`UNAUTHENTICATED`; guide: same sandbox rows, read-only (no write tool exists); no token:
+`UNAUTHENTICATED`.
 
-**Resume:** seed one sandbox job on `p_nora` with two `TEST_RESPONDER` attempts (accepted via `p_gma`,
-declined via `p_tasha`) in `createSeed()` **and** the `baseline()` mapping, `npm run db:seed`, re-run
-`node ops/mcp-rosina-tools-proof.mjs`, then evidence 40 gets real proof rows and the PR goes ready.
-`requestPickup` is not a substitute — it creates no attempt rows and the dispatch chain stays inactive.
+Two defects fixed on the way: (1) **no coordination fixture existed** — `baseline()` mapped no
+coordination table and `fixtures.ts` had empty arrays, so one simulated job (`p_nora`,
+`awaiting_approval` v3) + two `TEST_RESPONDER` attempts (accepted `p_gma`, declined `p_tasha`) were
+added to `createSeed()` and the mapping (seeded 163 rows); (2) **`Attempt.job` was a stub** (`{ id }`
+only), so `job { status version }` raised a non-null violation — replaced with a real resolver that
+loads the job through the caller's own RLS.
+
+Reproduce with the **alt stack running this checkout** (4101–4107 restarted; router 4012 and MCP 5051
+untouched apart from the MCP restart that loaded the new operation files). Rosina's allowlist is
+added by Claude Code, not here.
 
 ### 1 Persona sessions — DONE
 

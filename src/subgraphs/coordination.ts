@@ -443,6 +443,18 @@ const resolvers = {
   },
 
   Attempt: {
+    /**
+     * The attempt's job, loaded through the caller's own RLS. The row mapper used to return a
+     * stub `{ id }`, which is enough for `job { id }` but made any richer selection
+     * (`job { status version }`) fail with a non-null violation. Rosina's Attempts tool asks for
+     * exactly that, so the stub is replaced by a real, authorized read.
+     */
+    job: async (a: { job?: { id: string }; jobId?: string }, _a: unknown, ctx: Ctx) => {
+      requireCaller(ctx);
+      const jobId = a.job?.id ?? a.jobId;
+      if (!jobId) throw new GraphQLError('JOB_NOT_FOUND', { extensions: { code: 'JOB_NOT_FOUND' } });
+      return jobById(ctx, jobId);
+    },
     candidate: (a: { _candidateId?: string | null }) => (a._candidateId ? { id: a._candidateId } : null),
     destinationMode: (a: { _destinationMode?: string }) => a._destinationMode ?? 'TEST_RESPONDER',
     closedAt: (a: { _closedAt?: string | null }) => a._closedAt ?? null,

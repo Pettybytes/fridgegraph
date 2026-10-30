@@ -88,8 +88,24 @@ export type Seed = {
     childId: string;
     status: string;
     version: number;
+    asOf?: string;
+    createdAt?: string;
   }[];
-  attempts: { id: string; jobId: string; channel: string; at: string }[];
+  /**
+   * Attempts of the seeded demo job. `candidateId` is the person Rosina asked, `channel` is the
+   * constrained SMS/CALL value, and `destinationMode` stays TEST_RESPONDER: this is simulated
+   * outreach in the shared sandbox, never a real call.
+   */
+  attempts: {
+    id: string;
+    jobId: string;
+    channel: string;
+    at: string;
+    candidateId?: string;
+    destinationMode?: 'TEST_RESPONDER' | 'REAL_CONSENTED';
+    closedAt?: string;
+    closedReason?: string;
+  }[];
   informationRequests: { id: string; jobId: string; question: string; status: string }[];
   confirmations: { id: string; jobId: string; receivedAt: string }[];
   locations: {
@@ -411,8 +427,42 @@ export function createSeed(): Seed {
     practices,
     schoolReports: [],
     permissionSlips: [],
-    coordinationJobs: [],
-    attempts: [],
+    // One closed-loop demo job so the coordination reads (and Rosina's JobTimeline/Attempts tools)
+    // have a real record to show. Simulated: TEST_RESPONDER only, no real call, sandbox by default.
+    coordinationJobs: [
+      {
+        id: 'job_nora_oct16',
+        idempotencyKey: 'pickup:p_nora:2026-10-16:afternoon',
+        type: 'PICKUP',
+        childId: 'p_nora',
+        status: 'awaiting_approval',
+        version: 3,
+        asOf: '2026-10-16',
+        createdAt: '2026-10-16T15:00:00Z',
+      },
+    ],
+    attempts: [
+      {
+        id: 'att_nora_oct16_gma',
+        jobId: 'job_nora_oct16',
+        channel: 'CALL',
+        at: '2026-10-16T15:02:00Z',
+        candidateId: 'p_gma',
+        destinationMode: 'TEST_RESPONDER',
+        closedAt: '2026-10-16T15:02:40Z',
+        closedReason: 'ACCEPTED',
+      },
+      {
+        id: 'att_nora_oct16_tasha',
+        jobId: 'job_nora_oct16',
+        channel: 'SMS',
+        at: '2026-10-16T15:03:00Z',
+        candidateId: 'p_tasha',
+        destinationMode: 'TEST_RESPONDER',
+        closedAt: '2026-10-16T15:03:35Z',
+        closedReason: 'DECLINED',
+      },
+    ],
     informationRequests: [],
     confirmations: [],
   };

@@ -147,6 +147,17 @@ function baseline() {
       id: l.id, owner_type: l.ownerType, owner_id: l.ownerId, label: l.label,
       lat: l.lat, lng: l.lng, source: l.source, captured_at: l.capturedAt,
     })),
+    // Coordination fixtures: one simulated job and its attempts. `sandbox` keeps its column default
+    // (true); nothing here creates a real-call authorization.
+    coordination_jobs: s.coordinationJobs.map((j) => ({
+      id: j.id, idempotency_key: j.idempotencyKey, type: j.type, child_id: j.childId,
+      status: j.status, version: j.version, as_of: j.asOf ?? null, created_at: j.createdAt ?? null,
+    })),
+    attempts: s.attempts.map((a) => ({
+      id: a.id, job_id: a.jobId, channel: a.channel, at: a.at,
+      candidate_id: a.candidateId ?? null, destination_mode: a.destinationMode ?? 'TEST_RESPONDER',
+      closed_at: a.closedAt ?? null, closed_reason: a.closedReason ?? null,
+    })),
   } as Record<string, Record<string, unknown>[]>;
 }
 

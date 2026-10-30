@@ -4,14 +4,18 @@ _Task E-NEXT, sub-task 2. Branch `feat/e-next-rosina-tools` off `main` `1cd7ab8`
 (alt MCP 5051 → alt router 4012). Nothing restarted except the MCP process itself, so it could load
 the new operation files._
 
-## Status: tools shipped and exposed; **boundary proof BLOCKED on absent demo data**
+## Status: DONE — 23/23 PASS on the alt MCP (5051 → 4012)
 
 | Item | State |
 |---|---|
-| Operation files + MCP exposure | **DONE and verified** (tools/list = `Attempts, JobTimeline, PickupCandidates`) |
+| Operation files + MCP exposure | **PASS** — `tools/list` = `Attempts, JobTimeline, PickupCandidates` |
 | No mutation tool exposed | **PASS** — `mutation_mode: explicit` unchanged, no mutation operation file added |
-| "Allowed persona sees data" | **BLOCKED — no coordination job exists in the dataset** |
-| Out-of-network refusal / guide read-only | **BLOCKED by the same cause** (proven in the script, not yet passable) |
+| Allowed persona sees data | **PASS** — Kendra: 5 timeline entries, 2 attempts with candidates |
+| Out-of-network refusal | **PASS** — Dana is a known caller, refused `UNAUTHORIZED`, zero rows, not `UNAUTHENTICATED` |
+| Demo guide read-only + sandbox | **PASS** — guide reads the same 5 entries / 2 attempts; no write tool exists |
+| Anonymous fails closed | **PASS** — `UNAUTHENTICATED` on both tools |
+
+Run: `node ops/mcp-rosina-tools-proof.mjs` (alt stack must be up from THIS checkout).
 
 ## What was added
 
@@ -35,33 +39,34 @@ Both documents validate against `supergraph.graphql` (0 errors, `graphql.validat
 Neither tool can write: there is no mutation operation file, `introspection.execute` stays disabled,
 and `mutation_mode` remains `explicit`. Adding these tools grants no action.
 
-## The blocker (honest, and useful)
+## Two defects found on the way (both fixed here)
 
-`scripts/db.ts#baseline()` maps **no coordination tables at all**. `src/fixtures.ts` declares
-`coordinationJobs: []`, `attempts: []`, `informationRequests: []`, `confirmations: []`, and even if
-they were populated, `baseline()` builds rows for neither `coordination_jobs` nor `attempts`.
+**1. No coordination fixture existed.** `scripts/db.ts#baseline()` mapped no coordination table at
+all, and `src/fixtures.ts` had `coordinationJobs: []`, `attempts: []`. Measured before the fix:
+`coordinationJobs` was `[]` for Kendra, the guide and Dana on **both** routers (4010, 4012), so a
+read tool could not be distinguished from an empty table. Fixed with one simulated job on `p_nora`
+(`status awaiting_approval`, v3) and two `TEST_RESPONDER` attempts — one accepted via `p_gma`, one
+declined via `p_tasha` — in `createSeed()` **and** the `baseline()` mapping. Seeded: 163 rows.
+`requestPickup` would not have been a substitute: it creates no attempt rows, and dispatch stays
+inactive.
 
-Consequence, measured through the running stack: `coordinationJobs { id status }` returns `[]` for
-Kendra (parent), for the Demo guide and for Dana on **both** routers (4010 and 4012). The database
-holds zero jobs and zero attempts, so no read tool can show data and no refusal can be distinguished
-from an empty dataset. This is not an auth defect — it is a missing fixture, and it is the same gap
-that Group 4's seed has to close for every coordination story.
-
-**Resume point:** add an idempotent sandbox fixture (one job on `p_nora` with two `TEST_RESPONDER`
-attempts — one accepted through `p_gma`, one declined through `p_tasha`) to `createSeed()` **and** to
-the `baseline()` mapping, seed it, then re-run `node ops/mcp-rosina-tools-proof.mjs`. Only then can
-this PR go ready. A job created through `requestPickup` is not a substitute: it produces no attempt
-rows, and the dispatch chain that does is deliberately inactive.
+**2. `Attempt.job` was a stub.** The attempts resolver returned `job: { id }`, so `job { status
+version }` — exactly what Rosina's Attempts tool asks for — failed with
+`Cannot return null for non-nullable field CoordinationJob.status`. Fixed with a real
+`Attempt.job` resolver that loads the job through the caller's own RLS (`requireCaller` +
+`jobById`). This is a genuine pre-existing bug that only a richer read exposed; it is not an
+authorization change.
 
 ## Not claimed
 
-- No persona boundary is claimed for these tools yet. The script asserts it and currently stops at
-  check 1.
-- No Rosina allowlist entry is claimed: Claude Code adds each tool to Rosina's allowlist, as the task
-  specifies.
-- No SECURITY DEFINER guide seam re-check is claimed for these two reads; both are direct
+- **Rosina's allowlist is not updated here** — Claude Code adds each tool to it, per the task.
+- **No SECURITY DEFINER guide-seam re-check is claimed for these two reads**: both are direct
   `dbFor(ctx)` table reads (RLS-scoped), not derived reads, so 0026's seam does not apply. The check
-  still applies to the Group 3–5 reads when they land.
+  applies to the Group 3–5 reads when they land.
+- **The alt stack must run this checkout** to reproduce: the subgraphs on 4101–4107 were restarted
+  from `fridgegraph` (previously they served a different worktree, `fridgegraph-level-b`). The router
+  (4012) and MCP (5051) were not restarted for this; only the MCP process was, to load the new
+  operation files.
 
 ## Hard stops held
 
