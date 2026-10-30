@@ -781,3 +781,32 @@ Consequences for this repo:
   `docs/ops/level-b-plan.md`; they read the secret from `.env` at runtime and never embed it.
 - Bentley still owns everything that needs no third-party auth: schema, migrations, GraphQL, local
   HTTP endpoints, harnesses, `rover`, and git.
+
+## Task B progress — Level B live (2026-10-29)
+
+**Resume rule:** skip every step marked DONE and continue at the first step not DONE. Each DONE row
+records what was observed, not what was intended. This section is rewritten in place, not appended
+to.
+
+| # | Step | State | Observed |
+|---|---|---|---|
+| 0 | Worktree `../fridgegraph-level-b` + symlinks | **DONE** | branch `feat/level-b-drafts` @ `9256178`; `.env`, `data`, `.demo-credentials` linked from the primary checkout |
+| 1 | Rebase onto `origin/main`, `push --force-with-lease` | **BLOCKED** | `origin/main` is `d43c12e` and contains no `0019`/`0020`; PR #14 reports `state=OPEN`, `mergeable=MERGEABLE`, `mergeState=CLEAN`. Rebasing now would put Level B on a tree three migrations behind the database. |
+| 2 | `node ops/voice-turn-check.mjs` → 12/12 | PENDING | |
+| 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | PENDING | |
+| 4 | GHL custom fields: report which of the six `fg_` exist, create only missing | PENDING | |
+| 5 | GHL: Rosina recording / transcription / retention (read-only) | PENDING | |
+| 6 | n8n: reuse-or-import both workflows, Header Auth credential, activate Reply and Timeout | PENDING | |
+| 7 | Stack + router (`router.graphos.yaml`) + voice-turn + Caddy + cloudflared; outside 200 / default deny | PENDING | |
+| 8 | Attach Pickup Decision Custom Action to Rosina | PENDING | |
+| 9 | Web Call rehearsal, evidence 29 | PENDING | |
+| 10 | HARD STOP before the real call | PENDING | |
+
+### Why step 1 is blocked
+
+The run authorises step 1 on the stated premise that PR #14 is merged. It is not: GitHub reports
+`state=OPEN`, `mergedAt=null`, and `origin/main` is still `d43c12e` (last merged: #13). The shared
+database already has `0019` and `0020` applied from Task A, so a rebase onto today's `origin/main`
+would produce a branch that cannot reproduce its own schema.
+
+No rebase, no force-push, no GHL, no n8n, no tunnel work has been done. Waiting on the merge.
