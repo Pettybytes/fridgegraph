@@ -6,8 +6,11 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "reset": "tsx src/reset.ts",
+    "rosina": "tsx src/rosina/server.ts",
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check-secrets.mjs",
+    "check:rosina-catalog": "node ops/rosina-catalog-drift.mjs",
+    "test:rosina": "node --import tsx --test src/rosina/*.test.ts",
     "db:seed": "tsx scripts/db.ts seed",
     "db:reset": "tsx scripts/db.ts reset",
     "db:checksum": "tsx scripts/db.ts checksum",

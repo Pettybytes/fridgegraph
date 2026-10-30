@@ -1134,3 +1134,166 @@ Final staged secret scan PASS: 303 files, zero findings. Mock evidence only; no 
 acceptance claimed. Task MC remains UI complete · backend pending · mock integrated/tested.
 Published draft PR **#25**: https://github.com/Pettybytes/fridgegraph/pull/25.
 Implementation 0236ad0; GitHub reports MERGEABLE. Task MC not merged; live integration NOT DONE.
+
+**Bridging note (Task R-FIX, 2026-10-30, second sync):** Task MC (#25) and Task R/Task R-FIX (#24) both appended at this same point in the file; both are kept below in full, nothing rewritten. Task MC's own W4 needs and Task R's "Rosina tools available" table are independent — Task MC needs jobTimeline/Attempt.candidate/destinationMode reads, Task R needs CoordinationJobs/CandidateEvaluations, CarePlan, village-directory and events/practices reads; neither list supersedes the other.
+**Bridging note (Task R-FIX, 2026-10-30):** the W4 readiness audit above (just before this point) found the Rosina service checkout had "uncommitted implementation work but no 'Rosina tools available' readiness entry." That gap is closed below — see "Reserved evidence numbers" and "Task R — live Ask Rosina service" for the readiness table, and "Task R-FIX" for the PR #16 alt-stack reconciliation this merge performs. The W4 table's "POST /api/rosina ... readiness marker absent" row is stale as of this commit; W4 should re-check PR #24 directly rather than trust that row going forward.
+
+## Reserved evidence numbers
+
+Evidence files are append-only and numbered by whoever claims the number first — collisions
+happen when two tasks file in parallel without checking both `docs/evidence/` AND open PRs.
+Current reservations (always check both before taking the next number):
+
+| # | Owner | File |
+|---|---|---|
+| 34 | Bentley, E0 | `docs/evidence/34-e0-real-call-mint.md` (PR #23) |
+| 35 | Claude Code, Task R | `docs/evidence/35-rosina-service.md` (this PR) |
+| 36 | next free (Task H, public hosting, at the time of writing) | — |
+
+Evidence 34/35 collided once (Task R originally filed as 34; renumbered to 35 in Task R-FIX,
+2026-10-30, after Bentley's E0 reservation was reported). The content of 35 is otherwise unchanged
+from the original filing — see its own renumber note at the top of the file.
+
+## Task R — live Ask Rosina service (2026-10-30)
+
+Full writeup, tool table, and real per-persona transcripts: `docs/evidence/35-rosina-service.md`.
+Summary here is for the next agent picking this up; read the evidence file before trusting a
+number from this summary.
+
+**Shipped:** `POST /api/rosina` (`src/rosina/server.ts`, `npm run rosina`, port 4200 default).
+Muse Spark 1.3 via the Meta Model API, calling MCP as the signed-in caller (bearer forwarded
+unchanged, never a service key). Two kinds of tool only: the real MCP read (`PickupCandidates`,
+hard-allowlisted by name in `src/rosina/model.ts` regardless of what MCP's config exposes) and
+local `proposeAction_*` tools that populate the response's `actions` array and do nothing else —
+no mutation tool exists to call, by construction, not by promise. Catalog validated against
+`src/rosina/catalog.ts`, a mirror of `web/src/features/rosina/catalog.ts` with a drift check
+(`npm run check:rosina-catalog`) that fails the build if the two disagree on ids/flags — see the
+evidence file §1 for the one thing that check does NOT prove (byte-identical argsSchema parsing).
+Rate limit (20/min default, by resolved person id), graceful timeout (30s default →
+`{"reply":"I couldn't check that just now.","actions":[]}`, HTTP 200, not an error page), no
+history/token/content persistence or logging. `web/vite.config.ts` proxies `/api/rosina` →
+4200 (one line; no other `web/` file touched). `ops/alt-stack.sh` added for the offline test
+stack (4101-4107/4012/5051); this run reused an already-live instance of that same stack found
+running from the `../fridgegraph-meta` worktree rather than killing it to start a second one —
+see evidence §4 for why that was the safer call.
+
+**DONE WHEN, actually run:** `npm run typecheck` PASS; `npm run check` PASS (293 files, 0
+findings); `npm run check:rosina-catalog` PASS (and verified it actually fails on a real
+injected drift, then reverted); `npm --prefix web test` 117 PASS (unchanged — only `web/` touch
+is the proxy line). Every scenario test in the evidence file was run against the real alt-stack
+MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never mocked.
+
+**Rosina tools available today (update this list as Task E ships more):**
+
+| Tool/operation | Status |
+|---|---|
+| `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), now wired into the live service |
+| CoordinationJobs + CandidateEvaluations read (Mission Control's existing recommendation/status) | not yet exposed via MCP — needed for "why was this caregiver recommended" and "show me `<child>`'s afternoon" |
+| CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
+| Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person` |
+| Events/practices read (coordination-v2 Area A) | not yet exposed via MCP, and Area A itself hasn't shipped — needed for calendar/event questions |
+
+**Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
+new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
+tests for it — at minimum: an allowed persona sees the data; an out-of-network persona gets a
+plain refusal with no data leaked; the test runs against the alt stack read-only (no mutation, no
+GraphOS router). An unknown tool name stays rejected in code regardless of what `.apollo/mcp*.yaml`
+exposes — the allowlist is the actual gate, the MCP config is not trusted alone. See
+`src/rosina/model.test.ts` for the shape this takes (Priya capability-fabrication regression).
+
+**Known model variance (reported, not hidden):** the model occasionally describes an action/card
+in text without actually calling the matching `proposeAction_*` tool (so `actions` stays empty
+when a card was implied). A stronger tool description measurably reduced but did not eliminate
+this in the runs performed — see evidence §7. One real (unforced) 20s timeout was observed before
+the default was raised to 30s; that number is not exhaustively tuned.
+
+BRANCH: feat/rosina-service; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-service
+TASK: live POST /api/rosina — Muse Spark 1.3 + MCP (caller-token, read-only, catalog-validated),
+  rate limit, graceful timeout, alt-stack test harness, evidence 35.
+LAYER: server (plus one proxy line in web/vite.config.ts, explicitly requested by the task).
+TOUCHED: src/rosina/, ops/rosina-catalog-drift.mjs, ops/rosina-probe.mjs, package.json,
+  web/vite.config.ts (one line), docs/evidence/35-rosina-service.md, this handoff.
+  (`ops/alt-stack.sh` is PR #16's, merged in as-is — see Task R-FIX below; this PR's own
+  `router.alt.yaml`/`.apollo/mcp.alt.yaml` were deleted as redundant with it.)
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm --prefix web test
+  (117); live scenario matrix against the alt stack (not GraphOS) in docs/evidence/35 — all
+  actually run above, not just described.
+NOT DOING: schema/auth changes, minting identity, exposing any mutation tool, Family Calendar,
+  care-plan/village-directory/coordination-job reads (blocked, see table above), merge/tag/release.
+BLOCKERS: CoordinationJobs/CandidateEvaluations, CarePlan, village-directory, and events/practices
+  MCP operations are not yet available (Task E) — four acceptance-example scenarios stay BLOCKED
+  until Bentley ships and lists them under "Rosina tools available" above.
+
+## Task R-FIX — making PR #24 mergeable (2026-10-30, DONE)
+
+Full detail: `docs/evidence/35-rosina-service.md` §9 (the Priya finding, turned into an enforced
+code rule + regression test, not just a prompt). This section tracks the mergeability work itself.
+
+**Done so far:**
+1. Evidence renumbered 34 → 35 (see "Reserved evidence numbers" above) — every reference updated
+   (this handoff, `ops/rosina-probe.mjs`, `ops/rosina-catalog-drift.mjs`, `systemPrompt.ts`).
+2. `src/rosina/model.ts`: `start-pickup` now requires a same-turn, successful `PickupCandidates`
+   call for the exact `childId` before the service accepts the proposal (`verifiedChildIds`,
+   per-child, order-independent within a round). Catalog presence never implies permission.
+3. `src/rosina/model.test.ts` (`npm run test:rosina`), stubbed model + stubbed MCP, no network,
+   no Meta cost — 8/8 PASS, including the Priya regression and an order-independence case.
+4. `src/rosina/model.ts` is now dependency-injectable (`chatFn`, `mcpClientFactory`,
+   `providerConfig`) purely so the above test can stub both without touching production code
+   paths — production still calls the real Meta/Baseten provider and a real `McpToolClient`.
+5. Allowlist-extension rule documented above ("Rule for adding a tool to the allowlist").
+6. Re-verified live against the real alt stack after the code change: Kendra (parent) still gets
+   the `start-pickup` card; Priya (sitter, no grant) gets a clean refusal with `actions: []` —
+   see evidence §9 for the transcripts.
+7. Full battery re-run and green: `npm run typecheck`; `npm run check` (294 files, 0 findings);
+   `npm run check:rosina-catalog`; `npm run test:rosina` (8/8); `npm --prefix web test` (117).
+
+**Sync with main — DONE (2026-10-30):**
+- PR #16 merged to main as `275461e`; PR #9 merged to main as `ebb7a2c` (both landed before this
+  sync). `git merge origin/main` (merge commit, not rebase) performed, two conflicts resolved:
+  - `ops/alt-stack.sh` (add/add): resolved entirely in #16's favor — `git checkout --theirs`.
+    #16's script (ports 4101-4107/4012/8092/5051, `--up`/`--check`/`--down`, config GENERATED
+    from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml` into `/tmp`) is now the one
+    reproducible setup. This PR's own `router.alt.yaml` and `.apollo/mcp.alt.yaml` were deleted
+    (`git rm`) as redundant — nothing in `src/rosina/` depended on either file directly (the
+    service only ever takes `ROSINA_MCP_URL` as a plain env var), so this was a clean delete, not
+    a rewrite. `ops/rosina-probe.mjs` and `ops/rosina-catalog-drift.mjs` are this PR's own tools
+    and did not collide with #16's additions.
+  - `docs/handoff/HANDOFF.md` (content): both sides had appended new sections at the same point
+    in the file; resolved by keeping BOTH in full (origin/main's Task B/D/C/V2-VILLAGE sections
+    first, since they were already on main, then this branch's Reserved-evidence-numbers/Task R/
+    Task R-FIX sections after), plus one new bridging note closing the loop on origin/main's W4
+    audit finding ("Rosina ... no readiness entry") — no past entry on either side was rewritten.
+  - The two were irreconcilable-by-nature only in the trivial add/add sense (same path, two
+    independent implementations); neither was a real design disagreement, so no STOP was needed.
+- Post-merge: `npm run typecheck` clean; evidence 35 §4/§9 and this section updated to describe
+  the reconciled `ops/alt-stack.sh --up`/`--check`/`--down` interface in place of this PR's own
+  (now-deleted) `start`/`stop`/`status` version — the underlying ports/mechanism were already
+  identical, so no live result changed, only the command to reach it.
+- PR #9 touched `docs/handoff/HANDOFF.md` only in this PR's diff (many other files it added are
+  net-new, not modifications of anything this PR touches) — no further reconciliation needed
+  there.
+
+**NOT DOING (hard stops, unchanged):** no schema/auth/DB change; no mutation tool exposed; no
+identity minted — every MCP call is still made as the signed-in caller only; the four BLOCKED
+scenarios stay BLOCKED until Bentley lists their operations under "Rosina tools available"; no
+`--auto`/bypass/merge override; this agent does not merge — Bryan merges.
+
+**Final state (2026-10-30):** PR #24 head `2a0c8a6`. `gh pr view 24` → `state: OPEN`,
+`isDraft: false` (`gh pr ready 24` run), `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both
+CI checks pass: `typecheck + secret scan` (18s), `web build` (25s). `git diff origin/main...HEAD
+--stat` confirms the actual PR diff is exactly: `src/rosina/*`, `ops/rosina-catalog-drift.mjs`,
+`ops/rosina-probe.mjs`, `package.json`, one proxy line in `web/vite.config.ts`, this handoff, and
+`docs/evidence/35-rosina-service.md` — nothing from #16/#9 leaks into the diff despite the merge.
+Not merged — Bryan merges.
+
+**Second sync (2026-10-30):** main advanced again — #23 (E0, `cccbbd2`) and #25 (Mission Control
+v2, `7b4bb14`) both merged. `git merge origin/main` → one conflict, `docs/handoff/HANDOFF.md`
+only (both #25 and this branch had appended at the same point); resolved by keeping Task MC
+(#25) in full, then this branch's sections in full, plus a short bridging note — no past entry
+rewritten. `ops/alt-stack.sh` and everything else merged clean (no second conflict there).
+Re-ran the full battery: `npm run typecheck` clean; `npm run check` (358 files, 0 findings);
+`npm run check:rosina-catalog` PASS; `npm run test:rosina` 8/8 PASS; `npm --prefix web test`
+**150 PASS** (137 + Mission Control v2's 13 new). `git diff origin/main...HEAD --stat` confirms
+the diff is still exactly this PR's own layer (same 12 files as above). Pushed to `d085628`;
+`gh pr view 24` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
+merged — Bryan merges.
