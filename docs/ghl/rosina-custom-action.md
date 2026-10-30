@@ -1,40 +1,60 @@
-# Rosina — "Pickup decision" Custom Action (config, NOT attached)
+# Rosina — "Pickup decision" Custom Action
 
-> **STATUS: PREPARED, NOT ATTACHED.** Rosina's number is live. An action pointing at an endpoint
-> that is not yet reachable through the tunnel would break real calls, so this document specifies
-> the configuration and nothing was attached to the agent.
+> **STATUS: SPECIFIED FOR BRYAN TO ATTACH IN THE GHL UI.** Nothing was attached through the API.
+> Rosina's number is live, so the action must not be enabled until the rehearsal in step 9 passes.
 
-## Request
+## Chain
 
-| | |
+```
+GHL Custom Action ──► n8n webhook ──► tunnel ──► voice-turn server
+   (this config)      (adds a fresh     https://fridgegraph.loomz.stream/voice-turn
+                       timestamp +       127.0.0.1:4118
+                       the secret)
+```
+
+GHL Custom Action headers are **static**, and `/voice-turn` requires a timestamp within ±300 s, so
+GHL can never call the endpoint directly. The n8n workflow `FridgeGraph - Voice Turn` (id
+`xOfmO6T4mKbYnjqb`, active) is the adapter. This is the same pattern as Jasmine's
+`check_availability`.
+
+## Request — the fields to enter in GHL
+
+| Field | Value |
 | --- | --- |
 | Method | `POST` |
-| URL | `https://<tunnel-host>/voice-turn` |
-| `content-type` | `application/json` |
-| `X-FridgeGraph-Webhook-Secret` | value held in the tunnel/Custom Action's secret setting — never in this file, never in a node |
-| `X-FridgeGraph-Timestamp` | Unix seconds at send time, required; the endpoint rejects ±300 s |
-| Timeout | 3 s (the endpoint answers in ~0.2–0.5 s locally) |
+| URL | `https://fns2.app.n8n.cloud/webhook/fridgegraph-voice-turn` |
+| Content type | `application/json` |
+| Timeout | **10 s** |
+| Retry | **off** |
+| Headers | none — the secret and the timestamp are added by n8n, never stored in GHL |
+
+Body:
 
 ```json
 {
-  "attemptId": "<fg_attempt_id, passed through unchanged from dispatch>",
+  "attemptId": "{{contact.fg_attempt_id}}",
   "decision": "CONTINUE | ACCEPTED | DECLINED | ESCALATE | END_CALL",
-  "declineReason": "BUSY | NO_TRANSPORT | OTHER",
-  "eventId": "<optional; if omitted the endpoint derives voice:<attempt>:<decision>:<requestVersion>>"
+  "declineReason": "BUSY | NO_TRANSPORT | OTHER"
 }
 ```
 
-`attemptId` must come from `fg_attempt_id` and must be round-tripped unchanged. The endpoint binds
-every request to an existing `Attempt` and that job's `requestVersion`; a mismatch is rejected and
-nothing is written. Identity is never taken from what the caller said.
+- **`attemptId` must come from `{{contact.fg_attempt_id}}`** and must be passed through unchanged.
+  It is never AI-collected and never spoken by the caller. The server binds every request to an
+  existing `Attempt` and that job's `requestVersion`; a mismatch is rejected and nothing is written.
+- `decision` enum: **CONTINUE, ACCEPTED, DECLINED, ESCALATE, END_CALL**
+- `declineReason` enum: **BUSY, NO_TRANSPORT, OTHER** (only meaningful with `DECLINED`)
 
-## Response
+## Response mapping
 
-```json
-{ "status": "ACCEPTED", "note": "recorded", "say": "<one line>" }
-```
+| | |
+| --- | --- |
+| Response field Rosina speaks | **`say`** |
+| Rule | Say `say` **word for word** and nothing else (`rosina-kb.md` §5, §16) |
 
-Rosina says `say` **word for word** and nothing else (`rosina-kb.md` §5, §16).
+The n8n workflow returns the server's JSON unchanged on success. If the endpoint cannot be reached,
+n8n returns `{"status":"FAILED","note":"voice_turn_unavailable","say":"Thank you. I couldn't confirm
+your answer was recorded. If this is time-sensitive, please contact the family directly."}` — so
+Rosina never improvises a confirmation.
 
 ## Statuses
 
@@ -48,16 +68,17 @@ Rosina says `say` **word for word** and nothing else (`rosina-kb.md` §5, §16).
 
 ## What this action must never do
 
-- **It cannot approve anything.** The endpoint has no route to `approve_pickup` and cannot create a
-  `Confirmation`. Its only write is `accept_pickup_webhook`, which records availability.
+- **It cannot approve anything.** No route reaches `approve_pickup` and no `Confirmation` is created.
+  Its only write is `accept_pickup_webhook`, which records availability.
 - It must never be given a prompt that lets the model invent a status: the status is chosen by the
   flow, not generated.
-- It must never be pointed at a host that is not the tunnel, and never carry the secret inline.
+- It must never carry the webhook secret. The secret lives only in the n8n credential
+  `FridgeGraph Voice Turn`.
+- It must never point at the tunnel host directly — that path cannot produce a fresh timestamp.
 
 ## Pre-attachment checklist
 
-1. Tunnel reachable and only `/voice-turn` + the reply path exposed (default deny).
-2. `X-FridgeGraph-Webhook-Secret` present in the action's secret setting and matching the server.
-3. `fg_attempt_id` populated on the contact/call context at dispatch time.
-4. One Web Call rehearsal against the live tunnel with a fictional responder before the agent is
-   left attached.
+1. `FridgeGraph - Voice Turn` is **active** and its HTTP URL is
+   `https://fridgegraph.loomz.stream/voice-turn` (verified: 7d returned 200 `CONTINUE`).
+2. `fg_attempt_id` populated on the "Loretta Brooks (demo)" contact before the Web Call.
+3. One Web Call rehearsal against the live chain before the agent is left attached.
