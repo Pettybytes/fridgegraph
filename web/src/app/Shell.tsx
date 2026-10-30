@@ -3,13 +3,14 @@ import type { ReactNode } from 'react'
 import { LayoutDashboard, MessagesSquare, Network, ArrowUpRight, Sprout } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'mission-control' | 'parent-chat' | 'village'
+export type Route = 'mission-control' | 'ask-rosina' | 'village' | 'care-information'
 const routes = [
   { path: 'mission-control', label: 'Mission Control', icon: LayoutDashboard },
-  { path: 'parent-chat', label: 'Parent chat', icon: MessagesSquare },
+  { path: 'ask-rosina', label: 'Ask Rosina', icon: MessagesSquare },
+  { path: 'care-information', label: 'Care information', icon: MessagesSquare },
   { path: 'village', label: 'Living Village', icon: Network },
 ] as const
-function readRoute(): string { return window.location.hash.slice(2) || 'mission-control' }
+function readRoute(): string { const route = window.location.hash.slice(2).split('?')[0]; return route === 'parent-chat' ? 'ask-rosina' : route || 'mission-control' }
 export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>> }) {
   const [route, setRoute] = useState(readRoute)
   const { scope, mode } = useDataContext()

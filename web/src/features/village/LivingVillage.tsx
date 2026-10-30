@@ -191,6 +191,19 @@ export function LivingVillage({ accessDenied }: { accessDenied?: ReactNode } = {
     }
   }, [filtered, selected])
 
+  // Catalog-owned route; only resolve a person already present in this authorized projection.
+  useEffect(() => {
+    function selectFromRoute() {
+      const hash = window.location.hash
+      if (!hash.startsWith('#/village')) return
+      const personId = new URLSearchParams(hash.split('?')[1] ?? '').get('person')
+      if (personId) setSelected(graph.nodes.find(node => node.id === personId) ?? null)
+    }
+    selectFromRoute()
+    window.addEventListener('hashchange', selectFromRoute)
+    return () => window.removeEventListener('hashchange', selectFromRoute)
+  }, [graph.nodes])
+
   // Find the edge between the selected person and the center
   const selectedEdge = useMemo(() => {
     if (!selected || !data) return null
@@ -443,7 +456,10 @@ export function LivingVillage({ accessDenied }: { accessDenied?: ReactNode } = {
             edge={selectedEdge}
             centerName={scope.childName}
             highlight={highlights[selected.id] ?? null}
-            onClose={() => setSelected(null)}
+            onClose={() => {
+              setSelected(null)
+              if (window.location.hash.includes('?person=')) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/village`)
+            }}
           />
         )}
       </AnimatePresence>

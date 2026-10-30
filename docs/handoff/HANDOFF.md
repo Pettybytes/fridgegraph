@@ -469,3 +469,228 @@ W1 was rebased onto that main. The contract's current/future visibility and cata
 were reviewed; proposed backing models still are not implemented by a document merge. No v2
 household, catalog entry or Family Calendar was added. W2 and W3 must be replayed above this tip
 before final publication; author attribution still uses the existing record, not proposed fields.
+
+## Task W progress — W2 persona picker (2026-10-30)
+
+| Step | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|
+| W1 — PR #17 | yes | primitive reads; login unavailable | fixture-tested; live not tested; NOT DONE |
+| W2 — PR #19 | yes, mock | demo-login/reset/create unavailable | mock-integrated + tested; live not tested; NOT DONE |
+| W3 — PR #20 | yes, mock | Rosina unavailable | mock-tested (78 tests); live not tested; NOT DONE |
+| W4 | not started | awaiting delivery | not started |
+
+Branch created from main 72c1cf5 with the W1 cost correction cherry-picked as a shared prerequisite
+so the existing fixture-sync assertions remain intact. No W1 adapter code is included. After Bryan
+merges W1, rebase this branch onto main and reconcile App's connected entry; never merge autonomously.
+
+Surface states: entry/sign-in/reset/create = **unavailable live**, explicit mocks. Mission Control
+and Living Village = **unavailable live** in this step, conservative mock projections. Priya's
+mock **care information** is derived verbatim from src/fixtures.ts carePlans and visible only under
+her careplan.read example. Loretta has pickup.request/schedule.read/goals.read; Priya has
+supervise.request/schedule.read/careplan.read. Neither gets parent job data or the broad village mock.
+Dana scopes to her own child Jax; the Jax-family entry represents Ray. No invented identity.
+
+Private cleanup synchronously unmounts the old workspace before any await, clears Apollo through
+clearStore (plus adapter clearStore when provided), remounts selections/cards under the session
+generation, and ignores superseded sign-in/family responses. W3 must register conversation cleanup
+with the same session registry. Connected mode never signs into the live graph with a mock identity.
+
+Validation: root typecheck PASS; secret scan PASS; **61 web tests PASS**; production build PASS
+(existing >500kB warning). Six new session tests cover cache/DOM clearing, a late sign-in response,
+Kendra → Loretta, Priya's grants and mock family validation/reset. Existing shell tests now enter via
+Kendra instead of assuming private data before sign-in. Playwright CLI checked desktop/mobile,
+Kendra → Loretta with a MutationObserver (no old private content in switch mutations), Priya's
+care-only view, and mock create/reset. Screenshots: web/evidence/task-w/w2-desktop.png, w2-mobile.png.
+
+BRANCH: feat/web-persona-picker; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-persona-picker
+TASK: six-person mock entry, session isolation and sandbox demo controls.
+LAYER: frontend and companion handoff only (plus shared W1 policy prerequisite).
+TOUCHED: web/src/features/personas/, web/src/App.tsx, web/src/lib/frontendData/types.ts,
+  web/src/app/Shell.test.tsx, web/src/app/VillageRoute.test.tsx, web/evidence/task-w/, this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (61);
+  npm --prefix web run build; real demo-login/reset/create integration still required.
+NOT DOING: backend auth, passwords, credentials, DB, Family Calendar, merge, v2 catalog entries.
+BLOCKERS: Bentley's server-side demo-login must return the actual user session and authorized
+  scope; resetDemo/createDemoFamily endpoints and their contracts remain unavailable.
+
+W2 privacy follow-up: switching/reset clears selected-person hash parameters before the next session loads. A dedicated route-cleanup test passes. PR: https://github.com/Pettybytes/fridgegraph/pull/19.
+
+Task W resume: W1 #17 (61 tests), W2 #19 (61 tests), W3 #20 (78 tests) are pushed draft PRs.
+All UI steps complete; Bentley services unavailable and live integration untested; none DONE.
+W3 worktree: /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina. Main still 72c1cf5; rebase
+after Bryan merges earlier steps. W3 already registers conversation cleanup and owns the catalog
+structure; do not implement future coordination-v2 entries or the Family Calendar prematurely.
+
+### Task W pre-merge copy corrections — W2 (current)
+
+W2 is rebased onto updated W1 (f6d4744); PR base remains main. Shared policy commits were
+deduplicated. The feature branch history is rewritten only for this requested stack rebase.
+The picker groups Nora's four existing personas under “Nora's village” and Dana/Ray under
+“Jax's family”. Portrait space keeps initials; no portraits or additional households invented.
+The sharing boundary derives its explanation from the persona's recorded mock grants. Priya sees
+“Pickup plans are shared with Nora's parents. You can see Nora's schedule and care information.”
+Her implemented care screen is offered; schedule is explicitly unavailable, not a new calendar.
+W3 replaces these read-only screen links with catalog-validated cards on its branch.
+Care sources say “Source: Nora's care plan”. Current CarePlan has no author field, so Kendra is
+not attributed. A display helper accepts an author only when actual source metadata supplies one.
+No file paths or workflow codes appear in the new source labels. Visual identity retained.
+Added paths: web/src/features/personas/PersonaAccessState.tsx, careInformation.tsx,
+PersonaPicker.test.tsx; MissionControl/LivingVillage use W1's denied-state slot. Care information
+is a derived mock projection; live service remains unavailable. No auth/schema/DB changes.
+Validation: root typecheck, secret scan, production build PASS; **70 web tests PASS** including
+household grouping, care privacy and persona-isolation regressions. Playwright CLI checked the
+grouped entry and Priya's sharing → care path at desktop/mobile. New screenshots are append-only:
+web/evidence/task-w/w2-copy-desktop.png and w2-copy-mobile.png. W2 remains NOT DONE for live integration.
+
+Final W2 stack check: rebased onto W1 including its final readable relationship/contact labels
+and current progress table. Post-rebase root typecheck, secret scan, build and **70 web tests PASS**.
+Full-page grouped picker evidence: web/evidence/task-w/w2-grouped-final-desktop.png and
+w2-grouped-final-mobile.png. Existing evidence retained. W2 remains mock-tested, NOT DONE for live
+integration. PR #19 stays based on main; no main merge. W3 must be rebased onto this updated tip.
+
+## Task W progress — W3 Ask Rosina (2026-10-30)
+
+| Step | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|
+| W1 — PR #17 | yes | primitive reads exist; real login unavailable | fixture-tested; live not tested; NOT DONE |
+| W2 — PR #19 | yes, six personas | login/reset/create unavailable | mock-tested, 61 tests; live not tested; NOT DONE |
+| W3 — PR #20 | yes, mock | Rosina endpoint/proxy target unavailable | mock-tested, 78 tests; live not tested; NOT DONE |
+| W4 | not started | awaiting real services | not tested |
+
+This branch was created from main 72c1cf5 and carries shared policy + W2 prerequisite commits,
+without W1's GraphQL adapter. After Bryan merges earlier steps, rebase onto main, deduplicate
+prerequisites and reconcile App's connected entry. No agent merge. No step is DONE yet.
+
+### W3 surfaces and authority
+
+- Ask Rosina appears on every mock screen, including entry. **Unavailable live**, explicitly
+  scripted mock. Desktop dock; mobile sheet with close/Escape. History uses the existing
+  ChatMessage model in memory, scoped to persona; each request sends prior role/content messages.
+  Switching aborts/discards pending replies and removes draft/thread/pending confirmations.
+- Current-screen explanation is **derived** from implemented UI behavior. Recommendation
+  explanation is **derived** from the current recorded candidate reasonCode, never invented
+  ranking reasons. Mock afternoon answer reads the current pickup status and does not imply
+  a complete calendar. Care answer is **derived** from the care-plan fixture, cited verbatim.
+- The catalog owns id/label/schema/handler/changesData/implemented. Unknown/bad/unimplemented
+  actions are dropped. Routes are built locally; a person must occur in the available village
+  projection. Child scope is rechecked for pickup. Model-written HTML and links remain plain text.
+- Pickup execution is **unavailable live**: mock review always passes through the app-owned
+  confirmation dialog, even if a response says no confirmation is needed. Cancel performs no
+  action. Confirm consumes the card; the reply explicitly says no live job was created.
+- Service adapter POST /api/rosina attaches the user bearer and client history, checks response
+  shape, and refuses missing sessions. The live snack flow returns exactly “I can't confirm that
+  yet” until the approved v2 care-rule integration exists. No guessed service port/proxy target.
+- Contract: docs/contracts/ask-rosina.md. Its clearly marked coordination-v2 section defines no
+  future IDs or args. Every current catalog entry has implemented. Family Calendar is deferred.
+
+Validation run: root typecheck PASS; staged secret scan PASS; **78 web tests PASS**; production
+build PASS (existing >500kB warning). Seventeen Rosina tests cover all seven acceptance examples,
+unknown/bad/unimplemented actions, app confirmation despite a response's bypass claim, Cancel,
+plain text/links, bearer/history shape, live care uncertainty and late reply/persona isolation.
+Playwright CLI exercised all seven scripted examples, no cross-family disclosure, confirmed mock
+pickup, Kendra → Priya conversation clearing, actual Loretta card routing, mobile close/Escape,
+and additional boundary replies as Andre, Dana and Jax's family. These are scripted mock checks,
+not W4 independent exploration or evidence of a live model. Desktop/mobile screenshots:
+web/evidence/task-w/w3-desktop.png and w3-mobile.png.
+
+Browser finding, corrected (verbatim initial mock reply): “You can open an available person card
+from your own village.” The requested Tasha card was absent from that mock projection, so the
+catalog correctly dropped it; the mock now resolves named people from the available projection
+and explicitly explains an unavailable card. Loretta's card was exercised successfully. No live
+Rosina model ran, so there are no live model errors to report or conceal.
+
+BRANCH: feat/web-ask-rosina; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina
+TASK: catalog-controlled Ask Rosina with seven scripted flows and private client-side history.
+LAYER: frontend and companion frontend contract/handoff (plus shared prerequisites).
+TOUCHED: web/src/features/rosina/, web/src/App.tsx, web/src/app/Shell.tsx,
+  web/src/app/Shell.test.tsx, web/src/features/village/LivingVillage.tsx,
+  web/src/features/personas/Session.test.tsx, web/evidence/task-w/, docs/contracts/ask-rosina.md,
+  docs/handoff/HANDOFF.md. Earlier prerequisites are separately committed.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (78);
+  npm --prefix web run build; real service + W4 exploration/browser runs still required.
+NOT DOING: schema/auth/DB, service implementation, Family Calendar, future v2 catalog definitions,
+  real outreach, merge/tag/release.
+BLOCKERS: Bentley's authenticated demo login/scopes, Rosina service URL/port and endpoint,
+  no-history-persistence guarantee, live pickup handler integration, reset/create APIs,
+  jobTimeline and Attempt.candidate. W4 must report actual model mistakes verbatim.
+
+W3 PR: https://github.com/Pettybytes/fridgegraph/pull/20 (draft, pushed). Resume map: W1 #17
+(61 tests), W2 #19 (61 tests), W3 #20 (78 tests). No steps DONE; UI complete and explicit mocks
+are tested, while real backend integration remains untested. Main still 72c1cf5. After Bryan
+merges earlier steps, rebase/deduplicate prerequisites and reconcile App with W1; never merge.
+
+### Task W pre-merge copy corrections — W3 (current)
+
+W3 is rebased onto updated W2, with W1 beneath it; duplicate shared policy/privacy commits were
+removed. PR base remains main. Resolve future upstream merges by rebasing, never merging here.
+Scripted replies lead with the answer or clearly state what cannot be confirmed, then cite recorded
+evidence. The snack answer begins “No, Nora has a peanut allergy.” and quotes the care plan.
+Its source is “Nora's care plan”: no path, table name, workflow enum or invented “added by Kendra”.
+Current source record has no author metadata. Future author attribution must come from the record.
+Other sources say “the pickup plan” or “Nora's pickup plan”, with readable status labels.
+Sharing boundaries use catalog-validated open-screen cards for care information and Ask Rosina.
+Care cards are filtered by actual mock care access; the care screen checks that access again.
+Schedule remains explicitly unavailable, with no usable schedule card and no Family Calendar.
+The same catalog owns implemented flags, schemas, labels and route construction for both the
+empty-state cards and conversation cards. Current routes add care-information and ask-rosina;
+no future coordination-v2 entries are defined. Display labels say “Open care information” etc.
+Demo conversation/confirmation copy describes the effect to the person, without implementation
+terms. UI identity unchanged; household grouping and portrait initials come from W2.
+Additional path: web/src/features/rosina/CatalogCards.tsx. Scope is frontend + companion contract
+and handoff only. Live services remain unavailable; no auth/schema/DB changes or merge.
+Validation: root typecheck/secret scan/build PASS; web tests and desktop/mobile Playwright checks
+cover revised acceptance flows, answer-before-evidence, plain sources, no invented author, role-aware
+sharing cards, care access filtering, persona privacy and confirmation. See final counts below.
+Screenshots: web/evidence/task-w/w3-copy-desktop.png and w3-copy-mobile.png (new artifacts; old retained).
+
+Current pre-merge validation: **88 web tests PASS**, root typecheck PASS, staged secret scan PASS,
+production build PASS. Playwright CLI exercised all seven revised replies, care sharing cards,
+mobile Ask Rosina navigation/Escape, and Loretta's absence of care cards/private care text.
+The stack will receive W1's final readable relationship labels before the final push.
+
+Final W3 stack validation: W1 → W2 → W3 ancestry verified after the requested rebase. Final root
+typecheck, staged secret scan, web build and **88 web tests PASS**. W1 has 62 passing tests; W2 has
+70 passing tests. The current three-state table above still applies: UI complete; real backend
+services incomplete/unavailable; only fixture/mock integration tested; none DONE. PRs remain draft.
+A mobile browser check initially timed out waiting for “Open care information” after navigating
+to Ask Rosina (TimeoutError: locator.click, waiting for getByRole('link', { name: 'Open care information', exact: true })).
+The check was corrected to return to Mission Control first; the same care navigation and Loretta
+privacy assertions then passed. No assertion was relaxed and no app failure was called expected.
+Sources must remain plain language and record-authored; author metadata remains a nonblocking
+Bentley follow-up. Final rebased feature tip is pushed with a lease, never to main. No merge.
+
+Final main update: the whole stack is rebased above main 3ad23eb (Coordination v2 contract, PR #18,
+docs only): main → W1 → W2 → W3. W1/W2 code checks remain 62/70 PASS. W3's reserved contract section
+now acknowledges the merged document and waits for backing migrations/services, not merely a doc.
+A stale Area G sentence claiming current v1 catalog entries already had implemented:false was
+corrected to describe their available mock handlers and unavailable live execution; future v2
+wrappers remain unimplemented. This is a UI-reference correction only, with no new v2 action
+IDs, schema or authorization rule. Touched packet additionally includes that paragraph of
+docs/contracts/coordination-v2.md. Four future households and Family Calendar remain outside this
+copy pass; their actual backing data/migrations have not landed in this main update.
+
+Final publication check after main 3ad23eb and the approval-copy correction: ancestry verified
+main → W1 → W2 → W3; post-rebase checks actually run and observed PASS: W1 62, W2 70, W3 88 web
+tests, plus each branch's root typecheck, secret scan and web build. Human “Pickup marked confirmed”
+never substitutes for separate Confirmation evidence; recommendation copy calls parent approval
+a separate decision, not an inferred fact. All three PRs are draft and live integration remains
+untested/NOT DONE. Copy corrections and screenshots are published on their owning branches.
+
+### Task W squash-merge rebase — main 215df4a
+
+Bryan squash-merged W1 (#17) as 215df4a. W2 was replayed with
+`git rebase --onto origin/main 1880d70 feat/web-persona-picker`; W3 was replayed with
+`git rebase --onto feat/web-persona-picker 05475c9 feat/web-ask-rosina`.
+Range-diff verified all five W2 patches and all six W3 patches unchanged. Pre-squash W1 commits
+were removed from both branches' pending history. No UI, schema, auth or database changes.
+Observed checks after rebasing: W2 **70 web tests PASS**, W3 **88 web tests PASS**; root typecheck,
+secret scan (zero findings), and web production build PASS on both. Existing bundle warning remains.
+
+BRANCH: feat/web-persona-picker (#19), feat/web-ask-rosina (#20); existing sibling worktrees.
+TASK: restack W2/W3 after W1's squash merge, without reintroducing W1's original commits.
+LAYER: frontend history and this companion handoff only.
+TOUCHED: commit ancestry only; docs/handoff/HANDOFF.md records this rebase.
+DONE WHEN: both branches pass web tests, typecheck and secret scan, are pushed with leases,
+  and GitHub reports MERGEABLE against main. Live integration remains a separate pending task.
+NOT DOING: UI changes, merging, tags, releases, backend/auth/schema/database work.
+BLOCKERS: none found in the rebase or local checks; verify GitHub's refreshed state after pushing.

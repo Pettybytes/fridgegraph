@@ -1,0 +1,45 @@
+.sandbox-banner { margin: 0; padding: .75rem 1.25rem; background: #eae3f3; color: #483367; text-align: center; font-size: .8rem; line-height: 1.5; }
+.persona-entry { max-width: 1080px; margin: auto; padding: 2rem 2rem 4rem; }
+.persona-brand { display: inline-flex; align-items: center; gap: .6rem; font-size: 1.4rem; font-weight: 700; color: #26344c; text-decoration: none; }
+.persona-brand svg { color: #7559a1; }
+.persona-intro { margin: 4rem 0 2.4rem; max-width: 40rem; }
+.persona-intro h1 { font-size: clamp(2.3rem, 4.5vw, 3.7rem); line-height: 1.1; letter-spacing: -.055em; color: #26344c; }
+.persona-intro p { line-height: 1.65; color: #56667e; font-size: 1.1rem; margin: 1rem 0; }
+.persona-mock { color: #7559a1; font-size: .8rem; }
+.persona-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.persona-card { display: flex; text-align: left; align-items: center; gap: 1rem; padding: 1.4rem 1.1rem; border: 1px solid #d4cadd; border-radius: 1.1rem; background: white; min-height: 140px; color: #26344c; cursor: pointer; }
+.persona-card:hover { border-color: #7559a1; background: #f8f5fc; }
+.persona-card > svg { margin-left: auto; flex-shrink: 0; color: #7559a1; }
+.persona-card strong, .persona-card small { display: block; }
+.persona-card strong { font-size: 1.15rem; margin-bottom: .45rem; }
+.persona-card small { line-height: 1.5; color: #56667e; }
+.persona-initial { width: 2.8rem; height: 3.5rem; flex-shrink: 0; display: grid; place-items: center; border-radius: 1.4rem 1.4rem .7rem .7rem; background: #eae3f3; color: #624389; font-size: 1.35rem; font-weight: 650; }
+.persona-tone-1 .persona-initial, .persona-tone-5 .persona-initial { background: #dfe8f1; color: #3a506b; }
+.persona-tone-2 .persona-initial { background: #e9e4da; color: #786243; }
+.persona-tone-3 .persona-initial { background: #dcece6; color: #386c5a; }
+.persona-tools { display: flex; justify-content: space-between; margin-top: 1.8rem; }
+.persona-tools button, .session-chip button { color: #624389; background: transparent; text-decoration: underline; text-underline-offset: .25rem; cursor: pointer; }
+.session-chip { padding: .8rem 1.25rem; background: white; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .5rem 1rem; font-size: .85rem; border-bottom: 1px solid #e0e5ee; }
+.demo-family { margin-top: 2rem; padding: 1.5rem; border-left: 3px solid #7559a1; background: white; }
+.demo-family h2 { font-size: 1.25rem; font-weight: 650; }
+.demo-family p { margin: .8rem 0; color: #56667e; }
+.demo-family form { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
+.demo-family label { display: grid; gap: .4rem; }
+.demo-family input { padding: .7rem; border: 1px solid #c5b9d6; border-radius: .5rem; }
+.demo-family button { padding: .75rem 1rem; background: #7559a1; color: white; border-radius: .5rem; }
+.persona-entry button:focus-visible, .session-chip button:focus-visible { outline: 3px solid #7559a1; outline-offset: 4px; }
+.persona-entry button:disabled { opacity: .55; cursor: wait; }
+@media(max-width: 760px) { .persona-grid { grid-template-columns: repeat(2, 1fr); } .persona-entry { padding: 1.4rem; } .persona-card { padding: 1rem; } .persona-card > svg { display: none; } }
+@media(max-width: 440px) { .persona-grid { grid-template-columns: 1fr; gap: .7rem; } .persona-card { min-height: 100px; } .persona-intro { margin-top: 2.5rem; } .persona-card > svg { display: block; } }
+
+.persona-group { margin-top: 1.8rem; }
+.persona-group > h2 { font-size: 1.15rem; font-weight: 650; color: #3a506b; margin-bottom: .85rem; }
+.persona-portrait { display: grid; place-items: center; width: 3.5rem; height: 4.2rem; flex-shrink: 0; }
+.care-information, .persona-access-state { max-width: 42rem; background: white; border: 1px solid #d4cadd; border-radius: 1rem; padding: 1.4rem; margin: 1rem 0; }
+.care-information h2, .persona-access-state h2 { font-size: 1.2rem; font-weight: 650; margin-bottom: .8rem; line-height: 1.4; }
+.care-information p, .persona-access-state p { line-height: 1.65; }
+.care-information p:last-child, .persona-access-note { color: #62708a; font-size: .8rem; margin-top: .6rem; }
+.persona-access-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.2rem; }
+.persona-access-card { padding: .8rem 1rem; border: 1px solid #c9b9df; border-radius: .6rem; color: #624389; background: #fbf9fd; text-decoration: none; font-size: .85rem; }
+.persona-group .persona-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media(max-width: 440px) { .persona-group .persona-grid { grid-template-columns: minmax(0, 1fr); } }

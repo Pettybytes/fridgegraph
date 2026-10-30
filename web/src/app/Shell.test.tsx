@@ -6,9 +6,11 @@ import { DataProvider } from '@/lib/frontendData/provider'
 import { createMockAdapter, demoScope } from '@/lib/frontendData/mockAdapter'
 beforeEach(() => { window.location.hash = '' })
 describe('app shell', () => {
-  it('opens Mission Control by default with an honest demo label', () => {
+  it('opens the persona picker before private Mission Control data', async () => {
     render(<App />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Mission Control')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Try FridgeGraph as…')
+    fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mission Control' })).toBeVisible()
     expect(screen.getByText('Fictional demo')).toBeVisible()
   })
   it('supports direct links and an injectable Living Village slot', () => {
@@ -17,15 +19,19 @@ describe('app shell', () => {
     expect(screen.getByText('Village integration slot')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Living Village' })).toHaveAttribute('aria-current', 'page')
   })
-  it('navigates on hash changes', () => {
+  it('navigates on hash changes', async () => {
     render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
+    await screen.findByText('Signed in as Kendra')
     window.location.hash = '#/parent-chat'
     fireEvent(window, new HashChangeEvent('hashchange'))
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Parent chat')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Ask Rosina')
   })
-  it('provides recovery for an unknown route', () => {
+  it('provides recovery for an unknown route', async () => {
     window.location.hash = '#/missing'
     render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
+    await screen.findByText('Signed in as Kendra')
     expect(screen.getByRole('link', { name: 'Go to Mission Control' })).toBeVisible()
   })
 })

@@ -9,6 +9,8 @@ import App from '@/App'
 it('keeps the village module deferred until its route is selected', async () => {
   window.location.hash = ''
   render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
+  await screen.findByText('Signed in as Kendra')
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Mission Control')
   expect(moduleLoad.count).toBe(0)
   window.location.hash = '#/village'
