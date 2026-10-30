@@ -806,3 +806,16 @@ to.
 
 PR #14 squash-merged to `1a576a7`; `origin/main` now carries `0019` and `0020`, matching the shared
 database. Rebase applied cleanly with no conflicts.
+
+### Pre-call hardening (2026-10-29, before the Web Call)
+
+| Step | Result |
+|---|---|
+| 1 | Voice Turn validates `attemptId` from body **or** query: both and different → **400 CONFLICTING_ATTEMPT_ID**; missing or not `^att_[a-f0-9]{24}$` → **400 MALFORMED**. Neither is forwarded. (The first attempt used a multi-output Code node, which n8n rejects — "Code doesn't return items properly"; replaced with a single output plus an IF node, typeVersion 2.2.) |
+| 2 | `FG_GHL_ACTION_TOKEN` generated in-process, written to `.env` atomically (length 43, never printed); credential **FridgeGraph GHL Action** `r3SFGMCVCgINZFL7` (header `X-FG-Action-Token`); webhook `authentication: headerAuth`, workflow active. |
+| 3 | Fresh job `job_32b3a61e9dca4235a2bee45be0da2544`, status `discovering`, `inside_window: true`, attempt `att_1cb9b493444a016634339280` bound to `p_gma`. |
+| 4a | query-only CONTINUE → **200** `status=CONTINUE, note=no_state_change`; candidate row identical; `webhook_events` delta **0**. |
+| 4b | missing id → **400 MALFORMED**; conflicting ids → **400 CONFLICTING_ATTEMPT_ID**; no mutation, delta 0. |
+| 4c | no token → **403** `Authorization data is wrong!` — n8n's header-auth returns 403, **not 401**. Enforcement holds; the status code differs from the instruction and is reported rather than dressed up. |
+| 4d | DECLINED deliberately not tested (it would consume the attempt). |
+| 5 | `docs/ghl/rosina-custom-action.md` carries the query parameter, the token header (copy-to-clipboard command, no value), the trigger wording, and the rehearsal literal id with a checklist item to restore `{{contact.fg_attempt_id}}` before Session 3. |
