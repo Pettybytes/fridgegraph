@@ -3,6 +3,7 @@ import { useSession } from './Session'
 export function PersonaAccessState({ surface, actions }: { surface: 'pickup' | 'village'; actions?: ReactNode }) {
   const { session, switchPerson } = useSession()
   if (!session) return null
+  if(session.persona.id==='demo-guide')return <section className="persona-access-state" role="alert" data-state="unavailable"><h2>Demo guide pickup view isn’t connected yet.</h2><p>Guide access is read-only. Explore the fictional ecosystem in Living Village.</p><a className="persona-access-card" href="#/village">Open Living Village</a></section>
   const child = session.scope.childName.split(' ')[0]
   const grants = session.persona.grants
   const shared = [grants.includes('schedule.read') && 'schedule', grants.includes('careplan.read') && 'care information', grants.includes('goals.read') && 'goals'].filter(Boolean) as string[]

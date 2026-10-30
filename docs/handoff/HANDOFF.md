@@ -9,10 +9,13 @@ _Last updated: Oct 30, 2026. Merged origin/main `f71a5ed` (Village v2 #22) into 
 **Resume rule:** skip every step marked DONE; continue at the first not-DONE step. Work in groups;
 each group is its own branch off the main state it records below, and one PR. Never merge.
 
+**Reserved evidence numbers:** `34` = E0 (Bentley). Next free = **Task R** (Claude Code, Rosina
+service). Always check `docs/evidence/` before numbering.
+
 | Group | Branch | Base | State |
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
-| 1 | `feat/e-group1` | branch off main after #9 merges | not started |
+| 1 | `feat/e-group1` | off `feat/level-b-drafts` **`a5a9ae9`** (PR #9 unmerged; rebase onto main after it merges) | **E0 DONE — PR #23 (draft, stacked on #9)** |
 | 2 | `feat/e-group2` | | not started |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
@@ -41,6 +44,37 @@ text. Treat as an open voice defect, not a pass.
 **Saturday fix (from Session 3, carried here):** a **mint path that takes `destination_mode`**, so a
 real call does not need the direct-job-insert deviation recorded in evidence 33 §2. Group 1 E0 is the
 designed replacement for that deviation.
+
+### Group 1 (E0) — DONE (branch `feat/e-group1`, base `a5a9ae9`)
+
+**Before:** `ops/dispatcher.mjs` never called `consume_real_call_authorization` and had no PostgREST
+access; consumption was a **manual** runbook step, and `open_attempt(REAL_CONSENTED)` consumed
+nothing. That is the manual hole E0 closes.
+
+**Migration `0023_promote_real_consented.sql`** (applied; forward-only):
+`promote_attempt_to_real_consented(attempt, contact)` **validates** an authorization bound to job +
+candidate + recipient + the job's `request_version`, rewrites that undispatched `TEST_RESPONDER`
+attempt to `REAL_CONSENTED` (destination = the GHL contact), attaches the authorization — and
+**does not consume**. It raises for missing/expired/reused/wrong-recipient/wrong-version credentials,
+a closed attempt, a non-discovering job, or a double promote. `service_role` only.
+
+**One consumption point:** the dispatcher now calls the existing atomic
+`consume_real_call_authorization` immediately before the webhook POST and aborts on `false`
+(`CONSUME_REFUSED — no call placed`). `--dry` consumes nothing. No second attempt is ever opened, so
+the `(job_id, candidate_id)` constraint is not in play.
+
+**Proof:** `ops/0023-dry-run.mjs` — **23/23 PASS** inside a rolled-back transaction, including
+“promotion did not consume”, “consume once true, twice false”, and promotion refused without an
+authorization. Evidence `34-e0-real-call-mint.md`.
+
+**Runbook:** §3 rewritten — mint via `request_pickup` → issue authorization → promote → dispatch
+consumes. **No direct job insert anywhere in the path.**
+
+**Rosina tools:** none added (this step is a mutation path; mutations are never exposed).
+
+**PR #23** (draft, base `main`, stacked on #9 — rebase after #9 merges). Head `60d3cf5`.
+**Next:** Group 2 (E1/E2/E3) branches off `feat/e-group1` while #9 and #23 are unmerged, and rebases
+after each merge.
 
 
 ## 1. State
@@ -1043,6 +1077,65 @@ backend and #23 is E0 mint-path work stacked on it — not the required v2/auth/
 these undelivered services; do not label a mock-backed end-to-end run as live evidence.
 Follow-up staged secret scan PASS: 295 files, zero findings. Diff remains web + companion docs.
 
+## Task MC — demo-ready Mission Control
+
+BRANCH feat/web-mission-control-v2; WORKTREE ../fridgegraph-web-mission-control-v2.
+BASE origin/main f71a5edb5bdcc33a129bf04f342cc9da953a5854 (#22 squash already merged when
+Bryan's command was attempted; verified MERGED on GitHub, main pulled fast-forward only).
+LAYER web + companion docs. TOUCHED mission-control/v2, App entry, persona boundary copy,
+frontend-data §1.4 clarification, handoff, evidence. Never merge this task's PR.
+UI in progress · backend awaiting W4 reads · integrated not yet tested.
+No invented ringing/policy timestamps: current mock sources contain no such individual records.
+No-driver night has no timed lifecycle; show its supplied state without synthetic timestamps.
+No live auth/schema/DB/server or pricing logic changes. Approval is a local recorded replay;
+no contacts, provider booking, payment or real approval write.
+
+Task MC implemented: source-backed normal replay with Play/Pause/Next/Restart and four
+parallel candidate lanes. Original Detroit event times include seconds; presentation pacing
+is explicitly condensed. Individual replies become visible only when their recorded evaluation
+is reached. Monique's no-answer timeout is a system observation, never Bryan's explicit decline.
+Candidate detail pauses replay. Replay stops at parent review and never auto-approves.
+Tasha's explanation joins authorized pickup-candidate, human availability, recorded transport
+and straight-line distance facts. Kendra is the recorded Wednesday approver; Andre is read-only.
+Other personas receive their own role-aware boundary or no-job state, not Nora's private data.
+
+No-driver night is its own supplied over-limit scenario: only Loretta's recorded willing/no-car
+option, $12.40 estimate and exact basis. No imported normal-night candidate outcomes. The source
+has no attempt metadata, event times or confirmation time for that path; current state and
+explicit acceptance remain visible with those gaps stated. Separate app confirmation and
+checkbox are mandatory; no contacts, provider actions, spending or live approval writes occur.
+Normal parent approval replays the existing 2026-10-28T15:14:00Z evidence, not the current clock.
+
+Contract drift fixed in frontend-data §1.4: TEST_RESPONDER now reads “Test responder”, distinct
+from explicitly “Simulated” activity and “Real call (consented)”. No new backend enum invented.
+Normal mock attempts all have the recorded Test responder state; real-consented badge coverage
+is a component test, never a claim that such a call occurred in this job. Missing mode is
+unavailable. Confirmation mode derives from its candidate's attempt, not a global demo flag.
+
+| Surface | UI | Backend (Bentley) | Integrated + tested |
+|---|---|---|---|
+| Mission Control v2 | complete on mocks | timeline/candidate/mode reads await W4 | mock tested; live NOT DONE |
+| No-driver review | complete on supplied mock path | actual approval/readback integration pending | mock tested; live NOT DONE |
+
+Observed verification: root typecheck PASS; **150 web tests PASS** (137 baseline + 13 new);
+production build PASS (existing chunk-size advisory). **Four Playwright flows PASS**: desktop
+full job and over-limit confirm; mobile full replay and no-driver sheet; Priya sharing boundary;
+Andre read-only review. Screenshots/proof: web/evidence/mission-control-v2/ (request, outreach,
+recommendation, approval and no-driver decision/confirm, desktop + mobile). Legacy component,
+adapter, pricing-policy and persona tests retained. Initial unused import and modal-hidden
+selector failures corrected; useful candidate-detail selection restored without relaxing the
+existing persona-isolation assertion. Detail: docs/contracts/mission-control-v2.md.
+
+W4 needs delivered authenticated approver rights, jobTimeline, Attempt.candidate/destinationMode,
+timeout-vs-decline evidence and approval readback. Ringing/receipt/policy-check events can appear
+only when actually recorded. Live integration stays queued; no Task MC step is marked DONE.
+Diff reviewed: web + companion docs only. Never merged/tagged/released this task's branch.
+Final staged secret scan PASS: 303 files, zero findings. Mock evidence only; no live service
+acceptance claimed. Task MC remains UI complete · backend pending · mock integrated/tested.
+Published draft PR **#25**: https://github.com/Pettybytes/fridgegraph/pull/25.
+Implementation 0236ad0; GitHub reports MERGEABLE. Task MC not merged; live integration NOT DONE.
+
+**Bridging note (Task R-FIX, 2026-10-30, second sync):** Task MC (#25) and Task R/Task R-FIX (#24) both appended at this same point in the file; both are kept below in full, nothing rewritten. Task MC's own W4 needs and Task R's "Rosina tools available" table are independent — Task MC needs jobTimeline/Attempt.candidate/destinationMode reads, Task R needs CoordinationJobs/CandidateEvaluations, CarePlan, village-directory and events/practices reads; neither list supersedes the other.
 **Bridging note (Task R-FIX, 2026-10-30):** the W4 readiness audit above (just before this point) found the Rosina service checkout had "uncommitted implementation work but no 'Rosina tools available' readiness entry." That gap is closed below — see "Reserved evidence numbers" and "Task R — live Ask Rosina service" for the readiness table, and "Task R-FIX" for the PR #16 alt-stack reconciliation this merge performs. The W4 table's "POST /api/rosina ... readiness marker absent" row is stale as of this commit; W4 should re-check PR #24 directly rather than trust that row going forward.
 
 ## Reserved evidence numbers

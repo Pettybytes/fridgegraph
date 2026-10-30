@@ -95,3 +95,19 @@ Nothing was deleted. No unrelated job was closed to make a count reach zero.
    paid ride.
 
 Both remain open. The next real-call or Web Call test must answer these directly.
+
+---
+
+## Addendum — Web Call correction (Bryan, 18:12 ET)
+
+**The answer in the Web Call was “Yes”. The “no car” clause was never said.** ACCEPTED
+(`ANSWERED_YES`, `available=true`, then `OVER_POLICY` with the 12.40 estimate) was therefore the
+**correct** outcome for what was actually said — not a defect. §4 above is superseded on that point.
+
+What remains untested:
+
+- the **“no car” path** → DECLINED / NO_TRANSPORT → `AVAILABLE_NO_TRANSPORT`;
+- the **single-opener** check.
+
+The next real call covers both. The real dial finding in §1 (placed once, unanswered, recipient's
+line busy, no decision) is unchanged.
