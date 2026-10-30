@@ -1285,3 +1285,15 @@ CI checks pass: `typecheck + secret scan` (18s), `web build` (25s). `git diff or
 `ops/rosina-probe.mjs`, `package.json`, one proxy line in `web/vite.config.ts`, this handoff, and
 `docs/evidence/35-rosina-service.md` — nothing from #16/#9 leaks into the diff despite the merge.
 Not merged — Bryan merges.
+
+**Second sync (2026-10-30):** main advanced again — #23 (E0, `cccbbd2`) and #25 (Mission Control
+v2, `7b4bb14`) both merged. `git merge origin/main` → one conflict, `docs/handoff/HANDOFF.md`
+only (both #25 and this branch had appended at the same point); resolved by keeping Task MC
+(#25) in full, then this branch's sections in full, plus a short bridging note — no past entry
+rewritten. `ops/alt-stack.sh` and everything else merged clean (no second conflict there).
+Re-ran the full battery: `npm run typecheck` clean; `npm run check` (358 files, 0 findings);
+`npm run check:rosina-catalog` PASS; `npm run test:rosina` 8/8 PASS; `npm --prefix web test`
+**150 PASS** (137 + Mission Control v2's 13 new). `git diff origin/main...HEAD --stat` confirms
+the diff is still exactly this PR's own layer (same 12 files as above). Pushed to `d085628`;
+`gh pr view 24` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
+merged — Bryan merges.
