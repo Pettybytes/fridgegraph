@@ -15,6 +15,7 @@ import { test } from 'node:test';
 import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
 import { runRosinaTurn, type McpClientLike } from './model';
+import { scopedRoster } from './roster';
 import { buildSystemPrompt } from './systemPrompt';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
@@ -70,7 +71,7 @@ function stubMcp(byChild: Record<string, McpToolCall>): McpClientLike & { calls:
 const UNAUTHORIZED: McpToolCall = { data: null, errors: [{ message: 'UNAUTHORIZED', extensions: { code: 'UNAUTHORIZED' } }], isError: true, raw: null };
 const CANDIDATES_OK: McpToolCall = { data: { pickupCandidates: [{ person: { id: 'p_gma', displayName: 'Loretta Brooks' }, reason: 'grandmother', authorization: 'AUTHORIZED', availability: 'UNKNOWN' }] }, errors: [], isError: false, raw: null };
 
-const baseOptions = { message: 'test', currentRoute: '#/mission-control', history: [], bearer: 'unused-test-token', provider: 'meta' as const, mcpUrl: 'http://unused/mcp', providerConfig: FAKE_CONFIG };
+const baseOptions = { message: 'test', currentRoute: '#/mission-control', history: [], bearer: 'unused-test-token', personId: 'p_mom', isGuide: false, provider: 'meta' as const, mcpUrl: 'http://unused/mcp', providerConfig: FAKE_CONFIG };
 
 test('an unauthorized persona (Priya case): start-pickup proposed with no PickupCandidates call at all is dropped', async () => {
   const mcp = stubMcp({});
@@ -175,7 +176,80 @@ test('a non-allowlisted MCP tool name is refused without ever calling the MCP cl
 });
 
 test('the system prompt tells the model it cannot see the caller\'s role (the actual fix for the capability-fabrication finding)', () => {
-  const prompt = buildSystemPrompt();
+  const prompt = buildSystemPrompt([{ id: 'p_nora', name: 'Nora Ellison' }], false);
   assert.match(prompt, /NO tool that tells you the caller's own role/);
   assert.match(prompt, /Never assert what the signed-in person "can" do/);
+});
+
+// --- TASK R-LEAK: the roster the model is told about is scoped per caller, never global ---
+
+test("Kendra's system prompt names Nora and does not name Jax", () => {
+  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false);
+  assert.match(prompt, /\bNora\b/);
+  assert.doesNotMatch(prompt, /\bJax\b/);
+});
+
+test("Jax's family's system prompt names Jax and does not name Nora", () => {
+  const prompt = buildSystemPrompt(scopedRoster('p_ray', false), false);
+  assert.match(prompt, /\bJax\b/);
+  assert.doesNotMatch(prompt, /\bNora\b/);
+});
+
+test("Dana's system prompt names only her own child, no child she can't see", () => {
+  const prompt = buildSystemPrompt(scopedRoster('p_dana', false), false);
+  assert.match(prompt, /\bJax\b/);
+  for (const foreign of ['Nora', 'Emma', 'Taylor', 'Micah', 'Malik']) assert.doesNotMatch(prompt, new RegExp(`\\b${foreign}\\b`));
+});
+
+test("the Demo guide's system prompt names every sandbox child and is labeled as the broad exception", () => {
+  const prompt = buildSystemPrompt(scopedRoster('p_demo_guide', true), true);
+  for (const child of ['Nora', 'Jax', 'Emma', 'Taylor', 'Micah', 'Malik']) assert.match(prompt, new RegExp(`\\b${child}\\b`));
+  assert.match(prompt, /Demo guide only/);
+});
+
+test('an unrecognized personId gets an empty roster — no child is ever named on a guess', () => {
+  const roster = scopedRoster('p_some_unlisted_person', false);
+  assert.deepEqual(roster, []);
+  const prompt = buildSystemPrompt(roster, false);
+  assert.match(prompt, /none recorded for this account/);
+});
+
+// --- TASK R-LEAK: the output guard catches a leak even if the model says it anyway ---
+
+test('output guard: a stubbed reply naming Jax to Kendra is replaced with the scoped refusal', async () => {
+  const mcp = stubMcp({});
+  const chatFn = scriptedChat([
+    chatResult({ content: 'Which child do you mean? I only know Nora and Jax by name.' }),
+  ]);
+
+  const result = await runRosinaTurn({ ...baseOptions, personId: 'p_mom', isGuide: false, chatFn, mcpClientFactory: () => mcp });
+
+  assert.equal(result.reply, 'I can only help with children shared with you.');
+  assert.equal(result.outputGuardTriggered, true);
+  assert.deepEqual(result.actions, [], 'actions are dropped too once the guard fires, fail closed');
+});
+
+test('output guard: the SAME reply text naming Jax passes for the Jax family (it is their own child)', async () => {
+  const mcp = stubMcp({});
+  const chatFn = scriptedChat([
+    chatResult({ content: "Jax's pickup records show four authorized people." }),
+  ]);
+
+  const result = await runRosinaTurn({ ...baseOptions, personId: 'p_ray', isGuide: false, chatFn, mcpClientFactory: () => mcp });
+
+  assert.equal(result.reply, "Jax's pickup records show four authorized people.");
+  assert.equal(result.outputGuardTriggered, false);
+});
+
+test('output guard: a name grounded in this turn\'s own tool result is not a leak', async () => {
+  const mcp = stubMcp({ p_nora: CANDIDATES_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'PickupCandidates', { childId: 'p_nora' })] }),
+    chatResult({ content: 'Loretta Brooks may be asked to pick up Nora today.' }),
+  ]);
+
+  const result = await runRosinaTurn({ ...baseOptions, personId: 'p_mom', isGuide: false, chatFn, mcpClientFactory: () => mcp });
+
+  assert.equal(result.outputGuardTriggered, false, 'Loretta Brooks came from this turn\'s own PickupCandidates result for Kendra\'s own child');
+  assert.match(result.reply, /Loretta Brooks/);
 });

@@ -19,6 +19,8 @@
  * and the Bentley follow-up each blocked row needs.
  */
 import type { ModelTool } from '../muse/providers';
+import { SCOPED_REFUSAL } from './outputGuard';
+import type { RosterChild } from './roster';
 
 export const ACTION_TOOL_PREFIX = 'proposeAction_';
 
@@ -60,7 +62,7 @@ export const ACTION_TOOLS: ModelTool[] = [
         'only the parent review UI can confirm, and live confirmation is not wired to any write yet. YOU MUST ' +
         'CALL THIS TOOL (not just describe it in your text reply) as soon as you have all three values — ' +
         'calling it is the only way the card is actually offered. Only call ' +
-        'this once you have an exact childId (from the known roster below), an exact YYYY-MM-DD date, and a ' +
+        'this once you have an exact childId (from your own child/sandbox list in the system prompt), an exact YYYY-MM-DD date, and a ' +
         'window. If any of those is missing or ambiguous, ask the user in plain text instead of calling this.',
       parameters: {
         type: 'object',
@@ -76,16 +78,6 @@ export const ACTION_TOOLS: ModelTool[] = [
   },
 ];
 
-/** Public demo roster, written directly here (not imported from src/fixtures.ts, which is a
- * seed-time file — no runtime code imports it; see docs/handoff/HANDOFF.md §14). Names are not
- * secrets: every signed-in persona already sees these in Living Village. This mapping exists
- * only so the model can resolve a name the USER typed to the id a tool call needs; it grants
- * nothing — every tool call is still authorized downstream by RLS under the caller's own token. */
-const KNOWN_CHILDREN = [
-  { id: 'p_nora', firstName: 'Nora' },
-  { id: 'p_jax', firstName: 'Jax' },
-] as const;
-
 const BLOCKED_TOPICS = `Today this service can ONLY read one thing live: PickupCandidates (who may be asked to pick up
 a specific child, and why). Everything else below is NOT connected yet. If asked, say plainly
 that you can't confirm it yet — do not guess, do not describe mock/demo data as if it were real:
@@ -96,11 +88,20 @@ that you can't confirm it yet — do not guess, do not describe mock/demo data a
   say this isn't connected yet (no events/practices read exists yet)
 - Mission Control's current pickup status, or why a specific caregiver was already recommended
   for an existing job: say this isn't connected yet (no coordination-job read exists yet)
-- Another person's card or directory details beyond the two names you already know: say this
-  isn't connected yet (no village-directory read exists yet)`;
+- Another person's card or full village-directory details: say this isn't connected yet
+  (no village-directory read exists yet)`;
 
-export function buildSystemPrompt(): string {
-  const roster = KNOWN_CHILDREN.map((c) => `${c.firstName} (${c.id})`).join(', ');
+/** TASK R-LEAK: this roster is built per request, scoped to exactly the caller, by
+ * src/rosina/roster.ts#scopedRoster — never a hard-coded global list. An empty roster means this
+ * caller has no recorded child on this service; the model must ask rather than name anyone. */
+export function buildSystemPrompt(roster: RosterChild[], isGuide: boolean): string {
+  const rosterText = roster.length
+    ? roster.map((c) => `${c.name} (${c.id})`).join(', ')
+    : 'none recorded for this account';
+  const rosterLabel = isGuide
+    ? 'SANDBOX CHILDREN (Demo guide only — your role is documented as seeing the whole fictional ecosystem; names only, not a grant of access)'
+    : "YOUR CHILD ON THIS ACCOUNT (names only, not a grant of access — this is the only child you may ever name)";
+
   return `You are Rosina, FridgeGraph's village coordinator, speaking directly to a signed-in family member.
 
 IDENTITY AND ACCESS
@@ -110,9 +111,12 @@ access, not yours; a tool call about a family you cannot see will fail or come b
 is the graph protecting the family, not a bug — explain it plainly and never guess what the
 hidden data might say.
 
-KNOWN CHILDREN (names only, not a grant of access)
-${roster}. If the user names a child who is not on this list, or you are not sure which child a
-request means, ASK — do not guess an id.
+${rosterLabel}
+${rosterText}. ${isGuide
+    ? 'Do not invent a child beyond this list.'
+    : 'This is the ONLY child you know by name. You have NO knowledge that any other named child, family or person exists — not their name, not their count, not whether they exist at all. If the user names a different child, or any child not on this list, or asks about "another family," do not confirm, deny, count, or give an example of who else might be in the system. Reply with exactly this sentence and nothing else about scope: "' + SCOPED_REFUSAL + '"'
+  }
+If you are not sure which child a request means, ASK — do not guess an id.
 
 GROUNDING — MANDATORY
 1. Every factual claim about people, schedules, contact info or recommendations must come from a
@@ -130,6 +134,10 @@ GROUNDING — MANDATORY
    When asked "what can I do here", answer only by offering the explain-screen/open-screen cards
    for the app's screens; let the app itself (which does know the person's role) show what is
    actually available on each screen.
+9. Scope refusals are silent about what is being refused. When declining an out-of-scope child,
+   family or person, use exactly "${SCOPED_REFUSAL}" and nothing more about who or what exists —
+   never "I only know X and Y", never a count, never an example, even if the person asking already
+   said a name themselves. Naming who is NOT in scope is exactly as much a leak as naming who is.
 
 WHAT IS NOT CONNECTED YET
 ${BLOCKED_TOPICS}
