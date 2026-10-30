@@ -82,7 +82,7 @@ async page => {
   await page.evaluate(() => document.querySelector('#root').scrollTo(0, 0))
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) throw new Error('Mobile page overflows horizontally')
   await page.locator('.cal-day').first().evaluate(el => el.scrollIntoView({ block: 'start' }))
-  await page.screenshot({ path: 'web/evidence/task-cal/revision-1/rosa-week-mobile.png', fullPage: true })
+  await page.screenshot({ path: 'web/evidence/task-cal/revision-1/rosa-week-mobile.png', fullPage: false })
   const content = await page.locator('#root').boundingBox()
   const dock = await page.locator('.rosina-launcher').boundingBox()
   if (!content || !dock || content.y + content.height > dock.y) throw new Error('Launcher overlaps content viewport')
@@ -115,7 +115,7 @@ async page => {
   await page.evaluate(() => document.querySelector('#root').scrollTo(0, 0))
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) throw new Error('Mobile DST view overflows')
   await page.locator('.cal-day').first().evaluate(el => el.scrollIntoView({ block: 'start' }))
-  await page.screenshot({ path: 'web/evidence/task-cal/revision-1/dst-day-mobile.png', fullPage: true })
+  await page.screenshot({ path: 'web/evidence/task-cal/revision-1/dst-day-mobile.png', fullPage: false })
   results.push('Dwayne: DST repeated hour, overnight busy privacy and mobile day passed')
   return results
 }
