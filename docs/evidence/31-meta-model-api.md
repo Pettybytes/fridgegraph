@@ -119,3 +119,44 @@ target was 4/4; that number does not exist yet and is not being estimated. Baset
 
 The branch does not lack anything that only exists on unmerged #9 — `providers.ts` is on `main` and
 the `meta` provider is complete. The single blocker is the credential.
+
+---
+
+## Unblocked — 2026-10-30 (M2 attempt)
+
+Bryan replaced `META_API_KEY` (the old value had the Supabase JWKS URL glued to it). Probe now:
+`GET /models` **200**, `POST /chat/completions` **200**, model `muse-spark-1.3`. The 1-token probe is
+a reachability check, **not** a latency benchmark.
+
+### Harness
+
+Identical to the Baseten run in evidence 23/24:
+`--provider meta --person p_mom --child p_nora --as-of 2026-10-26 --mcp http://127.0.0.1:5051/mcp --json`
+against a freshly raised **offline** stack (subgraphs 4101-4107, router 4012, MCP 5051) so the
+GraphOS-connected router on 4010 and Task D's stack were untouched. Read-only: one query.
+
+### Result — ACCEPTANCE **NOT MET** (3/3 runs)
+
+| Run | Tool call | Args | Rounds | Latency | Tokens (p/c/t) | Grounded |
+|---|---|---|---|---|---|---|
+| 1 | `PickupCandidates` ✓ | `{childId: p_nora, asOf: 2026-10-26}` ✓ | 2 | 5797 ms | 1621 / 691 / 2312 | **no** |
+| 2 | `PickupCandidates` ✓ | same ✓ | 2 | 5533 ms | 1621 / 930 / 2551 | **no** |
+| 3 | `PickupCandidates` ✓ | same ✓ | 2 | 6776 ms | 1622 / 1107 / 2729 | **no** |
+
+Median latency **5797 ms**; median total tokens **2551**.
+
+**What worked:** Muse chose the right tool, with exactly the caller's child and date, one call, no
+invented tool, twice-round-trip loop formed correctly, and it reported the failure plainly instead
+of fabricating candidates ("Tool error: UNAUTHENTICATED, no candidates available."). That is the
+desired behaviour on a broken dependency.
+
+**What failed:** the MCP execution returned **UNAUTHENTICATED** on all three runs, so no candidates
+reached the model and the grounding check is `grounded: false` by construction. **Score is 0/4, not
+4/4** — reported as measured, not adjusted.
+
+Cause is in the harness/environment, not the model: the bearer is issued (807-char token, identity
+`p_mom`) and forwarded, but the offline stack rejects it. Not diagnosed further in this pass; the
+next step is to verify the alt subgraphs' JWKS verification path (`SUPABASE_JWKS_URL`) and confirm the
+router's `override_subgraph_url` actually took effect rather than routing to the shared stack.
+
+**PR #15 stays draft.** Step 1 does not meet 4/4 on any run.
