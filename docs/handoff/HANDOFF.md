@@ -803,3 +803,5 @@ seed correctness. No schema/auth/database/server changes. Never merged/tagged/re
 Final staged secret guard PASS: 292 files scanned, zero findings. Diff reviewed: web/ and
 companion contracts/handoff only. UI complete · backend pending · mock integrated/tested,
 live NOT DONE. No credentials needed or accessed.
+Published draft PR **#22**: https://github.com/Pettybytes/fridgegraph/pull/22.
+Implementation c582c1f; GitHub reported MERGEABLE. Not merged. Live integration remains NOT DONE.
