@@ -17,7 +17,7 @@ export function projectVillage(source: VillageData): VillageData {
     })),
   }
 }
-export function createMockAdapter(): FrontendAdapter {
+export function createMockAdapter(): FrontendAdapter & { readParentChat(scope: Scope): Promise<import('./types').ParentChatData> } {
   function assertScope(scope: Scope) {
     if (scope.childId !== demoScope.childId || scope.villageId !== demoScope.villageId) {
       throw new Error('UNAUTHORIZED')

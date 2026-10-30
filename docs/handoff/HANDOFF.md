@@ -355,45 +355,54 @@ no pinned `search_path` in the live database, unlike the repo's 0006.
 
 ## Task W progress — judge-ready web (2026-10-30)
 
-**Three states per step: UI complete · backend complete · integrated + tested. A step is DONE only
-when all three hold.** Branch per step off `main` (`72c1cf5`). Never merge; Bryan merges.
+Three states: UI complete · backend complete (Bentley) · integrated + tested. Only integrated
+and tested against real services is DONE. No steps are DONE. One branch/worktree/PR per step
+from main 72c1cf5; rebase after Bryan merges earlier work. Never merge.
 
-| Step | UI | Backend | Integrated + tested | Notes |
-|---|---|---|---|---|
-| W1 graphql adapter (`feat/web-graphql-adapter`) | not started | n/a | not started | **BLOCKED on two missing reads** |
-| W2 persona picker | not started | mock | not started | |
-| W3 Ask Rosina | not started | contract not written | not started | |
-| W4 live integration | not started | not delivered | not started | |
+| Step | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|
+| W1 — PR #17 | yes, read-only transport + derived feed | primitive reads exist; demo session delivery unavailable | fixture integration tested; live session not tested; NOT DONE |
+| W2 | not started | demo login/reset/create unavailable | not started |
+| W3 | not started | Rosina service unavailable | not started |
+| W4 | not started | awaiting services | not started |
 
-### W1 blocker: two operations Mission Control needs do not exist
+### W1 implemented surfaces and provenance
 
-Verified against `schema/*.graphql` **before** writing adapter code:
+- Mission Control reads live `coordinationJobs` + `attempts(jobId)`. Its feed is **derived**,
+  never a synthetic event history. Only attempts, recorded confirmations and cost-calculation
+  facts carry their own timestamps; job status/version, reasonCode, availability and acceptedVia
+  appear under Current state, without manufactured times. Timestamped events never claim an old
+  job version or status observed at that time. Candidate channel is **unavailable** (`—`).
+- Living Village: **derived** graph projection from live `village`, `child`, `householdMembers`
+  and `relationships`. No inferred private roles or fabricated edges. Polls at 30s; Mission
+  Control polls at 2.5s. Forbidden results stop polling and show access denial.
+- Graphql mode is read-only and has no `readParentChat`. Mock is the default, including tests.
+  Legacy mock chat is **unavailable as a live surface**; W3 replaces it with Ask Rosina.
+- `/graphql` proxies to 127.0.0.1:4010. Apollo gets the existing Supabase user's access token
+  using publishable runtime configuration. No browser passwords or server credentials. The
+  connected entry accepts child/village IDs and checks session presence; actual access is server-side.
+  It displays unavailable login rather than substituting a mock session. W2/W4 replace this entry.
 
-1. **No event feed.** `MissionControlData.events: RecordedEvent[]` has no server source. No `events`
-   query exists in village/access/coordination/schedule/school/transport/activities, and
-   `docs/contracts/frontend-data.md` lists only `coordinationJobs`, `chatThread` and
-   `informationRequests` for that surface.
-2. **`chatThread` does not exist yet.** The contract labels it **NEW** (its own §2 table: "no
-   message/thread type exists anywhere in `schema/*.graphql` today"), so `readParentChat` cannot be
-   sourced live either.
+Validation run: root typecheck PASS; staged secret scan PASS; web **61 tests PASS**; production
+build PASS (existing >500kB bundle warning). Playwright CLI checked the derived GraphQL fixture
+preview and denied response at desktop/mobile. Screenshots: `web/evidence/task-w/w1-desktop.png`,
+`w1-mobile.png`; cost correction screenshots `cost-normal-desktop.png`, `cost-normal-mobile.png`.
+These are explicitly labeled fixture previews, not evidence of a live authenticated service.
+No live DB evidence suite/probes run: frontend-only, credential-free; those suites are backend scope.
 
-A third, subtler gap that decides the design rather than blocking it: the web `Candidate` type
-carries `id, name, channel, reasonCode, distanceMiles, estimatedRideCostUsd, costBasis`, but the
-graph's `CandidateEvaluation` has `candidate { id displayName } reasonCode estimatedRideCostUsd
-costBasis distanceMiles` and **no `channel`**. A channel comes from
-`contactMethods(personId, childId)` — one extra read per candidate, i.e. a fan-out decision, not a
-rename.
+Bentley needs: real demo-login session + authorized scopes; jobTimeline to replace the derived
+feed; Attempt.candidate to join channels by candidate id. Parent chat/chatThread is DROPPED.
+No attempt destination-mode field exists today; the UI makes no claim about individual deliveries.
 
-Writing a graphql adapter against fields that do not exist would be inventing exactly what the
-contract forbids, so no adapter code was committed in this step.
-
-**What W1 needs from Bentley (backend):**
-- an `events` read (or a documented equivalent) for the Mission Control feed;
-- `chatThread(childId)` as the contract already specifies.
-
-Then W1 is: Vite proxy `/graphql` → `127.0.0.1:4010`, Apollo auth link carrying the Supabase access
-token, `VITE_DATA_MODE=mock|graphql` with mock as the test default, and adapter tests over the
-composed reads.
+BRANCH: feat/web-graphql-adapter; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-adapter
+TASK: complete W1 read-only adapter, keeping PR #17 draft until live integration.
+LAYER: frontend + companion frontend contracts/handoff/mocks only.
+TOUCHED: web/, docs/contracts/frontend-data.md, docs/mocks/pickup-candidates.json,
+  docs/mocks/pickup-job-lifecycle.json, docs/handoff/HANDOFF.md.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (61);
+  npm --prefix web run build; live authenticated Mission Control + village browser proof still required.
+NOT DOING: server/schema/auth/DB, merges, Family Calendar, v2 catalog proposals.
+BLOCKERS: real authenticated integration unavailable; use explicit mocks for the next UI steps.
 
 ### Task W cost-fixture correction (2026-10-30)
 

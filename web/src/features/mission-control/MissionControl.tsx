@@ -17,7 +17,7 @@ function PaidRideEstimate({ candidate }: { candidate: Candidate }) {
 }
 const time = (at: string) => new Date(at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false })
 const miles = (value: number | null) => value == null ? 'Distance not recorded' : `${value.toFixed(2)} miles`
-const eventTitle: Record<string, string> = { job_created: 'Request acknowledged', attempt: 'Caregivers contacted', candidate_evaluation: 'Response evaluated', confirmation: 'Parent approval recorded', simulated_tracking: 'Simulated route preview' }
+const eventTitle: Record<string, string> = { cost_calculated: 'Travel cost calculated', job_created: 'Request acknowledged', attempt: 'Caregivers contacted', candidate_evaluation: 'Response evaluated', confirmation: 'Parent approval recorded', simulated_tracking: 'Simulated route preview' }
 export function MissionControl() {
   const result = useSurfaceData<MissionControlData>('mission-control')
   const { scope, mode, adapter } = useDataContext()
@@ -55,8 +55,8 @@ export function MissionControl() {
     } catch (error) { setActionError(error instanceof Error ? error.message : 'Unable to record approval. Try again.') }
     finally { setSaving(false) }
   }
-  return <div className="mc-workspace">
-    <div className="mc-context"><span><Clock3 size={15} aria-hidden="true" />{scenarioDate} · {mode === 'mock' ? 'Recorded scenario' : 'Current pickup'}</span><span className="mc-simulated">{mode === 'mock' ? 'Simulated' : 'Connected'}</span></div>
+  return <div className="mc-workspace" data-state={data.provenance ?? (mode === 'mock' ? 'unavailable' : 'live')}>
+    <div className="mc-context"><span><Clock3 size={15} aria-hidden="true" />{scenarioDate} · {mode === 'mock' ? 'Recorded scenario' : 'Current pickup · derived feed'}</span><span className="mc-simulated">{mode === 'mock' ? 'Simulated' : 'Connected'}</span></div>
     <div className="mc-layout">
       <section className="pickup-card" aria-labelledby="pickup-heading">
         <div className="pickup-title"><div><p>Pickup coordination</p><h2 id="pickup-heading">{scope.childName.split(' ')[0]}'s {windowName ? `${windowName} ` : ''}pickup</h2></div><ShieldCheck size={25} aria-hidden="true" /></div>
@@ -66,7 +66,7 @@ export function MissionControl() {
           const Channel = candidate.channel === 'CALL' ? Phone : MessageSquare
           const approved = confirmation?.candidate.id === candidate.id
           return <button key={candidate.id} type="button" className={cn('caregiver-row', candidate.id === selected?.id && 'selected')} aria-label={`Select ${candidate.name}`} aria-pressed={candidate.id === selected?.id} aria-describedby={`${candidate.id}-status`} onClick={() => setSelectedId(candidate.id)}>
-            <span className="channel-icon"><Channel size={16} aria-hidden="true" /><span className="sr-only">{candidate.channel}</span></span>
+            <span className="channel-icon">{candidate.channel === '—' ? <span aria-label="Channel unknown">—</span> : <><Channel size={16} aria-hidden="true" /><span className="sr-only">{candidate.channel}</span></>}</span>
             <span className="caregiver-identity"><strong>{candidate.name}</strong><small>{miles(candidate.distanceMiles)}</small><PaidRideEstimate candidate={candidate} /></span>
             <span id={`${candidate.id}-status`} className={cn('candidate-pill', candidate.reasonCode === 'OVER_POLICY' && 'over-limit', approved && 'approved')}>{approved ? 'Approval recorded' : candidate.statusLabel}</span>
           </button>
@@ -79,15 +79,16 @@ export function MissionControl() {
           <PaidRideEstimate candidate={recommendation} />
           {!confirmation ? <button className="mc-primary" type="button" disabled={!adapter.approvePickup || job?.status !== 'awaiting_approval'} onClick={event => openReview(event, recommendation?.id)}>Approve pickup<ChevronRight size={16} aria-hidden="true" /></button> : <p className="approval-proof"><ShieldCheck size={17} aria-hidden="true" />{confirmation.id} · {time(confirmation.receivedAt)} UTC</p>}
         </div>}
-        {overLimitCandidate && <div className="recommendation over-limit-option"><h3>Over your travel limit</h3><h4>{overLimitCandidate.name}</h4><p>No policy-compliant recommendation was returned for this job.</p><PaidRideEstimate candidate={overLimitCandidate} />{!confirmation && <button type="button" className="mc-primary" onClick={event => openReview(event, overLimitCandidate.id)}>Review rideshare option</button>}</div>}
+        {overLimitCandidate && <div className="recommendation over-limit-option"><h3>Ride estimate over your limit</h3><h4>{overLimitCandidate.name}</h4><p>No policy-compliant recommendation was returned for this job.</p><PaidRideEstimate candidate={overLimitCandidate} />{!confirmation && <button type="button" className="mc-primary" onClick={event => openReview(event, overLimitCandidate.id)}>Review rideshare option</button>}</div>}
         {confirmation?.overLimitApproved && <p className="mc-completion-note">Over-limit option explicitly accepted.</p>}
         <p className="cost-footnote">Drivers have no travel cost attached. Paid-ride estimates are explored only when no driver can do the pickup.</p>
         {confirmation && <p className="mc-completion-note">Approval is recorded. Pickup completion has not been recorded.</p>}
       </section>
-      <section className="mc-trace" aria-labelledby="trace-heading"><div className="mc-section-heading"><Sparkles size={17} aria-hidden="true" /><h2 id="trace-heading">Rosina's activity trace</h2></div><p className="mc-muted">Recorded outreach and evaluations. Times in UTC.</p>
-        {view.activityTrace.length ? <ol>{view.activityTrace.map(event => <li key={event.id}><time dateTime={event.at}>{time(event.at)}</time><div><h3>{eventTitle[event.kind] ?? event.kind}</h3><p>{event.summary.replaceAll('OVER_POLICY', 'Over your travel limit').replaceAll('APPROVAL_PENDING', 'Awaiting parent approval')}</p></div></li>)}</ol> : <p>No outreach has been recorded.</p>}
+      <section className="mc-trace" aria-labelledby="trace-heading"><div className="mc-section-heading"><Sparkles size={17} aria-hidden="true" /><h2 id="trace-heading">Rosina's activity trace</h2></div><p className="mc-muted">{data.provenance === 'derived' ? 'Derived from timestamped recorded facts. Untimed facts appear under Current state.' : 'Recorded outreach and evaluations.'} Times in UTC.</p>
+        {view.activityTrace.length ? <ol>{view.activityTrace.map(event => <li key={event.id}><time dateTime={event.at}>{time(event.at)}</time><div><h3>{data.provenance === 'derived' && event.kind === 'attempt' ? 'Attempt recorded' : eventTitle[event.kind] ?? event.kind}</h3><p>{event.summary.replaceAll('OVER_POLICY', 'Ride estimate over your limit').replaceAll('APPROVAL_PENDING', 'Awaiting parent approval')}</p></div></li>)}</ol> : <p>No outreach has been recorded.</p>}
       </section>
-      <section className="mc-timeline" aria-labelledby="timeline-heading"><div className="mc-section-heading"><Clock3 size={17} aria-hidden="true" /><h2 id="timeline-heading">Job timeline</h2></div><ol>{view.timeline.map(event => <li key={event.id}><span className="timeline-marker" /><time dateTime={event.at}>{time(event.at)}</time><div><strong>{eventTitle[event.kind] ?? event.kind}</strong><p>{event.kind === 'simulated_tracking' ? 'Simulated preview only; no arrival or completed pickup is recorded.' : `Version ${event.job.version} · ${event.job.status.replaceAll('_', ' ')}`}</p></div></li>)}</ol></section>
+      {data.currentFacts && <section className="mc-current" aria-label="Current state"><h2>Current state</h2><ul>{data.currentFacts.map((fact, i) => <li key={i}>{fact}</li>)}</ul></section>}
+      <section className="mc-timeline" aria-labelledby="timeline-heading"><div className="mc-section-heading"><Clock3 size={17} aria-hidden="true" /><h2 id="timeline-heading">Job timeline</h2></div><ol>{view.timeline.map(event => <li key={event.id}><span className="timeline-marker" /><time dateTime={event.at}>{time(event.at)}</time><div><strong>{data.provenance === 'derived' && event.kind === 'attempt' ? 'Attempt recorded' : eventTitle[event.kind] ?? event.kind}</strong><p>{data.provenance === 'derived' ? event.summary : event.kind === 'simulated_tracking' ? 'Simulated preview only; no arrival or completed pickup is recorded.' : `Version ${event.job.version} · ${event.job.status.replaceAll('_', ' ')}`}</p></div></li>)}</ol></section>
     </div>
     <Dialog.Root open={reviewOpen} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="mc-dialog-overlay" /><Dialog.Content className="mc-dialog" onCloseAutoFocus={event => {
       event.preventDefault()

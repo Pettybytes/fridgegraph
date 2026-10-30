@@ -173,7 +173,7 @@ describe('LivingVillage', () => {
     // Verify the labels match the contract
     const { reasonLabel } = await import('@/lib/frontendData/types')
     expect(reasonLabel('PENDING')).toBe('Waiting for reply')
-    expect(reasonLabel('OVER_POLICY')).toBe('Over your travel limit')
+    expect(reasonLabel('OVER_POLICY')).toBe('Ride estimate over your limit')
     expect(reasonLabel('APPROVAL_PENDING')).toBe('Awaiting parent approval')
     expect(reasonLabel('RECOMMENDED')).toBe('Recommended')
   })

@@ -129,7 +129,7 @@ export function LivingVillage() {
     const candidates = mcResult?.frontendSnapshot?.candidates
     if (candidates) {
       for (const c of candidates) {
-        map[c.id] = c.reasonCode
+        if (c.reasonCode) map[c.id] = c.reasonCode
       }
     }
     return map
@@ -348,7 +348,7 @@ export function LivingVillage() {
   }
 
   return (
-    <div className="village-container" data-testid="living-village">
+    <div className="village-container" data-testid="living-village" data-state="derived">
       {/* Search & filter bar */}
       <div className="village-controls">
         <div className="village-search-wrap">

@@ -5,6 +5,7 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: { proxy: { '/graphql': { target: 'http://127.0.0.1:4010', changeOrigin: true } } },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

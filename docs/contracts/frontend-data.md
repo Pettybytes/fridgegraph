@@ -58,7 +58,7 @@ polling proves too slow, not a decision reopened here.
 
 Intervals: **Mission Control polls every 2–3 s** for the demo (tightened from the draft's generic
 5s — Mission Control's "acknowledge instantly, show progress, then verified results" requirement
-needs it). The parent chat thread also polls at 5s. The Living Village graph and the calendar poll
+needs it). The Living Village graph and the calendar poll
 at 30s. No polling for the map (coordinates change rarely in this milestone).
 
 ### 1.4 Simulated / real-consented labels
@@ -97,62 +97,12 @@ These describe a possible ride, never a price charged for a caregiver. Never imp
 quote, fare or booking. Reviewing an option does not arrange transport or authorize spending.
 Explicit acceptance of an over-limit option remains required.
 
-## 2. Surface: Parent chat (Kendra's phone)
+## 2. Parent chat — dropped for Task W v1
 
-Display name and tagline, wherever the UI names the agent: **"Rosina, FridgeGraph's AI family
-coordinator."** Attribution copy, if shown, reads "planning and decisions powered by Meta's Muse
-Spark Open" — never implying the voice itself is a Meta model (full naming rule:
-`docs/contracts/webhook.md`'s "Naming and attribution" section).
-
-Type or voice note → Rosina reply, in one thread that also shows Rosina's questions and approval
-requests — i.e., the thread is not just a messages table, it interleaves three kinds of server
-truth (chat messages, coordination questions, approval requests) in time order. **Decided
-(Bryan): no aggregate query in v1** — `chatThread` returns only genuine `ChatMessage` rows; the
-client merges in `informationRequests` and job-approval items by timestamp itself, the same
-client-side-composition pattern as every other surface in this contract.
-
-### Queries / mutations
-
-| Operation | Status | Cites |
-| --- | --- | --- |
-| `chatThread(childId: ID!): [ChatMessage!]!` | **NEW** | no message/thread type exists anywhere in `schema/*.graphql` today |
-| `sendParentMessage(childId: ID!, text: String, voiceNoteUrl: String): ChatMessage!` | **NEW** | same — no chat mutation exists |
-| `informationRequests(childId: ID!): [InformationRequest!]!` | EXISTING | `schema/coordination.graphql` `Query.informationRequests` — Rosina's questions, rendered inline in the thread by `at`-ish ordering (the type has no timestamp yet — see Requested changes) |
-| `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` — read to show the thread's "can you approve this pickup?" banner when a job the parent is the named approver for (`pickup-job.md` §6) reaches `awaiting_approval` |
-
-`ChatMessage` (**NEW** type, proposed shape):
-
-```graphql
-enum ChatSender { PARENT ROSINA }
-enum ChatMessageKind { TEXT VOICE_NOTE QUESTION APPROVAL_REQUEST }
-
-type ChatMessage {
-  id: ID!
-  child: Child!
-  from: ChatSender!
-  kind: ChatMessageKind!
-  text: String
-  voiceNoteUrl: String
-  at: String!
-  relatedInformationRequestId: ID
-  relatedJobId: ID
-}
-```
-
-### Mock
-
-`docs/mocks/parent-chat.json`
-
-### Requested changes
-
-1. A `ChatMessage` type and `chatThread` / `sendParentMessage` operations — there is no chat
-   persistence anywhere in the graph today; this is new surface, not a gap in an existing one.
-2. `InformationRequest` has no `at`/timestamp field (`schema/coordination.graphql`) — needed to
-   interleave questions correctly into a time-ordered thread.
-3. **Decided (Bryan): voice notes live in a private Supabase Storage bucket with signed URLs,
-   priority P1** (not day-one blocking, but committed). `ChatMessage.voiceNoteUrl` resolves to a
-   time-limited signed URL, never a public bucket path — exact expiry/retention is still open
-   (§8).
+Bryan dropped `chatThread` and `readParentChat` from the graphql adapter's scope. Ask Rosina (W3)
+replaces parent chat. Legacy mock thread types remain only to preserve existing fixture tests.
+Rosina history is client-side, scoped to the signed-in persona, sent with each `/api/rosina`
+request, never persisted on the server, and cleared before persona switching.
 
 ## 3. Surface: Living Village (Obsidian Person Network style, `react-force-graph-2d`)
 
