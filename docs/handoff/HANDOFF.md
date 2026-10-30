@@ -1118,9 +1118,10 @@ BRANCH: feat/rosina-service; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-r
 TASK: live POST /api/rosina — Muse Spark 1.3 + MCP (caller-token, read-only, catalog-validated),
   rate limit, graceful timeout, alt-stack test harness, evidence 35.
 LAYER: server (plus one proxy line in web/vite.config.ts, explicitly requested by the task).
-TOUCHED: src/rosina/, ops/alt-stack.sh, ops/rosina-catalog-drift.mjs, ops/rosina-probe.mjs,
-  router.alt.yaml, .apollo/mcp.alt.yaml, package.json, web/vite.config.ts (one line),
-  docs/evidence/35-rosina-service.md, this handoff.
+TOUCHED: src/rosina/, ops/rosina-catalog-drift.mjs, ops/rosina-probe.mjs, package.json,
+  web/vite.config.ts (one line), docs/evidence/35-rosina-service.md, this handoff.
+  (`ops/alt-stack.sh` is PR #16's, merged in as-is — see Task R-FIX below; this PR's own
+  `router.alt.yaml`/`.apollo/mcp.alt.yaml` were deleted as redundant with it.)
 DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm --prefix web test
   (117); live scenario matrix against the alt stack (not GraphOS) in docs/evidence/35 — all
   actually run above, not just described.
@@ -1153,24 +1154,31 @@ code rule + regression test, not just a prompt). This section tracks the mergeab
 7. Full battery re-run and green: `npm run typecheck`; `npm run check` (294 files, 0 findings);
    `npm run check:rosina-catalog`; `npm run test:rosina` (8/8); `npm --prefix web test` (117).
 
-**Still pending — blocked on PR #16:**
-- PR #16 (`chore/alt-stack`, `ops/alt-stack.sh` + `ops/alt-stack-check.mjs` + `ops/stack-alt.mjs`
-  changes) is open, not yet merged (`gh api repos/Pettybytes/fridgegraph/pulls/16 -q .merged` →
-  `false` as of this writing). Once it merges, this branch must `git merge origin/main` (merge
-  commit, not rebase — PR #24 gets squashed on the way in) and resolve `ops/alt-stack.sh` in
-  #16's favor: #16's script (ports 4101-4107/4012/8092/5051, `--up`/`--check`/`--down`, config
-  GENERATED from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml` into `/tmp` rather than
-  committed) becomes the one reproducible setup. This PR's own `router.alt.yaml` and
-  `.apollo/mcp.alt.yaml` are then redundant — #16's generator produces an equivalent config from
-  the same source files automatically — and should be deleted rather than kept alongside a second
-  copy. Nothing in this PR's `src/rosina/` code depends on those two files directly (the service
-  only ever takes `ROSINA_MCP_URL` as a plain env var), so removing them is a clean delete, not a
-  rewrite. `ops/rosina-probe.mjs` and `ops/rosina-catalog-drift.mjs` are this PR's own tools and
-  do not collide with #16's additions.
-- PR #9 (Level B drafts) also open; not yet known to touch anything in this PR's diff — re-check
-  after #16 lands in case ordering changed.
-- Until #16 merges, this section stays open; do not attempt the merge against a `chore/alt-stack`
-  that could still change shape.
+**Sync with main — DONE (2026-10-30):**
+- PR #16 merged to main as `275461e`; PR #9 merged to main as `ebb7a2c` (both landed before this
+  sync). `git merge origin/main` (merge commit, not rebase) performed, two conflicts resolved:
+  - `ops/alt-stack.sh` (add/add): resolved entirely in #16's favor — `git checkout --theirs`.
+    #16's script (ports 4101-4107/4012/8092/5051, `--up`/`--check`/`--down`, config GENERATED
+    from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml` into `/tmp`) is now the one
+    reproducible setup. This PR's own `router.alt.yaml` and `.apollo/mcp.alt.yaml` were deleted
+    (`git rm`) as redundant — nothing in `src/rosina/` depended on either file directly (the
+    service only ever takes `ROSINA_MCP_URL` as a plain env var), so this was a clean delete, not
+    a rewrite. `ops/rosina-probe.mjs` and `ops/rosina-catalog-drift.mjs` are this PR's own tools
+    and did not collide with #16's additions.
+  - `docs/handoff/HANDOFF.md` (content): both sides had appended new sections at the same point
+    in the file; resolved by keeping BOTH in full (origin/main's Task B/D/C/V2-VILLAGE sections
+    first, since they were already on main, then this branch's Reserved-evidence-numbers/Task R/
+    Task R-FIX sections after), plus one new bridging note closing the loop on origin/main's W4
+    audit finding ("Rosina ... no readiness entry") — no past entry on either side was rewritten.
+  - The two were irreconcilable-by-nature only in the trivial add/add sense (same path, two
+    independent implementations); neither was a real design disagreement, so no STOP was needed.
+- Post-merge: `npm run typecheck` clean; evidence 35 §4/§9 and this section updated to describe
+  the reconciled `ops/alt-stack.sh --up`/`--check`/`--down` interface in place of this PR's own
+  (now-deleted) `start`/`stop`/`status` version — the underlying ports/mechanism were already
+  identical, so no live result changed, only the command to reach it.
+- PR #9 touched `docs/handoff/HANDOFF.md` only in this PR's diff (many other files it added are
+  net-new, not modifications of anything this PR touches) — no further reconciliation needed
+  there.
 
 **NOT DOING (hard stops, unchanged):** no schema/auth/DB change; no mutation tool exposed; no
 identity minted — every MCP call is still made as the signed-in caller only; the four BLOCKED

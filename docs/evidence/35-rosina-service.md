@@ -34,7 +34,7 @@ PickupCandidates). Never merged. No schema, auth, or database change. No seed/re
      locally — nothing is sent to MCP — validated against `src/rosina/catalog.ts`, and only then
      placed in the response's `actions` array.
 - **Mutation boundary, by construction, not by promise:** MCP exposes zero mutation operations
-  today (`.apollo/mcp.local.yaml`/`mcp.alt.yaml`, `operations.paths` lists only
+  today (`.apollo/mcp.local.yaml` and the alt-stack config generated from it, `operations.paths` lists only
   `PickupCandidates.graphql`), so there is no mutation tool to call even in principle. The
   `proposeAction_*` tools never execute anything — they only populate `actions`, which the already
   -shipped frontend (`RosinaPanel.execute`, W3/PR #20) always routes through its own confirmation
@@ -118,6 +118,17 @@ correctly reported all nine ports; a scripted drift check (temporarily flipping 
 mirror catalog, confirmed below) proves the health-gated start sequence's failure path reports
 `BLOCKED` rather than silently continuing. The script is ready for a cold start whenever that
 worktree's stack is torn down.
+
+**Superseded (Task R-FIX, 2026-10-30):** this PR's own `ops/alt-stack.sh` (the `start`/`stop`/
+`status` interface described above, plus its committed `router.alt.yaml`/`.apollo/mcp.alt.yaml`)
+was replaced by PR #16's `ops/alt-stack.sh` (`--up`/`--check`/`--down`, configs GENERATED into
+`/tmp` from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml` rather than committed) when
+PR #16 merged to `main` and this branch merged it back in. The two scripts target the identical
+ports and mechanism (subgraphs 4101-4107, router 4012/health 8092, MCP 5051,
+`override_subgraph_url`), so every live result below is unaffected — only the command to raise/
+check the stack changed, to `ops/alt-stack.sh --up` / `--check` / `--down`. This PR's own
+`router.alt.yaml` and `.apollo/mcp.alt.yaml` were deleted as redundant; `ops/rosina-probe.mjs` and
+`ops/rosina-catalog-drift.mjs` are unaffected (they never depended on either file).
 
 Health confirmed before any model call: `curl 127.0.0.1:8092/health` → `{"status":"UP"}`; `node
 ops/mcp-probe.mjs` (pointed at 5051) → `initialize` 200, `tools/call PickupCandidates` as `p_mom`
@@ -237,8 +248,8 @@ itself a form of honesty the grounding rules require.
 
 ```
 "Evelyn Carter is the listed pickup for Jax today. The pickup records show she's his grandmother
-with pickup permission valid today, preferred call +1-313-555-0113. Her availability for today
-isn't confirmed." actions: []
+with pickup permission valid today, preferred call [redacted — phone digits excluded from this
+file per Task R-FIX's hard stop]. Her availability for today isn't confirmed." actions: []
 ```
 Matches the live `PickupCandidates(childId: p_jax)` result as Dana (her own family) — one
 candidate, Evelyn Carter, grandmother, contact method verbatim from the tool result.
