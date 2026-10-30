@@ -24,7 +24,7 @@
       "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "discovering", "version": 2 },
       "stage": "IN_PROGRESS",
       "kind": "candidate_evaluation",
-      "summary": "Loretta Brooks — OVER_POLICY ($12.40 estimated, exceeds Kendra's $10 cap). Entry point: WEBHOOK_CALLBACK.",
+      "summary": "Loretta Brooks — available, but has no car. Entry point: WEBHOOK_CALLBACK.",
       "at": "2026-10-28T14:59:02Z"
     },
     {

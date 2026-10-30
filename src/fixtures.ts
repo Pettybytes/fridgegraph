@@ -372,7 +372,6 @@ export function createSeed(): Seed {
   const vehicles = [
     { id: 'v_101', ownerId: 'p_mom', year: 2021, make: 'Honda', model: 'CR-V', color: 'gray', plate: 'DEMO-101' },
     { id: 'v_102', ownerId: 'p_dad', year: 2019, make: 'Ford', model: 'F-150', color: 'black', plate: 'DEMO-102' },
-    { id: 'v_103', ownerId: 'p_gma', year: 2016, make: 'Buick', model: 'Enclave', color: 'white', plate: 'DEMO-103' },
     { id: 'v_104', ownerId: 'p_bryan', year: 2020, make: 'Dodge', model: 'Charger', color: 'blue', plate: 'DEMO-104' },
     { id: 'v_105', ownerId: 'p_tasha', year: 2022, make: 'Toyota', model: 'RAV4', color: 'red', plate: 'DEMO-105' },
     { id: 'v_106', ownerId: 'p_monique', year: 2023, make: 'Kia', model: 'Telluride', color: 'silver', plate: 'DEMO-106' },
