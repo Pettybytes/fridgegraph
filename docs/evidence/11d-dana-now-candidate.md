@@ -1,7 +1,7 @@
 # After grant: Dana appears once as a pickupCandidate with the Pacifica
 
 - endpoint: `http://127.0.0.1:4010/`
-- identity: Bearer eyJhbG…<redacted, 807 chars>  (verified Supabase JWT; token redacted, never stored)
+- identity: Bearer eyJhbG…<redacted, 823 chars>  (verified Supabase JWT; token redacted, never stored)
 - x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - HTTP status: 200
 

@@ -16,7 +16,7 @@ service). Always check `docs/evidence/` before numbering.
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **DONE — merged as #9 (`ebb7a2c`)** |
 | 1 | `feat/e-group1` (PR #23) | off main **`275461e`** | **DONE — merged as #23 (`cccbbd2`)** |
-| 2 | `feat/e-group2` (PR #26) | off `origin/main` **`cccbbd2`** | **E1 DONE; E2a DONE (demo login, 46/46); E2b/E2c/E3 in progress** |
+| 2 | `feat/e-group2` (PR #26) | off `origin/main` **`cccbbd2`** | **DONE — E1, E2a, E2b, E2c, E3. PR #26 ready, not merged** |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
 | 5 | `feat/e-group5` | | not started |
@@ -66,6 +66,55 @@ DEMO_GUIDE_READ_ONLY, f rate limit). Evidence `37-e2-demo-login-sandbox.md` §E2
 
 **New rule, unchanged in substance:** servers never read `.demo-credentials`; the demo login path
 needs no password at all. The guide identity `p_demo_guide` belongs to no household.
+
+**E2b DONE — sandbox enforcement.** `0025_demo_sandbox.sql` separates two facts that must never be
+conflated: `is_demo_caller()` (verified token marker = a property of the SESSION, refuses real
+outreach) and `sandbox` (a property of the RECORD, what the guide may read). Refusal is record-level,
+because a service-role caller later has no JWT: `coordination_jobs.demo_caller` is stamped once at
+insert, attempts inherit it, and four triggers plus `promote_attempt_to_real_consented`,
+`consume_real_call_authorization` and `assert_outreach_allowed` refuse demo attempts. `sandbox` is
+deliberately NOT a refusal condition — the consented real-call exception runs on a sandbox job.
+Simulated work stays allowed (sandbox job, TEST_RESPONDER attempts, parent approval); refusing it
+would delete the demo. Dry run `ops/0025-dry-run.mjs` **28/28** in a rolled-back transaction;
+applied proof `ops/e2b-proof.mjs` **15 PASS + 1 SKIP** — direct RPC/insert/PATCH all return
+`DEMO_OUTREACH_REFUSED`, the dispatcher TS guard returns the same code. **MCP is still UNVERIFIED:**
+nothing listens on 5050, and it is recorded as unproven, not inferred. Evidence 37 §E2b.
+
+**E2c DONE — Demo guide scope.** 25 `demo_guide_*` SELECT policies (`is_demo_guide() and sandbox`)
+plus 96 restrictive no-write policies across 32 tables, so a later permissive write policy still
+refuses the guide. `authorizeChild()` gains a read-only `'guide'` level; every mutation calls
+`refuseDemoGuideWrite()`. `ops/e2c-proof.mjs` PASS with real tokens over PostgREST: the guide reads
+`care_plans`/`parenting_schedules`/`grants` for p_jax (1/2/2 rows) where Kendra sees 0, and `events`
+for p_nora where Dana sees 0; inserts 403, PATCH/DELETE 0 rows, `request_pickup` 400 UNAUTHORIZED.
+**Two honest gaps:** (1) the seed holds 4 households / 2 children, not six networks — six-network
+breadth is a **W4 seed dependency**, and the policies are network-agnostic so no code change is
+needed; (2) `children/people/households/villages/groups/capabilities/memberships` are readable by any
+signed-in user (Milestone-1 directory posture), so for those tables the guide adds nothing and nothing
+is claimed. Evidence 37 §E2c.
+
+**E3 DONE — `Attempt.candidate` + `jobTimeline(jobId)`.** Additive schema on the coordination
+subgraph: `candidate` (nullable — `attempts.candidate_id` is), `destinationMode`, `closedAt`,
+`closedReason`, and a `TimelineEntry` list built only from stored timestamps (`created_at`,
+`attempts.at`, `closed_at`, `cost_calculated_at`, `received_at`). No evaluation without a cost
+timestamp produces an entry, and an invisible job returns `[]` rather than an error, so the id cannot
+be probed. `ops/e3-proof.mjs` **21/21**: parent 4 attempts (`p_bryan, p_gma, p_monique, p_tasha`) and
+5 timeline entries ascending; Andre 5; Dana 0 jobs / `[]` / 0 attempts; guide 5 read-only with
+`DEMO_GUIDE_READ_ONLY` on approve; missing id `[]`. The supergraph was recomposed locally and the
+router restarted — a stale supergraph had made the new fields fail validation. Guardian authority is
+inherited from 0024 but **no guardian persona is seeded, so it is not exercised** and not claimed.
+
+### Rosina tools available
+
+No new MCP tool was added, so Rosina's toolset is unchanged and this task adds no tool grant. The two
+new app reads are GraphQL operations on the coordination subgraph:
+
+| Operation | Arguments | Response shape | Allowed personas | Boundary proof |
+|---|---|---|---|---|
+| `jobTimeline` | `jobId: ID!` | `[TimelineEntry!]!` — `at`, `kind` (JOB_CREATED / ATTEMPT_OPENED / ATTEMPT_CLOSED / COST_CALCULATED / CONFIRMATION), `attemptId`, `candidate { id }`, `detail` | parents + guardians of the job's child (RLS `is_parent_of`); Demo guide on sandbox jobs; **nobody else** | e3-proof 2,3,4,5,6 — parent 5 entries, co-parent 5, unrelated adult `[]`, guide 5 read-only, missing id `[]` |
+| `Attempt.candidate` | via `attempts(jobId)`; no new argument | `Person` (nullable) + `destinationMode`, `closedAt`, `closedReason` | same as the Attempt row's own visibility | e3-proof 1 — 4 attempts, 4 distinct recorded candidates, all `TEST_RESPONDER` |
+
+Both are refused to the guide for writes (`DEMO_GUIDE_READ_ONLY`) and to a demo session for outreach
+(`DEMO_OUTREACH_REFUSED`, E2b). Nothing here dials, sends, approves or spends.
 **E3 Attempt.candidate + jobTimeline — NOT STARTED.**
 
 ### Group 0 (E-2, E-1) — DONE

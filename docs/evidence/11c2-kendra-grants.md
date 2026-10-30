@@ -1,7 +1,7 @@
 # As Kendra: grantAccess Dana pickup.request until Nov 30
 
 - endpoint: `http://127.0.0.1:4010/`
-- identity: Bearer eyJhbG…<redacted, 807 chars>  (verified Supabase JWT; token redacted, never stored)
+- identity: Bearer eyJhbG…<redacted, 823 chars>  (verified Supabase JWT; token redacted, never stored)
 - x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - HTTP status: 200
 
@@ -27,7 +27,7 @@ mutation {
 {
   "data": {
     "grantAccess": {
-      "id": "g_79fb7339-9d78-4fbf-a606-c24697db7995",
+      "id": "g_1e3caa95-72a3-47bb-be8d-e8817ae5d99b",
       "actor": {
         "displayName": "Dana Coleman"
       },

@@ -20,6 +20,14 @@ const typeDefs = parse(`
     attempts(jobId: ID): [Attempt!]!
     informationRequests(childId: ID): [InformationRequest!]!
     confirmations(childId: ID): [Confirmation!]!
+    """
+    The recorded lifecycle of one job, oldest first. Additive (E3).
+
+    Every entry is derived from a stored timestamp — there is no synthesized or presented time. A job
+    the caller cannot see returns an empty list rather than an error, so the response never tells a
+    stranger that a job id exists.
+    """
+    jobTimeline(jobId: ID!): [TimelineEntry!]!
   }
 
   type Mutation {
@@ -94,6 +102,26 @@ const typeDefs = parse(`
     job: CoordinationJob!
     channel: String!
     at: String!
+    """The person this attempt was opened for. Null only on a legacy row with no recorded candidate."""
+    candidate: Person
+    """Simulated vs the one consented real-call exception (frontend-data §1.4)."""
+    destinationMode: DestinationMode!
+    closedAt: String
+    closedReason: String
+  }
+
+  enum DestinationMode {
+    TEST_RESPONDER
+    REAL_CONSENTED
+  }
+
+  """One recorded moment in a job's life. detail is the stored code, verbatim."""
+  type TimelineEntry {
+    at: String!
+    kind: String!
+    attemptId: ID
+    candidate: Person
+    detail: String
   }
 
   type InformationRequest {
@@ -121,6 +149,15 @@ type JobRow = {
   status: string;
   version: number;
   over_limit_candidate_id?: string | null;
+};
+
+/** One recorded moment in a job's life. Every field comes from a stored column. */
+type TimelineEntry = {
+  at: string;
+  kind: string;
+  attemptId: string | null;
+  candidate: { id: string } | null;
+  detail: string | null;
 };
 
 const jobFromRow = (j: JobRow) => ({
@@ -192,13 +229,19 @@ const resolvers = {
     },
     attempts: async (_: unknown, { jobId }: { jobId?: string }, ctx: Ctx) => {
       requireCaller(ctx);
-      const q = dbFor(ctx).from('attempts').select('id,job_id,channel,at');
+      const q = dbFor(ctx)
+        .from('attempts')
+        .select('id,job_id,channel,at,candidate_id,destination_mode,closed_at,closed_reason');
       const data = await rows(jobId ? q.eq('job_id', jobId) : q);
       return data.map((a) => ({
         id: String(a.id),
         job: { id: String(a.job_id) },
         channel: String(a.channel),
         at: String(a.at),
+        _candidateId: a.candidate_id == null ? null : String(a.candidate_id),
+        _destinationMode: String(a.destination_mode ?? 'TEST_RESPONDER'),
+        _closedAt: a.closed_at == null ? null : String(a.closed_at),
+        _closedReason: a.closed_reason == null ? null : String(a.closed_reason),
       }));
     },
     informationRequests: async (
@@ -244,6 +287,77 @@ const resolvers = {
       return data
         .filter((c) => allowed.has(String(c.job_id)))
         .map((c) => confFromRow(c as Record<string, unknown>));
+    },
+
+    jobTimeline: async (_: unknown, { jobId }: { jobId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      // Visibility first: an invisible job is indistinguishable from a missing one, so this returns
+      // an empty list instead of an error that would confirm the id exists.
+      const jobRows = await rows(
+        dbFor(ctx).from('coordination_jobs').select('id,created_at').eq('id', jobId),
+      );
+      if (!jobRows.length) return [];
+      const job = jobRows[0];
+
+      const entries: TimelineEntry[] = [];
+      const push = (at: unknown, kind: string, extra: Partial<TimelineEntry> = {}) => {
+        if (at == null) return;
+        entries.push({ at: String(at), kind, attemptId: null, candidate: null, detail: null, ...extra });
+      };
+
+      push(job.created_at, 'JOB_CREATED');
+
+      const attemptRows = await rows(
+        dbFor(ctx)
+          .from('attempts')
+          .select('id,channel,at,candidate_id,closed_at,closed_reason')
+          .eq('job_id', jobId),
+      );
+      for (const a of attemptRows) {
+        const candidateId = a.candidate_id == null ? null : String(a.candidate_id);
+        push(a.at, 'ATTEMPT_OPENED', {
+          attemptId: String(a.id),
+          candidate: candidateId ? { id: candidateId } : null,
+          detail: String(a.channel),
+        });
+        if (a.closed_at != null) {
+          push(a.closed_at, 'ATTEMPT_CLOSED', {
+            attemptId: String(a.id),
+            candidate: candidateId ? { id: candidateId } : null,
+            detail: a.closed_reason == null ? null : String(a.closed_reason),
+          });
+        }
+      }
+
+      // Only an evaluation with a recorded cost timestamp has a time to show.
+      const evalRows = await rows(
+        dbFor(ctx)
+          .from('candidate_evaluations')
+          .select('candidate_id,cost_calculated_at,cost_basis')
+          .eq('job_id', jobId),
+      );
+      for (const e of evalRows) {
+        if (e.cost_calculated_at == null) continue;
+        push(e.cost_calculated_at, 'COST_CALCULATED', {
+          candidate: { id: String(e.candidate_id) },
+          detail: e.cost_basis == null ? null : String(e.cost_basis),
+        });
+      }
+
+      const confRows = await rows(
+        dbFor(ctx)
+          .from('confirmations')
+          .select('received_at,candidate_id,approved_by')
+          .eq('job_id', jobId),
+      );
+      for (const c of confRows) {
+        push(c.received_at, 'CONFIRMATION', {
+          candidate: { id: String(c.candidate_id) },
+          detail: String(c.approved_by),
+        });
+      }
+
+      return entries.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     },
   },
 
@@ -326,6 +440,13 @@ const resolvers = {
       if (error) rpcError(error);
       return jobById(ctx, args.jobId);
     },
+  },
+
+  Attempt: {
+    candidate: (a: { _candidateId?: string | null }) => (a._candidateId ? { id: a._candidateId } : null),
+    destinationMode: (a: { _destinationMode?: string }) => a._destinationMode ?? 'TEST_RESPONDER',
+    closedAt: (a: { _closedAt?: string | null }) => a._closedAt ?? null,
+    closedReason: (a: { _closedReason?: string | null }) => a._closedReason ?? null,
   },
 
   CoordinationJob: {

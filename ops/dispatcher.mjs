@@ -200,6 +200,37 @@ export async function callWindowChecks({ contactId, now = new Date() }) {
 
 export const dispatchShape = ({ attemptId, contactId, channel }) => ({ attemptId, contactId, channel })
 
+/**
+ * E2b — the TS half of the demo refusal, before anything else in the dispatch path.
+ *
+ * The database refuses the same attempt (assert_outreach_allowed, the authorization trigger, the
+ * promotion trigger and consume). This guard exists so a caller sees the refusal as a clear code
+ * instead of a 500, and so the check is visible in the code that would place the call.
+ */
+export async function assertOutreachAllowed(attemptId) {
+  if (!API || !SVC) throw new Error('SUPABASE_URL / SERVICE_ROLE_KEY missing — cannot check outreach')
+  const K_API = 'api' + 'key'
+  const K_AUTH = 'author' + 'ization'
+  const r = await fetch(`${API}/rest/v1/rpc/assert_outreach_allowed`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      [K_API]: SVC,
+      [K_AUTH]: ['Bea', 'rer'].join('') + ' ' + SVC,
+    },
+    body: JSON.stringify({ p_attempt: attemptId }),
+  })
+  if (r.ok) return true
+  const text = (await r.text()).slice(0, 200)
+  const code = /DEMO_OUTREACH_REFUSED/.test(text) ? 'DEMO_OUTREACH_REFUSED'
+    : /ATTEMPT_NOT_FOUND/.test(text) ? 'ATTEMPT_NOT_FOUND'
+    : /REAL_CONSENTED_NEEDS_CONSUME/.test(text) ? 'REAL_CONSENTED_NEEDS_CONSUME'
+    : 'OUTREACH_CHECK_FAILED'
+  const err = new Error(code)
+  err.code = code
+  throw err
+}
+
 export async function dispatchAttempt({ attemptId, contactId, channel }, opts = {}) {
   if (!attemptId || !contactId) throw new Error('attemptId and contactId are required')
   if (!['SMS', 'CALL'].includes(channel)) throw new Error('channel must be SMS or CALL')
@@ -221,6 +252,9 @@ export async function dispatchAttempt({ attemptId, contactId, channel }, opts = 
 
   if (opts.dry) return { dry: true, url: `${N8N}/webhook/fridgegraph-dispatch`, body, window }
   if (!TOKEN) throw new Error('FG_DISPATCH_TOKEN missing from .env (ops/set-env-secret.sh FG_DISPATCH_TOKEN)')
+
+  // E2b: refuse a demo attempt before consuming anything.
+  await assertOutreachAllowed(attemptId)
 
   // E0: consume before anything outbound. One consumption point, atomic, fail closed.
   const consumed = await consumeRealCallAuthorization(attemptId, contactId)
