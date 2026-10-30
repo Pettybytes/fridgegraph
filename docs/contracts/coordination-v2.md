@@ -1,6 +1,6 @@
 # Contract — Coordination v2 (whole-life foundations)
 
-**Status: DRAFT — ready for Bryan's approval as of Revision 3. Docs only; no code, no schema
+**Status: DRAFT — ready for Bryan's approval as of Revision 4. Docs only; no code, no schema
 change, no data write has happened to produce this file, in any revision.**
 
 Branch `docs/coordination-v2`, worktree `../fridgegraph-coordination-v2`, created from
@@ -28,6 +28,14 @@ grant, and re-checks every other persona row against the same standard; corrects
 STORIES events" to "60–80 historical events total, grouped into connected stories" everywhere it
 appeared; and updates Area G now that `docs/contracts/ask-rosina.md` exists (PR #20) and already
 correctly reserves this contract's future entries rather than guessing at them.
+
+**Revision 4 (2026-10-30) — final before approval:** moves visual polish (§7) out of "awaiting
+Bryan's choice" into the scheduled plan as weekend work (Sunday afternoon + Monday morning; Claude
+Code leads, Codex owns shell changes), leaving only School's live authoring flow as the one
+genuine open item; and adds the Family Calendar as its own P0 parallel-work deliverable — owner
+Codex, built against Area A's event model and the adult-schedules minimum slice, target Sunday,
+starting once the events migration lands — activating the deferral `ask-rosina.md` itself already
+named, now that there's an event model to build against.
 
 ## 0. Goal and how to read this
 
@@ -681,8 +689,8 @@ existing 28-table baseline is untouched.
 | 11 | `0033_supervision_coordination.sql` | F, Supervision | Before Nov 4, rank 3 |
 | 12 | `0034_adult_schedules_editing.sql` | §6, full editing UI | Before Nov 4, rank 4 |
 
-No migration in this contract is unscheduled — the two genuinely open items (§11's "awaiting
-Bryan's choice") are documentation/UI-polish work, not schema. Numbers re-checked at
+No migration in this contract is unscheduled — the one genuinely open item left (§11's "awaiting
+Bryan's choice") is a documentation/authoring-flow question, not schema. Numbers re-checked at
 implementation time (§2).
 
 ---
@@ -729,6 +737,13 @@ above:
   itself built — v2's own action entries stay marked "not implemented" in that catalog until
   Areas A–F ship behind them, which is a statement about sequencing, not about this being
   deferred work.**
+- **Family Calendar** — owner **Codex**. Built against Area A's event model
+  (`category`/`status`/`participants`, migration `0024_events_status_participants.sql`) and the
+  adult-schedules minimum slice (§6, migration `0029_adult_schedules_minimum.sql`) — it starts
+  only **after the events migration lands**, not in parallel with it. **Target: Sunday.** This is
+  the exact surface `ask-rosina.md` itself names as deferred ("The Family Calendar is deferred
+  until the final coordination-v2 event model... W3 does not build it") — this bullet is that
+  deferral's activation now that Area A exists to build against, not a new ask.
 
 ### BEFORE NOV 4 (remaining build time, Mon–Tue) — ranked candidates, in priority order
 
@@ -771,15 +786,24 @@ pickup's machine and the existing `supervisionCandidates` ranking.
 `visibility`/`DETAIL_TO_*` gating, and the UI to create/edit a `BusySlot` rather than only read a
 seeded one (the Sunday minimum slice is read-only, seeded data).
 
+### VISUAL POLISH (Sunday afternoon + Monday morning)
+
+Scheduled, not awaiting a choice — moved out of "awaiting Bryan's choice" into the plan. Area 7's
+visual intent beyond what the existing per-resolver scoping already produces for free: selecting a
+child shows that child's authorized village cleanly; selecting a shared coach/teacher/activity
+(§5.6) reveals only the viewer's own permitted connections; each child's distinct mix of
+commitments and open items (§7) reads clearly when switching families, not just correctly.
+**Claude Code leads; Codex owns shell changes** — Claude Code drives the feature-surface
+rendering (village, calendar, Mission Control), Codex makes any change the app shell/routing
+layer itself needs to support it, per the existing `frontend-data.md` §7 ownership split.
+
 ### AWAITING BRYAN'S CHOICE
 
-Not deferred by this contract's own authority — these are the two genuine candidates for
-deferral, named so Bryan can decide, not assumed either way:
+Not deferred by this contract's own authority — one genuine candidate for deferral remains, named
+so Bryan can decide, not assumed either way:
 
 - **School's live `fileSchoolReport` authoring flow** — the schema/seed half ships Sunday (item 5,
   §10); turning it into a polished, demoable mutation is separate, unscheduled work.
-- **Visual-intent polish (§7)** beyond what the existing per-resolver scoping already produces for
-  free.
 
 ---
 
@@ -834,13 +858,15 @@ for approval.**
   the adult-schedules *minimum* slice, Care info, the seed generator with all six Cast v2
   families, Holiday precedence, and minimal single-approver Consent — with an explicit risk note
   to trim BACKBONE filler first if time is short, never a family, a STORIES event, or the
-  adult-schedules minimum. **P0 parallel work** — the persona picker (PR #19) and live Ask Rosina
-  integration (PR #20 + Bentley's backend) — runs alongside, correctly not labeled deferred just
-  because it isn't this contract's own critical path. **Before Nov 4**, ranked: Orbit's minimal
-  slice (concrete migrations/states/UI/tests/estimate inside), then Consent's full generality,
-  then Supervision, then the adult-schedule editing UI. **Awaiting your choice**, not assumed
-  either way: School's live authoring mutation, and visual-intent polish beyond what per-resolver
-  scoping already gives for free.
+  adult-schedules minimum. **P0 parallel work** — the persona picker (PR #19), live Ask Rosina
+  integration (PR #20 + Bentley's backend), and now the **Family Calendar** (owner Codex, built
+  against Area A's event model and adult schedules, target Sunday, starting once the events
+  migration lands) — all run alongside, correctly not labeled deferred just because none is this
+  contract's own critical path. **Before Nov 4**, ranked: Orbit's minimal slice (concrete
+  migrations/states/UI/tests/estimate inside), then Consent's full generality, then Supervision,
+  then the adult-schedule editing UI. **Visual polish** (§7) is now scheduled, not awaiting a
+  choice — Sunday afternoon + Monday morning, Claude Code leading, Codex owning shell changes.
+  **Awaiting your choice**, not assumed either way: only School's live authoring mutation remains.
 - **Authority is now explicitly four separate facts**, not three role labels — the fix is four
   literal line-level edits (`0001_schema.sql:28`, `0003_rls.sql:18`, `0010_derived_query_helpers.
   sql:59`, `src/authz.ts:100`/`114`); every other RLS policy and resolver call site (30+ of them,
