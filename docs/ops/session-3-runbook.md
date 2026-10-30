@@ -24,9 +24,9 @@ Hard stops that still hold: no real SMS, Dispatch INACTIVE, `REAL_CALL_EXCEPTION
 | 9 | 0022 deployed | query `pg_proc` for the live signatures | `open_attempt` **5 args**, `consume_real_call_authorization` **2 args** — the 0014 4-arg form is gone |
 | 10 | Window + daily guard | `node ops/dispatcher.mjs --dry <contactId>` | runs the real reads; last run: contact ok, tz `America/Detroit` (from area code), window ok, local day `04:00Z→04:00Z`, **already-called-today = 0** |
 | 11 | Call-history coverage | the guard reads `total` from `GET /voice-ai/dashboard/call-logs` filtered by `locationId` + `contactId` + the local-day `startDate`/`endDate`, **no `agentId` filter** | `total` is the full match count for that filter, independent of `pageSize`, so the cross-agent daily check covers every agent and every page |
-| 12 | Rosina's action query param | GHL → Rosina's `pickup_decision` Custom Action | must read **`{{contact.fg_attempt_id}}`** — **confirm by eye**, the API returns 403 on agent detail |
+| 12 | Rosina's action query param | GHL → Rosina's `pickup_decision` Custom Action | reads **`{{contact.fg_attempt_id}}`** — the literal rehearsal id is gone. **Confirmed by Bryan (UI), 2026-10-30 16:50 ET.** The API returns 403 on agent detail, so this stays a human confirmation, not a check this token can run |
 | 13 | Contact `fg_` fields | GHL contact | `fg_attempt_id`, `fg_child_name`, `fg_pickup_place`, `fg_pickup_time`, `fg_reason` present |
-| 14 | Dial workflow's FROM number | GHL workflow detail | **NOT verifiable read-only** — `/workflows/{id}` returns 404 for this token, and the agent object exposes only `inboundNumber`. Rosina's deployed number **is +1 248 246 6922** (`voice-ai/agents`, verified), which is the number the FROM field must hold. **Confirm the action's FROM dropdown by eye.** If it is anything else, the pre-flight FAILS |
+| 14 | Dial workflow's FROM number | GHL workflow detail | **NOT verifiable read-only** — `/workflows/{id}` returns 404 for this token, and the agent object exposes only `inboundNumber`. Rosina is deployed on the number labelled **“Dreemzy HQ – Main Line”**: read-only, `GET /phone-system/numbers/location/{locationId}` returns that label with `isDefaultNumber: true` and `inboundCallService.value` equal to Rosina's `voice-ai/agents` id, so label and agent match. **Confirm the action's FROM dropdown shows “Dreemzy HQ – Main Line” by eye — the pre-flight FAILS until Bryan confirms the dropdown matches.** If it holds any other number, there is no call |
 | 15 | Two pending voice checks (observed on the call) | live call | Rosina says her opener **once**; "no car" → **DECLINED / NO_TRANSPORT** |
 
 Items 12 and 14 are **human confirmations** because the platform does not expose them to this token.
@@ -38,7 +38,7 @@ The pre-flight passes only when both are confirmed aloud, not silently skipped.
 
 Send verbatim:
 
-> Dialing Rosina in 60 seconds. Your phone will ring from (248) 246-6922. Let it ring twice, answer,
+> Dialing Rosina in 60 seconds. Your phone will ring from **Dreemzy HQ – Main Line**. Let it ring twice, answer,
 > and say "no car" when she asks. Don't call back if it drops — I'll know from the log.
 
 Wait the 60 seconds. An unanswered test call still spends the number's one call for the day.
@@ -85,9 +85,16 @@ unused authorization — so a slow GHL request cannot leave anything live locall
 **Residual risk, unchanged by a clean exit.** There is **no documented way to cancel a Voice AI call
 GHL has already queued**. The docs only describe scheduling and limits, and a call can take minutes
 to go out. Being inside 8am–8pm removes one reason for deferral but does **not** prove immediate
-placement. A deferred call may still ring (248) 246-6922 after rollback; a reply on the closed
+placement. A deferred call may still ring the **Dreemzy HQ – Main Line** number after rollback; a reply on the closed
 attempt protects **app state only** — Rosina can still answer and say her greeting before the
 `END_CALL` line.
 
-**Manual steps this script cannot perform** (no documented API): confirming the contact is not
-enrolled in `FG - Dial Rosina`, and confirming the workflow is back in draft.
+**Workflow enrolment** is now a documented, implemented removal: `DELETE /contacts/{contactId}/workflow/{workflowId}`
+(Contacts API, “Delete Contact from Workflow”) with the **`Version: v3`** header that page specifies
+— not the call-log API's `2021-04-15` — and a required body `{"eventStartTime": <ISO-8601>}`. The
+rollback script issues it after the local shutdown. A `--dry` run prints the exact request without
+making it; only a non-dry run executes it, and **a DELETE cannot be proven by a read-only check**
+(see §4). Removal removes the enrolment; it is **not documented as cancelling a Voice AI call GHL
+has already queued**, so the residual risk above stands unchanged.
+
+**Still manual** (no documented API): confirming the workflow is back in draft.

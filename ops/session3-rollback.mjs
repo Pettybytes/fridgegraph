@@ -16,6 +16,16 @@
  * --dry performs every READ and every DB step, and prints the GHL writes it WOULD make without
  * making them. Never prints a token or a key.
  *
+ * WORKFLOW ENROLMENT (added after a documented endpoint was found):
+ *   DELETE /contacts/{contactId}/workflow/{workflowId} - Contacts API, "Delete Contact from
+ *   Workflow". That page specifies the header Version: v3 (NOT the 2021-04-15 used for the call-log
+ *   API) and a REQUIRED body {"eventStartTime": <ISO-8601>}. Implemented below. In --dry it prints
+ *   the exact request; only a non-dry run executes it. A DELETE cannot be proven by a read-only
+ *   check, so the report states the distinction: "documented and implemented (dry-run request
+ *   shown)" vs "executed successfully".
+ *   IMPORTANT - removal is NOT documented as cancelling a Voice AI call GHL has already queued.
+ *   See the residual-risk note above; it still applies.
+ *
  * WHAT THIS CANNOT DO — read this before trusting a clean exit:
  *   There is NO documented way to cancel a Voice AI call that GHL has already accepted and queued.
  *   GHL's own docs say calls above the daily limit are "scheduled for the next eligible day", and
@@ -36,6 +46,8 @@ const N8N = (env.N8N_BASE_URL || '').replace(/\/$/, '')
 const DRY = process.argv[2] === '--dry'
 const attemptId = DRY ? process.argv[3] : process.argv[2]
 const contactArg = DRY ? process.argv[4] : process.argv[3]
+// The enrolment's event start time, if known. Required by the documented DELETE body.
+const eventStartArg = DRY ? process.argv[5] : process.argv[4]
 
 if (!attemptId) { console.log('usage: node ops/session3-rollback.mjs [--dry] <attemptId> [contactId]'); process.exit(2) }
 
@@ -45,14 +57,14 @@ const step = (name, ok, detail) => {
   console.log(`  [${ok ? 'ok' : ok === null ? 'SKIP' : 'FAIL'}] ${name}${detail ? ': ' + detail : ''}`)
 }
 
-async function ghl(method, path, body) {
+async function ghl(method, path, body, version = '2021-04-15') {
   const key = env.GHL_API_KEY
   if (!key) throw new Error('GHL_API_KEY missing')
   const r = await fetch(GHL + path, {
     method,
     headers: {
       authorization: ['Bea', 'rer'].join('') + ' ' + key,
-      version: '2021-04-15',
+      version,
       accept: 'application/json',
       'content-type': 'application/json',
       'user-agent': 'fridgegraph-ops/1.0',
@@ -164,11 +176,34 @@ let ghlNeedsBryan = []
     if (!r.ok) ghlNeedsBryan.push(`remove the fg-dial tag from contact ${contactId} in GHL`)
   }
 
-  // There is no documented public API for removing a contact from a workflow, nor for publishing /
-  // unpublishing a workflow. These stay manual. Saying otherwise would be inventing a capability.
-  step('remove workflow enrolment', null,
-    `no documented API — MANUAL: remove contact ${contactId ?? '(see contact)'} from "FG - Dial Rosina" if enrolled`)
-  ghlNeedsBryan.push(`confirm contact ${contactId ?? '(see contact)'} is not enrolled in "FG - Dial Rosina"`)
+  // Documented and implemented: DELETE /contacts/{contactId}/workflow/{workflowId}
+  // (Contacts API, "Delete Contact from Workflow"). Its page specifies Version: v3 — not the
+  // call-log API's 2021-04-15 — and a required body {"eventStartTime": <ISO-8601>}.
+  // Enrolment removal is NOT documented as cancelling an already-queued Voice AI call.
+  const DIAL_WORKFLOW_ID = '6f2b386e-60ed-4848-959b-ed97f1307d92'
+  const enrolmentPath = `/contacts/${contactId}/workflow/${DIAL_WORKFLOW_ID}`
+  if (!contactId) {
+    step('remove workflow enrolment', false, 'no contact id known — check enrolment in GHL manually')
+    ghlNeedsBryan.push('remove the contact from "FG - Dial Rosina" (no contact id on the attempt)')
+  } else if (DRY) {
+    step('remove workflow enrolment', null,
+      'documented and implemented (dry run — nothing sent): DELETE ' + enrolmentPath +
+      ` with Version: v3, body {"eventStartTime":"${eventStartArg ?? '<ISO-8601 event start>'}"}`)
+  } else if (!eventStartArg) {
+    step('remove workflow enrolment', false,
+      'needs the enrolment eventStartTime (4th arg, ISO-8601) — refusing to send a guessed body; remove in GHL by hand')
+    ghlNeedsBryan.push(`remove contact ${contactId} from "FG - Dial Rosina" in GHL (event start time unknown)`)
+  } else {
+    const r = await ghl('DELETE', enrolmentPath, { eventStartTime: eventStartArg }, 'v3')
+    const body = (() => { try { return JSON.parse(r.text) } catch { return null } })()
+    const succeeded = body ? body.succeeded === true : undefined
+    step('remove workflow enrolment', r.ok && succeeded !== false,
+      `executed: HTTP ${r.status}` + (succeeded === undefined ? ' (no parseable body)' : ` succeeded=${succeeded}`))
+    if (!r.ok || succeeded === false) {
+      ghlNeedsBryan.push(`remove contact ${contactId} from "FG - Dial Rosina" in GHL (API said ${r.status})`)
+    }
+  }
+  ghlNeedsBryan.push(`verify contact ${contactId ?? '(see contact)'} is not enrolled in "FG - Dial Rosina"`)
 
   step('set FG - Dial Rosina to draft', null,
     'no documented publish/unpublish API — MANUAL: leave it in draft')
