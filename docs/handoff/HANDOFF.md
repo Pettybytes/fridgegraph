@@ -9,6 +9,9 @@ _Last updated: Oct 30, 2026. Merged origin/main `f71a5ed` (Village v2 #22) into 
 **Resume rule:** skip every step marked DONE; continue at the first not-DONE step. Work in groups;
 each group is its own branch off the main state it records below, and one PR. Never merge.
 
+**Reserved evidence numbers:** `34` = E0 (Bentley). Next free = **Task R** (Claude Code, Rosina
+service). Always check `docs/evidence/` before numbering.
+
 | Group | Branch | Base | State |
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
