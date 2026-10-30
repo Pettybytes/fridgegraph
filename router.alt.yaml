@@ -1,0 +1,40 @@
+# Alt-stack router config — same unlicensed/no-edge-JWT shape as router.yaml, but pointed at the
+# alt subgraphs (ops/stack-alt.mjs, ports 4101-4107) instead of the main stack on 4001-4007.
+#
+# `supergraph.graphql` is precomposed with join__Graph URLs baked in at http://127.0.0.1:400X — it
+# is NOT recomposed for the alt ports. override_subgraph_url below redirects each subgraph without
+# needing a second composed supergraph file. Verified working in docs/evidence/31-meta-model-api.md
+# (M2 rerun): this is exactly what let subgraphs 4101-4107 answer through a router on 4012.
+#
+# Used by ops/alt-stack.sh. Never touches the GraphOS-connected router (4010/router.graphos.yaml,
+# 60 req/min plan limit) or the main stack.
+supergraph:
+  listen: 127.0.0.1:4012
+  introspection: true
+
+health_check:
+  enabled: true
+  listen: 127.0.0.1:8092
+
+include_subgraph_errors:
+  all: true
+
+override_subgraph_url:
+  village: http://127.0.0.1:4101/
+  access: http://127.0.0.1:4102/
+  coordination: http://127.0.0.1:4103/
+  schedule: http://127.0.0.1:4104/
+  school: http://127.0.0.1:4105/
+  transport: http://127.0.0.1:4106/
+  activities: http://127.0.0.1:4107/
+
+# No router-level JWT (unlicensed without GraphOS) — see router.yaml for the full rationale.
+# Subgraphs (src/auth/verify.ts) are the verification boundary either way.
+headers:
+  all:
+    request:
+      operations:
+        - propagate:
+            named: Authorization
+        - propagate:
+            named: x-demo-date

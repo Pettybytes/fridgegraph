@@ -760,3 +760,64 @@ Revision verification actually run: root typecheck PASS; 117 web tests PASS; pro
 PASS (same chunk-size advisory); five Playwright flows PASS including safe dock geometry and
 last-card clearance. Staged secret scan PASS: 283 files, zero findings. Revised screenshots
 include scrolled mobile calendar content with the launcher clear of cards.
+
+## Task R — live Ask Rosina service (2026-10-30)
+
+Full writeup, tool table, and real per-persona transcripts: `docs/evidence/34-rosina-service.md`.
+Summary here is for the next agent picking this up; read the evidence file before trusting a
+number from this summary.
+
+**Shipped:** `POST /api/rosina` (`src/rosina/server.ts`, `npm run rosina`, port 4200 default).
+Muse Spark 1.3 via the Meta Model API, calling MCP as the signed-in caller (bearer forwarded
+unchanged, never a service key). Two kinds of tool only: the real MCP read (`PickupCandidates`,
+hard-allowlisted by name in `src/rosina/model.ts` regardless of what MCP's config exposes) and
+local `proposeAction_*` tools that populate the response's `actions` array and do nothing else —
+no mutation tool exists to call, by construction, not by promise. Catalog validated against
+`src/rosina/catalog.ts`, a mirror of `web/src/features/rosina/catalog.ts` with a drift check
+(`npm run check:rosina-catalog`) that fails the build if the two disagree on ids/flags — see the
+evidence file §1 for the one thing that check does NOT prove (byte-identical argsSchema parsing).
+Rate limit (20/min default, by resolved person id), graceful timeout (30s default →
+`{"reply":"I couldn't check that just now.","actions":[]}`, HTTP 200, not an error page), no
+history/token/content persistence or logging. `web/vite.config.ts` proxies `/api/rosina` →
+4200 (one line; no other `web/` file touched). `ops/alt-stack.sh` added for the offline test
+stack (4101-4107/4012/5051); this run reused an already-live instance of that same stack found
+running from the `../fridgegraph-meta` worktree rather than killing it to start a second one —
+see evidence §4 for why that was the safer call.
+
+**DONE WHEN, actually run:** `npm run typecheck` PASS; `npm run check` PASS (293 files, 0
+findings); `npm run check:rosina-catalog` PASS (and verified it actually fails on a real
+injected drift, then reverted); `npm --prefix web test` 117 PASS (unchanged — only `web/` touch
+is the proxy line). Every scenario test in the evidence file was run against the real alt-stack
+MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never mocked.
+
+**Rosina tools available today (update this list as Task E ships more):**
+
+| Tool/operation | Status |
+|---|---|
+| `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), now wired into the live service |
+| CoordinationJobs + CandidateEvaluations read (Mission Control's existing recommendation/status) | not yet exposed via MCP — needed for "why was this caregiver recommended" and "show me `<child>`'s afternoon" |
+| CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
+| Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person` |
+| Events/practices read (coordination-v2 Area A) | not yet exposed via MCP, and Area A itself hasn't shipped — needed for calendar/event questions |
+
+**Known model variance (reported, not hidden):** the model occasionally describes an action/card
+in text without actually calling the matching `proposeAction_*` tool (so `actions` stays empty
+when a card was implied). A stronger tool description measurably reduced but did not eliminate
+this in the runs performed — see evidence §7. One real (unforced) 20s timeout was observed before
+the default was raised to 30s; that number is not exhaustively tuned.
+
+BRANCH: feat/rosina-service; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-service
+TASK: live POST /api/rosina — Muse Spark 1.3 + MCP (caller-token, read-only, catalog-validated),
+  rate limit, graceful timeout, alt-stack test harness, evidence 34.
+LAYER: server (plus one proxy line in web/vite.config.ts, explicitly requested by the task).
+TOUCHED: src/rosina/, ops/alt-stack.sh, ops/rosina-catalog-drift.mjs, ops/rosina-probe.mjs,
+  router.alt.yaml, .apollo/mcp.alt.yaml, package.json, web/vite.config.ts (one line),
+  docs/evidence/34-rosina-service.md, this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm --prefix web test
+  (117); live scenario matrix against the alt stack (not GraphOS) in docs/evidence/34 — all
+  actually run above, not just described.
+NOT DOING: schema/auth changes, minting identity, exposing any mutation tool, Family Calendar,
+  care-plan/village-directory/coordination-job reads (blocked, see table above), merge/tag/release.
+BLOCKERS: CoordinationJobs/CandidateEvaluations, CarePlan, village-directory, and events/practices
+  MCP operations are not yet available (Task E) — four acceptance-example scenarios stay BLOCKED
+  until Bentley ships and lists them under "Rosina tools available" above.
