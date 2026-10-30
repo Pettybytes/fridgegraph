@@ -64,6 +64,7 @@ export function createGraphqlAdapter(client: ReturnType<typeof createGraphClient
   }
   return {
     mode: 'graphql',
+    clearStore: () => client.clearStore(),
     async readMissionControl(scope: Scope) {
       const { coordinationJobs } = await read<{ coordinationJobs: JobRead[] }>(JOBS, { childId: scope.childId })
       const attempts = await Promise.all(coordinationJobs.map(async job => [job.id, (await read<{ attempts: Attempt[] }>(ATTEMPTS, { jobId: job.id })).attempts] as const))

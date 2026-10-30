@@ -30,6 +30,7 @@ export type VillageEdge = {
 export type VillageData = { nodes: VillageNode[]; edges: VillageEdge[] }
 export interface FrontendAdapter {
   readonly mode: 'mock' | 'graphql'
+  clearStore?(): Promise<unknown>
   readMissionControl(scope: Scope): Promise<MissionControlData>
   readParentChat?(scope: Scope): Promise<ParentChatData>
   readVillage(scope: Scope): Promise<VillageData>
