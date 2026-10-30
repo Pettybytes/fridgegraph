@@ -9,10 +9,13 @@ _Last updated: Oct 30, 2026. Merged origin/main `f71a5ed` (Village v2 #22) into 
 **Resume rule:** skip every step marked DONE; continue at the first not-DONE step. Work in groups;
 each group is its own branch off the main state it records below, and one PR. Never merge.
 
+**Reserved evidence numbers:** `34` = E0 (Bentley). Next free = **Task R** (Claude Code, Rosina
+service). Always check `docs/evidence/` before numbering.
+
 | Group | Branch | Base | State |
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
-| 1 | `feat/e-group1` | branch off main after #9 merges | not started |
+| 1 | `feat/e-group1` | off `feat/level-b-drafts` **`a5a9ae9`** (PR #9 unmerged; rebase onto main after it merges) | **E0 DONE — PR #23 (draft, stacked on #9)** |
 | 2 | `feat/e-group2` | | not started |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
@@ -41,6 +44,37 @@ text. Treat as an open voice defect, not a pass.
 **Saturday fix (from Session 3, carried here):** a **mint path that takes `destination_mode`**, so a
 real call does not need the direct-job-insert deviation recorded in evidence 33 §2. Group 1 E0 is the
 designed replacement for that deviation.
+
+### Group 1 (E0) — DONE (branch `feat/e-group1`, base `a5a9ae9`)
+
+**Before:** `ops/dispatcher.mjs` never called `consume_real_call_authorization` and had no PostgREST
+access; consumption was a **manual** runbook step, and `open_attempt(REAL_CONSENTED)` consumed
+nothing. That is the manual hole E0 closes.
+
+**Migration `0023_promote_real_consented.sql`** (applied; forward-only):
+`promote_attempt_to_real_consented(attempt, contact)` **validates** an authorization bound to job +
+candidate + recipient + the job's `request_version`, rewrites that undispatched `TEST_RESPONDER`
+attempt to `REAL_CONSENTED` (destination = the GHL contact), attaches the authorization — and
+**does not consume**. It raises for missing/expired/reused/wrong-recipient/wrong-version credentials,
+a closed attempt, a non-discovering job, or a double promote. `service_role` only.
+
+**One consumption point:** the dispatcher now calls the existing atomic
+`consume_real_call_authorization` immediately before the webhook POST and aborts on `false`
+(`CONSUME_REFUSED — no call placed`). `--dry` consumes nothing. No second attempt is ever opened, so
+the `(job_id, candidate_id)` constraint is not in play.
+
+**Proof:** `ops/0023-dry-run.mjs` — **23/23 PASS** inside a rolled-back transaction, including
+“promotion did not consume”, “consume once true, twice false”, and promotion refused without an
+authorization. Evidence `34-e0-real-call-mint.md`.
+
+**Runbook:** §3 rewritten — mint via `request_pickup` → issue authorization → promote → dispatch
+consumes. **No direct job insert anywhere in the path.**
+
+**Rosina tools:** none added (this step is a mutation path; mutations are never exposed).
+
+**PR #23** (draft, base `main`, stacked on #9 — rebase after #9 merges). Head `60d3cf5`.
+**Next:** Group 2 (E1/E2/E3) branches off `feat/e-group1` while #9 and #23 are unmerged, and rebases
+after each merge.
 
 
 ## 1. State

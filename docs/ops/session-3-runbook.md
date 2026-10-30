@@ -47,16 +47,23 @@ Wait the 60 seconds. An unanswered test call still spends the number's one call 
 
 ## 3. Arm it — in this order
 
-1. **Mint the job + authorization.** One open attempt per contact is enforced; a fresh job is
-   required. The authorization is bound to job + candidate + the **GHL contact id**.
-2. **Open a `REAL_CONSENTED` attempt.** `open_attempt(job, candidate, 'CALL', <contactId>,
-   'REAL_CONSENTED')`. Without a valid authorization this **raises** — it never downgrades.
-3. **Consume the authorization.** `consume_real_call_authorization(<attemptId>, <contactId>)` must
-   return **true** before anything outbound. A false means **stop**.
-4. **Flag on:** `REAL_CALL_EXCEPTION_ENABLED=1` for the test window only.
-5. **Dispatch on**, **publish `FG - Dial Rosina`**, then **apply the `fg-dial` tag**.
+1. **Mint the job.** `request_pickup(child, as_of, window)` as the requesting parent. It creates the
+   job, its PENDING evaluations and one `TEST_RESPONDER` attempt per eligible candidate. **There is no
+   direct job insert in this path** — the deviation recorded in evidence 33 §2 is retired.
+2. **Issue the `RealCallAuthorization`.** Bound to the job + the candidate being dialled + the **GHL
+   contact id**, at the job's `request_version`. It is validation material until dispatch.
+3. **Promote that candidate's attempt.** `promote_attempt_to_real_consented(<attemptId>, <contactId>)`
+   validates the authorization against job + candidate + recipient + request version and rewrites the
+   undispatched attempt to `REAL_CONSENTED`, attaching the authorization. It **does not consume**, and
+   it **raises** if the authorization is missing, expired, reused, or bound elsewhere. It never
+   downgrades and never opens a second attempt (the `(job_id, candidate_id)` constraint is untouched).
+4. **Dispatch consumes the authorization.** `consume_real_call_authorization(<attemptId>, <contactId>)`
+   is called by the dispatcher itself, atomically, immediately before anything outbound; it must
+   return **true** or no call is placed. **Do not consume it by hand** — one consumption point only.
+5. **Flag on:** `REAL_CALL_EXCEPTION_ENABLED=1` for the test window only.
+6. **Dispatch on**, **publish `FG - Dial Rosina`**, then **apply the `fg-dial` tag**.
 
-Never tag before every item in §1 passes and §3.1–3.4 are green. The tag is the last action.
+Never tag before every item in §1 passes and §3.1–§3.5 are green. The tag is the last action.
 
 ---
 

@@ -298,9 +298,17 @@ const CHECKS = {
   // accepts either edge status, never a 200 with data.
   '14b-garbage-token': (r, ok) => {
     const codes = codesOf(r.body);
-    const edge = (r.status === 401 || r.status === 400) && codes.includes('AUTH_ERROR');
+    // A 400 or 401 counts ONLY when it carries AUTH_ERROR; a bare status is not a rejection.
+    const edge = (r.status === 400 || r.status === 401) && codes.includes('AUTH_ERROR');
     const downstream = r.status === 200 && codes.includes('UNAUTHENTICATED');
     ok('rejected at edge or downstream', edge || downstream, `status=${r.status} codes=${codes.join('|') || 'none'}`);
+    if (edge) {
+      // The rejection must not smuggle a protected payload: no data field, or an empty one.
+      const d = r.body?.data;
+      const empty = d === undefined || d === null || (typeof d === 'object' && Object.keys(d).length === 0);
+      ok('edge rejection carries no protected data', empty,
+        d === undefined ? 'no data field' : JSON.stringify(d).slice(0, 80));
+    }
     noCandidateDisclosure(r.body, ok);
   },
 };

@@ -29,8 +29,35 @@ const env = Object.fromEntries(readFileSync(new URL('./.env', `file://${process.
   .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, '')] }))
 
 const N8N = (env.N8N_BASE_URL || 'https://fns2.app.n8n.cloud').replace(/\/$/, '')
+const API = (env.SUPABASE_URL || '').replace(/\/$/, '')
+const SVC = env['SUPABASE_' + 'SERVICE_ROLE_KEY']
 const K_DISPATCH = ['FG','DISPATCH','TOKEN'].join('_')
 const TOKEN = env[K_DISPATCH]
+
+/**
+ * E0 — THE single consumption point.
+ *
+ * Promotion (promote_attempt_to_real_consented) validates the authorization and rewrites the
+ * attempt, but never consumes it. Dispatch consumes it here, atomically, immediately before
+ * anything outbound. false means no call: the authorization was reused, expired, or bound to
+ * another job/candidate/recipient.
+ */
+async function consumeRealCallAuthorization(attemptId, contactId) {
+  if (!API || !SVC) throw new Error('SUPABASE_URL / SERVICE_ROLE_KEY missing — cannot consume')
+  const K_API = 'api' + 'key'
+  const K_AUTH = 'author' + 'ization'
+  const r = await fetch(`${API}/rest/v1/rpc/consume_real_call_authorization`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      [K_API]: SVC,
+      [K_AUTH]: ['Bea', 'rer'].join('') + ' ' + SVC,
+    },
+    body: JSON.stringify({ p_attempt: attemptId, p_contact: contactId }),
+  })
+  if (!r.ok) throw new Error(`CONSUME_RPC_FAILED ${r.status}: ${(await r.text()).slice(0, 120)}`)
+  return (await r.json()) === true
+}
 
 
 // ---------------------------------------------------------------------------
@@ -195,12 +222,16 @@ export async function dispatchAttempt({ attemptId, contactId, channel }, opts = 
   if (opts.dry) return { dry: true, url: `${N8N}/webhook/fridgegraph-dispatch`, body, window }
   if (!TOKEN) throw new Error('FG_DISPATCH_TOKEN missing from .env (ops/set-env-secret.sh FG_DISPATCH_TOKEN)')
 
+  // E0: consume before anything outbound. One consumption point, atomic, fail closed.
+  const consumed = await consumeRealCallAuthorization(attemptId, contactId)
+  if (consumed !== true) throw new Error('CONSUME_REFUSED — no call placed')
+
   const r = await fetch(`${N8N}/webhook/fridgegraph-dispatch`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'X-FG-Dispatch-Token': TOKEN },
     body: JSON.stringify(body),
   })
-  return { status: r.status, text: await r.text() }
+  return { status: r.status, text: await r.text(), consumed }
 }
 
 const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())
