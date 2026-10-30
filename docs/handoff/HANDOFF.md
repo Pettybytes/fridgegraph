@@ -824,3 +824,28 @@ database. Rebase applied cleanly with no conflicts.
 attempt `att_65b34cc9577dcc89d8386a2c`, bound to `p_gma`, status `discovering`, window 60 s (the
 column default; `request_pickup` takes no timeout argument and no household policy governs it, so 60 s
 is the contract maximum).
+
+## Task C progress — Level B finish + Muse on Meta (2026-10-30)
+
+**Resume rule:** skip every step marked DONE; continue at the first step not DONE.
+
+| Phase | Step | State | Observed |
+|---|---|---|---|
+| A | A1 evidence 29 | **DONE** | `docs/evidence/29-level-b-rehearsal.md`. Attempt `att_65b34cc9…`: one `ACCEPTED` event, `accepted_via=WEBHOOK_CALLBACK`, and `cost_calculated_at=02:10:40.640Z` — three minutes after the call's executions (02:09:40–02:10:37), proving the reply did not cost her. Ranking then set `OVER_POLICY` / **12.40** / labelled basis, job `awaiting_approval` v3, `over_limit_candidate_id=p_gma`, never `APPROVAL_PENDING`, `confirmations` = 0. Executions 14787-14789 are the multi-output Code-node failure; fixed with an IF node. Headers not dumped. |
+| B | B1 D2 open-attempt constraint (forward migration + dry run) | PENDING | not started |
+| B | B2 rewrite Reply and Timeout per D1/D3/D4, activate | PENDING | not started |
+| B | B3 verify FG-SMS-Reply and FG - No Answer, write docs/ghl/ghl-workflows.md | PENDING | not started |
+| B | B4 eight-case proof + parser unit test, evidence 30 | PENDING | not started |
+| B | B5 D5 real names in say lines, voice-turn-check 12/12 + new cases | PENDING | not started |
+| M | M1 verify api.meta.ai/v1 + muse model, stop on mismatch | PENDING | not started |
+| M | M2 meta provider on the PickupCandidates test, evidence 31, draft PR | PENDING | not started |
+| C | C1 supported Voice AI outbound dial path spec | PENDING | not started |
+| C | C2 dispatcher inventory / minimal dispatcher | PENDING | not started |
+| C | C3 docs/ops/session-3-runbook.md | PENDING | not started |
+
+### Note for the next session
+
+Phase A is complete and pushed. The local stack (4001-4007), router (4010) and voice-turn (4118) were
+running at hand-off; the Voice Turn workflow is active with URL
+`https://fridgegraph.loomz.stream/voice-turn`. Hard stops all held: Dispatch inactive, both GHL send
+nodes disabled, no RealCallAuthorization, `REAL_CALL_EXCEPTION_ENABLED` unset.
