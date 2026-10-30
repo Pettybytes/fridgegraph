@@ -160,3 +160,80 @@ next step is to verify the alt subgraphs' JWKS verification path (`SUPABASE_JWKS
 router's `override_subgraph_url` actually took effect rather than routing to the shared stack.
 
 **PR #15 stays draft.** Step 1 does not meet 4/4 on any run.
+
+---
+
+## M2 rerun — traced to the hop that failed, fixed, then accepted (2026-10-30)
+
+### The trace (log: hop, status, claims — never a token)
+
+| Hop | Observation |
+|---|---|
+| 1. token | `alg=ES256`, `kid` matches JWKS, **signature VERIFIED**, `iss` project = JWKS project, `aud=authenticated`, `exp` valid (+60 min vs the real clock), `identity_map` → **`p_mom` (Kendra Ellison)** |
+| 2. access subgraph 4102 | first attempt returned **schema** errors only — *misleading*: validation runs before auth, so it proved nothing. Re-queried with only fields that subgraph owns → **UNAUTHENTICATED** |
+| 3. router 4012 | **UNAUTHENTICATED** |
+| 4. MCP 5051 | `initialize` 200, session established, `tools/call` → **UNAUTHENTICATED** |
+
+**Hypothesis tested and rejected:** `p_mom` is Kendra. The claim in the previous report that the
+identity was suspect was wrong — sign-in was correct all along. The token was valid at every claim.
+
+### Root cause
+
+`src/auth/verify.ts` resolves the caller from a **file**, not the database table:
+
+```ts
+function identityMapPath() { return process.env.IDENTITY_MAP_PATH ?? join(process.cwd(), 'data', 'identity-map.json') }
+function getIdentityMap() { if (!existsSync(path)) return {}; ... }
+```
+
+`data/identity-map.json` **did not exist in the `fridgegraph-meta` worktree**. A missing file returns
+`{}`, so every `sub` resolved to `unmapped` and every request became `UNAUTHENTICATED` — at the
+subgraph, and therefore at every hop above it. Nothing was wrong with the model, the key, the router
+or the sign-in; the worktree was simply missing a runtime file that the other worktrees have.
+
+**Fix (only that defect):** link the file — `data/identity-map.json` (685 bytes, gitignored).
+
+Two secondary defects in my own harness, found and fixed on the way:
+
+1. The ad-hoc router config omitted `headers.all.request.operations.propagate: Authorization`
+   (handoff lesson #10). Necessary but **not sufficient** — with it added the call still failed until
+   the identity map was present. Both were needed; neither alone was the cause.
+2. `node_modules` and `.demo-credentials` were absent in this worktree too (symlinked, not copied).
+
+After the fix, **before any model call**: router `200`, `candidates=4`; MCP `tools/call`
+`isError=false` returning Kendra's four candidates.
+
+### Acceptance — Meta Model API (`muse-spark-1.3`), 3 identical runs
+
+| Run | Tool call | Args | Rounds | Latency | Tokens (p/c/t) | Grounding |
+|---|---|---|---|---|---|---|
+| 1 | `PickupCandidates` ✓ | `{childId: p_nora, asOf: 2026-10-26}` | 2 | 9222 ms | 1915 / 1483 / 3398 | **4/4** |
+| 2 | `PickupCandidates` ✓ | same | 2 | 8413 ms | 1917 / 1262 / 3179 | **4/4** |
+| 3 | `PickupCandidates` ✓ | same | 2 | 8650 ms | 1915 / 1309 / 3224 | **4/4** |
+
+**Median latency 8650 ms; median total tokens 3224; 2 model round trips per run; grounded 3/3.**
+Grounding = all four candidate names cited and present in the tool result, **0** unsupported phone
+numbers, **0** invented names. Run 3's heuristic flagged the phrase "Ask Loretta" as a possible
+invented name — a false positive: the name is in the returned data, and `grounded` stayed true.
+
+### First comparison — Baseten `meta-models/muse-spark-open-1026`, same harness, 3 runs
+
+**Label: first comparison.** Not a ranking, not a permanent model-role decision.
+
+| Run | Rounds | Latency | Tokens (p/c/t) | Grounding |
+|---|---|---|---|---|
+| 1 | 2 | 8394 ms | 2081 / 1610 / 3691 | 4/4 |
+| 2 | 2 | 7323 ms | 2081 / 1719 / 3800 | 4/4 |
+| 3 | 2 | 8434 ms | 2081 / 2137 / 4218 | 4/4 |
+
+Median latency **8394 ms**, median tokens **3800**, grounded 3/3, 0 unsupported phones, 0 invented.
+
+Both models met 4/4 on every run. Meta used fewer median tokens (3224 vs 3800, ~15% lower) at
+comparable median latency (8650 vs 8394 ms, ~3% slower). With n=3 and a single prompt this is a
+first observation, not a settled difference.
+
+### Scope
+
+Read-only throughout: one query per run, no `db:reset`, no `seed`, no writes. Offline stack only
+(subgraphs 4101-4107, router 4012, MCP 5051); the GraphOS router on 4010 and Task D's stack were not
+touched. No token, password or key is printed anywhere in this evidence.
