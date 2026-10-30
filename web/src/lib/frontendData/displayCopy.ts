@@ -1,7 +1,7 @@
 import { reasonLabel } from './types'
 import type { ReasonCode } from './types'
 export function pickupStatusLabel(status: string): string {
-  return ({ pending: 'Pickup requested', discovering: 'Checking with caregivers', awaiting_approval: 'Waiting for parent approval', confirmed: 'Parent approval recorded', failed: 'Pickup coordination ended' } as Record<string, string>)[status] ?? 'Pickup status unavailable'
+  return ({ pending: 'Pickup requested', discovering: 'Checking with caregivers', awaiting_approval: 'Waiting for parent approval', confirmed: 'Pickup marked confirmed', failed: 'Pickup coordination ended' } as Record<string, string>)[status] ?? 'Pickup status unavailable'
 }
 export function recordedSummary(summary: string): string {
   let copy = summary
