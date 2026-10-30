@@ -56,7 +56,7 @@ export function MissionControl() {
     finally { setSaving(false) }
   }
   return <div className="mc-workspace" data-state={data.provenance ?? (mode === 'mock' ? 'unavailable' : 'live')}>
-    <div className="mc-context"><span><Clock3 size={15} aria-hidden="true" />{scenarioDate} · {mode === 'mock' ? 'Recorded scenario' : 'Current pickup · derived feed'}</span><span className="mc-simulated">{mode === 'mock' ? 'Simulated' : 'Connected'}</span></div>
+    <div className="mc-context"><span><Clock3 size={15} aria-hidden="true" />{scenarioDate} · {mode === 'mock' ? 'Recorded scenario' : 'Recorded pickup · derived feed'}</span><span className="mc-simulated">{mode === 'mock' ? 'Simulated' : 'Connected'}</span></div>
     <div className="mc-layout">
       <section className="pickup-card" aria-labelledby="pickup-heading">
         <div className="pickup-title"><div><p>Pickup coordination</p><h2 id="pickup-heading">{scope.childName.split(' ')[0]}'s {windowName ? `${windowName} ` : ''}pickup</h2></div><ShieldCheck size={25} aria-hidden="true" /></div>

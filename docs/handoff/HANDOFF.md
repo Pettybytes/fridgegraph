@@ -362,8 +362,8 @@ from main 72c1cf5; rebase after Bryan merges earlier work. Never merge.
 | Step | UI complete | Backend complete (Bentley) | Integrated + tested |
 |---|---|---|---|
 | W1 — PR #17 | yes, read-only transport + derived feed | primitive reads exist; demo session delivery unavailable | fixture integration tested; live session not tested; NOT DONE |
-| W2 | not started | demo login/reset/create unavailable | not started |
-| W3 | not started | Rosina service unavailable | not started |
+| W2 — PR #19 | yes, mock | demo login/reset/create unavailable | mock-tested (61 tests); live not tested; NOT DONE |
+| W3 — PR #20 | yes, mock | Rosina service unavailable | mock-tested (78 tests); live not tested; NOT DONE |
 | W4 | not started | awaiting services | not started |
 
 ### W1 implemented surfaces and provenance
@@ -398,7 +398,8 @@ BRANCH: feat/web-graphql-adapter; WORKTREE: /Users/user/Desktop/bentley/fridgegr
 TASK: complete W1 read-only adapter, keeping PR #17 draft until live integration.
 LAYER: frontend + companion frontend contracts/handoff/mocks only.
 TOUCHED: web/, docs/contracts/frontend-data.md, docs/mocks/pickup-candidates.json,
-  docs/mocks/pickup-job-lifecycle.json, docs/handoff/HANDOFF.md.
+  docs/mocks/pickup-job-lifecycle.json, docs/mocks/mission-control.json,
+  docs/mocks/parent-chat.json, docs/handoff/HANDOFF.md.
 DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (61);
   npm --prefix web run build; live authenticated Mission Control + village browser proof still required.
 NOT DOING: server/schema/auth/DB, merges, Family Calendar, v2 catalog proposals.
@@ -418,3 +419,17 @@ the ride and preserves the backend basis; null costs have no label, while zero r
 Bentley follow-up (reported, unchanged): pickup-candidates.json lists Loretta's DEMO-103 vehicle;
 the seed has no vehicle for p_gma and PR #14's harness asserts zero. Decide whether the scenario
 is “no vehicle on file” or “vehicle on file but not available today”. This does not block web work.
+
+### Task W cross-step resume pointers
+
+- W1: https://github.com/Pettybytes/fridgegraph/pull/17 — feat/web-graphql-adapter, this worktree; 61 tests.
+- W2: https://github.com/Pettybytes/fridgegraph/pull/19 — feat/web-persona-picker,
+  /Users/user/Desktop/bentley/fridgegraph-web-persona-picker; 61 tests.
+- W3: https://github.com/Pettybytes/fridgegraph/pull/20 — feat/web-ask-rosina,
+  /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina; 78 tests.
+
+All UI steps are complete with explicit mocks/derived facts; all are draft and NOT DONE because
+real-service integration is untested. W2 includes the shared policy correction; W3 includes policy
+and W2 prerequisites. Main remains 72c1cf5 at this check. Rebase/deduplicate and reconcile App after
+Bryan merges prior steps. Do not mark fixture browser runs as live proof. W4 remains conditional
+on Bentley delivery. No merge, tag, release or database action was performed.
