@@ -825,6 +825,32 @@ attempt `att_65b34cc9577dcc89d8386a2c`, bound to `p_gma`, status `discovering`, 
 column default; `request_pickup` takes no timeout argument and no household policy governs it, so 60 s
 is the contract maximum).
 
+## Task D progress — reproducible stack + real call readiness (2026-10-30)
+
+**Resume rule:** skip every step marked DONE; continue at the first step not DONE.
+Worktrees: **D0** in `../fridgegraph-alt-stack` (`chore/alt-stack`, PR #16);
+**D1-D6** here (`feat/level-b-drafts`, PR #9).
+
+| Step | State | Observed |
+|---|---|---|
+| D0 alt stack as code | **DONE** | `ops/alt-stack.sh` (--up/--check/--down) + `ops/alt-stack-check.mjs`. Router 4012 and MCP 5051 configs are **generated** from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml`; the generator refuses a config without `propagate: Authorization` or without rebasing to 4101-4107. Preflight fails loudly on `data/identity-map.json` (the silent-unmapped trap). `--down` kills only pidfile PIDs. **`--check` PROVEN against the running stack without restarting**: router health OK, graphql OK, **mcp candidates 4/4 as Kendra**. **`--up`/`--down` UNTESTED** (proving them needs the live stack stopped). PR #16. |
+| D1 migration 0022 | **DONE** | `0022_real_consented_attempts.sql` applied. (a) `open_attempt(..., p_destination_mode)` refuses `REAL_CONSENTED` without a valid, unconsumed, unexpired authorization bound to job+candidate+recipient — it **raises**, never downgrades (§10). (b) `consume_real_call_authorization(attempt, contact)` — one UPDATE bound to attempt+job+candidate+recipient+version; the 0014 4-arg form is dropped. (c) attempts carry the authorization id + consume time; `webhook_events` inherits the mode via before-insert trigger. Authorizations gained `job_id`/`candidate_id`/`contact_ref`; `attempt_id` is now nullable so an authorization can exist before its attempt. **Dry run 21/21** inside a rolled-back transaction: default unchanged, refused-without, allowed-with, consume-once-then-refuse, expiry, recipient/candidate/job mismatches, TEST_RESPONDER cannot consume, event labelling. Applied; re-apply is a no-op and the script now reports that as correct. |
+| D2 dispatcher window guard | PENDING | not started |
+| D3 queue-aware rollback | PENDING | not started |
+| D4 FG - Dial Rosina draft check | PENDING | not started |
+| D5 runbook update | PENDING | not started |
+| D6 runbook dry run + evidence 32 | PENDING | not started |
+
+### D1 design note worth not re-litigating
+
+`real_call_authorizations.attempt_id` had to become nullable. An authorization must be issuable
+**before** its attempt exists; with a NOT NULL attempt_id the only way to get one would be to create
+the attempt first as TEST_RESPONDER and then flip it — precisely the silent downgrade §10 forbids.
+The binding is therefore job + candidate + contact_ref at issue time, and the attempt id is attached
+atomically when the attempt is created.
+
+---
+
 ## Task C progress — Level B finish + Muse on Meta (2026-10-30)
 
 **Resume rule:** skip every step marked DONE; continue at the first step not DONE.
