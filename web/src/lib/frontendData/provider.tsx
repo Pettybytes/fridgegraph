@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { ApolloClient, ApolloLink, InMemoryCache, Observable, gql } from '@apollo/client'
 import { ApolloProvider, useQuery } from '@apollo/client/react'
@@ -22,7 +22,7 @@ export function DataProvider({ adapter, scope, children }: { adapter: FrontendAd
         ? adapter.readMissionControl(operation.variables.scope)
         : operation.variables.surface === 'village'
           ? adapter.readVillage(operation.variables.scope)
-          : adapter.readParentChat(operation.variables.scope)
+          : adapter.readParentChat?.(operation.variables.scope) ?? Promise.reject(new Error('UNAVAILABLE'))
       request.then(frontendSnapshot => {
         if (active) { observer.next({ data: { frontendSnapshot } }); observer.complete() }
       }, error => { if (active) observer.error(error) })
@@ -38,13 +38,18 @@ export function useDataContext() {
 }
 export function useSurfaceData<T extends MissionControlData | ParentChatData | VillageData>(surface: 'mission-control' | 'parent-chat' | 'village') {
   const { scope } = useDataContext()
-  return useQuery<{ frontendSnapshot: T }>(SNAPSHOT, {
+  const result = useQuery<{ frontendSnapshot: T }>(SNAPSHOT, {
     variables: { scope, surface }, pollInterval: surface === 'village' ? VILLAGE_POLL_INTERVAL_MS : POLL_INTERVAL_MS,
     fetchPolicy: 'network-only', notifyOnNetworkStatusChange: false,
     skipPollAttempt: () => document.visibilityState === 'hidden',
   })
+  useEffect(() => {
+    if (result.error && /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(result.error.message)) result.stopPolling()
+  }, [result.error, result.stopPolling])
+  return result
 }
 export function dataErrorMessage(error: { message: string }): string {
+  if (error.message.includes('UNAVAILABLE')) return 'This surface is unavailable.'
   if (error.message.includes('UNAUTHENTICATED') || error.message.includes('AUTH_ERROR')) return 'Sign in again to continue.'
   if (error.message.includes('UNAUTHORIZED')) return "You don't have access to this."
   return 'Unable to load updates. Try again.'

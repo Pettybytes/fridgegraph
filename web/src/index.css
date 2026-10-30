@@ -201,3 +201,10 @@ h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spac
   .route-slot h2 { font-size: 21px; }
   .attribution { padding: 22px 20px; line-height: 1.7; max-width: 40ch; }
 }
+
+.connected-entry { max-width: 36rem; margin: 10vh auto; padding: 2rem; color: #3a506b; }
+.connected-entry form, .connected-entry label { display: grid; gap: .7rem; }
+.connected-entry form { gap: 1rem; margin: 2rem 0; }
+.connected-entry input { border: 1px solid #c9bddb; padding: .8rem; border-radius: .6rem; background: white; }
+.connected-entry button { padding: .8rem; background: #7559a1; color: white; border-radius: .6rem; }
+.mc-current { background: #f5f0fa; border-radius: 1rem; padding: 1.2rem; overflow-wrap: anywhere; }

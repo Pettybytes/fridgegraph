@@ -19,8 +19,8 @@ const villageData: VillageData = projectVillage(villageMock.data.villageGraph)
 
 const missionControlData: MissionControlData = {
   candidates: [
-    { id: 'p_gma', name: 'Loretta Brooks', channel: 'CALL', reasonCode: 'OVER_POLICY', distanceMiles: 8.86, estimatedRideCostUsd: 12.4, costBasis: 'test' },
-    { id: 'p_bryan', name: 'Bryan Brooks', channel: 'SMS', reasonCode: 'UNAVAILABLE', distanceMiles: 3.2, estimatedRideCostUsd: 4.48, costBasis: 'test' },
+    { id: 'p_gma', name: 'Loretta Brooks', channel: 'CALL', reasonCode: 'AVAILABLE_NO_TRANSPORT', distanceMiles: 8.86, estimatedRideCostUsd: null, costBasis: null },
+    { id: 'p_bryan', name: 'Bryan Brooks', channel: 'SMS', reasonCode: 'UNAVAILABLE', distanceMiles: 3.2, estimatedRideCostUsd: null, costBasis: null },
   ],
   events: [],
 }
@@ -127,7 +127,7 @@ describe('LivingVillage', () => {
     renderVillage(errorAdapter)
     const error = await screen.findByTestId('living-village-error')
     expect(error).toBeInTheDocument()
-    expect(error).toHaveTextContent("You don't have access to this")
+    expect(error).toHaveTextContent("This information is private")
   })
 
   it('renders search input', async () => {
@@ -173,7 +173,7 @@ describe('LivingVillage', () => {
     // Verify the labels match the contract
     const { reasonLabel } = await import('@/lib/frontendData/types')
     expect(reasonLabel('PENDING')).toBe('Waiting for reply')
-    expect(reasonLabel('OVER_POLICY')).toBe('Over your travel limit')
+    expect(reasonLabel('OVER_POLICY')).toBe('Ride estimate over your limit')
     expect(reasonLabel('APPROVAL_PENDING')).toBe('Awaiting parent approval')
     expect(reasonLabel('RECOMMENDED')).toBe('Recommended')
   })

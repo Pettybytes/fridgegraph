@@ -74,8 +74,8 @@
       "reasonCode": "APPROVAL_PENDING",
       "acceptedVia": "WEBHOOK_CALLBACK",
       "evidence": "acceptPickup(available: true) via SMS +1-313-555-0107, bound to attemptId + recipient + channel + requestVersion 1, verified via the replying number matching the Attempt's destination",
-      "estimatedRideCostUsd": 6.30,
-      "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+      "estimatedRideCostUsd": null,
+      "costBasis": null,
       "distanceMiles": 4.50,
       "note": "RECOMMENDED the moment the ranking ran (version 3), immediately shown as APPROVAL_PENDING while the job waits on Kendra. Entry point B (candidate's own Supabase JWT via MCP) is P1 and not used in this demo run."
     }

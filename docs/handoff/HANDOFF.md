@@ -350,3 +350,122 @@ Behavioural verification, direct PostgREST (`node ops/run-evidence.mjs`, case 26
 
 Residual drift, not fixed (needs its own decision): `local_today()` is not SECURITY DEFINER and has
 no pinned `search_path` in the live database, unlike the repo's 0006.
+
+---
+
+## Task W progress — judge-ready web (2026-10-30)
+
+Three states: UI complete · backend complete (Bentley) · integrated + tested. Only integrated
+and tested against real services is DONE. No steps are DONE. One branch/worktree/PR per step
+from main 72c1cf5; rebase after Bryan merges earlier work. Never merge.
+
+| Step | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|
+| W1 — PR #17 | yes, read-only transport + derived feed | primitive reads exist; demo session delivery unavailable | fixture integration tested; live session not tested; NOT DONE |
+| W2 — PR #19 | yes, mock | demo login/reset/create unavailable | mock-tested (61 tests); live not tested; NOT DONE |
+| W3 — PR #20 | yes, mock | Rosina service unavailable | mock-tested (78 tests); live not tested; NOT DONE |
+| W4 | not started | awaiting services | not started |
+
+### W1 implemented surfaces and provenance
+
+- Mission Control reads live `coordinationJobs` + `attempts(jobId)`. Its feed is **derived**,
+  never a synthetic event history. Only attempts, recorded confirmations and cost-calculation
+  facts carry their own timestamps; job status/version, reasonCode, availability and acceptedVia
+  appear under Current state, without manufactured times. Timestamped events never claim an old
+  job version or status observed at that time. Candidate channel is **unavailable** (`—`).
+- Living Village: **derived** graph projection from live `village`, `child`, `householdMembers`
+  and `relationships`. No inferred private roles or fabricated edges. Polls at 30s; Mission
+  Control polls at 2.5s. Forbidden results stop polling and show access denial.
+- Graphql mode is read-only and has no `readParentChat`. Mock is the default, including tests.
+  Legacy mock chat is **unavailable as a live surface**; W3 replaces it with Ask Rosina.
+- `/graphql` proxies to 127.0.0.1:4010. Apollo gets the existing Supabase user's access token
+  using publishable runtime configuration. No browser passwords or server credentials. The
+  connected entry accepts child/village IDs and checks session presence; actual access is server-side.
+  It displays unavailable login rather than substituting a mock session. W2/W4 replace this entry.
+
+Validation run: root typecheck PASS; staged secret scan PASS; web **61 tests PASS**; production
+build PASS (existing >500kB bundle warning). Playwright CLI checked the derived GraphQL fixture
+preview and denied response at desktop/mobile. Screenshots: `web/evidence/task-w/w1-desktop.png`,
+`w1-mobile.png`; cost correction screenshots `cost-normal-desktop.png`, `cost-normal-mobile.png`.
+These are explicitly labeled fixture previews, not evidence of a live authenticated service.
+No live DB evidence suite/probes run: frontend-only, credential-free; those suites are backend scope.
+
+Bentley needs: real demo-login session + authorized scopes; jobTimeline to replace the derived
+feed; Attempt.candidate to join channels by candidate id. Parent chat/chatThread is DROPPED.
+No attempt destination-mode field exists today; the UI makes no claim about individual deliveries.
+
+BRANCH: feat/web-graphql-adapter; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-adapter
+TASK: complete W1 read-only adapter, keeping PR #17 draft until live integration.
+LAYER: frontend + companion frontend contracts/handoff/mocks only.
+TOUCHED: web/, docs/contracts/frontend-data.md, docs/mocks/pickup-candidates.json,
+  docs/mocks/pickup-job-lifecycle.json, docs/mocks/mission-control.json,
+  docs/mocks/parent-chat.json, docs/handoff/HANDOFF.md.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (61);
+  npm --prefix web run build; live authenticated Mission Control + village browser proof still required.
+NOT DOING: server/schema/auth/DB, merges, Family Calendar, v2 catalog proposals.
+BLOCKERS: real authenticated integration unavailable; use explicit mocks for the next UI steps.
+
+### Task W cost-fixture correction (2026-10-30)
+
+Authority: pickup-job.md §6a (PR #14). Normal night: Loretta is AVAILABLE_NO_TRANSPORT;
+all candidate costs and bases are null. Drivers are never costed. The explicitly named
+**no-driver night** alone carries the $12.40 OVER_POLICY example. mockSync's assertions stay intact.
+The source candidate/lifecycle mocks also contained stale driver costs; those documentation
+records are reconciled to §6a in this correction. No seed, schema, auth or database changes.
+
+§1.5 rideshare-label amendment is proposed for Bryan's approval in PR #17. The UI describes
+the ride and preserves the backend basis; null costs have no label, while zero remains visible.
+
+Bentley follow-up (reported, unchanged): pickup-candidates.json lists Loretta's DEMO-103 vehicle;
+the seed has no vehicle for p_gma and PR #14's harness asserts zero. Decide whether the scenario
+is “no vehicle on file” or “vehicle on file but not available today”. This does not block web work.
+
+### Task W cross-step resume pointers
+
+- W1: https://github.com/Pettybytes/fridgegraph/pull/17 — feat/web-graphql-adapter, this worktree; 61 tests.
+- W2: https://github.com/Pettybytes/fridgegraph/pull/19 — feat/web-persona-picker,
+  /Users/user/Desktop/bentley/fridgegraph-web-persona-picker; 61 tests.
+- W3: https://github.com/Pettybytes/fridgegraph/pull/20 — feat/web-ask-rosina,
+  /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina; 78 tests.
+
+All UI steps are complete with explicit mocks/derived facts; all are draft and NOT DONE because
+real-service integration is untested. W2 includes the shared policy correction; W3 includes policy
+and W2 prerequisites. Main remains 72c1cf5 at this check. Rebase/deduplicate and reconcile App after
+Bryan merges prior steps. Do not mark fixture browser runs as live proof. W4 remains conditional
+on Bentley delivery. No merge, tag, release or database action was performed.
+
+### Task W pre-merge copy corrections — W1
+
+Human display labels replace workflow codes, version numbers and confirmation/household IDs.
+Recorded values stay in adapter data; no new facts or authors were invented. The connected entry
+no longer asks a family to enter internal child/village IDs; its scope still awaits demo login.
+Mission Control and Living Village accept a persona-aware denied-state slot for W2/W3; the
+credential-free W1 fallback explains sharing instead of rendering a bare denial.
+Touched paths additionally include web/src/lib/frontendData/AccessEmptyState.tsx, displayCopy.ts,
+displayCopy.test.ts and web/src/features/village/PersonCard.tsx; frontend only.
+Validation: root typecheck, secret scan, web build PASS; **62 web tests PASS**. Playwright CLI
+screenshots: web/evidence/task-w/w1-access-desktop.png and w1-access-mobile.png. No live integration
+claim; W1 remains NOT DONE. Follow-up stack rebase is authorized by Bryan's copy-fix request.
+
+## Task W progress — pre-merge copy review (current)
+
+| Step | PR | Web tests | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|---|---|
+| W1 | #17 | 62 PASS | yes | primitive reads available; session delivery incomplete | fixture-tested, live untested; NOT DONE |
+| W2 | #19 | 70 PASS | yes | demo login/reset/create unavailable | mock-tested, live untested; NOT DONE |
+| W3 | #20 | 88 PASS | yes | Rosina service/action integration unavailable | mock-tested, live untested; NOT DONE |
+| W4 | — | not run | pending services | unavailable | not tested |
+
+Copy corrections stay on the owning feature branches. No author is recorded on the current care
+plan; sources use “Nora's care plan” without attributing Kendra. W2 groups existing personas and
+reserves portrait space. W3 answers first, cites plain-language evidence and offers role-aware,
+catalog-validated screen cards. Schedule remains unavailable; Family Calendar and future v2
+entries are deferred. Existing visual identity retained. Branch stack is W1 → W2 → W3 with PR
+bases kept on main; final readable-label changes must be included before pushing the rebased tips.
+No main merge, tag, release, server/auth/schema change or live database action was performed.
+
+Main advanced during the copy pass: PR #18 added coordination-v2.md at 3ad23eb (docs only).
+W1 was rebased onto that main. The contract's current/future visibility and catalog constraints
+were reviewed; proposed backing models still are not implemented by a document merge. No v2
+household, catalog entry or Family Calendar was added. W2 and W3 must be replayed above this tip
+before final publication; author attribution still uses the existing record, not proposed fields.

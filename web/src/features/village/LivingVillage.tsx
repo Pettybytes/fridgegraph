@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+import { AccessEmptyState } from '@/lib/frontendData/AccessEmptyState'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ForceGraphMethods, NodeObject } from 'react-force-graph-2d'
 import ForceGraph2D from 'react-force-graph-2d'
@@ -18,7 +20,7 @@ function initials(name: string): string {
 const ROLE_PLURAL: Record<string, string> = { child: 'Children', parent: 'Parents', adult: 'Adults' }
 
 function rolePlural(role: string): string {
-  return ROLE_PLURAL[role] ?? `${role.charAt(0).toUpperCase() + role.slice(1)}s`
+  return ROLE_PLURAL[role] ?? `${role.charAt(0).toUpperCase() + role.slice(1)}s`.replaceAll('_', ' ')
 }
 
 function toGraph(
@@ -106,7 +108,7 @@ function nodeRadius(node: GraphNode): number {
 
 /* ── main component ─────────────────────────────────────── */
 
-export function LivingVillage() {
+export function LivingVillage({ accessDenied }: { accessDenied?: ReactNode } = {}) {
   const { scope } = useDataContext()
   const { data: villageResult, loading: villageLoading, error: villageError } = useSurfaceData<VillageData>('village')
   const { data: mcResult } = useSurfaceData<MissionControlData>('mission-control')
@@ -129,7 +131,7 @@ export function LivingVillage() {
     const candidates = mcResult?.frontendSnapshot?.candidates
     if (candidates) {
       for (const c of candidates) {
-        map[c.id] = c.reasonCode
+        if (c.reasonCode) map[c.id] = c.reasonCode
       }
     }
     return map
@@ -330,6 +332,7 @@ export function LivingVillage() {
   }
 
   // Error state
+  if (villageError?.message.includes('UNAUTHORIZED')) return <div data-testid="living-village-error">{accessDenied ?? <AccessEmptyState />}</div>
   if (villageError) {
     return (
       <div className="village-empty village-error" role="alert" data-testid="living-village-error">
@@ -348,7 +351,7 @@ export function LivingVillage() {
   }
 
   return (
-    <div className="village-container" data-testid="living-village">
+    <div className="village-container" data-testid="living-village" data-state="derived">
       {/* Search & filter bar */}
       <div className="village-controls">
         <div className="village-search-wrap">

@@ -24,7 +24,7 @@
       "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "discovering", "version": 2 },
       "stage": "IN_PROGRESS",
       "kind": "candidate_evaluation",
-      "summary": "Loretta Brooks — available, but has no car. Entry point: WEBHOOK_CALLBACK.",
+      "summary": "Loretta Brooks — AVAILABLE_NO_TRANSPORT. Entry point: WEBHOOK_CALLBACK. No paid ride explored: a driver is available.",
       "at": "2026-10-28T14:59:02Z"
     },
     {
@@ -48,7 +48,7 @@
       "job": { "id": "job_01HXYZ", "idempotencyKey": "pickup:p_nora:2026-10-28:afternoon", "status": "awaiting_approval", "version": 3 },
       "stage": "IN_PROGRESS",
       "kind": "candidate_evaluation",
-      "summary": "Tasha Ellison — RECOMMENDED (candidate-selection fact), now APPROVAL_PENDING. $6.30 estimated, within cap. Entry point: WEBHOOK_CALLBACK. Notified approver: Kendra Ellison (Wednesday). FYI: Andre Ellison.",
+      "summary": "Tasha Ellison — APPROVAL_PENDING. Entry point: WEBHOOK_CALLBACK. Parent approval required; no travel cost attached to a driver.",
       "at": "2026-10-28T14:59:45Z"
     },
     {

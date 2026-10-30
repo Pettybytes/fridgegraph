@@ -11,10 +11,10 @@
         "id": "p_gma",
         "name": "Loretta Brooks",
         "channel": "CALL",
-        "reasonCode": "OVER_POLICY",
+        "reasonCode": "AVAILABLE_NO_TRANSPORT",
         "distanceMiles": 8.86,
-        "estimatedRideCostUsd": 12.4,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
+        "estimatedRideCostUsd": null,
+        "costBasis": null
       },
       {
         "id": "p_bryan",
@@ -22,8 +22,8 @@
         "channel": "SMS",
         "reasonCode": "UNAVAILABLE",
         "distanceMiles": 3.2,
-        "estimatedRideCostUsd": 4.48,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
+        "estimatedRideCostUsd": null,
+        "costBasis": null
       },
       {
         "id": "p_tasha",
@@ -31,8 +31,8 @@
         "channel": "SMS",
         "reasonCode": "APPROVAL_PENDING",
         "distanceMiles": 4.5,
-        "estimatedRideCostUsd": 6.3,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
+        "estimatedRideCostUsd": null,
+        "costBasis": null
       },
       {
         "id": "p_monique",
@@ -40,8 +40,8 @@
         "channel": "SMS",
         "reasonCode": "UNAVAILABLE",
         "distanceMiles": 6,
-        "estimatedRideCostUsd": 8.4,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"
+        "estimatedRideCostUsd": null,
+        "costBasis": null
       }
     ],
     "events": [
@@ -81,7 +81,7 @@
         },
         "stage": "IN_PROGRESS",
         "kind": "candidate_evaluation",
-        "summary": "Loretta Brooks — OVER_POLICY ($12.40 estimated, exceeds Kendra's $10 cap). Entry point: WEBHOOK_CALLBACK.",
+        "summary": "Loretta Brooks — AVAILABLE_NO_TRANSPORT. Entry point: WEBHOOK_CALLBACK. No paid ride explored: a driver is available.",
         "at": "2026-10-28T14:59:02Z"
       },
       {
@@ -120,7 +120,7 @@
         },
         "stage": "IN_PROGRESS",
         "kind": "candidate_evaluation",
-        "summary": "Tasha Ellison — RECOMMENDED (candidate-selection fact), now APPROVAL_PENDING. $6.30 estimated, within cap. Entry point: WEBHOOK_CALLBACK. Notified approver: Kendra Ellison (Wednesday). FYI: Andre Ellison.",
+        "summary": "Tasha Ellison — APPROVAL_PENDING. Entry point: WEBHOOK_CALLBACK. Parent approval required; no travel cost attached to a driver.",
         "at": "2026-10-28T14:59:45Z"
       },
       {
@@ -178,7 +178,7 @@
         "id": "msg_0005",
         "from": "ROSINA",
         "kind": "APPROVAL_REQUEST",
-        "text": "Recommending Tasha for Nora's pickup today — she's available and within your travel limit. You're today's approver. Want me to confirm it with her?",
+        "text": "Recommending Tasha for Nora's pickup today — she's available and can drive. You're today's approver. Want me to confirm it with her?",
         "at": "2026-10-28T14:59:45Z",
         "relatedInformationRequestId": null,
         "relatedJobId": "job_01HXYZ",
@@ -188,7 +188,7 @@
         "id": "msg_0003",
         "from": "ROSINA",
         "kind": "TEXT",
-        "text": "Bryan can't today, and Monique hasn't answered yet. Loretta can, but her trip would be over your $10 travel limit. Tasha said yes and she's within policy — still checking in case anyone else replies.",
+        "text": "Bryan can't today, and Monique hasn't answered yet. Loretta can help but has no transport. Tasha said yes and can drive.",
         "at": "2026-10-28T14:59:50Z",
         "relatedInformationRequestId": "ir_0007",
         "relatedJobId": "job_01HXYZ",

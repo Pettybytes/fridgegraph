@@ -33,17 +33,15 @@ describe('shared adapter', () => {
     expect(dataErrorMessage(new Error('UNAUTHORIZED'))).toBe("You don't have access to this.")
     expect(dataErrorMessage(new Error('network'))).toBe('Unable to load updates. Try again.')
   })
-  it('uses synthetic estimated travel cost for every caregiver', async () => {
+  it('never costs a driver and costs only an explicit paid-ride path', async () => {
+    // pickup-job.md §6a: no driver is ever costed; normal night has a driver.
     const { candidates } = await createMockAdapter().readMissionControl(demoScope)
     expect(TRAVEL_COST_LABEL).toBe('Estimated travel cost')
-    expect(reasonLabel('OVER_POLICY')).toBe('Over your travel limit')
     for (const candidate of candidates) {
-      expect(candidate.distanceMiles).not.toBeNull()
-      expect(candidate.estimatedRideCostUsd).toBeCloseTo(candidate.distanceMiles! * 1.40, 2)
-      expect(candidate.costBasis).toBe('FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi')
-      expect(candidate).not.toHaveProperty('estimatedTravelCostUsd')
+      expect(candidate.estimatedRideCostUsd).toBeNull()
+      expect(candidate.costBasis).toBeNull()
     }
-    expect(JSON.stringify(await createMockAdapter().readParentChat(demoScope))).not.toMatch(/ride.cost|ride fare|Uber|spend/i)
+    expect(candidates.find(candidate => candidate.id === 'p_gma')?.reasonCode).toBe('AVAILABLE_NO_TRANSPORT')
   })
   it('polls within the approved demo interval', () => { expect(POLL_INTERVAL_MS).toBe(2500) })
 })

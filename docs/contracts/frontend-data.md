@@ -58,7 +58,7 @@ polling proves too slow, not a decision reopened here.
 
 Intervals: **Mission Control polls every 2–3 s** for the demo (tightened from the draft's generic
 5s — Mission Control's "acknowledge instantly, show progress, then verified results" requirement
-needs it). The parent chat thread also polls at 5s. The Living Village graph and the calendar poll
+needs it). The Living Village graph and the calendar poll
 at 30s. No polling for the map (coordinates change rarely in this milestone).
 
 ### 1.4 Simulated / real-consented labels
@@ -81,79 +81,28 @@ exception into looking like an ordinary, unlabelled production call:
 - A `Confirmation`'s badge is derived from its `Attempt`'s `destinationMode` (via the candidate
   it confirms) rather than carrying its own copy of the field — one source of truth per job.
 
-### 1.5 User-facing labels (binding)
+### 1.5 User-facing labels (binding; Task W rideshare amendment proposed for Bryan's approval)
 
-Cost and policy copy is not free-form. These exact strings are required, and the prohibited words
-must not appear in any label, badge, toast or notification:
+Only a no-car caregiver on the paid-ride path may carry an estimate, and only when no driver
+can do the pickup (`pickup-job.md` §6a). Drivers always carry null costs. A real zero is displayed;
+a null is omitted, including its cost label and basis.
 
-| Concept | Required label |
-| --- | --- |
-| `estimatedRideCostUsd` / `distanceMiles` on a candidate | **"Estimated travel cost"** |
-| `OVER_POLICY` state | **"Ride estimate over your limit"** |
+- Paid-ride line: **"<Name> · Rideshare to school (Uber or Lyft) · Est. $X.XX"**.
+- Basis line: **"FridgeGraph estimate (distance × $1.40/mi), not an Uber or Lyft quote"**.
+- Preserve the backend `costBasis` verbatim as the recorded basis whenever an estimate is shown.
+- Review action: **"Review rideshare option"**.
+- `OVER_POLICY`: **"Ride estimate over your limit"**.
 
-- Never "ride fare", "Uber", "quote", "reimbursement", "charge" or "spend". The figure is a
-  synthetic planning estimate of the candidate's trip to the pickup point (`pickup-job.md` §6a),
-  applied consistently to every candidate including those using their own vehicles.
-- Kendra's $10 is a **household travel-cost policy threshold**, not a spending authorization for
-  any ride provider. Reviewing an over-limit option is an explicit exception, never a purchase.
-- Where the estimate is displayed, `costBasis` must be shown verbatim.
+These describe a possible ride, never a price charged for a caregiver. Never imply a provider
+quote, fare or booking. Reviewing an option does not arrange transport or authorize spending.
+Explicit acceptance of an over-limit option remains required.
 
-## 2. Surface: Parent chat (Kendra's phone)
+## 2. Parent chat — dropped for Task W v1
 
-Display name and tagline, wherever the UI names the agent: **"Rosina, FridgeGraph's AI family
-coordinator."** Attribution copy, if shown, reads "planning and decisions powered by Meta's Muse
-Spark Open" — never implying the voice itself is a Meta model (full naming rule:
-`docs/contracts/webhook.md`'s "Naming and attribution" section).
-
-Type or voice note → Rosina reply, in one thread that also shows Rosina's questions and approval
-requests — i.e., the thread is not just a messages table, it interleaves three kinds of server
-truth (chat messages, coordination questions, approval requests) in time order. **Decided
-(Bryan): no aggregate query in v1** — `chatThread` returns only genuine `ChatMessage` rows; the
-client merges in `informationRequests` and job-approval items by timestamp itself, the same
-client-side-composition pattern as every other surface in this contract.
-
-### Queries / mutations
-
-| Operation | Status | Cites |
-| --- | --- | --- |
-| `chatThread(childId: ID!): [ChatMessage!]!` | **NEW** | no message/thread type exists anywhere in `schema/*.graphql` today |
-| `sendParentMessage(childId: ID!, text: String, voiceNoteUrl: String): ChatMessage!` | **NEW** | same — no chat mutation exists |
-| `informationRequests(childId: ID!): [InformationRequest!]!` | EXISTING | `schema/coordination.graphql` `Query.informationRequests` — Rosina's questions, rendered inline in the thread by `at`-ish ordering (the type has no timestamp yet — see Requested changes) |
-| `coordinationJobs(childId: ID): [CoordinationJob!]!` | EXISTING | `schema/coordination.graphql` `Query.coordinationJobs` — read to show the thread's "can you approve this pickup?" banner when a job the parent is the named approver for (`pickup-job.md` §6) reaches `awaiting_approval` |
-
-`ChatMessage` (**NEW** type, proposed shape):
-
-```graphql
-enum ChatSender { PARENT ROSINA }
-enum ChatMessageKind { TEXT VOICE_NOTE QUESTION APPROVAL_REQUEST }
-
-type ChatMessage {
-  id: ID!
-  child: Child!
-  from: ChatSender!
-  kind: ChatMessageKind!
-  text: String
-  voiceNoteUrl: String
-  at: String!
-  relatedInformationRequestId: ID
-  relatedJobId: ID
-}
-```
-
-### Mock
-
-`docs/mocks/parent-chat.json`
-
-### Requested changes
-
-1. A `ChatMessage` type and `chatThread` / `sendParentMessage` operations — there is no chat
-   persistence anywhere in the graph today; this is new surface, not a gap in an existing one.
-2. `InformationRequest` has no `at`/timestamp field (`schema/coordination.graphql`) — needed to
-   interleave questions correctly into a time-ordered thread.
-3. **Decided (Bryan): voice notes live in a private Supabase Storage bucket with signed URLs,
-   priority P1** (not day-one blocking, but committed). `ChatMessage.voiceNoteUrl` resolves to a
-   time-limited signed URL, never a public bucket path — exact expiry/retention is still open
-   (§8).
+Bryan dropped `chatThread` and `readParentChat` from the graphql adapter's scope. Ask Rosina (W3)
+replaces parent chat. Legacy mock thread types remain only to preserve existing fixture tests.
+Rosina history is client-side, scoped to the signed-in persona, sent with each `/api/rosina`
+request, never persisted on the server, and cleared before persona switching.
 
 ## 3. Surface: Living Village (Obsidian Person Network style, `react-force-graph-2d`)
 
