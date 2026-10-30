@@ -20,7 +20,7 @@ function initials(name: string): string {
 const ROLE_PLURAL: Record<string, string> = { child: 'Children', parent: 'Parents', adult: 'Adults' }
 
 function rolePlural(role: string): string {
-  return ROLE_PLURAL[role] ?? `${role.charAt(0).toUpperCase() + role.slice(1)}s`
+  return ROLE_PLURAL[role] ?? `${role.charAt(0).toUpperCase() + role.slice(1)}s`.replaceAll('_', ' ')
 }
 
 function toGraph(

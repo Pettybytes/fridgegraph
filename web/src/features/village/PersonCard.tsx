@@ -60,7 +60,7 @@ export function PersonCard({ node, edge, centerName, highlight, onClose }: Perso
         )}
 
         {/* Role */}
-        <span className="village-card-role">{node.role.charAt(0).toUpperCase() + node.role.slice(1)}</span>
+        <span className="village-card-role">{(node.role.charAt(0).toUpperCase() + node.role.slice(1)).replaceAll('_', ' ')}</span>
 
         {/* Highlight badge */}
         {highlight && (
