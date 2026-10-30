@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo } from 'react'
 import { Shell } from '@/app/Shell'
 import { DataProvider } from '@/lib/frontendData/provider'
-import { MissionControl } from '@/features/mission-control'
+import { MissionControlV2 as MissionControl } from '@/features/mission-control/v2/MissionControlV2'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { SessionProvider, useSession } from '@/features/personas/Session'
 import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/PersonaPicker'
