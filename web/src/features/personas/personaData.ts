@@ -16,6 +16,7 @@ export function createPersonaDataAdapter(session: AuthSession): FrontendAdapter 
       assertScope(scope.childId)
       if (!session.persona.parent) throw new Error('UNAUTHORIZED')
       if (scope.childId === 'p_nora') return base.readVillage(scope)
+      if (scope.childId !== 'p_jax') throw new Error('UNAVAILABLE')
       return { nodes: [
         { person: { id: 'p_jax', displayName: 'Jax Coleman' }, household: { id: 'h_c' }, role: 'child' },
         { person: { id: 'p_dana', displayName: 'Dana Coleman' }, household: { id: 'h_c' }, role: 'parent' },

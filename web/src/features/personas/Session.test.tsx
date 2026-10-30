@@ -93,6 +93,6 @@ describe('persona sessions', () => {
     expect(await auth.createDemoFamily({ parentName: 'Fictional Parent', childName: 'Fictional Child' })).toMatchObject({ id: 'mock-family-1', parentName: 'Fictional Parent' })
     await auth.resetDemo()
     expect((await auth.createDemoFamily({ parentName: 'Parent', childName: 'Child' })).id).toBe('mock-family-1')
-    expect(personas).toHaveLength(6)
+    expect(personas).toHaveLength(8)
   })
 })

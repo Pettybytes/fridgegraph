@@ -1,3 +1,4 @@
+import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Dialog } from 'radix-ui'
@@ -5,13 +6,14 @@ import { MessageCircle, X } from 'lucide-react'
 import { useSession } from '@/features/personas/Session'
 import type { ChatMessage, FrontendAdapter } from '@/lib/frontendData/types'
 import { actionAllowed, actionLabel, actionRoute, catalog, validateActions } from './catalog'
-import type { CatalogAction, Screen } from './catalog'
+import type { CatalogAction, ExplainableScreen } from './catalog'
 import { createMockRosinaAdapter } from './adapter'
 import type { RosinaAdapter, RosinaResponse } from './adapter'
 import './rosina.css'
 type ThreadMessage = ChatMessage & { actions: CatalogAction[] }
 export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAdapter; service?: RosinaAdapter }) {
   const { session, registerPrivateCleanup } = useSession()
+  const calendarScope = useCalendarActionScope(session?.persona.personId)
   const adapter = useMemo(() => service ?? createMockRosinaAdapter(session, dataAdapter), [session, dataAdapter, service])
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [draft, setDraft] = useState('')
@@ -24,7 +26,7 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
   const nextId = useRef(0), active = useRef(true), abort = useRef<AbortController | null>(null)
   const threadRef = useRef<HTMLDivElement>(null), launcherRef = useRef<HTMLButtonElement>(null)
   const sent = useRef(false), executed = useRef(new Set<string>())
-  const context = { childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
+  const context = { ...calendarScope, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
   useEffect(() => {
     active.current = true
     const unregister = registerPrivateCleanup(() => {
@@ -70,10 +72,12 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
     catch { if (active.current) setError('Rosina could not reply. Try again. Your message was not submitted as an action.') }
     finally { if (active.current) { setBusy(false); sent.current = false } }
   }
-  function explanation(screen: Screen): string {
+  function explanation(screen: ExplainableScreen): string {
+    if (screen === 'calendar') return 'Family Calendar shows scheduled commitments and care in Detroit time. A schedule is not a confirmed location, and a gap in busy time is not confirmed availability.'
     if (screen === 'care-information') return 'This screen shows care information the family has shared with you. The care plan is named beneath the note.'
     if (screen === 'ask-rosina') return 'You can ask about your village here. Replies use what is shared with you, and every change needs your confirmation.'
     if (screen === 'village') return 'Living Village shows the people and relationships shared with you. Seeing a person here does not give access to their private information.'
+    if (session?.persona.guardian) return 'This demo view is not connected for this family yet. Family Calendar shows the plans shared with your guardian role.'
     if (session && !session.persona.parent) return `Pickup plans are shared with ${session.scope.childName.split(' ')[0]}'s parents. You can ask what information is shared with your role.`
     return 'Mission Control shows recorded pickup plans. A caregiver saying yes, a parent approving and a completed pickup are separate facts.'
   }
@@ -95,7 +99,7 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
       catch { if (active.current) setError('The recommendation is unavailable.') }
     }
   }
-  const screen: Screen = currentRoute.startsWith('#/village') ? 'village' : currentRoute.startsWith('#/care-information') ? 'care-information' : currentRoute.startsWith('#/ask-rosina') ? 'ask-rosina' : 'mission-control'
+  const screen: ExplainableScreen = currentRoute.startsWith('#/calendar') ? 'calendar' : currentRoute.startsWith('#/village') ? 'village' : currentRoute.startsWith('#/care-information') ? 'care-information' : currentRoute.startsWith('#/ask-rosina') ? 'ask-rosina' : 'mission-control'
   return <>
     <button type="button" ref={launcherRef} className="rosina-launcher" onClick={() => setOpen(true)} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>
     <section onKeyDown={event => { if (event.key === 'Escape') { setOpen(false); launcherRef.current?.focus() } }} className={`rosina-panel ${open ? 'is-open' : ''}`} aria-label="Ask Rosina" data-state={adapter.mode === 'mock' ? 'unavailable' : 'live'}>

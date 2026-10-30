@@ -694,3 +694,53 @@ DONE WHEN: both branches pass web tests, typecheck and secret scan, are pushed w
   and GitHub reports MERGEABLE against main. Live integration remains a separate pending task.
 NOT DOING: UI changes, merging, tags, releases, backend/auth/schema/database work.
 BLOCKERS: none found in the rebase or local checks; verify GitHub's refreshed state after pushing.
+
+## Task CAL progress — Family Calendar
+
+BRANCH: feat/web-family-calendar; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-family-calendar
+BASE: actual origin/main 64429d94054d6429f6492ce05cd4a6e0ccf16226 (fetched at task start).
+TASK: week/day calendar UI on explicit v2-shaped mocks; real integration queued alongside W4.
+LAYER: frontend + companion calendar contract/handoff.
+TOUCHED: web/src/features/calendar/, web/src/features/personas/, web/src/features/rosina/,
+  web/src/app/Shell.tsx, web/src/App.tsx, web/evidence/task-cal/,
+  docs/contracts/family-calendar.md, docs/contracts/frontend-data.md,
+  docs/contracts/ask-rosina.md, docs/handoff/HANDOFF.md.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test; npm --prefix web run build;
+  desktop/mobile Playwright proof including Rosa and the Detroit DST week.
+NOT DOING: server/schema/auth/DB, live queries against proposed SDL, merges/tags/releases.
+BLOCKERS: Bentley's v2 event/holiday/busy reads are not delivered; no credential needed for mocks.
+
+| Surface | UI | Backend (Bentley) | Integrated + tested |
+|---|---|---|---|
+| Calendar | complete on mocks | unavailable; Bentley v2 reads pending | mock adapter + UI tested; live NOT DONE |
+
+Baseline actually run: typecheck PASS, secret scan clean, 88 web tests PASS, build PASS.
+Mock identities/scenarios are fictional projections of coordination-v2's Cast/seed plan, not live
+seed claims. Guardian authority is distinct from the parent flag. Busy projections contain no
+reason, employer, other-child or other-household detail. No real authorization is implemented here.
+Mock holiday dateStart/dateEnd are inclusive Detroit calendar dates; wire end semantics need
+confirmation before live integration. Bryan confirmed inclusive calendar dates for the mock;
+no backend wire boundary was guessed.
+
+
+Task CAL mock verification (2026-10-30): root typecheck PASS; **117 web tests PASS** (88
+baseline + 29 additions); production build PASS (existing >500 kB chunk advisory). Detroit
+adapter/time suite: **13 PASS** under TZ=UTC and **13 PASS** under TZ=Pacific/Auckland.
+Playwright production-preview proof: **5 persona flows PASS** (Kendra, Priya, Dana, Rosa,
+Dwayne). Rosa has guardian authority, not a parent flag; Priya’s Nora/Malik scopes remain
+separate. Missing confirmer/link/location details are explicit; busy reasons are stripped.
+Screenshots and reproducible browser proof: web/evidence/task-cal/ (Rosa desktop/mobile,
+DST week desktop/day mobile, Thanksgiving desktop). Corrected a genuine mobile navigation
+overflow found during the browser check; no test assertions were weakened.
+
+QUEUE ALONGSIDE W4: calendar live integration after Bentley’s v2 migrations/read operations.
+Need authenticated event/category/status reads, weekly/holiday precedence and inclusive-date
+wire confirmation, busy-only projections, guardian/schedule grants and readable linked-record/
+confirmation metadata. Repeat exploration, persona boundaries, day/DST/holiday cases against
+real services. Mock completion does not establish live authorization or backend correctness.
+Source classification: fixture facts are unavailable as live data, view segmentation/care bands
+are derived; no Task CAL surface is represented as live. No merge/tag/release performed.
+
+Final staged secret guard: `npm run check` PASS, 281 files scanned, **0 findings**.
+Diff scope reviewed: web/ plus companion docs only. Task CAL is ready for review on mocks;
+UI complete · backend unavailable (Bentley) · mock integrated + tested / live NOT DONE.
