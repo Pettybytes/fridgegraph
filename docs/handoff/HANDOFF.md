@@ -469,3 +469,46 @@ W1 was rebased onto that main. The contract's current/future visibility and cata
 were reviewed; proposed backing models still are not implemented by a document merge. No v2
 household, catalog entry or Family Calendar was added. W2 and W3 must be replayed above this tip
 before final publication; author attribution still uses the existing record, not proposed fields.
+
+## Task W progress — W2 persona picker (2026-10-30)
+
+| Step | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|
+| W1 — PR #17 | yes | primitive reads; login unavailable | fixture-tested; live not tested; NOT DONE |
+| W2 — this branch | yes, mock | demo-login/reset/create unavailable | mock-integrated + tested; live not tested; NOT DONE |
+| W3 | not started | Rosina unavailable | not started |
+| W4 | not started | awaiting delivery | not started |
+
+Branch created from main 72c1cf5 with the W1 cost correction cherry-picked as a shared prerequisite
+so the existing fixture-sync assertions remain intact. No W1 adapter code is included. After Bryan
+merges W1, rebase this branch onto main and reconcile App's connected entry; never merge autonomously.
+
+Surface states: entry/sign-in/reset/create = **unavailable live**, explicit mocks. Mission Control
+and Living Village = **unavailable live** in this step, conservative mock projections. Priya's
+mock **care information** is derived verbatim from src/fixtures.ts carePlans and visible only under
+her careplan.read example. Loretta has pickup.request/schedule.read/goals.read; Priya has
+supervise.request/schedule.read/careplan.read. Neither gets parent job data or the broad village mock.
+Dana scopes to her own child Jax; the Jax-family entry represents Ray. No invented identity.
+
+Private cleanup synchronously unmounts the old workspace before any await, clears Apollo through
+clearStore (plus adapter clearStore when provided), remounts selections/cards under the session
+generation, and ignores superseded sign-in/family responses. W3 must register conversation cleanup
+with the same session registry. Connected mode never signs into the live graph with a mock identity.
+
+Validation: root typecheck PASS; secret scan PASS; **60 web tests PASS**; production build PASS
+(existing >500kB warning). Five new session tests cover cache/DOM clearing, a late sign-in response,
+Kendra → Loretta, Priya's grants and mock family validation/reset. Existing shell tests now enter via
+Kendra instead of assuming private data before sign-in. Playwright CLI checked desktop/mobile,
+Kendra → Loretta with a MutationObserver (no old private content in switch mutations), Priya's
+care-only view, and mock create/reset. Screenshots: web/evidence/task-w/w2-desktop.png, w2-mobile.png.
+
+BRANCH: feat/web-persona-picker; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-persona-picker
+TASK: six-person mock entry, session isolation and sandbox demo controls.
+LAYER: frontend and companion handoff only (plus shared W1 policy prerequisite).
+TOUCHED: web/src/features/personas/, web/src/App.tsx, web/src/lib/frontendData/types.ts,
+  web/src/app/Shell.test.tsx, web/src/app/VillageRoute.test.tsx, web/evidence/task-w/, this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (60);
+  npm --prefix web run build; real demo-login/reset/create integration still required.
+NOT DOING: backend auth, passwords, credentials, DB, Family Calendar, merge, v2 catalog entries.
+BLOCKERS: Bentley's server-side demo-login must return the actual user session and authorized
+  scope; resetDemo/createDemoFamily endpoints and their contracts remain unavailable.
