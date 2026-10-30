@@ -1076,3 +1076,61 @@ Final readiness recheck: origin/main is `f71a5ed` (Village v2 #22 merged); this 
 backend and #23 is E0 mint-path work stacked on it — not the required v2/auth/Rosina reads. Rosina readiness marker still absent. W4 cannot start on
 these undelivered services; do not label a mock-backed end-to-end run as live evidence.
 Follow-up staged secret scan PASS: 295 files, zero findings. Diff remains web + companion docs.
+
+## Task MC — demo-ready Mission Control
+
+BRANCH feat/web-mission-control-v2; WORKTREE ../fridgegraph-web-mission-control-v2.
+BASE origin/main f71a5edb5bdcc33a129bf04f342cc9da953a5854 (#22 squash already merged when
+Bryan's command was attempted; verified MERGED on GitHub, main pulled fast-forward only).
+LAYER web + companion docs. TOUCHED mission-control/v2, App entry, persona boundary copy,
+frontend-data §1.4 clarification, handoff, evidence. Never merge this task's PR.
+UI in progress · backend awaiting W4 reads · integrated not yet tested.
+No invented ringing/policy timestamps: current mock sources contain no such individual records.
+No-driver night has no timed lifecycle; show its supplied state without synthetic timestamps.
+No live auth/schema/DB/server or pricing logic changes. Approval is a local recorded replay;
+no contacts, provider booking, payment or real approval write.
+
+Task MC implemented: source-backed normal replay with Play/Pause/Next/Restart and four
+parallel candidate lanes. Original Detroit event times include seconds; presentation pacing
+is explicitly condensed. Individual replies become visible only when their recorded evaluation
+is reached. Monique's no-answer timeout is a system observation, never Bryan's explicit decline.
+Candidate detail pauses replay. Replay stops at parent review and never auto-approves.
+Tasha's explanation joins authorized pickup-candidate, human availability, recorded transport
+and straight-line distance facts. Kendra is the recorded Wednesday approver; Andre is read-only.
+Other personas receive their own role-aware boundary or no-job state, not Nora's private data.
+
+No-driver night is its own supplied over-limit scenario: only Loretta's recorded willing/no-car
+option, $12.40 estimate and exact basis. No imported normal-night candidate outcomes. The source
+has no attempt metadata, event times or confirmation time for that path; current state and
+explicit acceptance remain visible with those gaps stated. Separate app confirmation and
+checkbox are mandatory; no contacts, provider actions, spending or live approval writes occur.
+Normal parent approval replays the existing 2026-10-28T15:14:00Z evidence, not the current clock.
+
+Contract drift fixed in frontend-data §1.4: TEST_RESPONDER now reads “Test responder”, distinct
+from explicitly “Simulated” activity and “Real call (consented)”. No new backend enum invented.
+Normal mock attempts all have the recorded Test responder state; real-consented badge coverage
+is a component test, never a claim that such a call occurred in this job. Missing mode is
+unavailable. Confirmation mode derives from its candidate's attempt, not a global demo flag.
+
+| Surface | UI | Backend (Bentley) | Integrated + tested |
+|---|---|---|---|
+| Mission Control v2 | complete on mocks | timeline/candidate/mode reads await W4 | mock tested; live NOT DONE |
+| No-driver review | complete on supplied mock path | actual approval/readback integration pending | mock tested; live NOT DONE |
+
+Observed verification: root typecheck PASS; **150 web tests PASS** (137 baseline + 13 new);
+production build PASS (existing chunk-size advisory). **Four Playwright flows PASS**: desktop
+full job and over-limit confirm; mobile full replay and no-driver sheet; Priya sharing boundary;
+Andre read-only review. Screenshots/proof: web/evidence/mission-control-v2/ (request, outreach,
+recommendation, approval and no-driver decision/confirm, desktop + mobile). Legacy component,
+adapter, pricing-policy and persona tests retained. Initial unused import and modal-hidden
+selector failures corrected; useful candidate-detail selection restored without relaxing the
+existing persona-isolation assertion. Detail: docs/contracts/mission-control-v2.md.
+
+W4 needs delivered authenticated approver rights, jobTimeline, Attempt.candidate/destinationMode,
+timeout-vs-decline evidence and approval readback. Ringing/receipt/policy-check events can appear
+only when actually recorded. Live integration stays queued; no Task MC step is marked DONE.
+Diff reviewed: web + companion docs only. Never merged/tagged/released this task's branch.
+Final staged secret scan PASS: 303 files, zero findings. Mock evidence only; no live service
+acceptance claimed. Task MC remains UI complete · backend pending · mock integrated/tested.
+Published draft PR **#25**: https://github.com/Pettybytes/fridgegraph/pull/25.
+Implementation 0236ad0; GitHub reports MERGEABLE. Task MC not merged; live integration NOT DONE.

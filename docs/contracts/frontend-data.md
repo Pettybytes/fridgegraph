@@ -75,7 +75,9 @@ exception into looking like an ordinary, unlabelled production call:
   the previous draft — a boolean can't carry the three-way distinction the real-call exception
   needs (ordinary test fixture vs. the one real-consented number vs., hypothetically, an
   unlabelled real call that should never happen at all).
-- `TEST_RESPONDER` → "Simulated" badge. `REAL_CONSENTED` → a visually distinct "Real call
+- `TEST_RESPONDER` → "Test responder" badge. Explicitly simulated activity → "Simulated" badge.
+  A missing destination mode remains unavailable; never infer it from a channel or a job-wide flag.
+  `REAL_CONSENTED` → a visually distinct "Real call
   (consented)" badge — never styled identically to "Simulated," and never allowed to read as a
   plain, unbadged production call.
 - A `Confirmation`'s badge is derived from its `Attempt`'s `destinationMode` (via the candidate
