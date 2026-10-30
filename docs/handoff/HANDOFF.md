@@ -463,3 +463,9 @@ catalog-validated screen cards. Schedule remains unavailable; Family Calendar an
 entries are deferred. Existing visual identity retained. Branch stack is W1 → W2 → W3 with PR
 bases kept on main; final readable-label changes must be included before pushing the rebased tips.
 No main merge, tag, release, server/auth/schema change or live database action was performed.
+
+Main advanced during the copy pass: PR #18 added coordination-v2.md at 3ad23eb (docs only).
+W1 was rebased onto that main. The contract's current/future visibility and catalog constraints
+were reviewed; proposed backing models still are not implemented by a document merge. No v2
+household, catalog entry or Family Calendar was added. W2 and W3 must be replayed above this tip
+before final publication; author attribution still uses the existing record, not proposed fields.
