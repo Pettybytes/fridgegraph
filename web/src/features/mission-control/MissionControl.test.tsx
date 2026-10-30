@@ -5,6 +5,7 @@ import { demoScope } from '@/lib/frontendData/mockAdapter'
 import type { FrontendAdapter } from '@/lib/frontendData/types'
 import { MissionControl } from './MissionControl'
 import { createPickupDemoAdapter } from './demoAdapter'
+import lifecycle from '../../../../docs/mocks/pickup-job-lifecycle.json'
 function show(adapter: FrontendAdapter = createPickupDemoAdapter()) {
   render(<DataProvider adapter={adapter} scope={demoScope}><MissionControl /></DataProvider>)
 }
@@ -19,15 +20,34 @@ describe('Mission Control UI', () => {
     expect(screen.getByRole('heading', { name: 'Job timeline' })).toBeVisible()
     expect(screen.queryByText('conf_0003', { exact: false })).not.toBeInTheDocument()
   })
-  it('reviews an over-limit alternative without changing the recorded recommendation', async () => {
-    show()
+  it('reviews an over-limit alternative on a no-driver night', async () => {
+    const base = createPickupDemoAdapter()
+    const data = await base.readMissionControl(demoScope)
+    const noDriverNight = lifecycle.overLimitPath
+    data.candidates = [{ id: noDriverNight.overLimitCandidate.id, name: noDriverNight.overLimitCandidate.displayName, channel: 'CALL', reasonCode: 'OVER_POLICY', distanceMiles: noDriverNight.distanceMiles, estimatedRideCostUsd: noDriverNight.estimatedRideCostUsd, costBasis: noDriverNight.costBasis }]
+    show({ ...base, readMissionControl: async () => data })
     fireEvent.click(await screen.findByRole('button', { name: 'Select Loretta Brooks' }))
     fireEvent.click(screen.getByRole('button', { name: 'Review' }))
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Review Loretta Brooks' })).toBeVisible()
-    expect(within(dialog).getByText('Estimated travel cost')).toBeVisible()
-    expect(within(dialog).getByText('$12.40')).toBeVisible()
+    expect(within(dialog).getByText(/Rideshare to school/)).toBeVisible()
+    expect(within(dialog).getByText(/Est. \$12.40/)).toBeVisible()
     expect(within(dialog).queryByRole('button', { name: 'Replay recorded approval' })).not.toBeInTheDocument()
+  })
+  it('omits all paid-ride labels and bases on a normal night', async () => {
+    show()
+    await screen.findByRole('heading', { name: "Nora's afternoon pickup" })
+    expect(screen.queryByText(/Rideshare to school/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Recorded basis:/)).not.toBeInTheDocument()
+  })
+  it('displays a real zero estimate with its basis on a no-driver night', async () => {
+    const base = createPickupDemoAdapter()
+    const data = await base.readMissionControl(demoScope)
+    const option = lifecycle.overLimitPath
+    data.candidates = [{ id: 'p_gma', name: 'Loretta Brooks', channel: 'CALL', reasonCode: 'AVAILABLE_NO_TRANSPORT', distanceMiles: 0, estimatedRideCostUsd: 0, costBasis: option.costBasis }]
+    show({ ...base, readMissionControl: async () => data })
+    expect(await screen.findByText(/Est. \$0.00/)).toBeVisible()
+    expect(screen.getByText(`Recorded basis: ${option.costBasis}`)).toBeVisible()
   })
   it('requires the explicit simulated approval action before displaying confirmation evidence', async () => {
     show()

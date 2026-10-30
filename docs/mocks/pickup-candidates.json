@@ -124,11 +124,11 @@
         "distanceBasis": "haversine straight-line",
         "estimatedTravelMinutes": 6.40,
         "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
-        "estimatedRideCostUsd": 4.48,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "estimatedRideCostUsd": null,
+        "costBasis": null,
         "locationProvenance": "ESTIMATED",
-        "costCalculatedAt": "2026-10-28T14:59:40Z",
-        "_note": "Within cap, but declined — cost is computed regardless of decline, for audit completeness."
+        "costCalculatedAt": null,
+        "_note": "Declined. A driver is never costed (pickup-job.md §6a)."
       },
       {
         "person": { "id": "p_tasha", "displayName": "Tasha Ellison" },
@@ -139,10 +139,10 @@
         "distanceBasis": "haversine straight-line",
         "estimatedTravelMinutes": 9.00,
         "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
-        "estimatedRideCostUsd": 6.30,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "estimatedRideCostUsd": null,
+        "costBasis": null,
         "locationProvenance": "ESTIMATED",
-        "costCalculatedAt": "2026-10-28T14:59:45Z",
+        "costCalculatedAt": null,
         "_note": "RECOMMENDED the moment the ranking ran, immediately shown as APPROVAL_PENDING — within cap and clean on every ranking key (pickup-job.md §5b)."
       },
       {
@@ -154,10 +154,10 @@
         "distanceBasis": "haversine straight-line",
         "estimatedTravelMinutes": 12.00,
         "travelTimeBasis": "30 mph flat average over straight-line distance — not a routed ETA",
-        "estimatedRideCostUsd": 8.40,
-        "costBasis": "FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi",
+        "estimatedRideCostUsd": null,
+        "costBasis": null,
         "locationProvenance": "ESTIMATED",
-        "costCalculatedAt": "2026-10-28T14:59:16Z",
+        "costCalculatedAt": null,
         "_note": "Timed out — no reply within discoveryTimeoutSeconds=60, so acceptedVia is null (no acceptance was ever recorded)."
       }
     ]

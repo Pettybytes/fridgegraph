@@ -17,7 +17,7 @@ function projection(): MissionControlData {
 function adapterFor(read: () => Promise<MissionControlData>, approve: NonNullable<FrontendAdapter['approvePickup']>): FrontendAdapter {
   return { mode: 'graphql', readMissionControl: read, readVillage: async () => ({ nodes: [], edges: [] }), readParentChat: async () => ({ messages: [] }), approvePickup: approve }
 }
-describe('backend-supplied over-limit alternative', () => {
+describe('no-driver night: backend-supplied over-limit alternative', () => {
   it('uses only the supplied candidate and requires separate explicit acceptance', async () => {
     const data = projection()
     const approve = vi.fn(async () => ({ id: 'backend-job', status: 'confirmed', version: 4 }))
@@ -26,9 +26,9 @@ describe('backend-supplied over-limit alternative', () => {
     expect(screen.getAllByRole('button', { name: /^Select / })).toHaveLength(1)
     expect(screen.queryByText('Tasha Ellison')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: "Rosina's recommendation" })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Review over-limit option' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review rideshare option' }))
     const dialog = screen.getByRole('dialog', { name: 'Review Loretta Brooks' })
-    expect(within(dialog).getByText(alternative.costBasis)).toBeVisible()
+    expect(within(dialog).getByText(`Recorded basis: ${alternative.costBasis}`)).toBeVisible()
     const accept = within(dialog).getByRole('button', { name: 'Accept over-limit option' })
     expect(accept).toBeDisabled()
     expect(approve).not.toHaveBeenCalled()
@@ -48,6 +48,6 @@ describe('backend-supplied over-limit alternative', () => {
     render(<DataProvider adapter={adapterFor(async () => data, vi.fn())} scope={demoScope}><MissionControl /></DataProvider>)
     expect(await screen.findByText('Over-limit option explicitly accepted.')).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('Parent approval recorded')
-    expect(screen.queryByRole('button', { name: 'Review over-limit option' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Review rideshare option' })).not.toBeInTheDocument()
   })
 })

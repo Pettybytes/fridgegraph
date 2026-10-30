@@ -394,3 +394,18 @@ contract forbids, so no adapter code was committed in this step.
 Then W1 is: Vite proxy `/graphql` → `127.0.0.1:4010`, Apollo auth link carrying the Supabase access
 token, `VITE_DATA_MODE=mock|graphql` with mock as the test default, and adapter tests over the
 composed reads.
+
+### Task W cost-fixture correction (2026-10-30)
+
+Authority: pickup-job.md §6a (PR #14). Normal night: Loretta is AVAILABLE_NO_TRANSPORT;
+all candidate costs and bases are null. Drivers are never costed. The explicitly named
+**no-driver night** alone carries the $12.40 OVER_POLICY example. mockSync's assertions stay intact.
+The source candidate/lifecycle mocks also contained stale driver costs; those documentation
+records are reconciled to §6a in this correction. No seed, schema, auth or database changes.
+
+§1.5 rideshare-label amendment is proposed for Bryan's approval in PR #17. The UI describes
+the ride and preserves the backend basis; null costs have no label, while zero remains visible.
+
+Bentley follow-up (reported, unchanged): pickup-candidates.json lists Loretta's DEMO-103 vehicle;
+the seed has no vehicle for p_gma and PR #14's harness asserts zero. Decide whether the scenario
+is “no vehicle on file” or “vehicle on file but not available today”. This does not block web work.

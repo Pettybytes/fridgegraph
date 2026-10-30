@@ -19,8 +19,8 @@ const villageData: VillageData = projectVillage(villageMock.data.villageGraph)
 
 const missionControlData: MissionControlData = {
   candidates: [
-    { id: 'p_gma', name: 'Loretta Brooks', channel: 'CALL', reasonCode: 'OVER_POLICY', distanceMiles: 8.86, estimatedRideCostUsd: 12.4, costBasis: 'test' },
-    { id: 'p_bryan', name: 'Bryan Brooks', channel: 'SMS', reasonCode: 'UNAVAILABLE', distanceMiles: 3.2, estimatedRideCostUsd: 4.48, costBasis: 'test' },
+    { id: 'p_gma', name: 'Loretta Brooks', channel: 'CALL', reasonCode: 'AVAILABLE_NO_TRANSPORT', distanceMiles: 8.86, estimatedRideCostUsd: null, costBasis: null },
+    { id: 'p_bryan', name: 'Bryan Brooks', channel: 'SMS', reasonCode: 'UNAVAILABLE', distanceMiles: 3.2, estimatedRideCostUsd: null, costBasis: null },
   ],
   events: [],
 }

@@ -81,22 +81,21 @@ exception into looking like an ordinary, unlabelled production call:
 - A `Confirmation`'s badge is derived from its `Attempt`'s `destinationMode` (via the candidate
   it confirms) rather than carrying its own copy of the field — one source of truth per job.
 
-### 1.5 User-facing labels (binding)
+### 1.5 User-facing labels (binding; Task W rideshare amendment proposed for Bryan's approval)
 
-Cost and policy copy is not free-form. These exact strings are required, and the prohibited words
-must not appear in any label, badge, toast or notification:
+Only a no-car caregiver on the paid-ride path may carry an estimate, and only when no driver
+can do the pickup (`pickup-job.md` §6a). Drivers always carry null costs. A real zero is displayed;
+a null is omitted, including its cost label and basis.
 
-| Concept | Required label |
-| --- | --- |
-| `estimatedRideCostUsd` / `distanceMiles` on a candidate | **"Estimated travel cost"** |
-| `OVER_POLICY` state | **"Ride estimate over your limit"** |
+- Paid-ride line: **"<Name> · Rideshare to school (Uber or Lyft) · Est. $X.XX"**.
+- Basis line: **"FridgeGraph estimate (distance × $1.40/mi), not an Uber or Lyft quote"**.
+- Preserve the backend `costBasis` verbatim as the recorded basis whenever an estimate is shown.
+- Review action: **"Review rideshare option"**.
+- `OVER_POLICY`: **"Ride estimate over your limit"**.
 
-- Never "ride fare", "Uber", "quote", "reimbursement", "charge" or "spend". The figure is a
-  synthetic planning estimate of the candidate's trip to the pickup point (`pickup-job.md` §6a),
-  applied consistently to every candidate including those using their own vehicles.
-- Kendra's $10 is a **household travel-cost policy threshold**, not a spending authorization for
-  any ride provider. Reviewing an over-limit option is an explicit exception, never a purchase.
-- Where the estimate is displayed, `costBasis` must be shown verbatim.
+These describe a possible ride, never a price charged for a caregiver. Never imply a provider
+quote, fare or booking. Reviewing an option does not arrange transport or authorize spending.
+Explicit acceptance of an over-limit option remains required.
 
 ## 2. Surface: Parent chat (Kendra's phone)
 
