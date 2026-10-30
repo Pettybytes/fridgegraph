@@ -1,0 +1,17 @@
+# Rosina tool: JobTimeline — one job's recorded lifecycle, oldest first.
+#
+# Every field is derived from a stored timestamp on the coordination subgraph; nothing is
+# synthesized. A caller who cannot see the job gets [] (never an error), so the response never
+# confirms that a job id exists. Authorization is the row's own RLS, not this file.
+query JobTimeline($jobId: ID!) {
+  jobTimeline(jobId: $jobId) {
+    at
+    kind
+    attemptId
+    candidate {
+      id
+      displayName
+    }
+    detail
+  }
+}
