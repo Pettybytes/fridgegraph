@@ -112,3 +112,40 @@ The Web Call was placed by Bryan from the GHL UI; it is not an outbound dial by 
 - It does not claim the intermediate `null` cost was captured live — only that `cost_calculated_at`
   places the estimate at 02:10:40, separate from the reply.
 - It does not test a second turn after `ACCEPTED`; the attempt was consumed by design.
+
+---
+
+## 6. Checkpoint A2 — corrections to the record above
+
+**Timing correction.** Section 1 said "roughly three minutes after the call's executions". That was
+wrong. `cost_calculated_at = 02:10:40.640Z` is **2.749 s** after the last call execution (14799 at
+02:10:37.891Z) — not minutes, and not the 3.6 s I was given. Neither figure is load-bearing, which is
+the point of the next paragraph.
+
+**What actually proves the reply wrote no cost is the function, not the clock.** From
+`pg_get_functiondef` for the 6-argument `accept_pickup_webhook` (deployed, 0020):
+
+| Check | Result |
+|---|---|
+| `estimate_ride_cost_usd` occurrences in the body | **0** |
+| `OVER_POLICY` occurrences in the body | **0** |
+| the UPDATE still names | `estimated_ride_cost_usd = v_cost`, `cost_basis = case when v_cost is null …`, `cost_calculated_at = case when v_cost is null …` |
+| `v_cost` assignments | **none** — the variable is never assigned, so every reply writes null |
+
+The timing is therefore **consistent only** with the ranking having written the estimate; it is not
+the proof. The absence of any cost computation on the reply path is the proof.
+
+### Two separate defects, previously conflated
+
+1. **Mechanical.** The n8n Code node returned multiple outputs, so executions **14787–14789** errored
+   before reaching the HTTP node. Fixed with a single output plus an IF node; re-proved afterwards.
+2. **Behavioural.** Rosina repeated the opener because **CONTINUE was in her trigger/enums**. Bryan
+   removed it. Status: **VERIFICATION PENDING** — only the next live call can show a single opener.
+   Nothing in this file should be read as having verified that.
+
+### A third finding
+
+Rosina sent **ACCEPTED** for "I can help but I don't have a car". Bryan tightened the decision
+description; recorded in `docs/ghl/rosina-custom-action.md`. The deterministic parser (D3) removes
+this class of error for text replies; the voice path still rests on that description until a live call
+verifies it.

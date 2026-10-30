@@ -831,6 +831,7 @@ is the contract maximum).
 
 | Phase | Step | State | Observed |
 |---|---|---|---|
+| A | A2 corrections to evidence 29 | **DONE** | Appended as checkpoint §6, no rewrite: timing corrected to **2.749 s** (not minutes, not 3.6 s) and relabelled *consistent only*; the real proof is the deployed 6-arg function — `estimate_ride_cost_usd` 0 occurrences, `OVER_POLICY` 0, `v_cost` never assigned, so replies write null. Two defects separated: multi-output Code node (14787-14789, fixed) vs **CONTINUE in Rosina's enums → opener repeated → VERIFICATION PENDING**. Third finding: ACCEPTED sent for "I can help but I don't have a car"; description tightened; noted in rosina-custom-action.md. |
 | A | A1 evidence 29 | **DONE** | `docs/evidence/29-level-b-rehearsal.md`. Attempt `att_65b34cc9…`: one `ACCEPTED` event, `accepted_via=WEBHOOK_CALLBACK`, and `cost_calculated_at=02:10:40.640Z` — three minutes after the call's executions (02:09:40–02:10:37), proving the reply did not cost her. Ranking then set `OVER_POLICY` / **12.40** / labelled basis, job `awaiting_approval` v3, `over_limit_candidate_id=p_gma`, never `APPROVAL_PENDING`, `confirmations` = 0. Executions 14787-14789 are the multi-output Code-node failure; fixed with an IF node. Headers not dumped. |
 | B | B1 D2 open-attempt constraint (forward migration + dry run) | PENDING | not started |
 | B | B2 rewrite Reply and Timeout per D1/D3/D4, activate | PENDING | not started |

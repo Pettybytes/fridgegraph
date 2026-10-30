@@ -110,3 +110,15 @@ Rosina never improvises a confirmation.
    `https://fridgegraph.loomz.stream/voice-turn` (verified: 7d returned 200 `CONTINUE`).
 2. `fg_attempt_id` populated on the "Loretta Brooks (demo)" contact before the Web Call.
 3. One Web Call rehearsal against the live chain before the agent is left attached.
+
+## Known misclassification — 2026-10-30 (verification pending)
+
+On the rehearsal call, Rosina sent **ACCEPTED** for *"I can help but I don't have a car."* The
+decision was wrong: that answer is a decline with no transport, not acceptance.
+
+Bryan tightened the decision description afterwards. Until a live call shows the corrected behaviour,
+treat the voice-path classification as **unverified**. The text path is unaffected: D3 parses SMS
+deterministically, and transport phrases take precedence over an affirmation in the same message.
+
+Status: **VERIFICATION PENDING** — the next live call must show "no car" mapped to
+`DECLINED` / `NO_TRANSPORT`, and only one opener.
