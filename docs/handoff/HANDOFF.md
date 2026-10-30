@@ -675,3 +675,22 @@ tests, plus each branch's root typecheck, secret scan and web build. Human “Pi
 never substitutes for separate Confirmation evidence; recommendation copy calls parent approval
 a separate decision, not an inferred fact. All three PRs are draft and live integration remains
 untested/NOT DONE. Copy corrections and screenshots are published on their owning branches.
+
+### Task W squash-merge rebase — main 215df4a
+
+Bryan squash-merged W1 (#17) as 215df4a. W2 was replayed with
+`git rebase --onto origin/main 1880d70 feat/web-persona-picker`; W3 was replayed with
+`git rebase --onto feat/web-persona-picker 05475c9 feat/web-ask-rosina`.
+Range-diff verified all five W2 patches and all six W3 patches unchanged. Pre-squash W1 commits
+were removed from both branches' pending history. No UI, schema, auth or database changes.
+Observed checks after rebasing: W2 **70 web tests PASS**, W3 **88 web tests PASS**; root typecheck,
+secret scan (zero findings), and web production build PASS on both. Existing bundle warning remains.
+
+BRANCH: feat/web-persona-picker (#19), feat/web-ask-rosina (#20); existing sibling worktrees.
+TASK: restack W2/W3 after W1's squash merge, without reintroducing W1's original commits.
+LAYER: frontend history and this companion handoff only.
+TOUCHED: commit ancestry only; docs/handoff/HANDOFF.md records this rebase.
+DONE WHEN: both branches pass web tests, typecheck and secret scan, are pushed with leases,
+  and GitHub reports MERGEABLE against main. Live integration remains a separate pending task.
+NOT DOING: UI changes, merging, tags, releases, backend/auth/schema/database work.
+BLOCKERS: none found in the rebase or local checks; verify GitHub's refreshed state after pushing.
