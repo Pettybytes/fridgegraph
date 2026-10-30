@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// GHL Custom Action headers are static, so the fresh timestamp and the secret are added\n// here. The voice-turn server rejects anything outside +/-300 s.\nconst incoming = $json.body || $json;\nconst ts = String(Math.floor(Date.now() / 1000));\nreturn [{ json: {\n  timestamp: ts,\n  secret: $vars.FG_WEBHOOK_SECRET,\n  base: $vars.FRIDGEGRAPH_TUNNEL_URL,\n  body: incoming\n} }];"
+        "jsCode": "// GHL Custom Action headers are static, so the fresh timestamp is added here.\n// The secret travels in the attached Header Auth credential, never in this code.\nconst incoming = $json.body || $json;\nreturn [{ json: { timestamp: String(Math.floor(Date.now() / 1000)), body: incoming } }];"
       },
       "id": "vt-sign",
       "name": "Sign Request",
@@ -38,17 +38,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.base }}/voice-turn",
+        "url": "https://TUNNEL_HOST_PENDING/voice-turn",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-FridgeGraph-Timestamp",
               "value": "={{ $json.timestamp }}"
-            },
-            {
-              "name": "X-FridgeGraph-Webhook-Secret",
-              "value": "={{ $json.secret }}"
             }
           ]
         },
@@ -63,7 +59,8 @@
               "fullResponse": true
             }
           }
-        }
+        },
+        "specifiedHeaders": "json"
       },
       "id": "vt-http",
       "name": "Call Voice Turn",
@@ -74,7 +71,13 @@
         300
       ],
       "onError": "continueRegularOutput",
-      "retryOnFail": false
+      "retryOnFail": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MPoum0tgq94XPGvy",
+          "name": "FridgeGraph Voice Turn"
+        }
+      }
     },
     {
       "parameters": {
