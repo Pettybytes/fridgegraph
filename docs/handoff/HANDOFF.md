@@ -476,7 +476,7 @@ before final publication; author attribution still uses the existing record, not
 |---|---|---|---|
 | W1 — PR #17 | yes | primitive reads; login unavailable | fixture-tested; live not tested; NOT DONE |
 | W2 — PR #19 | yes, mock | demo-login/reset/create unavailable | mock-integrated + tested; live not tested; NOT DONE |
-| W3 | not started | Rosina unavailable | not started |
+| W3 — PR #20 | yes, mock | Rosina unavailable | mock-tested (78 tests); live not tested; NOT DONE |
 | W4 | not started | awaiting delivery | not started |
 
 Branch created from main 72c1cf5 with the W1 cost correction cherry-picked as a shared prerequisite
@@ -514,3 +514,9 @@ BLOCKERS: Bentley's server-side demo-login must return the actual user session a
   scope; resetDemo/createDemoFamily endpoints and their contracts remain unavailable.
 
 W2 privacy follow-up: switching/reset clears selected-person hash parameters before the next session loads. A dedicated route-cleanup test passes. PR: https://github.com/Pettybytes/fridgegraph/pull/19.
+
+Task W resume: W1 #17 (61 tests), W2 #19 (61 tests), W3 #20 (78 tests) are pushed draft PRs.
+All UI steps complete; Bentley services unavailable and live integration untested; none DONE.
+W3 worktree: /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina. Main still 72c1cf5; rebase
+after Bryan merges earlier steps. W3 already registers conversation cleanup and owns the catalog
+structure; do not implement future coordination-v2 entries or the Family Calendar prematurely.
