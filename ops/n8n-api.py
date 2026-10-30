@@ -85,7 +85,7 @@ def main(argv: list[str]) -> int:
 
     print(f"STATUS {status}")
     if not quiet:
-        print(body[:4000])
+        print(body[:20000])
     return 0 if 200 <= status < 300 else 1
 
 

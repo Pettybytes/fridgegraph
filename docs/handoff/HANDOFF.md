@@ -819,3 +819,8 @@ database. Rebase applied cleanly with no conflicts.
 | 4c | no token → **403** `Authorization data is wrong!` — n8n's header-auth returns 403, **not 401**. Enforcement holds; the status code differs from the instruction and is reported rather than dressed up. |
 | 4d | DECLINED deliberately not tested (it would consume the attempt). |
 | 5 | `docs/ghl/rosina-custom-action.md` carries the query parameter, the token header (copy-to-clipboard command, no value), the trigger wording, and the rehearsal literal id with a checklist item to restore `{{contact.fg_attempt_id}}` before Session 3. |
+
+**Re-minted for the Web Call (2026-10-30T02:06Z):** job `job_26b2d6c06d4944c093a306de047f99d7`,
+attempt `att_65b34cc9577dcc89d8386a2c`, bound to `p_gma`, status `discovering`, window 60 s (the
+column default; `request_pickup` takes no timeout argument and no household policy governs it, so 60 s
+is the contract maximum).
