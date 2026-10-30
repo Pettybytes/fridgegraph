@@ -32,7 +32,7 @@
 .rosina-confirm button { margin: .4rem .5rem .2rem 0; }
 .rosina-confirm button:last-child { color: #624389; background: #f0ebf6; }
 .rosina-panel button:focus-visible, .rosina-launcher:focus-visible, .rosina-confirm button:focus-visible { outline: 3px solid #7559a1; outline-offset: 3px; }
-@media(min-width: 1200px) { body:has(.rosina-panel) .workspace { padding-right: 375px; } body:has(.rosina-panel) .persona-entry { margin-right: 375px; max-width: 1000px; } body:has(.rosina-panel) .persona-grid { grid-template-columns: repeat(2, 1fr); } .rosina-panel header button { display: none; } }
+@media(min-width: 1200px) { body:has(.rosina-panel:not([hidden])) .workspace { padding-right: 375px; } body:has(.rosina-panel:not([hidden])) .persona-entry { margin-right: 375px; max-width: 1000px; } body:has(.rosina-panel:not([hidden])) .persona-grid { grid-template-columns: repeat(2, 1fr); } .rosina-panel header button { display: block; } }
 @media(max-width: 1199px) {
  /* Reserve a viewport dock so the launcher never paints over scrollable content. */
  body:has(.rosina-launcher) #root { height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
@@ -49,3 +49,5 @@
 .care-information p { font-size: .9rem; line-height: 1.6; }
 .care-information p:last-child { color: #62708a; font-size: .75rem; margin-top: .65rem; }
 @media(min-width: 1200px) and (max-width: 1700px) { body:has(.rosina-panel) .mc-layout { grid-template-columns: minmax(0, 1fr); } body:has(.rosina-panel) .mc-trace { grid-row: auto; grid-column: auto; } }
+
+.rosina-panel[hidden]{display:none}.rosina-launcher.is-reopen{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:.5rem;background:#7559a1;color:white;padding:.8rem 1.2rem;border-radius:2rem;z-index:26}.rosina-source{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.rosina-mode{font-size:.68rem;font-weight:600;padding:.2rem .45rem;border-radius:.3rem}.mode-live{color:#276b48;background:#e5f2eb;border:1px solid #9ac3ad}.mode-mock{color:#7559a1;background:#eee8f4;border:1px dashed #b8a3d0}

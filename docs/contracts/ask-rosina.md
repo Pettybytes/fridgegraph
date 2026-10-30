@@ -116,3 +116,41 @@ A denied pickup view explains the sharing policy and the person's available info
 The cards use the same catalog validation and implemented checks as chat actions: open care
 information or Ask Rosina. The mock schedule card opens the persona’s shared Family Calendar. Live calendar reads remain unavailable. The care screen rechecks the persona's
 recorded mock permission, including direct-link requests. No authorization/schema changes.
+
+## W4a — live browser adapter (incremental integration)
+
+Task R's service is delivered on main 298f0ee. The browser now selects `createLiveRosinaAdapter`
+when the current in-memory AuthSession has an accessToken; otherwise it selects scripted mocks.
+Visible source labels are **Live** and **Sample answers**. Selection performs no readiness/model
+call. Live failures remain live and never substitute a mock reply. The older unused service
+adapter remains solely for compatibility; the wired live path sends care questions to the
+service, whose unsupported-read answer is authoritative for availability of that read.
+
+Each request captures the current session generation, reads the current bearer at send time,
+and validates its generation again after the response. The panel independently checks generation,
+request identity, cancellation and mount ownership before rendering. Session switch, panel close
+(including Escape/navigation) and unmount abort requests. Late results/errors remain silent even
+when a transport ignores abort. Panel state is internally keyed by persona generation, so old
+messages, actions and confirm cards cannot survive a session switch.
+
+History stays in memory, at most 40 messages, with each content bounded to the service's limit.
+A live client timeout is 35 seconds, outside the service's graceful 30-second timeout. HTTP 401
+says “Please sign in again” and prevents further sends until a fresh session; HTTP 429 says
+“Give me a moment”. Neither retries automatically. Network/non-success/malformed/timeout failures
+produce friendly live text. No raw response errors or credential details are surfaced. Service
+HTTP-200 graceful fallback text is rendered unchanged. Replies remain plain React text; actions
+still pass validateActions/actionAllowed and app-owned mutation confirmation. No mutation handler
+has been enabled by this slice.
+
+AuthSession.accessToken is optional, memory-only. Default mock login leaves it undefined.
+App's auth dependency can be injected by tests and a local-only smoke entry; no browser global,
+storage, URL parameter or product credential-setting endpoint exists. E2a public login is pending.
+The dev harness obtains its bearer only through unmodified ops/auth.mjs in a Node process, passes
+it through a short-lived no-store loopback response to the page session, and never includes it
+in code, command arguments, evidence, logs, storage state, traces or screenshots. The dev entry is
+not imported by the product entry and is absent from the production build.
+
+W4a's live boundary gate is currently **FAILED**, not DONE: the service introduced an unrequested
+foreign child name in a generic-family refusal. Exact output, source-tool comparison and token
+scan receipt are in web/evidence/rosina-live/README.md. This frontend slice does not modify the
+service prompt, catalog, tools, schema or backend authorization to hide or fix that regression.

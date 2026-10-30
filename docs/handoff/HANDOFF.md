@@ -1297,3 +1297,64 @@ Re-ran the full battery: `npm run typecheck` clean; `npm run check` (358 files, 
 the diff is still exactly this PR's own layer (same 12 files as above). Pushed to `d085628`;
 `gh pr view 24` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
 merged — Bryan merges.
+
+## W4a — live-capable Ask Rosina browser (incremental slice)
+
+BRANCH feat/web-rosina-live; WORKTREE ../fridgegraph-web-rosina-live.
+BASE fetched origin/main 298f0ee8ebaf1b0e9b446db2faa29dc880db5419 (#24 + #25 included).
+Read Task R and “Rosina tools available”: only PickupCandidates is live. Public persona login,
+additional care/village/calendar/coordination reads remain pending E2a/Task E. No login call built.
+Layer: web + companion docs only; no backend/schema/auth/DB/ops helper changes; never merge.
+
+UI: live-capable · Integration: browser → Rosina service proven for Kendra via a dev-harness
+token · Pending: public persona login (E2a) and additional Rosina reads (Task E).
+**W4a NOT DONE:** overall local live smoke FAILS the service boundary regression below.
+
+Optional AuthSession.accessToken stays memory-only. No bearer selects Sample answers; a bearer
+selects Live with no probe. Every request reads the current session and records its generation;
+adapter and panel both discard stale results, including cancellation-ignoring transports.
+Switch/close/Escape/navigation/unmount abort. 401 requires sign-in without retry; 429 asks for a
+moment without auto-retry; network/5xx/malformed/timeout stays Live with a friendly fallback.
+Server timeout reply is unchanged text. No live failure substitutes a scripted family answer.
+Client catalog/permission validation and mandatory app confirm remain in place; no mutation
+execution was enabled. Source labels and history clearing are visible on desktop/mobile.
+
+Observed: **168 web tests PASS**, root typecheck PASS, web typecheck/build PASS (existing chunk
+advisory). Existing 150 tests retained. Live browser pickup names matched the ACTUAL authorized
+PickupCandidates response. All four actual candidates had UNKNOWN availability and zero vehicle
+records returned; no web mock was used to fill availability or transport. A list of authorized
+people does not prove who currently can drive or needs a ride. Exact tool table and all recorded
+model qualification findings are in web/evidence/rosina-live/README.md.
+
+**Actual live boundary failure, verbatim:**
+“Which child do you mean? I only know Nora and Jax by name.
+
+I only see what you can see, so I can't pull another family's details. For care plan: I can't
+confirm that yet. Contact details beyond those names isn't connected yet.”
+The generic question did not supply Jax; introducing that foreign name fails the required gate.
+An earlier reply similarly said “I only recognize Nora and Jax by name.” Care/contact contents
+were refused, but that does not excuse the identity disclosure. No backend patch or client
+rewrite was used to hide it. Task R must correct this before calling W4a DONE. The service's
+pickup wording “can pick up Nora today” also needs qualification against UNKNOWN availability
+and missing vehicle evidence; only authorization was established by the actual read.
+
+The completed smoke still captured desktop/mobile live reply, loading, failed generic boundary,
+named-child refusal, controlled live fallback and Sample answers. Controlled loading hold and
+HTTP failure are declared in evidence, not represented as actual service delay/outage. Harness
+remains nonzero for the observed boundary failure; privacy failures were not weakened to pass.
+
+Token handling: Bryan confirmed p_mom for Kendra after p_kendra lookup was unavailable, and
+approved baseline-aware disk scanning. Unmodified ops/auth.mjs only, token in harness/page-session
+memory; no token in files/argv/logs/storage/screenshots/traces/videos. Completed scan: **0 current
+prefix hits, 0 new generic JWT-prefix hits; 86 unchanged baseline occurrences; 937 files** across
+worktree/main and generated evidence/Playwright output (protected creds/dependencies/git skipped).
+No token prefix value was printed or supplied as a command argument. No full-filesystem audit
+claimed. Screenshots, reproduction and verbatim outputs: web/evidence/rosina-live/.
+Final readiness recheck: origin/main still 298f0ee; open PR #26 proposes E1/E2/E3 including
+public login/guide scope and timeline joins. It is not integrated here: W4a explicitly excludes
+the login call. Task R boundary behavior remains unresolved on the delivered service.
+Final local checks: 168 web tests PASS; root typecheck PASS; web build/typecheck PASS;
+shared catalog drift PASS (7 identical ids); staged secret scan PASS (366 files, 0 findings).
+A test-only placeholder initially triggered the generic assignment guard; changed to its
+explicit test-only placeholder convention, without changing production logic or scanner rules.
+No-token-on-disk gate PASS; overall live smoke FAIL (foreign-name boundary); do not mark DONE.
