@@ -793,7 +793,7 @@ to.
 | 0 | Worktree `../fridgegraph-level-b` + symlinks | **DONE** | branch `feat/level-b-drafts` @ `9256178`; `.env`, `data`, `.demo-credentials` linked from the primary checkout |
 | 1 | Rebase onto `origin/main`, `push --force-with-lease` | **DONE** | rebased onto `1a576a7` (PR #14 squash-merged); `0019_transport_policy.sql` and `0020_transport_reply_cost.sql` both present in the branch; force-pushed with lease to `0630d08` |
 | 2 | `node ops/voice-turn-check.mjs` → 12/12 | **DONE** | **12/12 passed** against the local server on `127.0.0.1:4118`; bad secret 401, stale timestamp 401, ESCALATE/END_CALL no state change, no confirmation, job never approved |
-| 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | PENDING | |
+| 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | **DONE** | 6-arg variant found; `estimate_ride_cost_usd` absent; `OVER_POLICY` absent; dedupe `EVENT_ID_CONFLICT` intact — 0020 is live |
 | 4 | GHL custom fields: report which of the six `fg_` exist, create only missing | PENDING | |
 | 5 | GHL: Rosina recording / transcription / retention (read-only) | PENDING | |
 | 6 | n8n: reuse-or-import both workflows, Header Auth credential, activate Reply and Timeout | PENDING | |
