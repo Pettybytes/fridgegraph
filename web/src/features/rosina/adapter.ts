@@ -7,7 +7,7 @@ import { reasonLabel } from '@/lib/frontendData/types'
 import type { FrontendAdapter } from '@/lib/frontendData/types'
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 export type RosinaRequest = { message: string; currentRoute: string; history: HistoryMessage[] }
-export type RosinaResponse = { reply: string; actions: unknown[] }
+export type RosinaResponse = { reply: string; actions: unknown[]; notice?: 'sign-in' | 'rate-limit' }
 export interface RosinaAdapter {
   readonly mode: 'mock' | 'live'
   send(request: RosinaRequest, signal?: AbortSignal): Promise<RosinaResponse>
@@ -101,3 +101,5 @@ export function createServiceRosinaAdapter(getAccessToken: () => Promise<string 
     return { reply: body.reply, actions: body.actions }
   } }
 }
+
+export {createLiveRosinaAdapter} from './liveAdapter'

@@ -7,17 +7,30 @@ import { useSession } from '@/features/personas/Session'
 import type { ChatMessage, FrontendAdapter } from '@/lib/frontendData/types'
 import { actionAllowed, actionLabel, actionRoute, catalog, validateActions } from './catalog'
 import type { CatalogAction, ExplainableScreen } from './catalog'
+import { createLiveRosinaAdapter, LIVE_FALLBACK, RosinaCancelled } from './liveAdapter'
 import { createMockRosinaAdapter } from './adapter'
 import type { RosinaAdapter, RosinaResponse } from './adapter'
 import './rosina.css'
 type ThreadMessage = ChatMessage & { actions: CatalogAction[] }
-export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAdapter; service?: RosinaAdapter }) {
-  const { session, registerPrivateCleanup } = useSession()
+type PanelProps={dataAdapter?:FrontendAdapter;service?:RosinaAdapter}
+export function RosinaPanel(props:PanelProps){
+  const {session}=useSession()
+  return <PersonaRosinaPanel key={session?.generation??'signed-out'} {...props}/>
+}
+function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
+  const { session, registerPrivateCleanup, getSessionGeneration } = useSession()
   const calendarScope = useCalendarActionScope(session?.persona.personId)
-  const adapter = useMemo(() => service ?? createMockRosinaAdapter(session, dataAdapter), [session, dataAdapter, service])
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+  const adapter = useMemo(() => service ?? (session?.accessToken
+    ? createLiveRosinaAdapter(() => sessionRef.current?.accessToken, {getGeneration:getSessionGeneration})
+    : createMockRosinaAdapter(session, dataAdapter)), [session, dataAdapter, service, getSessionGeneration])
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
+  const [dismissed,setDismissed] = useState(false)
+  const [needsSignIn,setNeedsSignIn] = useState(false)
+  const requestId=useRef(0)
   const [currentRoute, setCurrentRoute] = useState(location.hash)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -30,10 +43,10 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
   useEffect(() => {
     active.current = true
     const unregister = registerPrivateCleanup(() => {
-      active.current = false; abort.current?.abort(); sent.current = false
+      active.current = false; ++requestId.current; abort.current?.abort(); sent.current = false
       setMessages([]); setDraft(''); setPending(null); setOpen(false); setPeople(new Set()); executed.current.clear()
     })
-    return () => { active.current = false; abort.current?.abort(); unregister() }
+    return () => { active.current = false; ++requestId.current; abort.current?.abort(); unregister() }
   }, [registerPrivateCleanup])
   useEffect(() => {
     let current = true
@@ -46,7 +59,7 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
   useEffect(() => {
     const followRoute = () => {
       setCurrentRoute(location.hash)
-      if (location.hash.startsWith('#/ask-rosina')) setOpen(true)
+      if (location.hash.startsWith('#/ask-rosina')) {setOpen(true);setDismissed(false)}
     }
     followRoute()
     window.addEventListener('hashchange', followRoute)
@@ -60,18 +73,29 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
   function accept(response: RosinaResponse) {
     append('ROSINA', response.reply, validateActions(response.actions).filter(action => actionAllowed(action, context)))
   }
-  async function send(event: FormEvent) {
-    event.preventDefault()
-    const message = draft.trim()
-    if (!message || sent.current) return
-    sent.current = true; setBusy(true); setError(''); setDraft('')
-    abort.current = new AbortController()
-    const history = messages.map(item => ({ role: item.from === 'PARENT' ? 'user' as const : 'assistant' as const, content: item.text ?? '' }))
-    append('PARENT', message)
-    try { const response = await adapter.send({ message, currentRoute: location.hash || '#/mission-control', history }, abort.current.signal); if (active.current) accept(response) }
-    catch { if (active.current) setError('Rosina could not reply. Try again. Your message was not submitted as an action.') }
-    finally { if (active.current) { setBusy(false); sent.current = false } }
+  function closePanel() {
+    ++requestId.current; abort.current?.abort(); abort.current=null; sent.current=false
+    setBusy(false);setError('');setPending(null);setOpen(false);setDismissed(true)
   }
+  async function ask(message:string, recordUser=true) {
+    if (!message || sent.current || needsSignIn) return
+    const generation=getSessionGeneration(),id=++requestId.current,controller=new AbortController()
+    abort.current=controller
+    const owns=()=>active.current && getSessionGeneration()===generation && requestId.current===id && !controller.signal.aborted
+    sent.current=true;setBusy(true);setError('')
+    const history=messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))
+    if(recordUser)append('PARENT',message)
+    try {
+      const response=await adapter.send({message,currentRoute:location.hash||'#/mission-control',history},controller.signal)
+      if(owns()){if(response.notice==='sign-in')setNeedsSignIn(true);accept(response)}
+    }catch(error){
+      if(owns() && !(error instanceof RosinaCancelled)) {
+        if(adapter.mode==='live')append('ROSINA',LIVE_FALLBACK)
+        else setError('Rosina could not reply. Try again. Your message was not submitted as an action.')
+      }
+    }finally{if(owns()){setBusy(false);sent.current=false;abort.current=null}}
+  }
+  function send(event:FormEvent){event.preventDefault();const message=draft.trim();if(!message||sent.current||needsSignIn)return;setDraft('');void ask(message)}
   function explanation(screen: ExplainableScreen): string {
     if (screen === 'calendar') return 'Family Calendar shows scheduled commitments and care in Detroit time. A schedule is not a confirmed location, and a gap in busy time is not confirmed availability.'
     if (screen === 'care-information') return 'This screen shows care information the family has shared with you. The care plan is named beneath the note.'
@@ -90,28 +114,27 @@ export function RosinaPanel({ dataAdapter, service }: { dataAdapter?: FrontendAd
       return
     }
     const route = actionRoute(action)
-    if (route) { location.hash = route; setOpen(false); return }
+    if (route) { location.hash = route; closePanel(); return }
     if (action.id === 'explain-screen') {
       append('ROSINA', explanation(action.args.screen))
     }
     if (action.id === 'explain-recommendation') {
-      try { accept(await adapter.send({ message: 'Why was this caregiver recommended?', currentRoute: location.hash, history: messages.map(item => ({ role: item.from === 'PARENT' ? 'user' as const : 'assistant' as const, content: item.text ?? '' })) })) }
-      catch { if (active.current) setError('The recommendation is unavailable.') }
+      await ask('Why was this caregiver recommended?',false)
     }
   }
   const screen: ExplainableScreen = currentRoute.startsWith('#/calendar') ? 'calendar' : currentRoute.startsWith('#/village') ? 'village' : currentRoute.startsWith('#/care-information') ? 'care-information' : currentRoute.startsWith('#/ask-rosina') ? 'ask-rosina' : 'mission-control'
   return <>
-    <button type="button" ref={launcherRef} className="rosina-launcher" onClick={() => setOpen(true)} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>
-    <section onKeyDown={event => { if (event.key === 'Escape') { setOpen(false); launcherRef.current?.focus() } }} className={`rosina-panel ${open ? 'is-open' : ''}`} aria-label="Ask Rosina" data-state={adapter.mode === 'mock' ? 'unavailable' : 'live'}>
-      <header><div><h2>Ask Rosina</h2><p>FridgeGraph's AI family coordinator</p></div><button type="button" aria-label="Close Ask Rosina" onClick={() => setOpen(false)}><X size={18} /></button></header>
-      <p className="rosina-source">{adapter.mode === 'mock' ? 'Demo conversation · clears when you switch person' : 'Conversation clears when you switch person'}</p>
+    <button type="button" ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>
+    <section onKeyDown={event => { if (event.key === 'Escape') { closePanel(); launcherRef.current?.focus() } }} hidden={dismissed} className={`rosina-panel ${open ? 'is-open' : ''}`} aria-label="Ask Rosina" data-state={adapter.mode === 'mock' ? 'unavailable' : 'live'}>
+      <header><div><h2>Ask Rosina</h2><p>FridgeGraph's AI family coordinator</p></div><button type="button" aria-label="Close Ask Rosina" onClick={closePanel}><X size={18} /></button></header>
+      <p className="rosina-source"><strong className={`rosina-mode mode-${adapter.mode}`}>{adapter.mode==='live'?'Live':'Sample answers'}</strong><span>Conversation clears when you switch person</span></p>
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
         {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{message.actions.filter(action => catalog[action.id].implemented && actionAllowed(action, context)).map((action, index) => <button type="button" className="rosina-action" key={index} disabled={executed.current.has(`${message.id}:${index}`)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}</button>)}</article>)}
-        {busy && <p role="status">Rosina is preparing a reply…</p>}
+        {busy && <p role="status">{adapter.mode==='live'?'Rosina is checking…':'Rosina is preparing a reply…'}</p>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
-      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || !draft.trim()}>Send</button></div></form>
+      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button></div></form>
     </section>
     <Dialog.Root open={!!pending} onOpenChange={value => { if (!value) setPending(null) }}><Dialog.Portal><Dialog.Overlay className="rosina-confirm-overlay" /><Dialog.Content className="rosina-confirm"><Dialog.Title>Confirm pickup request</Dialog.Title><Dialog.Description>Review the child, date and window. {adapter.mode === 'mock' ? 'This is a demo request. It doesn’t arrange a pickup.' : 'Pickup requests aren’t available here yet.'}</Dialog.Description>{pending?.action.id === 'start-pickup' && <dl><dt>Child</dt><dd>{session?.scope.childName}</dd><dt>Date</dt><dd>{pending.action.args.date}</dd><dt>Window</dt><dd>{pending.action.args.window}</dd></dl>}<button type="button" onClick={() => { if (pending) void execute(pending.action, pending.key, true) }}>Confirm {adapter.mode === 'mock' ? 'demo ' : ''}pickup request</button><Dialog.Close>Cancel</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
   </>

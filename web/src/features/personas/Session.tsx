@@ -1,10 +1,11 @@
-import { createContext, useContext, useRef, useState } from 'react'
+import { createContext, useContext, useRef, useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import type { AuthAdapter, AuthSession, DemoFamily, DemoFamilyInput, PersonaId } from './auth'
 type Cleanup = () => void | Promise<unknown>
 type SessionContextValue = {
   session: AuthSession | null; switching: boolean; error: string; families: DemoFamily[]
+  getSessionGeneration(): number
   switchPerson(id?: PersonaId): Promise<void>
   resetDemo(): Promise<void>
   createDemoFamily(input: DemoFamilyInput): Promise<void>
@@ -18,6 +19,8 @@ export function SessionProvider({ adapter, children }: { adapter: AuthAdapter; c
   const [families, setFamilies] = useState<DemoFamily[]>([])
   const generation = useRef(0)
   const cleanups = useRef(new Set<Cleanup>())
+  const getSessionGeneration=useCallback(()=>generation.current,[])
+  const registerPrivateCleanup=useCallback((cleanup:Cleanup)=>{cleanups.current.add(cleanup);return()=>{cleanups.current.delete(cleanup)}},[])
   async function transition(id?: PersonaId, reset = false) {
     const current = ++generation.current
     // Snapshot before unmount. Synchronously remove private DOM before awaiting any service.
@@ -41,7 +44,7 @@ export function SessionProvider({ adapter, children }: { adapter: AuthAdapter; c
     const family = await adapter.createDemoFamily(input)
     if (current === generation.current) setFamilies(items => [...items, family])
   }
-  return <Context.Provider value={{ session, switching, error, families, switchPerson: id => transition(id), resetDemo: () => transition(undefined, true), createDemoFamily, registerPrivateCleanup: cleanup => { cleanups.current.add(cleanup); return () => { cleanups.current.delete(cleanup) } } }}>{children}</Context.Provider>
+  return <Context.Provider value={{ session, switching, error, families, getSessionGeneration, switchPerson: id => transition(id), resetDemo: () => transition(undefined, true), createDemoFamily, registerPrivateCleanup }}>{children}</Context.Provider>
 }
 export function useSession() {
   const value = useContext(Context)

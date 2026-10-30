@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo } from 'react'
 import { Shell } from '@/app/Shell'
 import { DataProvider } from '@/lib/frontendData/provider'
 import { MissionControlV2 as MissionControl } from '@/features/mission-control/v2/MissionControlV2'
+import type { AuthAdapter } from '@/features/personas/auth'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { SessionProvider, useSession } from '@/features/personas/Session'
 import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/PersonaPicker'
@@ -46,8 +47,8 @@ function SignedInVillage() {
     </DataProvider>
   </div>
 }
-export default function App() {
-  const auth = useMemo(() => createMockAuthAdapter(), [])
+export default function App({authAdapter}:{authAdapter?:AuthAdapter}={}) {
+  const auth = useMemo(() => authAdapter ?? createMockAuthAdapter(), [authAdapter])
   if (import.meta.env.VITE_DATA_MODE && import.meta.env.VITE_DATA_MODE !== 'mock') return <><SandboxBanner /><main className="persona-entry"><h1>Demo sign-in unavailable</h1><p>Demo sign-in isn’t connected yet. You’ll be able to choose a person when it’s ready.</p></main></>
   return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage /></SessionProvider>
 }

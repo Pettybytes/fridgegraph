@@ -27,7 +27,7 @@ export const personaGroups = [
 ] as const
 export type DemoFamilyInput = { parentName: string; childName: string }
 export type DemoFamily = DemoFamilyInput & { id: string; childId: string }
-export type AuthSession = { persona: Persona; scope: Scope; generation: number }
+export type AuthSession = { persona: Persona; scope: Scope; generation: number; accessToken?: string }
 export interface AuthAdapter {
   readonly mode: 'mock'
   signInAsPersona(personaId: PersonaId): Promise<Omit<AuthSession, 'generation'>>
