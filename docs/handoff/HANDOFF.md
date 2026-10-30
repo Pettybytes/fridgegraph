@@ -760,3 +760,46 @@ Revision verification actually run: root typecheck PASS; 117 web tests PASS; pro
 PASS (same chunk-size advisory); five Playwright flows PASS including safe dock geometry and
 last-card clearance. Staged secret scan PASS: 283 files, zero findings. Revised screenshots
 include scrolled mobile calendar content with the launcher clear of cards.
+
+## Task V2-VILLAGE progress
+
+BRANCH: feat/web-village-v2; WORKTREE: ../fridgegraph-web-village-v2.
+BASE: fetched origin/main ad720de6bcc0f2971f200f4db519b8934b4f6e78.
+TASK: six-family mock Living Village, scoped directory exploration and new-family demo personas.
+LAYER: web + companion docs. TOUCHED: village/v2, App, persona mocks/tests, evidence and handoff.
+DONE WHEN: typecheck, staged secret scan, web tests/build and desktop/mobile Playwright proof.
+NOT DOING: schema/auth/database/server changes, live seed claims, merges/tags/releases.
+UI: in progress · backend: unavailable pending Bentley v2 seed/reads · integrated: not yet tested.
+Mock scoping is a projection boundary, never live browser authorization. Private foreign nodes
+are omitted entirely, with no greyed-out names. Calendar/W4 live integration remains queued.
+
+Task V2-VILLAGE mock implementation: six networks, ten family children, plus Zion as a
+Tigers directory entry. Cast v2 relationships and authority are independent fixture fields.
+Felicia's projected view intentionally omits Imani/the third household; only Skye's existence
+is shared. Priya's separate child contexts omit the wider household and other helpers. Team
+roster names are directory-only; teacher/bus joins contain only the selected child. No hidden
+foreign names are returned as disabled nodes. New picker entries Felicia/Simone join existing
+Rosa/Dwayne; all six households now have mock entry points. Sources remain unavailable as live
+data; layout/projection is derived. Contract: docs/contracts/village-v2.md.
+
+| Surface | UI | Backend (Bentley) | Integrated + tested |
+|---|---|---|---|
+| Living Village v2 | complete on mocks | pending v2 seed/scoped reads | mock tested; live NOT DONE |
+| Six-network persona entry | complete on mocks | real demo login pending | mock tested; live NOT DONE |
+
+Verification actually run: root typecheck PASS; **133 web tests PASS** (117 baseline + 16
+new); production build PASS, existing chunk-size advisory. **Seven Playwright flows PASS**
+across Kendra/Priya/Dana/Rosa/Felicia/Simone/Dwayne. Desktop/mobile screenshots and reproducible
+proof: web/evidence/village-v2/. Source scope tests include unknown/foreign IDs, roster-only
+traversal, guardian approval, no stepfather inference and no Nora care answer in Malik context.
+Initial build caught three type errors, corrected without weakening assertions. Initial UI
+harness retained a stale switching-picker element; re-query now verifies the ready picker.
+Legacy lazy-load entry boundary preserved, with all existing tests retained.
+
+QUEUE ALONGSIDE W4: integrate Bentley's v2 seed and scoped graph reads, verify guardian and
+per-child grant rights upstream, directory/teacher/bus visibility and recorded authority.
+Repeat independent exploration against actual services; mock tests do not prove live RLS or
+seed correctness. No schema/auth/database/server changes. Never merged/tagged/released.
+Final staged secret guard PASS: 292 files scanned, zero findings. Diff reviewed: web/ and
+companion contracts/handoff only. UI complete · backend pending · mock integrated/tested,
+live NOT DONE. No credentials needed or accessed.

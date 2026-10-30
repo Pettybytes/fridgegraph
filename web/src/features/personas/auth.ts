@@ -1,7 +1,7 @@
 import type { Scope } from '@/lib/frontendData/types'
-export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne'
-export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'calendar' }
-// Mock identity/scope examples from src/fixtures.ts; never credentials or production authorization.
+export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone'
+export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'calendar' | 'village' }
+// Mock identity/scope examples from src/fixtures.ts and coordination-v2 Cast; never credentials or production authorization.
 export const personas: readonly Persona[] = [
   { id: 'kendra', personId: 'p_mom', name: 'Kendra', role: "Nora's mom", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: [], parent: true },
   { id: 'andre', personId: 'p_dad', name: 'Andre', role: "Nora's dad", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: [], parent: true },
@@ -9,8 +9,10 @@ export const personas: readonly Persona[] = [
   { id: 'priya', personId: 'p_priya', name: 'Priya', role: "Nora's sitter · schedule and care information", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: ['supervise.request', 'schedule.read', 'careplan.read'], parent: false },
   { id: 'dana', personId: 'p_dana', name: 'Dana', role: "New to Nora's village · Jax's mom", childId: 'p_jax', childName: 'Jax Coleman', villageId: 'v_jax', grants: [], parent: true },
   { id: 'jax-family', personId: 'p_ray', name: "Jax's family", role: "Ray · Jax's dad", childId: 'p_jax', childName: 'Jax Coleman', villageId: 'v_jax', grants: [], parent: true },
-  { id: 'rosa', personId: 'p_rosa', name: 'Rosa Castellano', role: "Emma's grandmother and guardian · calendar demo", childId: 'p_emma', childName: 'Emma', villageId: 'v_emma', grants: [], parent: false, guardian: true, initialRoute: 'calendar' },
-  { id: 'dwayne', personId: 'p_dwayne', name: 'Dwayne Ferris', role: "Malik's dad · calendar demo", childId: 'p_malik', childName: 'Malik', villageId: 'v_malik', grants: [], parent: true, initialRoute: 'calendar' },
+  { id: 'rosa', personId: 'p_rosa', name: 'Rosa Castellano', role: "Emma's grandmother and guardian", childId: 'p_emma', childName: 'Emma', villageId: 'v_emma', grants: [], parent: false, guardian: true, initialRoute: 'calendar' },
+  { id: 'felicia', personId: 'p_felicia', name: 'Felicia Reyes', role: "Taylor's mom", childId: 'p_taylor', childName: 'Taylor', villageId: 'v_taylor', grants: [], parent: true, initialRoute: 'village' },
+  { id: 'simone', personId: 'p_simone', name: 'Simone Lee', role: "Micah and Avery’s mom", childId: 'p_micah', childName: 'Micah', villageId: 'v_micah', grants: [], parent: true, initialRoute: 'village' },
+  { id: 'dwayne', personId: 'p_dwayne', name: 'Dwayne Ferris', role: "Malik's dad", childId: 'p_malik', childName: 'Malik', villageId: 'v_malik', grants: [], parent: true, initialRoute: 'calendar' },
 ]
 // Presentation groups are explicit so future households can be added without changing the grid.
 // A village group includes relatives and caregivers, not a claim that they share one address.
@@ -18,6 +20,8 @@ export const personaGroups = [
   { id: 'nora-village', label: "Nora's village", personaIds: ['kendra', 'andre', 'loretta', 'priya'] },
   { id: 'jax-family', label: "Jax's family", personaIds: ['dana', 'jax-family'] },
   { id: 'castellano-family', label: "Emma's family", personaIds: ['rosa'] },
+  { id: 'vance-reyes-family', label: "Taylor's family", personaIds: ['felicia'] },
+  { id: 'lee-family', label: "Micah & Avery's family", personaIds: ['simone'] },
   { id: 'ferris-family', label: "Malik's family", personaIds: ['dwayne'] },
 ] as const
 export type DemoFamilyInput = { parentName: string; childName: string }
