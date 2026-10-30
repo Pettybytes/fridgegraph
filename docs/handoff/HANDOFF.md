@@ -647,3 +647,14 @@ Current pre-merge validation: **88 web tests PASS**, root typecheck PASS, staged
 production build PASS. Playwright CLI exercised all seven revised replies, care sharing cards,
 mobile Ask Rosina navigation/Escape, and Loretta's absence of care cards/private care text.
 The stack will receive W1's final readable relationship labels before the final push.
+
+Final W3 stack validation: W1 → W2 → W3 ancestry verified after the requested rebase. Final root
+typecheck, staged secret scan, web build and **88 web tests PASS**. W1 has 62 passing tests; W2 has
+70 passing tests. The current three-state table above still applies: UI complete; real backend
+services incomplete/unavailable; only fixture/mock integration tested; none DONE. PRs remain draft.
+A mobile browser check initially timed out waiting for “Open care information” after navigating
+to Ask Rosina (TimeoutError: locator.click, waiting for getByRole('link', { name: 'Open care information', exact: true })).
+The check was corrected to return to Mission Control first; the same care navigation and Loretta
+privacy assertions then passed. No assertion was relaxed and no app failure was called expected.
+Sources must remain plain language and record-authored; author metadata remains a nonblocking
+Bentley follow-up. Final rebased feature tip is pushed with a lease, never to main. No merge.
