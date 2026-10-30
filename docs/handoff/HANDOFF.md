@@ -795,7 +795,7 @@ to.
 | 2 | `node ops/voice-turn-check.mjs` → 12/12 | **DONE** | **12/12 passed** against the local server on `127.0.0.1:4118`; bad secret 401, stale timestamp 401, ESCALATE/END_CALL no state change, no confirmation, job never approved |
 | 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | **DONE** | 6-arg variant found; `estimate_ride_cost_usd` absent; `OVER_POLICY` absent; dedupe `EVENT_ID_CONFLICT` intact — 0020 is live |
 | 4 | GHL custom fields: report which of the six `fg_` exist, create only missing | PENDING | |
-| 5 | GHL: Rosina recording / transcription / retention (read-only) | PENDING | |
+| 5 | GHL: Rosina recording / transcription / retention (read-only) | **DONE (partial)** | Rosina id `6940d34eed6cdd7ea7a2b746`, location `GNhV1Oyh…`. `GET /voice-ai/agents?locationId=` returns 10 agents but exposes **no** recording/transcription/retention keys; `GET /voice-ai/agents/{id}` returns **403**. Settings not exposed by API → listed **for Bryan**. |
 | 6 | n8n: reuse-or-import both workflows, Header Auth credential, activate Reply and Timeout | PENDING | |
 | 7 | Stack + router (`router.graphos.yaml`) + voice-turn + Caddy + cloudflared; outside 200 / default deny | PENDING | |
 | 8 | Attach Pickup Decision Custom Action to Rosina | PENDING | |
