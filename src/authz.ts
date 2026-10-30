@@ -97,7 +97,7 @@ export async function isParentOf(ctx: Ctx, childId: string): Promise<boolean> {
         .from('household_members')
         .select('household_id')
         .eq('person_id', callerId)
-        .eq('role', 'parent')
+        .in('role', ['parent', 'guardian'])
         .in('household_id', households),
     );
     return data.length > 0;
@@ -111,7 +111,7 @@ export async function parentIdsOfChild(ctx: Ctx, childId: string): Promise<strin
     dbFor(ctx)
       .from('household_members')
       .select('person_id')
-      .eq('role', 'parent')
+      .in('role', ['parent', 'guardian'])
       .in('household_id', households),
   );
   return [...new Set(data.map((r) => String(r.person_id)))];

@@ -11,12 +11,26 @@ each group is its own branch off the main state it records below, and one PR. Ne
 
 | Group | Branch | Base | State |
 |---|---|---|---|
-| 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
-| 1 | `feat/e-group1` | branch off main after #9 merges | not started |
-| 2 | `feat/e-group2` | | not started |
+| 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **DONE — merged as #9 (`ebb7a2c`)** |
+| 1 | `feat/e-group1` (PR #23) | off main **`275461e`** after rebase | **E0 DONE — head `bb78aca`, MERGEABLE** |
+| 2 | `feat/e-group2` | off `origin/main` **`275461e`** | **E1 DONE; E2/E3 not started** |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
 | 5 | `feat/e-group5` | | not started |
+
+### Group 2 (E1) — E1 DONE, branch `feat/e-group2`, base `275461e`
+
+**E1 authority model.** `0024_authority_model.sql` (applied): `household_members.role` widened to
+`parent | guardian | resident_adult | child`; `is_parent_of()` and `parent_ids_of()` accept
+`role in ('parent','guardian')`; `src/authz.ts` uses `.in('role',['parent','guardian'])` at both
+sites. Everything calling those functions inherits it with no further edits. `resident_adult` is
+outside the IN-list — residence grants nothing. Dry run `ops/0024-dry-run.mjs` **12/12 PASS** in a
+rolled-back transaction (guardian recognised, resident_adult not, invalid role rejected, counts
+unchanged). Graph suite 114/32 PASS, voice-turn 15/15, typecheck clean, secret scan 0 findings.
+Evidence `36-e1-authority-model.md` (35 stays reserved for Task R). No Rosina tool added — no new read.
+
+**E2 demo login + sandbox enforcement + demo-guide scope — NOT STARTED.**
+**E3 Attempt.candidate + jobTimeline — NOT STARTED.**
 
 ### Group 0 (E-2, E-1) — DONE
 
