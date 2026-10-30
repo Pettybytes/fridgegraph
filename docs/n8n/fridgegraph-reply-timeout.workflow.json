@@ -27,7 +27,7 @@
       "position": [40, 240],
       "notes": "webhook.md §3a: hex HMAC-SHA256 of `${timestamp}.${rawBody}` with N8N_WEBHOOK_SECRET from the environment. eventId is stable per attempt+decision so a retry is an idempotent duplicate, not a second write.",
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst secret = $env.FRIDGEGRAPH_WEBHOOK_SECRET;\nif (!secret) throw new Error('FRIDGEGRAPH_WEBHOOK_SECRET missing');\nconst j = $json;\nconst body = {\n  eventId: 'ghl-' + j.attemptId + '-' + j.decision,\n  attemptId: j.attemptId,\n  requestVersion: Number(j.requestVersion),\n  available: j.decision === 'ACCEPTED',\n  declineReason: j.decision === 'ACCEPTED' ? null : (j.declineReason || 'OTHER'),\n  recipient: j.recipient,\n  channel: j.channel\n};\nconst raw = JSON.stringify(body);\nconst ts = String(Math.floor(Date.now() / 1000));\nconst signature = crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');\nreturn [{ json: { raw, ts, signature, body } }];"
+        "jsCode": "const crypto = require('crypto');\nconst secret = $vars.FG_WEBHOOK_SECRET;\nif (!secret) throw new Error('FRIDGEGRAPH_WEBHOOK_SECRET missing');\nconst j = $json;\nconst body = {\n  eventId: 'ghl-' + j.attemptId + '-' + j.decision,\n  attemptId: j.attemptId,\n  requestVersion: Number(j.requestVersion),\n  available: j.decision === 'ACCEPTED',\n  declineReason: j.decision === 'ACCEPTED' ? null : (j.declineReason || 'OTHER'),\n  recipient: j.recipient,\n  channel: j.channel\n};\nconst raw = JSON.stringify(body);\nconst ts = String(Math.floor(Date.now() / 1000));\nconst signature = crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');\nreturn [{ json: { raw, ts, signature, body } }];"
       }
     },
     {
@@ -38,7 +38,7 @@
       "position": [40, 460],
       "notes": "A no-answer becomes the same UNAVAILABLE outcome the discovery window would produce. It never claims the person declined.",
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst secret = $env.FRIDGEGRAPH_WEBHOOK_SECRET;\nif (!secret) throw new Error('FRIDGEGRAPH_WEBHOOK_SECRET missing');\nconst j = $json;\nconst body = {\n  eventId: 'ghl-timeout-' + j.attemptId,\n  attemptId: j.attemptId,\n  requestVersion: Number(j.requestVersion),\n  available: false,\n  declineReason: 'OTHER',\n  recipient: j.recipient,\n  channel: j.channel\n};\nconst raw = JSON.stringify(body);\nconst ts = String(Math.floor(Date.now() / 1000));\nconst signature = crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');\nreturn [{ json: { raw, ts, signature, body } }];"
+        "jsCode": "const crypto = require('crypto');\nconst secret = $vars.FG_WEBHOOK_SECRET;\nif (!secret) throw new Error('FRIDGEGRAPH_WEBHOOK_SECRET missing');\nconst j = $json;\nconst body = {\n  eventId: 'ghl-timeout-' + j.attemptId,\n  attemptId: j.attemptId,\n  requestVersion: Number(j.requestVersion),\n  available: false,\n  declineReason: 'OTHER',\n  recipient: j.recipient,\n  channel: j.channel\n};\nconst raw = JSON.stringify(body);\nconst ts = String(Math.floor(Date.now() / 1000));\nconst signature = crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');\nreturn [{ json: { raw, ts, signature, body } }];"
       }
     },
     {
@@ -49,7 +49,7 @@
       "position": [340, 240],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.FRIDGEGRAPH_TUNNEL_URL }}/webhooks/coordination/reply",
+        "url": "={{ $vars.FRIDGEGRAPH_TUNNEL_URL }}/webhooks/coordination/reply",
         "sendHeaders": true,
         "headerParameters": { "parameters": [
           { "name": "X-FridgeGraph-Timestamp", "value": "={{ $json.ts }}" },
@@ -71,7 +71,7 @@
       "position": [340, 460],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.FRIDGEGRAPH_TUNNEL_URL }}/webhooks/coordination/reply",
+        "url": "={{ $vars.FRIDGEGRAPH_TUNNEL_URL }}/webhooks/coordination/reply",
         "sendHeaders": true,
         "headerParameters": { "parameters": [
           { "name": "X-FridgeGraph-Timestamp", "value": "={{ $json.ts }}" },

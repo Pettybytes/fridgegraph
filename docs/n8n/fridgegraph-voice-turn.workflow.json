@@ -1,0 +1,154 @@
+{
+  "name": "FridgeGraph - Voice Turn",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fridgegraph-voice-turn",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "vt-hook",
+      "name": "Voice Turn Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "fridgegraph-voice-turn"
+    },
+    {
+      "parameters": {
+        "jsCode": "// GHL Custom Action headers are static, so the fresh timestamp and the secret are added\n// here. The voice-turn server rejects anything outside +/-300 s.\nconst incoming = $json.body || $json;\nconst ts = String(Math.floor(Date.now() / 1000));\nreturn [{ json: {\n  timestamp: ts,\n  secret: $vars.FG_WEBHOOK_SECRET,\n  base: $vars.FRIDGEGRAPH_TUNNEL_URL,\n  body: incoming\n} }];"
+      },
+      "id": "vt-sign",
+      "name": "Sign Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.base }}/voice-turn",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-FridgeGraph-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-FridgeGraph-Webhook-Secret",
+              "value": "={{ $json.secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 3000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "vt-http",
+      "name": "Call Voice Turn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass the server's JSON through unchanged when it succeeded; otherwise give Rosina a\n// line that is honest about the answer not being recorded.\nconst FAILED = \"Thank you. I couldn't confirm your answer was recorded. If this is time-sensitive, please contact the family directly.\";\nconst r = $json || {};\nconst status = Number(r.statusCode || 0);\nlet payload = r.body;\nif (typeof payload === 'string') { try { payload = JSON.parse(payload) } catch { payload = null } }\nif (status >= 200 && status < 300 && payload && typeof payload.say === 'string') {\n  return [{ json: payload }];\n}\nreturn [{ json: { status: 'FAILED', note: 'voice_turn_unavailable', say: FAILED } }];"
+      },
+      "id": "vt-shape",
+      "name": "Shape Say",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "vt-respond",
+      "name": "Respond to GHL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Voice Turn Webhook": {
+      "main": [
+        [
+          {
+            "node": "Sign Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Request": {
+      "main": [
+        [
+          {
+            "node": "Call Voice Turn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Voice Turn": {
+      "main": [
+        [
+          {
+            "node": "Shape Say",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Say": {
+      "main": [
+        [
+          {
+            "node": "Respond to GHL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
