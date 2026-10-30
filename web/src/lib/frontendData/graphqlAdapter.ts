@@ -1,4 +1,6 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, Observable, gql } from '@apollo/client'
+import { contactChannelLabel, pickupStatusLabel } from './displayCopy'
+import { reasonLabel } from './types'
 import type { Confirmation, CoordinationJob, FrontendAdapter, MissionControlData, ReasonCode, Scope, VillageData } from './types'
 
 export const JOBS = gql`query WebCoordinationJobs($childId: ID!) {
@@ -24,12 +26,12 @@ export function deriveMissionControl(jobs: JobRead[], attempts: Map<string, Atte
   const events: MissionControlData['events'] = []
   const currentFacts: string[] = []
   for (const job of jobs) {
-    currentFacts.push(`${job.id}: ${job.status}; version ${job.version}`)
+    currentFacts.push(pickupStatusLabel(job.status))
     for (const evaluation of job.candidateEvaluations) {
-      currentFacts.push(`${evaluation.candidate.displayName}: ${evaluation.reasonCode ?? 'Not recorded'}; available: ${evaluation.available ?? 'unknown'}; accepted via: ${evaluation.acceptedVia ?? 'unknown'}`)
+      currentFacts.push(`${evaluation.candidate.displayName}: ${reasonLabel(evaluation.reasonCode)}. ${evaluation.available === true ? 'Available to help.' : evaluation.available === false ? 'Not available.' : 'Availability not recorded.'} ${evaluation.acceptedVia ? 'A response was recorded.' : 'No response recorded.'}`)
       if (evaluation.costCalculatedAt) events.push({ id: `${job.id}:${evaluation.candidate.id}:cost`, at: evaluation.costCalculatedAt, kind: 'cost_calculated', summary: `Travel cost calculated for ${evaluation.candidate.displayName}`, stage: 'RECORDED', job })
     }
-    for (const attempt of attempts.get(job.id) ?? []) events.push({ id: attempt.id, at: attempt.at, kind: 'attempt', summary: `${attempt.channel} attempt recorded. Candidate identity not recorded.`, stage: 'RECORDED', job })
+    for (const attempt of attempts.get(job.id) ?? []) events.push({ id: attempt.id, at: attempt.at, kind: 'attempt', summary: `${contactChannelLabel(attempt.channel)} recorded. Caregiver not recorded.`, stage: 'RECORDED', job })
     if (job.confirmation) events.push({ id: job.confirmation.id, at: job.confirmation.receivedAt, kind: 'confirmation', summary: `Approval by ${job.confirmation.approvedBy.displayName} for ${job.confirmation.candidate.displayName}`, stage: 'RECORDED', job })
   }
   // The review panel is explicitly scoped to the first returned job, never a mix of candidates from jobs.

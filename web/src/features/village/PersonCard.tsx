@@ -71,7 +71,7 @@ export function PersonCard({ node, edge, centerName, highlight, onClose }: Perso
 
         {/* Household */}
         {node.household && (
-          <p className="village-card-household">Household {node.household}</p>
+          <p className="village-card-household">Household membership recorded</p>
         )}
       </motion.div>
     </motion.div>
@@ -87,5 +87,5 @@ function roleColor(role: string): string {
 }
 
 function formatRelationship(type: string): string {
-  return type.charAt(0).toUpperCase() + type.slice(1)
+  return (type.charAt(0).toUpperCase() + type.slice(1)).replaceAll('_', ' ')
 }

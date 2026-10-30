@@ -13,7 +13,7 @@ describe('read-only graphql adapter', () => {
   it('derives no timed event from an untimed status or acceptance and keeps channel unknown', () => {
     const data = deriveMissionControl([job], new Map())
     expect(data.events).toEqual([])
-    expect(data.currentFacts?.join(' ')).toContain('available: true; accepted via: WEBHOOK_CALLBACK')
+    expect(data.currentFacts?.join(' ')).toContain('Available to help. A response was recorded.')
     expect(data.candidates[0]).toMatchObject({ channel: '—', reasonCode: null })
     expect(data.provenance).toBe('derived')
   })

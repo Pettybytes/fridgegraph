@@ -433,3 +433,16 @@ real-service integration is untested. W2 includes the shared policy correction; 
 and W2 prerequisites. Main remains 72c1cf5 at this check. Rebase/deduplicate and reconcile App after
 Bryan merges prior steps. Do not mark fixture browser runs as live proof. W4 remains conditional
 on Bentley delivery. No merge, tag, release or database action was performed.
+
+### Task W pre-merge copy corrections — W1
+
+Human display labels replace workflow codes, version numbers and confirmation/household IDs.
+Recorded values stay in adapter data; no new facts or authors were invented. The connected entry
+no longer asks a family to enter internal child/village IDs; its scope still awaits demo login.
+Mission Control and Living Village accept a persona-aware denied-state slot for W2/W3; the
+credential-free W1 fallback explains sharing instead of rendering a bare denial.
+Touched paths additionally include web/src/lib/frontendData/AccessEmptyState.tsx, displayCopy.ts,
+displayCopy.test.ts and web/src/features/village/PersonCard.tsx; frontend only.
+Validation: root typecheck, secret scan, web build PASS; **62 web tests PASS**. Playwright CLI
+screenshots: web/evidence/task-w/w1-access-desktop.png and w1-access-mobile.png. No live integration
+claim; W1 remains NOT DONE. Follow-up stack rebase is authorized by Bryan's copy-fix request.

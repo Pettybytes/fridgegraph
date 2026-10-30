@@ -18,7 +18,7 @@ describe('Mission Control UI', () => {
     expect(screen.getByRole('heading', { name: "Rosina's recommendation" })).toBeVisible()
     expect(screen.getByRole('heading', { name: "Rosina's activity trace" })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Job timeline' })).toBeVisible()
-    expect(screen.queryByText('conf_0003', { exact: false })).not.toBeInTheDocument()
+    expect(screen.queryByText('Approval recorded at 15:14 UTC', { exact: false })).not.toBeInTheDocument()
   })
   it('reviews an over-limit alternative on a no-driver night', async () => {
     const base = createPickupDemoAdapter()
@@ -59,7 +59,7 @@ describe('Mission Control UI', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Replay recorded approval' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByRole('status')).toHaveTextContent('Parent approval recorded')
-    expect(screen.getByText(/conf_0003/)).toBeVisible()
+    expect(screen.getByText('Approval recorded at 15:14 UTC', { exact: false })).toBeVisible()
     expect(screen.getByText('Approval is recorded. Pickup completion has not been recorded.')).toBeVisible()
   })
   it('does not accept job status or trace words as a Confirmation row', async () => {

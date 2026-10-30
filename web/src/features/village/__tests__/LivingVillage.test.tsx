@@ -127,7 +127,7 @@ describe('LivingVillage', () => {
     renderVillage(errorAdapter)
     const error = await screen.findByTestId('living-village-error')
     expect(error).toBeInTheDocument()
-    expect(error).toHaveTextContent("You don't have access to this")
+    expect(error).toHaveTextContent("This information is private")
   })
 
   it('renders search input', async () => {
