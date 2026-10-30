@@ -18,7 +18,8 @@
 import express, { type Request, type Response } from 'express';
 import { DEMO_PERSONAS, personaById, type DemoLoginResponse } from './personas';
 import { isReady } from './personas';
-import { MintError, mintSession } from './session';
+import { MintError } from './session';
+import { getPersonaSession, publicPersonaSession } from './persona-sessions';
 
 /** Sliding-window counters. Small, pruned, and only ever used for refusals. */
 type Window = { hits: number[]; };
@@ -133,7 +134,9 @@ export function createDemoLoginApp() {
     }
 
     try {
-      const session = await mintSession(persona);
+      // One shared session per persona: cached, single-flight minted, renewed inside the safety
+      // window. Only the access token crosses the wire; the refresh token stays in this process.
+      const { session } = await getPersonaSession(persona);
       const response: DemoLoginResponse = {
         status: 'READY',
         personaId: persona.id,
@@ -157,7 +160,7 @@ export function createDemoLoginApp() {
           parentName: persona.name,
           villageId: persona.villageId,
         },
-        session,
+        session: publicPersonaSession(session),
         marks: { demo: true, demoGuide: persona.id === 'demo-guide' },
       };
       console.log(`[demo-login] ${personaId} -> READY`);

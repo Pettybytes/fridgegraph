@@ -79,8 +79,12 @@ console.log('\na) allow-listed persona signs in through the endpoint')
 const kendra = await login('kendra')
 check('a1 HTTP 200', kendra.http === 200, String(kendra.http))
 check('a2 status READY', kendra.body.status === 'READY', kendra.body.status)
-check('a3 Supabase issued a session (access + refresh present)',
-  Boolean(kendra.body.session?.access_token) && Boolean(kendra.body.session?.refresh_token))
+// Contract updated by the persona-sessions task: the browser gets the access token and its real
+// expiry ONLY. The refresh token is server-side now, because Supabase rotates it and one browser
+// must never invalidate the shared session another visitor is using.
+check('a3 Supabase issued a session (access token present, no refresh token in the browser response)',
+  Boolean(kendra.body.session?.access_token) && !('refresh_token' in (kendra.body.session ?? {}))
+  && typeof kendra.body.session?.expires_at === 'number')
 check('a4 token_type is bearer', String(kendra.body.session?.token_type).toLowerCase() === 'bearer')
 check('a5 persona shape matches the web AuthAdapter',
   kendra.body.persona?.id === 'kendra' && kendra.body.persona?.personId === 'p_mom'
