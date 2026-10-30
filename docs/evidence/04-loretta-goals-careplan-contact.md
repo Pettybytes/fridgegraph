@@ -51,10 +51,10 @@ query {
         "code": "UNAUTHORIZED",
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
-          "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:42:10)",
-          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:161:9)",
+          "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:42:10)",
+          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:161:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
-          "    at async carePlan (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:311:7)"
+          "    at async carePlan (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:311:7)"
         ],
         "service": "village"
       }
@@ -75,10 +75,10 @@ query {
         "code": "UNAUTHORIZED",
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
-          "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:42:10)",
-          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:161:9)",
+          "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:42:10)",
+          "    at authorizeChild (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:161:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
-          "    at async contactMethods (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:404:9)"
+          "    at async contactMethods (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:404:9)"
         ],
         "service": "village"
       }

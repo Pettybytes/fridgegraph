@@ -24,24 +24,24 @@ query { approvals { id approver { displayName } subjectType subjectId decision a
   "data": {
     "approvals": [
       {
-        "id": "ap_df532af1-23c3-49ca-9b7d-10598c7f2030",
+        "id": "ap_1363918b-08d8-4354-ae83-90e2c072f430",
         "approver": {
           "displayName": "Kendra Ellison"
         },
         "subjectType": "Relationship",
         "subjectId": "r_dana_friend_parent",
         "decision": "APPROVED",
-        "at": "2026-10-27"
+        "at": "2026-10-30"
       },
       {
-        "id": "ap_6ed684f5-18b5-447c-8203-aca520385e00",
+        "id": "ap_e616e126-fcf7-4da4-a6f3-153c45c9bd86",
         "approver": {
           "displayName": "Kendra Ellison"
         },
         "subjectType": "Grant",
-        "subjectId": "g_6a96d436-4d4f-47d9-ab5c-ce2a42911eca",
+        "subjectId": "g_937c327f-5e50-4880-a74d-2e8476ea7fb8",
         "decision": "GRANTED",
-        "at": "2026-10-27"
+        "at": "2026-10-30"
       }
     ]
   }

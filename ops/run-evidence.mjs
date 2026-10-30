@@ -292,10 +292,13 @@ const CHECKS = {
     noCandidateDisclosure(r.body, ok);
   },
 
-  // Rejection may come from the router (401 AUTH_ERROR) or downstream (200 UNAUTHENTICATED).
+  // Rejection may come from the router (400/401 AUTH_ERROR) or downstream (200 UNAUTHENTICATED).
+  // The router answers a malformed, non-JWT bearer with 400 AUTH_ERROR and a tampered JWT with 401
+  // AUTH_ERROR (evidence 16); both are edge rejections with AUTH_ERROR and no data. The assertion
+  // accepts either edge status, never a 200 with data.
   '14b-garbage-token': (r, ok) => {
     const codes = codesOf(r.body);
-    const edge = r.status === 401 && codes.includes('AUTH_ERROR');
+    const edge = (r.status === 401 || r.status === 400) && codes.includes('AUTH_ERROR');
     const downstream = r.status === 200 && codes.includes('UNAUTHENTICATED');
     ok('rejected at edge or downstream', edge || downstream, `status=${r.status} codes=${codes.join('|') || 'none'}`);
     noCandidateDisclosure(r.body, ok);

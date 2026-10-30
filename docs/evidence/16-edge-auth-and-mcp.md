@@ -30,3 +30,16 @@ Monique Davis
 ```
 
 Identity used: Bearer eyJhbG…<redacted, 807 chars> (never written).
+
+---
+
+## Addendum — malformed (non-JWT) bearer, Oct 30 2026
+
+The graph suite's `14b-garbage-token` case sends `Authorization: Bearer not-a-jwt`. The router
+rejects it at the edge with **HTTP 400 `AUTH_ERROR`**, not the 401 that a *tampered JWT* returns
+(recorded in the table above). Both are edge rejections with `AUTH_ERROR` and no data; the
+difference is the input — a structurally invalid token versus a well-formed token with a bad
+signature.
+
+The assertion now accepts 400 or 401 with `AUTH_ERROR`, or a downstream 200 with `UNAUTHENTICATED`,
+and never a 200 carrying data. Nothing else about the case changed.

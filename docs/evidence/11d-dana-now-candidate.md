@@ -31,13 +31,6 @@ query {
     "pickupCandidates": [
       {
         "person": {
-          "displayName": "Dana Coleman",
-          "vehicles": []
-        },
-        "reason": "friend_parent — transport.child offered, pickup.request grant valid 2026-10-26"
-      },
-      {
-        "person": {
           "displayName": "Loretta Brooks",
           "vehicles": []
         },
@@ -63,6 +56,13 @@ query {
           "vehicles": []
         },
         "reason": "parent_friend — transport.child offered, pickup.request grant valid 2026-10-26"
+      },
+      {
+        "person": {
+          "displayName": "Dana Coleman",
+          "vehicles": []
+        },
+        "reason": "friend_parent — transport.child offered, pickup.request grant valid 2026-10-26"
       }
     ],
     "danaOnly": {
