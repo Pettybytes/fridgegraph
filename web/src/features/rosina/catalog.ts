@@ -1,4 +1,4 @@
-export type Screen = 'mission-control' | 'village'
+export type Screen = 'mission-control' | 'village' | 'care-information' | 'ask-rosina'
 export type ActionArgs = {
   'open-screen': { screen: Screen }
   'open-person': { personId: string }
@@ -14,7 +14,7 @@ function record(value: unknown, keys: string[]): value is Record<string, unknown
   return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key))
 }
 function screenArgs(value: unknown): { screen: Screen } | null {
-  return record(value, ['screen']) && (value.screen === 'mission-control' || value.screen === 'village') ? { screen: value.screen } : null
+  return record(value, ['screen']) && (value.screen === 'mission-control' || value.screen === 'village' || value.screen === 'care-information' || value.screen === 'ask-rosina') ? { screen: value.screen } : null
 }
 const personId = (value: unknown): value is string => typeof value === 'string' && /^p_[a-z0-9_]{1,60}$/.test(value)
 function pickupArgs(value: unknown): ActionArgs['start-pickup'] | null {
@@ -46,8 +46,16 @@ export function actionRoute(action: CatalogAction): string | null {
   if (action.id === 'open-person') return `#/village?person=${encodeURIComponent(action.args.personId)}`
   return null
 }
-export function actionAllowed(action: CatalogAction, context: { childId: string | null; parent: boolean; visiblePeople: ReadonlySet<string> }): boolean {
+export function actionAllowed(action: CatalogAction, context: { childId: string | null; parent: boolean; visiblePeople: ReadonlySet<string>; canReadCare?: boolean }): boolean {
+  if (action.id === 'open-screen' && action.args.screen === 'care-information') return context.canReadCare === true
   if (action.id === 'start-pickup') return context.parent && action.args.childId === context.childId
   if (action.id === 'open-person') return context.visiblePeople.has(action.args.personId)
   return true
+}
+
+export function actionLabel(action: CatalogAction): string {
+  const screens: Record<Screen, string> = { 'mission-control': 'Mission Control', village: 'Living Village', 'care-information': 'care information', 'ask-rosina': 'Ask Rosina' }
+  if (action.id === 'open-screen') return `Open ${screens[action.args.screen]}`
+  if (action.id === 'start-pickup') return `${catalog[action.id].label} · ${action.args.date} ${action.args.window}`
+  return catalog[action.id].label
 }

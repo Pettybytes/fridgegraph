@@ -618,3 +618,32 @@ W3 PR: https://github.com/Pettybytes/fridgegraph/pull/20 (draft, pushed). Resume
 (61 tests), W2 #19 (61 tests), W3 #20 (78 tests). No steps DONE; UI complete and explicit mocks
 are tested, while real backend integration remains untested. Main still 72c1cf5. After Bryan
 merges earlier steps, rebase/deduplicate prerequisites and reconcile App with W1; never merge.
+
+### Task W pre-merge copy corrections — W3 (current)
+
+W3 is rebased onto updated W2, with W1 beneath it; duplicate shared policy/privacy commits were
+removed. PR base remains main. Resolve future upstream merges by rebasing, never merging here.
+Scripted replies lead with the answer or clearly state what cannot be confirmed, then cite recorded
+evidence. The snack answer begins “No, Nora has a peanut allergy.” and quotes the care plan.
+Its source is “Nora's care plan”: no path, table name, workflow enum or invented “added by Kendra”.
+Current source record has no author metadata. Future author attribution must come from the record.
+Other sources say “the pickup plan” or “Nora's pickup plan”, with readable status labels.
+Sharing boundaries use catalog-validated open-screen cards for care information and Ask Rosina.
+Care cards are filtered by actual mock care access; the care screen checks that access again.
+Schedule remains explicitly unavailable, with no usable schedule card and no Family Calendar.
+The same catalog owns implemented flags, schemas, labels and route construction for both the
+empty-state cards and conversation cards. Current routes add care-information and ask-rosina;
+no future coordination-v2 entries are defined. Display labels say “Open care information” etc.
+Demo conversation/confirmation copy describes the effect to the person, without implementation
+terms. UI identity unchanged; household grouping and portrait initials come from W2.
+Additional path: web/src/features/rosina/CatalogCards.tsx. Scope is frontend + companion contract
+and handoff only. Live services remain unavailable; no auth/schema/DB changes or merge.
+Validation: root typecheck/secret scan/build PASS; web tests and desktop/mobile Playwright checks
+cover revised acceptance flows, answer-before-evidence, plain sources, no invented author, role-aware
+sharing cards, care access filtering, persona privacy and confirmation. See final counts below.
+Screenshots: web/evidence/task-w/w3-copy-desktop.png and w3-copy-mobile.png (new artifacts; old retained).
+
+Current pre-merge validation: **88 web tests PASS**, root typecheck PASS, staged secret scan PASS,
+production build PASS. Playwright CLI exercised all seven revised replies, care sharing cards,
+mobile Ask Rosina navigation/Escape, and Loretta's absence of care cards/private care text.
+The stack will receive W1's final readable relationship labels before the final push.

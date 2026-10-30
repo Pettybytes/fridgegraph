@@ -21,6 +21,14 @@ describe('Rosina catalog authority', () => {
     const [pickup] = validateActions([{ id: 'start-pickup', args: { childId: 'p_nora', date: '2026-10-30', window: 'afternoon' }, requiresConfirmation: false }])
     expect(catalog[pickup.id].changesData).toBe(true)
   })
+  it('opens the implemented care screen only for a role with care access', () => {
+    const [action] = validateActions([{ id: 'open-screen', args: { screen: 'care-information' } }])
+    const context = { childId: 'p_nora', parent: false, visiblePeople: new Set<string>() }
+    expect(actionAllowed(action, { ...context, canReadCare: false })).toBe(false)
+    expect(actionAllowed(action, { ...context, canReadCare: true })).toBe(true)
+    expect(actionRoute(action)).toBe('#/care-information')
+    expect(validateActions([{ id: 'open-screen', args: { screen: 'schedule' } }])).toEqual([])
+  })
   it('checks child scope and visible person membership independently of args validity', () => {
     const context = { childId: 'p_nora', parent: true, visiblePeople: new Set(['p_tasha']) }
     expect(actionAllowed({ id: 'open-person', args: { personId: 'p_jax' } }, context)).toBe(false)

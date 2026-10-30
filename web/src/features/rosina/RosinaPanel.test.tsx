@@ -26,10 +26,10 @@ function TestPanel({ service }: { service: RosinaAdapter }) {
 function harness(service: RosinaAdapter) { render(<SessionProvider adapter={createMockAuthAdapter()}><TestPanel service={service} /></SessionProvider>) }
 describe('scripted Rosina acceptance examples', () => {
   it.each([
-    ['What can I do here?', /You can explore your village/],
-    ["Show me Nora's afternoon.", /recorded afternoon pickup status is awaiting_approval/],
-    ['Why was this caregiver recommended?', /Tasha Ellison has the recorded status APPROVAL_PENDING/],
-    ["I'm new to this village.", /Start with the people in your own village/],
+    ['What can I do here?', /You can review pickup plans/],
+    ["Show me Nora's afternoon.", /afternoon pickup: waiting for parent approval/],
+    ['Why was this caregiver recommended?', /Tasha Ellison is the recorded choice for this pickup/],
+    ["I'm new to this village.", /Start with your own village/],
     ["Show me another family's child.", /can't show another family's child/],
   ])('%s', async (prompt, expected) => {
     await enter()
@@ -46,15 +46,17 @@ describe('scripted Rosina acceptance examples', () => {
     fireEvent.click(screen.getByRole('button', { name: /Review pickup request/ }))
     const dialog = screen.getByRole('dialog', { name: 'Confirm pickup request' })
     expect(within(dialog).getByText('Nora Ellison')).toBeVisible()
-    expect(screen.queryByText(/No live job was created/)).not.toBeInTheDocument()
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm mock pickup request' }))
-    expect(await screen.findByText(/Mock pickup request reviewed. No live job was created/)).toBeVisible()
+    expect(screen.queryByText(/No pickup was arranged/)).not.toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm demo pickup request' }))
+    expect(await screen.findByText(/Your demo request has been reviewed. No pickup was arranged/)).toBeVisible()
   })
   it('answers Priya from recorded care information with its source', async () => {
     await enter('Priya')
     await send('Can Nora have a peanut-butter snack?')
     expect(screen.getByRole('log')).toHaveTextContent('Peanut allergy. Epi-pen in right backpack pocket.')
-    expect(screen.getByRole('log')).toHaveTextContent('Source: Nora\'s care plan, demo fixture (src/fixtures.ts)')
+    expect(screen.getByRole('log')).toHaveTextContent("No, Nora has a peanut allergy. Her care plan says:")
+    expect(screen.getByRole('log')).toHaveTextContent("Source: Nora's care plan.")
+    expect(screen.getByRole('log')).not.toHaveTextContent(/src\/|fixture|added by Kendra/)
     expect(screen.getByRole('log')).not.toHaveTextContent('Tasha Ellison')
   })
 })
@@ -74,10 +76,10 @@ describe('Rosina safety and session boundaries', () => {
     await send('Arrange it')
     fireEvent.click(screen.getByRole('button', { name: /Review pickup request/ }))
     expect(screen.getByRole('dialog')).toBeVisible()
-    expect(screen.queryByText(/No live job was created/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No pickup was arranged/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.queryByText(/No live job was created/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No pickup was arranged/)).not.toBeInTheDocument()
   })
   it('sends only this persona history and discards a late reply after switching', async () => {
     let resolveLate!: (response: RosinaResponse) => void

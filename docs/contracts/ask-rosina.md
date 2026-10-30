@@ -46,7 +46,7 @@ args schema, route/handler, changesData and implemented. Today's entries:
 
 | ID | Args | Handler | Changes data | Implemented state |
 |---|---|---|---|---|
-| open-screen | screen: mission-control or village | internally constructed hash route | no | yes |
+| open-screen | screen: mission-control, village, care-information or ask-rosina | internally constructed hash route | no | yes |
 | open-person | personId | card in authorized village projection | no | yes |
 | start-pickup | childId, YYYY-MM-DD date, morning/afternoon/evening window | app-owned confirm, then mock handler | yes | mock only; live execution unavailable |
 | explain-screen | screen | factual UI explanation | no | yes |
@@ -80,7 +80,7 @@ Apollo clearStore and selected record/person-card cleanup are part of the same b
 5. “Arrange a pickup.” → ask date/window, then a catalog confirm card. No write before app confirmation.
 6. “Show me another family's child.” → explain scope boundary, leak no child records.
 7. As Priya: “Can Nora have a peanut-butter snack?” → quote “Peanut allergy. Epi-pen in right backpack
-   pocket.” with source Nora's care plan, demo fixture (src/fixtures.ts); reject the conflicting snack.
+   pocket.” with source Nora's care plan; reject the conflicting snack.
    This is a mock retrieval of recorded care information, not a model medical judgement. Until v2's
    approved care-rule integration lands, live version says **“I can't confirm that yet”**, without guessing.
 
@@ -100,3 +100,18 @@ server assurance of no history persistence; current catalog allowlist in the mod
 contract; real demo login/scopes; live action handler integration. W4 must test all personas,
 unscripted questions/follow-ups, scope boundaries, ambiguity, created-family visibility and reset,
 and report the model's errors verbatim. Scripted acceptance tests cannot substitute for those runs.
+
+## Human copy and sharing boundaries (pre-merge correction)
+
+Lead every scripted reply with the answer or the missing detail, then the recorded evidence.
+Care example: “No, Nora has a peanut allergy. Her care plan says: 'Peanut allergy. Epi-pen in right
+backpack pocket.' Source: Nora's care plan.” Sources never expose paths, table names, enum codes
+or adapter names. Add “, added by <name>” only when the source actually records that author.
+Today's care-plan record has no author metadata: do not infer Kendra from her role or grants.
+
+A denied pickup view explains the sharing policy and the person's available information. Priya:
+“Pickup plans are shared with Nora's parents. You can see Nora's schedule and care information.”
+The cards use the same catalog validation and implemented checks as chat actions: open care
+information or Ask Rosina. The schedule screen is explicitly unavailable; no Family Calendar
+is built and no unusable schedule button is offered. The care screen rechecks the persona's
+recorded mock permission, including direct-link requests. No authorization/schema changes.
