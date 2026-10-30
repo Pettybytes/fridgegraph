@@ -541,3 +541,9 @@ Validation: root typecheck, secret scan, production build PASS; **70 web tests P
 household grouping, care privacy and persona-isolation regressions. Playwright CLI checked the
 grouped entry and Priya's sharing → care path at desktop/mobile. New screenshots are append-only:
 web/evidence/task-w/w2-copy-desktop.png and w2-copy-mobile.png. W2 remains NOT DONE for live integration.
+
+Final W2 stack check: rebased onto W1 including its final readable relationship/contact labels
+and current progress table. Post-rebase root typecheck, secret scan, build and **70 web tests PASS**.
+Full-page grouped picker evidence: web/evidence/task-w/w2-grouped-final-desktop.png and
+w2-grouped-final-mobile.png. Existing evidence retained. W2 remains mock-tested, NOT DONE for live
+integration. PR #19 stays based on main; no main merge. W3 must be rebased onto this updated tip.
