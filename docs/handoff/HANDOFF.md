@@ -13,7 +13,7 @@ each group is its own branch off the main state it records below, and one PR. Ne
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **DONE — merged as #9 (`ebb7a2c`)** |
 | 1 | `feat/e-group1` (PR #23) | off main **`275461e`** after rebase | **E0 DONE — head `bb78aca`, MERGEABLE** |
-| 2 | `feat/e-group2` | off `origin/main` **`275461e`** | **E1 DONE; E2/E3 not started** |
+| 2 | `feat/e-group2` (PR #26) | off `origin/main` **`275461e`** | **E1 DONE — head `0d798e2`; E2/E3 not started** |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
 | 5 | `feat/e-group5` | | not started |
@@ -28,6 +28,9 @@ outside the IN-list — residence grants nothing. Dry run `ops/0024-dry-run.mjs`
 rolled-back transaction (guardian recognised, resident_adult not, invalid role rejected, counts
 unchanged). Graph suite 114/32 PASS, voice-turn 15/15, typecheck clean, secret scan 0 findings.
 Evidence `36-e1-authority-model.md` (35 stays reserved for Task R). No Rosina tool added — no new read.
+
+**PR #26** (draft, base `main`, head `0d798e2`) carries E1 only. E2/E3 will be added to the same
+branch, so #26 stays draft until they are green.
 
 **E2 demo login + sandbox enforcement + demo-guide scope — NOT STARTED.**
 **E3 Attempt.candidate + jobTimeline — NOT STARTED.**
