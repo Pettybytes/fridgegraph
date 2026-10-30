@@ -23,6 +23,19 @@ service). Always check `docs/evidence/` before numbering.
 
 ### Group 2 (E1) — E1 DONE, branch `feat/e-group2`, base `275461e`
 
+**Setup after #23 merged (`cccbbd2`):** `origin/main` merged into this branch (`1c16991`), HANDOFF
+conflict resolved to the current state (#9 → `ebb7a2c`, #23 → `cccbbd2`, base refreshed), evidence
+conflicts were run-specific ids. Graph suite **115/32 PASS**, voice-turn **15/15**, typecheck clean,
+secret scan 0 findings; pushed at `aed9d99`.
+
+**E2a findings (read before writing code):** `src/auth/verify.ts` returns `{ok, personId, sub}` from
+the verified JWT and resolves `sub → personId` via `getIdentityMap()`; it does **not** expose
+`app_metadata` yet — that is the first edit for the demo marker. `ops/auth.mjs` signs in with a
+password grant and caches tokens; its header note says servers never read `.demo-credentials`, which
+is linked from the primary checkout (mode 600). `scripts/seed-auth-users.ts` seeds **13** people;
+there is **no** `p_demo_guide` auth user, so the Demo guide identity has to be created before E2c can
+prove its scope.
+
 **E1 authority model.** `0024_authority_model.sql` (applied): `household_members.role` widened to
 `parent | guardian | resident_adult | child`; `is_parent_of()` and `parent_ids_of()` accept
 `role in ('parent','guardian')`; `src/authz.ts` uses `.in('role',['parent','guardian'])` at both
