@@ -29,10 +29,10 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
       <nav aria-label="Main navigation">{routes.map(({ path, label, icon: Icon }) =>
         <a key={path} href={`#/${path}`} className={cn('nav-link', route === path && 'active')} aria-current={route === path ? 'page' : undefined}><Icon size={19} aria-hidden="true" />{label}</a>
       )}</nav>
-      <div className="sidebar-footer"><span className="avatar">{scope.parentName[0]}</span><div><strong>{scope.parentName}</strong><small>{route === 'calendar' ? 'Your shared calendars' : `${scope.childName}'s village`}</small></div></div>
+      <div className="sidebar-footer"><span className="avatar">{scope.parentName[0]}</span><div><strong>{scope.parentName}</strong><small>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</small></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><span>{route === 'calendar' ? 'Your shared calendars' : `${scope.childName}'s village`}</span><span className="demo-badge">{mode === 'mock' ? 'Fictional demo' : 'Connected'}</span></header>
+      <header className="topbar"><span>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</span><span className="demo-badge">{mode === 'mock' ? 'Fictional demo' : 'Connected'}</span></header>
       <main id="main" tabIndex={-1}>
         <div className="page-heading"><div><h1>{current?.label ?? 'Page not found'}</h1></div><span className="scope-mark"><Sprout aria-hidden="true" />Care, connected.</span></div>
         {current ? slots[current.path] ?? <section className="route-slot" aria-label={`${current.label} workspace`}><div className="slot-symbol"><current.icon size={32} aria-hidden="true" /></div><h2>{current.label === 'Living Village' ? 'Room for your Living Village' : `Your ${current.label.toLowerCase()} workspace`}</h2><p>{current.path === 'village' ? `The people and relationships around ${scope.childName} will come together here.` : 'This workspace is ready for the next feature.'}</p><a href={current.path === 'village' ? '#/mission-control' : '#/village'}>{current.path === 'village' ? 'Back to Mission Control' : 'Explore Living Village'}<ArrowUpRight size={16} aria-hidden="true" /></a></section>

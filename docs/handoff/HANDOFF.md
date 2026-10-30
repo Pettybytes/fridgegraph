@@ -1,10 +1,51 @@
 # FridgeGraph — HANDOFF
 
-_Last updated: Oct 26, 2026 (late). Written under context pressure — read §9 before trusting any state._
+_Last updated: Oct 30, 2026. Merged origin/main `f71a5ed` (Village v2 #22) into this branch; read §9 before trusting any state._
+
+---
+
+## Task E progress — v2 backend (2026-10-30)
+
+**Resume rule:** skip every step marked DONE; continue at the first not-DONE step. Work in groups;
+each group is its own branch off the main state it records below, and one PR. Never merge.
+
+| Group | Branch | Base | State |
+|---|---|---|---|
+| 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
+| 1 | `feat/e-group1` | branch off main after #9 merges | not started |
+| 2 | `feat/e-group2` | | not started |
+| 3 | `feat/e-group3` | | not started |
+| 4 | `feat/e-group4` | | not started |
+| 5 | `feat/e-group5` | | not started |
+
+### Group 0 (E-2, E-1) — DONE
+
+**E-2 rebase.** 51 commits replayed onto `origin/main` `ad720de`; `main` is now an ancestor. One
+conflict, in `docs/handoff/HANDOFF.md` (main's Task W sections vs this branch's §11 hard-constraint
+section): resolved by **union** — both sides kept verbatim, 0 conflict markers remain, Task W, Task D
+and §11 all present. PR #9 was `CONFLICTING`/draft; it is now rebased and marked ready.
+
+**E-1 cleanup.** Both Session 3 attempts were already closed (dial by rollback 17:25:55 ET, Web Call
+by its own outcome 21:35:17). State verified: **0 open attempts**, **0 active authorizations**, **1
+consumed authorization kept as audit**, every closed attempt kept, **Dispatch inactive**, flag
+**unset**, **no `fg-dial` tag**. Nothing deleted; no unrelated job touched. After-state note appended
+to `docs/evidence/33-session-3-real-call.md`.
+
+**Two facts from Session 3 that later groups inherit:**
+1. The real dial was placed once (17:24:06 ET, 25 s) and was **unanswered — recipient's line busy**;
+   no decision reached the app. The voice checks are **still unverified**.
+2. The Web Call test recorded **ACCEPTED** (`available=true`, `OVER_POLICY`, 12.40) instead of the
+expected DECLINED/NO_TRANSPORT. The parser is unit-proven; a real call did not produce the "no car"
+text. Treat as an open voice defect, not a pass.
+
+**Saturday fix (from Session 3, carried here):** a **mint path that takes `destination_mode`**, so a
+real call does not need the direct-job-insert deviation recorded in evidence 33 §2. Group 1 E0 is the
+designed replacement for that deviation.
+
 
 ## 1. State
 
-- **HEAD:** `fb0c77f` + the B3 commit (see §9).
+- **HEAD:** this branch, after the merge commit that brings in `origin/main` `f71a5ed` (see §9).
 - **Runtime source of truth:**
   - `village` + `access` (grants/approvals/householdPolicy/parentingSchedule/candidates/approverFor)
     → **Postgres, per-request RLS client** (`src/db.ts`). No in-memory read on those paths.
@@ -760,6 +801,249 @@ Revision verification actually run: root typecheck PASS; 117 web tests PASS; pro
 PASS (same chunk-size advisory); five Playwright flows PASS including safe dock geometry and
 last-card clearance. Staged secret scan PASS: 283 files, zero findings. Revised screenshots
 include scrolled mobile calendar content with the launcher clear of cards.
+## 11. Hard constraint — authenticated third-party calls (Oct 28, 2026)
+
+**Bentley cannot call authenticated third-party APIs from scripts he writes; Bryan or another agent
+runs those calls.**
+
+The redaction layer rewrites secret-shaped text when Bentley writes a file: a header template that
+interpolates a variable lands as a placeholder on save. The script therefore looks correct in the
+transcript and is already damaged on disk before it runs, so a 401 from such a script is **not**
+evidence about the credential.
+
+Observed directly on Oct 28: the same credential, read from the same `.env` with the same
+fingerprint, returned 200 from Bryan's terminal and 401 from a Bentley-authored script. Bryan then
+created the six `fg_` fields successfully from his own terminal while Bentley's calls failed.
+
+Consequences for this repo:
+
+- Never treat a Bentley-authored authenticated call as a test of a credential or of an API's state.
+- Any step needing an authenticated GHL or n8n call belongs to Bryan. The exact commands live in
+  `docs/ops/level-b-plan.md`; they read the secret from `.env` at runtime and never embed it.
+- Bentley still owns everything that needs no third-party auth: schema, migrations, GraphQL, local
+  HTTP endpoints, harnesses, `rover`, and git.
+
+## Task B progress — Level B live (2026-10-29)
+
+**Resume rule:** skip every step marked DONE and continue at the first step not DONE. Each DONE row
+records what was observed, not what was intended. This section is rewritten in place, not appended
+to.
+
+| # | Step | State | Observed |
+|---|---|---|---|
+| 0 | Worktree `../fridgegraph-level-b` + symlinks | **DONE** | branch `feat/level-b-drafts` @ `9256178`; `.env`, `data`, `.demo-credentials` linked from the primary checkout |
+| 1 | Rebase onto `origin/main`, `push --force-with-lease` | **DONE** | rebased onto `1a576a7` (PR #14 squash-merged); `0019_transport_policy.sql` and `0020_transport_reply_cost.sql` both present in the branch; force-pushed with lease to `0630d08` |
+| 2 | `node ops/voice-turn-check.mjs` → 12/12 | **DONE** | **12/12 passed** against the local server on `127.0.0.1:4118`; bad secret 401, stale timestamp 401, ESCALATE/END_CALL no state change, no confirmation, job never approved |
+| 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | **DONE** | 6-arg variant found; `estimate_ride_cost_usd` absent; `OVER_POLICY` absent; dedupe `EVENT_ID_CONFLICT` intact — 0020 is live |
+| 4 | GHL custom fields: report which of the six `fg_` exist, create only missing | PENDING | |
+| 5 | GHL: Rosina recording / transcription / retention (read-only) | **DONE (partial)** | Rosina id `6940d34eed6cdd7ea7a2b746`, location `GNhV1Oyh…`. `GET /voice-ai/agents?locationId=` returns 10 agents but exposes **no** recording/transcription/retention keys; `GET /voice-ai/agents/{id}` returns **403**. Settings not exposed by API → listed **for Bryan**. |
+| 6 | n8n: credentials, three workflows, states | **DONE** | Variables unavailable (403 `feat:variables`), so Option B: credential `FridgeGraph Voice Turn` `MPoum0tgq94XPGvy` (X-FridgeGraph-Webhook-Secret), `FridgeGraph GHL` `JCYLvOgzK247D3tt` (Authorization: Bearer). Workflows created — Voice Turn `xOfmO6T4mKbYnjqb` (5 nodes, inactive), Dispatch `A2vnWF2L58Lvquqg` (6 nodes, inactive, both GHL send nodes disabled, credential attached), Reply and Timeout `addWpgFfxXmq7GF1` (8 nodes, inactive; HMAC secret is the open item for Session 2b, never pasted into a Code node). No `$vars` remains in any workflow file. |
+| 7 | Stack + named tunnel, //voice-turn only, outside proof | **DONE** | **7a** stack 4001-4007, router 4010, voice-turn 4118. **7b** from outside on `https://fridgegraph.loomz.stream`: `GET /` → 404, `POST /elsewhere` → 404, `POST /voice-turn` no timestamp → **401** `{"error":"UNAUTHORIZED"}`. **7c** Voice Turn `xOfmO6T4mKbYnjqb` URL set to `https://fridgegraph.loomz.stream/voice-turn`, **active=true**. **7d** POST to the n8n webhook with attempt `att_7e691d1f…` + CONTINUE → **200** `status=CONTINUE, note=no_state_change`, say line returned, candidate row byte-identical before/after. Fix required en route: the HTTP node needed `authentication=genericCredentialType` + `genericAuthType=httpHeaderAuth`, without which n8n silently omits the secret header (401). |
+| 8 | Rosina Custom Action spec for Bryan | **DONE** | `docs/ghl/rosina-custom-action.md` rewritten for GHL → n8n → tunnel: POST `https://fns2.app.n8n.cloud/webhook/fridgegraph-voice-turn`, `application/json`, no headers, 10 s timeout, retry off, `attemptId` from `{{contact.fg_attempt_id}}`, decision enum CONTINUE/ACCEPTED/DECLINED/ESCALATE/END_CALL, declineReason BUSY/NO_TRANSPORT/OTHER, Rosina speaks `say`. Nothing attached via API. |
+| 9 | Rehearsal prep | **PREPARED — ready for Web Call** | job `job_465b22fd27864c21b19b8f7fce1c54d9` (discovering), attempt `att_014c5d0aa80676ec32d62a1f`, contact `AxdxEKypElfgvw3Aagfd` "Loretta Brooks (demo)" created with no phone; `fg_attempt_id` written and re-read from GHL as matching. Verification and evidence 29 await Bryan's call. |
+| 10 | HARD STOP before the real call | **HOLDING** | Nothing enabled: no RealCallAuthorization, `REAL_CALL_EXCEPTION_ENABLED` unset, Dispatch inactive, both GHL send nodes disabled. |
+
+### Step 1 blocker — resolved
+
+PR #14 squash-merged to `1a576a7`; `origin/main` now carries `0019` and `0020`, matching the shared
+database. Rebase applied cleanly with no conflicts.
+
+### Pre-call hardening (2026-10-29, before the Web Call)
+
+| Step | Result |
+|---|---|
+| 1 | Voice Turn validates `attemptId` from body **or** query: both and different → **400 CONFLICTING_ATTEMPT_ID**; missing or not `^att_[a-f0-9]{24}$` → **400 MALFORMED**. Neither is forwarded. (The first attempt used a multi-output Code node, which n8n rejects — "Code doesn't return items properly"; replaced with a single output plus an IF node, typeVersion 2.2.) |
+| 2 | `FG_GHL_ACTION_TOKEN` generated in-process, written to `.env` atomically (length 43, never printed); credential **FridgeGraph GHL Action** `r3SFGMCVCgINZFL7` (header `X-FG-Action-Token`); webhook `authentication: headerAuth`, workflow active. |
+| 3 | Fresh job `job_32b3a61e9dca4235a2bee45be0da2544`, status `discovering`, `inside_window: true`, attempt `att_1cb9b493444a016634339280` bound to `p_gma`. |
+| 4a | query-only CONTINUE → **200** `status=CONTINUE, note=no_state_change`; candidate row identical; `webhook_events` delta **0**. |
+| 4b | missing id → **400 MALFORMED**; conflicting ids → **400 CONFLICTING_ATTEMPT_ID**; no mutation, delta 0. |
+| 4c | no token → **403** `Authorization data is wrong!` — n8n's header-auth returns 403, **not 401**. Enforcement holds; the status code differs from the instruction and is reported rather than dressed up. |
+| 4d | DECLINED deliberately not tested (it would consume the attempt). |
+| 5 | `docs/ghl/rosina-custom-action.md` carries the query parameter, the token header (copy-to-clipboard command, no value), the trigger wording, and the rehearsal literal id with a checklist item to restore `{{contact.fg_attempt_id}}` before Session 3. |
+
+**Re-minted for the Web Call (2026-10-30T02:06Z):** job `job_26b2d6c06d4944c093a306de047f99d7`,
+attempt `att_65b34cc9577dcc89d8386a2c`, bound to `p_gma`, status `discovering`, window 60 s (the
+column default; `request_pickup` takes no timeout argument and no household policy governs it, so 60 s
+is the contract maximum).
+
+## Task D progress — reproducible stack + real call readiness (2026-10-30)
+
+**Resume rule:** skip every step marked DONE; continue at the first step not DONE.
+Worktrees: **D0** in `../fridgegraph-alt-stack` (`chore/alt-stack`, PR #16);
+**D1-D6** here (`feat/level-b-drafts`, PR #9).
+
+**Bryan's 2026-10-30 updates (all recorded):** the `pickup_decision` query param reads
+`{{contact.fg_attempt_id}}` again (**confirmed by Bryan (UI), 16:50 ET**) — the literal rehearsal id
+is gone; the FROM number is referred to by its label **“Dreemzy HQ – Main Line”** in committed files
+(verified read-only: that label's `inboundCallService.value` is Rosina's agent id), and the pre-flight
+**fails until Bryan confirms the dropdown shows it**; the rollback now implements the documented
+workflow-removal `DELETE` with `Version: v3` (see D3 row and evidence 32 §4).
+
+| Step | State | Observed |
+|---|---|---|
+| D0 alt stack as code | **DONE** | `ops/alt-stack.sh` (--up/--check/--down) + `ops/alt-stack-check.mjs`. Router 4012 and MCP 5051 configs are **generated** from `router.yaml`/`supergraph.yaml`/`.apollo/mcp.local.yaml`; the generator refuses a config without `propagate: Authorization` or without rebasing to 4101-4107. Preflight fails loudly on `data/identity-map.json` (the silent-unmapped trap). `--down` kills only pidfile PIDs. **`--check` PROVEN against the running stack without restarting**: router health OK, graphql OK, **mcp candidates 4/4 as Kendra**. **`--up`/`--down` UNTESTED** (proving them needs the live stack stopped). PR #16. |
+| D1 migration 0022 | **DONE** | `0022_real_consented_attempts.sql` applied. (a) `open_attempt(..., p_destination_mode)` refuses `REAL_CONSENTED` without a valid, unconsumed, unexpired authorization bound to job+candidate+recipient — it **raises**, never downgrades (§10). (b) `consume_real_call_authorization(attempt, contact)` — one UPDATE bound to attempt+job+candidate+recipient+version; the 0014 4-arg form is dropped. (c) attempts carry the authorization id + consume time; `webhook_events` inherits the mode via before-insert trigger. Authorizations gained `job_id`/`candidate_id`/`contact_ref`; `attempt_id` is now nullable so an authorization can exist before its attempt. **Dry run 21/21** inside a rolled-back transaction: default unchanged, refused-without, allowed-with, consume-once-then-refuse, expiry, recipient/candidate/job mismatches, TEST_RESPONDER cannot consume, event labelling. Applied; re-apply is a no-op and the script now reports that as correct. |
+| D2 dispatcher window guard | **DONE** | Verified the call-log read with ONE live call: `GET /voice-ai/dashboard/call-logs` (the `/dashboard/` segment was the missing piece) with `Version: 2021-04-15` → **200**, `callLogs`/`total`/`page`, record keys incl. `contactId`, `createdAt`, `fromNumber`, `agentId`; `total=178`. Note the API rejected `sort=desc` with 422 demanding `ascend|descend` — a useful shape check. Guard implemented in `ops/dispatcher.mjs`: timezone from the **phone number's NANP area code** (documented rule: GHL schedules in the contact's phone-number tz, not the stored contact tz), unknown area code → **fail closed**; 8:00–20:00 local window; cross-agent daily check using local midnight→midnight converted to Unix seconds; unreadable call history → **fail closed**. `--dry` runs all of it for real and prints each result. Live proof against contact `eSAOWhx…`: contact read ok (stored tz America/Detroit), tz ok, window ok at 16:15 local, local day `04:00Z→04:00Z`, **already-called-today ok (0)**. |
+| D3 queue-aware rollback | **DONE** | **No documented cancel exists** for a pending/queued Voice AI call: the docs enumerate scheduling and limits (calls over the daily cap are "scheduled for the next eligible day"; users report 1–5 min before a call goes out) and expose no cancel action. Per Bryan's decision the residual risk is accepted and stated in the script header, not papered over. `ops/session3-rollback.mjs` (--dry first) runs **local shutdown first**: Dispatch deactivate + flag check → close attempt + **expire** unused authorizations (never wait for natural expiry) → only then GHL (tag removal via documented `DELETE /contacts/{id}/tags`, enrolment and workflow-publish have **no documented API** → MANUAL, reported FOR BRYAN) → final DB/GHL state print. A GHL failure cannot leave anything live locally. **Acceptance #4: PASS** — reply on a closed attempt returns **200 `END_CALL` / `attempt_closed`** with the say line "Thanks for your time. Goodbye." and **zero** mutation: attempt row, candidate_evaluations, job, confirmations all byte-identical, `webhook_events` delta **0**; the SQL layer still returns `rejected_closed` with delta 0 inside a rolled-back transaction. Implemented by adding a `closed_at` check to `ops/voice-turn-server.mjs` (200, not 409, so an idempotent replay stays 200); voice-turn-check still **15/15**. Rollback `--dry` proven end-to-end. |
+| D4 FG - Dial Rosina draft check | **DONE — exists in DRAFT** | Re-checked after Bryan built it: `FG - Dial Rosina` `6f2b386e-60ed-4848-959b-ed97f1307d92` **state=draft** (73 workflows now). `FG-SMS-Reply` and `FG - No Answer` remain published. Correct state for Session 3: it must stay unpublished until the runbook says otherwise. |
+| D5 runbook update | **DONE** | `docs/ops/session-3-runbook.md` rewritten with every pre-flight item carrying its **observed** result: stack 400/400/404 (all answering), tunnel **401**, Voice Turn + Reply and Timeout **active**, Dispatch **inactive**, `FG - Dial Rosina` **draft**, **0022 live verified by query** (`open_attempt` 5 args, `consume_real_call_authorization` 2 args, 4-arg form gone), D2 guard dry run incl. `total`-based cross-agent coverage, Rosina's number confirmed from `voice-ai/agents` and labelled **“Dreemzy HQ – Main Line”**. Two items are **human confirmations, not API checks**, and are labelled as such: the `{{contact.fg_attempt_id}}` action param (agent detail 403s) and the dial action's FROM dropdown (`/workflows/{id}` 404s) — the runbook states the pre-flight FAILS until the FROM dropdown shows that label. Order: pre-flight → 60-second notice → mint/authorize/consume/flag/Dispatch/publish/tag → dial → rollback. |
+| D7 real call (Session 3, Bryan's GO) | **BLOCKED at pre-flight — no dial** | Attempted 2026-10-30 17:03–17:05 ET. All platform checks passed (stack 400×7, router 400, voice-turn 404, tunnel 401, Voice Turn + Reply active, Dispatch inactive, `FG - Dial Rosina` **draft**, 0022 5-arg/2-arg, 0 open attempts, 0 authorizations). **Stopped by pre-flight #10:** the "Loretta Brooks (demo)" contact `AxdxEKypElfgvw3Aagfd` has **no phone number**, so `node ops/dispatcher.mjs --dry` returns `[REFUSED] phone number: contact has no phone number — cannot place a call` / `CALL_REFUSED_BY_WINDOW_GUARD`. Nothing was armed: no job, no authorization, no attempt, no `fg_` writes, flag unset, Dispatch inactive, no publish, no tag, no dial. The contact also still carries the stale rehearsal `fg_attempt_id` (`att_014c5d0aa…`), which Dispatch would overwrite before the tag — noted, not a blocker. **Unblock:** add the recipient phone to that contact in GHL and re-run pre-flight, or authorise binding the call to the existing contact that has a phone. |
+| D6 runbook dry run + evidence 32 | **DONE** | `node ops/d6-dry-run.mjs` → exit 0, **38 PASS / 0 FAIL / 3 HUMAN**. Every pre-flight item observed this session (stack 400×7, router 400, voice-turn 404, tunnel 401, Voice Turn + Reply active, Dispatch inactive, Dial draft, 0022 5-arg/2-arg with no 4-arg form, guard ok at 16:55 local, `already called today` = none across all agents, 5/5 `fg_` fields, FROM label matched to Rosina's agent id). DB steps real on a TEST_RESPONDER attempt: `request_pickup` job `job_3fcfbcf5…`, attempt `att_a63ecf46…`; reply `"no car"` through the deployed chain → HTTP 200 DECLINED, `available=false`, `decline_reason=NO_TRANSPORT`, `reason_code=AVAILABLE_NO_TRANSPORT`, attempt closed `ANSWERED_NO`. Authorization lifecycle **inside a rolled-back transaction only**: open REAL_CONSENTED `att_2230ebb4…`, consume once **true**, second **false**, no-authorization attempt **raised**, and after ROLLBACK jobs 50→50, authorizations 0→0, tx attempts 0. Dispatcher + rollback both `--dry`, the rollback run twice (open branch then closed branch); GHL reads real, nothing sent. The five external actions printed as `WOULD DO` with exact requests. After-state: Dispatch inactive, flag unset, Draft, **0 of 2684 contacts** carry `fg-dial` across 28 pages, **0** authorizations, **0** open attempts (3 untouched discovery attempts closed `D6_CLEANUP`, recorded). Evidence `32-session-3-dry-run.md`. **Untouched by design:** voice behaviour (one opener; “no car” → DECLINED/NO_TRANSPORT) still UNVERIFIED, and the FROM dropdown still needs Bryan's eye. Two tooling defects fixed: the dispatcher `--dry` CLI treated the documented `[attemptId]` as the channel, and the rollback dry run reported deliberately-skipped steps as FAIL. |
+
+### D1 design note worth not re-litigating
+
+`real_call_authorizations.attempt_id` had to become nullable. An authorization must be issuable
+**before** its attempt exists; with a NOT NULL attempt_id the only way to get one would be to create
+the attempt first as TEST_RESPONDER and then flip it — precisely the silent downgrade §10 forbids.
+The binding is therefore job + candidate + contact_ref at issue time, and the attempt id is attached
+atomically when the attempt is created.
+
+---
+
+## Task C progress — Level B finish + Muse on Meta (2026-10-30)
+
+**Resume rule:** skip every step marked DONE; continue at the first step not DONE.
+
+| Phase | Step | State | Observed |
+|---|---|---|---|
+| A | A2 corrections to evidence 29 | **DONE** | Appended as checkpoint §6, no rewrite: timing corrected to **2.749 s** (not minutes, not 3.6 s) and relabelled *consistent only*; the real proof is the deployed 6-arg function — `estimate_ride_cost_usd` 0 occurrences, `OVER_POLICY` 0, `v_cost` never assigned, so replies write null. Two defects separated: multi-output Code node (14787-14789, fixed) vs **CONTINUE in Rosina's enums → opener repeated → VERIFICATION PENDING**. Third finding: ACCEPTED sent for "I can help but I don't have a car"; description tightened; noted in rosina-custom-action.md. |
+| A | A1 evidence 29 | **DONE** | `docs/evidence/29-level-b-rehearsal.md`. Attempt `att_65b34cc9…`: one `ACCEPTED` event, `accepted_via=WEBHOOK_CALLBACK`, and `cost_calculated_at=02:10:40.640Z` — three minutes after the call's executions (02:09:40–02:10:37), proving the reply did not cost her. Ranking then set `OVER_POLICY` / **12.40** / labelled basis, job `awaiting_approval` v3, `over_limit_candidate_id=p_gma`, never `APPROVAL_PENDING`, `confirmations` = 0. Executions 14787-14789 are the multi-output Code-node failure; fixed with an IF node. Headers not dumped. |
+| B | B1 D2 open-attempt constraint (forward migration + dry run) | **DONE** | `0021_one_open_attempt.sql` applied. Dry run 20/20 PASS (hash restored `59354d9…`). Applied proof: backfill closed 4 job-inactive + 12 superseded, leaving exactly 1 open attempt per contact; a real 2-connection race for one contact returned `opened:att_fe26786d…` / `refused:att_fe26786d…` — exactly one opened; close → next legitimate attempt opened (`att_ac7b56b0…`); event naming the closed attempt returned `rejected_closed` with attempt row unchanged, `webhook_events` delta 0, `candidate_evaluations` delta 0. Enforcement is the partial unique index `attempts_one_open_per_contact (candidate_id) where closed_at is null`. D4 shipped as `webhook_events.source='no_answer'` + `record_no_answer()`, which writes nothing to `candidate_evaluations`. **D2 correlation remains unproven and is recorded as such.** Evidence 30 §B1. |
+| B | B2 rewrite Reply and Timeout per D1/D3/D4, activate | **DONE** | `docs/n8n/fridgegraph-reply-timeout.workflow.json` regenerated by `ops/build-reply-timeout-workflow.mjs` from `ops/reply-parser.mjs`; PUT to n8n `addWpgFfxXmq7GF1` and **ACTIVE**. 12 nodes: `GHL Reply`/`GHL No Answer` (headerAuth credential `FridgeGraph GHL Action` `r3SFGMCVCgINZFL7`), `Decide Reply`/`Decide No Answer` (D3 parser embedded verbatim), `Forward?`/`Forward No Answer?`, `Call Voice Turn`/`Call Voice Turn (no answer)` (credential `FridgeGraph Voice Turn` `MPoum0tgq94XPGvy` → `https://fridgegraph.loomz.stream/voice-turn`, fresh `X-FridgeGraph-Timestamp`), 4 responders returning `{status, note}`. `UNSET_SESSION_2B` and both `Sign *` HMAC nodes are gone (verified in the deployed object, not just the file). Parser: 26/26 unit tests incl. a parity check that the deployed Code node still contains the tested source. No-answer is forwarded as `NO_ANSWER`; the voice-turn server now maps it to `record_no_answer()`. voice-turn-check 12/12. Evidence 30 §B1 addendum. |
+| B | B3 verify FG-SMS-Reply and FG - No Answer, write docs/ghl/ghl-workflows.md | **DONE** | Both exist and are **published** (v3) in `GNhV1OyhFLzcl67XwTBV`: `FG-SMS-Reply` `9908591b-f035-40ce-bae7-6a1ed94de32a`, `FG - No Answer` `f85688b4-af4f-485a-86b1-0f0c49c6edd7`. `GET /workflows/{id}` 404s for this token, so the **trigger graph is not readable** and is recorded as unproven, not assumed. Wire check (`ops/reply-chain-check.mjs`) against a closed attempt: both payloads accepted 200 and refused at the D2 gate, extra correlation field tolerated, missing token 403, bad id 400, zero deltas. **Caught a real defect:** n8n's Webhook node nests the payload under `body`, so v1 answered `attemptId required` to every request (execution 14807) — fixed by unwrapping `$json.body`, re-deployed, re-proven. D2 correlation: neither trigger documents a message id or call id as a workflow variable, so stale-event protection is **still not proven**; doc gives the one UI check and the exact body to paste if `message.id` exists. No-answer trigger spec: Call Details + Outgoing + Call Status no-answer, with the change written out. |
+| B | B4 eight-case proof + parser unit test, evidence 30 | **DONE** | `ops/b4-proof.mjs` — **62/62 checks, exit 0**. All nine cases plus the late reply, each on a fresh job/attempt with before/after rows: a) `"Yes, I can!"` → ACCEPTED, `WEBHOOK_CALLBACK`, cost null, attempt `ANSWERED_YES`; b) curly apostrophe → `AVAILABLE_NO_TRANSPORT`/`NO_TRANSPORT`; c) a caregiver **with** a vehicle → same, and **0** `RECOMMENDED`/`APPROVAL_PENDING` rows; d/e) UNPARSED with evaluation byte-identical and 0 events; f) no-answer → `source=no_answer`, `outcome=NO_ANSWER`, evaluation untouched; g) closed attempt → `rejected_closed`, row unchanged, delta 0; h) second attempt refused naming the open one; i) 403 missing token, 400 bad id, no delta. **Separation proven both ways:** reply writes null cost (a, a3), driver branch recommends **uncosted** (correct per 0019), no-driver branch alone writes **12.40** + `OVER_POLICY` + `over_limit_candidate_id` (a3). Late reply (j): accepted after the window passed — only `confirmed`/`failed`/version/closed-attempt gate it, never the window. Parser 26/26 incl. deployed-source parity. |
+| B | B5 D5 real names in say lines, voice-turn-check 12/12 + new cases | **DONE** | `ops/voice-turn-server.mjs` resolves both names **server-side from the attempt**: child from `coordination_jobs.child_id` → `people.display_name`; requester from the parent scheduled for `as_of` (same rule as `_is_approver_for`) and **only when exactly one parent matches**, else `the family`. Opener carries both; ACCEPTED carries child + requester; FAILED carries requester. **voice-turn-check 15/15** (12 original intact + opener names + closing names + fallback via `as_of = null`). Re-proven **through n8n** by reading `say` out of execution `14811`-class data: "…available for Nora's pickup. Kendra still needs to approve…" — no placeholder. Only the 4118 server was restarted. Found again that an abandoned job holds all four contacts' slots, so the new script now cleans up after itself. Evidence 30 §B5. |
+| M | M1 verify api.meta.ai/v1 + muse model, stop on mismatch | **BLOCKED (docs OK, key rejected)** | Both values **confirmed** against dev.meta.ai: base `https://api.meta.ai/v1` from the official Chat Completions example; `muse-spark-1.3` from the Muse Models page, where it is also the docs default. `muse-spark-1.3-contributor` is a different data mode and was not used. `META_BASE_URL` + `META_MODEL_ID` written via `ops/set-env-secret.sh`. **Access fails:** `GET /models` and a 1-token completion both return **401 invalid_api_key**. Key is present, 136 chars, `LLM...`, not a placeholder, contains a non-`[A-Za-z0-9_-]` char. Bryan must re-copy from Model API -> API keys, then `ops/set-env-secret.sh META_API_KEY` and `node ops/meta-probe.mjs`. |
+| M | M2 meta provider on the PickupCandidates test, evidence 31, draft PR | **PARTIAL - shape verified, run blocked by M1** | `src/muse/providers.ts` confirmed correct: `POST ${baseUrl}/chat/completions`, Bearer auth, `tools` + `tool_choice: auto`, `temperature: 0` - the documented OpenAI-compatible shape, nothing invented. Branch lacks nothing that is only on unmerged #9. **The provider was NOT run**, so there is **no grounding score, no latency, no tool-call count**; the 4/4 target is unmet and not estimated. Evidence 31 written; **draft PR #15** opened. |
+| C | C1 supported Voice AI outbound dial path spec | **DONE** | `docs/ops/session-3-dial-path.md`. Cited GHL article 155000006598: the **Voice AI Outbound Call workflow action** is the only supported way - calls must be placed through a workflow using that action - and there is **no public dialing endpoint** (the Voice AI Public APIs cover call logs, agents, actions). Chain: n8n Dispatch -> fg_ fields -> tag -> `FG - Dial Rosina` (tag trigger) -> Voice AI Outbound Call. Workflow left **unpublished**; Dispatch **INACTIVE**; dial node **DISABLED**. Also records the limits that constrain the test: 8am-8pm contact tz, **one call per number per day**, 14/14 days. |
+| C | C2 dispatcher inventory / minimal dispatcher | **DONE** | Inventory: **nothing** calls Dispatch when an attempt is created - only the workflow JSON and docs reference `/webhook/fridgegraph-dispatch`; `request_pickup` creates job+attempts in Postgres and posts nowhere. `ops/dispatcher.mjs` added: posts `{attemptId, contactId, channel}` with `X-FG-Dispatch-Token` from `FG_DISPATCH_TOKEN`. **Not run, not wired**; only `--dry` was executed (prints the shape, sends nothing). |
+| C | C3 docs/ops/session-3-runbook.md | **DONE** | One page in the required order: pre-flight table (stack, tunnel **401 not 404**, all six workflow states, `{{contact.fg_attempt_id}}`, contact fields) -> the **60-second notice to Bryan first** (verbatim) -> mint job + RealCallAuthorization, flag, dial node, Dispatch, publish -> dial with a 4-step watch list -> the job-state acceptance table quoted from B4 -> rollback (everything off, authorization consumed/expired, no open attempt left). |
+
+### Note for the next session
+
+Phase A and B1/B2 are complete and pushed. The local stack (4001-4007), router (4010) and voice-turn
+(4118) are running; Voice Turn `xOfmO6T4mKbYnjqb` and Reply and Timeout `addWpgFfxXmq7GF1` are both
+**active**. Hard stops all held: Dispatch inactive, both GHL send nodes disabled, no
+RealCallAuthorization, `REAL_CALL_EXCEPTION_ENABLED` unset.
+
+**Found and fixed during B1:** the first apply of 0021 made `voice-turn-check` drop to 6/12, because a
+job stuck in `discovering` held its contact's only open slot forever. `_expire_stale_attempts()`
+closes attempts whose job's discovery window has passed; re-proven 12/12.
+
+## Task V2-VILLAGE progress
+
+BRANCH: feat/web-village-v2; WORKTREE: ../fridgegraph-web-village-v2.
+BASE: fetched origin/main ad720de6bcc0f2971f200f4db519b8934b4f6e78.
+TASK: six-family mock Living Village, scoped directory exploration and new-family demo personas.
+LAYER: web + companion docs. TOUCHED: village/v2, App, persona mocks/tests, evidence and handoff.
+DONE WHEN: typecheck, staged secret scan, web tests/build and desktop/mobile Playwright proof.
+NOT DOING: schema/auth/database/server changes, live seed claims, merges/tags/releases.
+UI: in progress · backend: unavailable pending Bentley v2 seed/reads · integrated: not yet tested.
+Mock scoping is a projection boundary, never live browser authorization. Private foreign nodes
+are omitted entirely, with no greyed-out names. Calendar/W4 live integration remains queued.
+
+Task V2-VILLAGE mock implementation: six networks, ten family children, plus Zion as a
+Tigers directory entry. Cast v2 relationships and authority are independent fixture fields.
+Felicia's projected view intentionally omits Imani/the third household; only Skye's existence
+is shared. Priya's separate child contexts omit the wider household and other helpers. Team
+roster names are directory-only; teacher/bus joins contain only the selected child. No hidden
+foreign names are returned as disabled nodes. New picker entries Felicia/Simone join existing
+Rosa/Dwayne; all six households now have mock entry points. Sources remain unavailable as live
+data; layout/projection is derived. Contract: docs/contracts/village-v2.md.
+
+| Surface | UI | Backend (Bentley) | Integrated + tested |
+|---|---|---|---|
+| Living Village v2 | complete on mocks | pending v2 seed/scoped reads | mock tested; live NOT DONE |
+| Six-network persona entry | complete on mocks | real demo login pending | mock tested; live NOT DONE |
+
+Verification actually run: root typecheck PASS; **133 web tests PASS** (117 baseline + 16
+new); production build PASS, existing chunk-size advisory. **Seven Playwright flows PASS**
+across Kendra/Priya/Dana/Rosa/Felicia/Simone/Dwayne. Desktop/mobile screenshots and reproducible
+proof: web/evidence/village-v2/. Source scope tests include unknown/foreign IDs, roster-only
+traversal, guardian approval, no stepfather inference and no Nora care answer in Malik context.
+Initial build caught three type errors, corrected without weakening assertions. Initial UI
+harness retained a stale switching-picker element; re-query now verifies the ready picker.
+Legacy lazy-load entry boundary preserved, with all existing tests retained.
+
+QUEUE ALONGSIDE W4: integrate Bentley's v2 seed and scoped graph reads, verify guardian and
+per-child grant rights upstream, directory/teacher/bus visibility and recorded authority.
+Repeat independent exploration against actual services; mock tests do not prove live RLS or
+seed correctness. No schema/auth/database/server changes. Never merged/tagged/released.
+Final staged secret guard PASS: 292 files scanned, zero findings. Diff reviewed: web/ and
+companion contracts/handoff only. UI complete · backend pending · mock integrated/tested,
+live NOT DONE. No credentials needed or accessed.
+Published draft PR **#22**: https://github.com/Pettybytes/fridgegraph/pull/22.
+Implementation c582c1f; GitHub reported MERGEABLE. Not merged. Live integration remains NOT DONE.
+
+### PR #22 follow-ups — anonymous scale and Demo guide
+
+Same feat/web-village-v2 branch/worktree. Source classification remains mock/unavailable;
+counts, graph layout and connections are derived from recorded fictional memberships.
+Tigers: 4 children (family total unavailable because Zion's family is unspecified); Room 12:
+4 students (the prompt's 5 was an example, not a recorded fixture fact); Route 14: 3 children
+from 3 networks. Normal roster projections now include only identities in the viewer's child
+scope. Rosa gets class scale but no foreign child names. This supersedes the earlier broader
+team-directory name projection; original evidence is retained as historical, not current proof.
+Tomás's village person record now uses Tomás Castellano, matching the calendar source.
+
+Demo guide has a separate picker card with the exact fictional-ecosystem disclaimer, a read-only
+mock overview of six family clusters, shared team/class/bus/sitter/helper edges and family
+village drilldowns. Sandbox banner retained. No parent/guardian authority is assigned to the
+guide persona itself; selecting it is not a real authentication mechanism.
+
+**Task E requirement:** deliver a server-enforced, sandbox-only, read-only Demo guide scope,
+with scoped discovery/session claims and no data-changing catalog actions. Also deliver
+permission-safe aggregate counts separately from name/identity reads. No browser ID, relationship
+label, or client-filtered result may grant broad live access. Exact wire fields await delivery.
+
+### W4 readiness audit — after PR #22 follow-ups
+
+Fetched origin/main remains ad720de. Checked this HANDOFF plus the read-only handoffs in
+fridgegraph-level-b and fridgegraph-rosina-service. Task E progress in level-b reports Groups
+0/E-2/E-1 and 1/E0 complete on unmerged work; Groups 2–5 not started. E0 adds no Rosina tools.
+Rosina service checkout contains uncommitted implementation work but no “Rosina tools available”
+readiness entry. That work is not a delivered frontend integration contract. No credentials read,
+no database actions or services started, no speculative endpoint/auth fields implemented.
+
+| W4 service/surface | UI | Backend readiness observed | Integrated + tested |
+|---|---|---|---|
+| Demo login/reset/create family | mock complete | no delivered Task E API/session contract | mock only; live NOT DONE |
+| POST /api/rosina | mock complete | service WIP; readiness marker absent | live NOT DONE |
+| jobTimeline / Attempt.candidate | derived feed / unknown channel | no delivered reads in main | live NOT DONE |
+| v2 event/busy/care/holiday reads | mock calendar complete | Task E Groups 2–5 not started | live NOT DONE |
+| Guide scope + aggregate scale | mock complete | Task E requirement above | live NOT DONE |
+
+W4 starts per delivered service in its own branch/worktree after readiness is recorded. Required
+live acceptance: Kendra/Rosa/Priya/Dana/guide compare Village, Calendar, Mission Control and one
+Rosina answer per surface; test synchronous persona cleanup; 3 unscripted questions + 2 followups
+per persona, denied and ambiguous requests, created-family query/Rosina visibility then reset
+absence; one Playwright E2E per persona. Record every model error verbatim and cross-surface
+mismatch. None of these live runs has happened; no live model mistakes or consistency results
+can honestly be reported yet. Mock success does not satisfy W4 and is never marked DONE.
+Source gaps retained honestly: Vance–Reyes has no recorded team/class/bus/sitter connection in
+the current Cast v2 slice, so the guide shows its cluster with “No shared connections recorded”
+instead of manufacturing a cross-family edge. Task E can supply such an edge when seeded.
+Zion's family mapping is likewise needed before Tigers can show a total family count.
+
+Follow-up verification actually run: **137 web tests PASS**; root typecheck PASS; production
+build PASS (existing chunk-size advisory); three refreshed Playwright flows PASS for Kendra,
+Rosa and Demo guide, including counts, forbidden identities, source full name, guide drilldown,
+mobile overflow and persona-switch isolation. Guide viewport cropping found by screenshot
+inspection was corrected; both family rows and all recorded shared edges now fit the diagram.
+Screenshots/proof: web/evidence/village-v2/follow-ups/ (desktop/mobile for all three personas).
+
+| Follow-up surface | UI | Backend (Bentley/Claude Code) | Integrated + tested |
+|---|---|---|---|
+| Anonymous connection scale | complete on mocks | aggregate read contract pending | mock tested; live NOT DONE |
+| Demo guide | complete on mocks | Task E sandbox scope pending | mock tested; live NOT DONE |
+| W4 cross-surface consistency | acceptance queued | required service deliveries pending | NOT RUN; NOT DONE |
+
+Final readiness recheck: origin/main is `f71a5ed` (Village v2 #22 merged); this branch (#9) carries the
+backend and #23 is E0 mint-path work stacked on it — not the required v2/auth/Rosina reads. Rosina readiness marker still absent. W4 cannot start on
+these undelivered services; do not label a mock-backed end-to-end run as live evidence.
+Follow-up staged secret scan PASS: 295 files, zero findings. Diff remains web + companion docs.
+
+**Bridging note (Task R-FIX, 2026-10-30):** the W4 readiness audit above (just before this point) found the Rosina service checkout had "uncommitted implementation work but no 'Rosina tools available' readiness entry." That gap is closed below — see "Reserved evidence numbers" and "Task R — live Ask Rosina service" for the readiness table, and "Task R-FIX" for the PR #16 alt-stack reconciliation this merge performs. The W4 table's "POST /api/rosina ... readiness marker absent" row is stale as of this commit; W4 should re-check PR #24 directly rather than trust that row going forward.
 
 ## Reserved evidence numbers
 

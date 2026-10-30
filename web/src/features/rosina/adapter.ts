@@ -43,7 +43,7 @@ export function createMockRosinaAdapter(session: AuthSession | null, data?: Fron
       return reply(`Here is ${child.displayName.split(' ')[0]}'s shared calendar. It shows scheduled plans, not a confirmed location.`, [{ id: 'open-calendar', args: { day: requestedDay ?? localDay(Date.now()), childId: child.id } }])
     }
     if (/peanut|snack|care rule/.test(text)) {
-      if ((currentRoute.startsWith('#/calendar') && calendarChildId !== 'p_nora') || /\b(malik|emma|jax)\b/.test(text)) return reply("I can't confirm that yet. Care information for this child is not available in this view.")
+      if (((currentRoute.startsWith('#/calendar') || currentRoute.startsWith('#/village')) && calendarChildId !== 'p_nora') || /\b(malik|emma|jax)\b/.test(text)) return reply("I can't confirm that yet. Care information for this child is not available in this view.")
       if (!session || (session.scope.childId !== 'p_nora') || (!session.persona.parent && !session.persona.grants.includes('careplan.read'))) return reply("I can't confirm that yet. I don't have care information available within your access.")
       return reply(`No, Nora has a peanut allergy. Her care plan says: '${noraCareInformation.text}' ${sourceCitation(noraCareInformation.source)}.`)
     }

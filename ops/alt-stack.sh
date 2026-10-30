@@ -1,87 +1,209 @@
-#!/bin/bash
-# Alt-port stack: 7 subgraphs (4101-4107) + offline router (4012) + MCP (5051).
-# Never the GraphOS-connected router (4010, 60 req/min plan limit) and never the main stack
-# (4001-4007). Safe to run alongside both.
+#!/usr/bin/env bash
+# ops/alt-stack.sh — the isolated FridgeGraph test stack, as code.
 #
-#   ops/alt-stack.sh start [DEMO_CLOCK]   — raise the stack, wait for health, print PIDs
-#   ops/alt-stack.sh stop                 — kill everything this script started, by port
-#   ops/alt-stack.sh status               — show what's listening on the alt ports
+# Reproduces, from the repo, what was previously assembled by hand:
+#   subgraphs 4101-4107  (ops/stack-alt.mjs)
+#   router    4012       (config GENERATED from router.yaml + supergraph.yaml)
+#   MCP       5051       (config GENERATED from .apollo/mcp.local.yaml)
 #
-# PIDs are written to /tmp/fg-alt-stack.pids so `stop` works from a fresh shell.
-set -uo pipefail
-cd "$(dirname "$0")/.." || exit 1
+#   ops/alt-stack.sh --up      start everything, record PIDs in .alt-stack.pids
+#   ops/alt-stack.sh --check   probe the running stack (read-only, never restarts it)
+#   ops/alt-stack.sh --down    stop ONLY the processes this script started
+#
+# Why a pidfile and not a pattern kill: the same ports may be served by a stack
+# someone started by hand. `--down` must never take those down.
+#
+# STATUS: --check is PROVEN against the running stack. --up and --down are UNTESTED
+# as of 2026-10-30, because proving them requires stopping the live stack.
+#
+# No secret is read, printed or passed here. The .env file is only checked for existence.
+set -euo pipefail
 
-PIDFILE=/tmp/fg-alt-stack.pids
-PORTS="4101 4102 4103 4104 4105 4106 4107 4012 5051"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 
-stop() {
-  echo "[alt-stack] stopping (by port, then by pidfile)"
-  for p in $PORTS; do
-    pid=$(lsof -ti tcp:$p 2>/dev/null)
-    if [ -n "$pid" ]; then kill "$pid" 2>/dev/null; fi
+PIDFILE="$ROOT/.alt-stack.pids"
+ROUTER_CONFIG="${TMPDIR:-/tmp}/fridgegraph-alt-router.yaml"
+MCP_CONFIG="${TMPDIR:-/tmp}/fridgegraph-alt-mcp.yaml"
+SUBGRAPH_BASE=4101
+ROUTER_PORT=4012
+HEALTH_PORT=8092
+MCP_PORT=5051
+ROUTER_BIN="$HOME/.rover/bin/router-v2.18.0"
+MCP_BIN="$HOME/.rover/bin/apollo-mcp-server-v2.1.0"
+
+die() { printf 'alt-stack: %s\n' "$*" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# Preflight. A missing identity map does not error — it makes every user
+# "unmapped", so every request becomes UNAUTHENTICATED and the cause looks like
+# auth. That failure cost an afternoon once; it fails loudly here instead.
+# ---------------------------------------------------------------------------
+preflight() {
+  local missing=0
+  for required in .env data/identity-map.json .demo-credentials node_modules; do
+    if [ ! -e "$required" ]; then
+      printf 'alt-stack: MISSING %s\n' "$required" >&2
+      missing=1
+    fi
   done
-  if [ -f "$PIDFILE" ]; then
-    while read -r pid; do kill "$pid" 2>/dev/null; done < "$PIDFILE"
-    rm -f "$PIDFILE"
+  if [ "$missing" -ne 0 ]; then
+    cat >&2 <<'MSG'
+alt-stack: refusing to start.
+  .env                  -> symlink to the shared env file (never copied)
+  data/identity-map.json -> sub -> person map; absent means EVERY caller is unmapped
+  .demo-credentials     -> demo sign-in; needed for --check as Kendra
+  node_modules          -> symlink to the main checkout is fine
+MSG
+    exit 1
   fi
+  [ -x "$ROUTER_BIN" ] || die "router binary not found: $ROUTER_BIN"
+  [ -x "$MCP_BIN" ] || die "MCP binary not found: $MCP_BIN"
+  [ -x "$ROOT/node_modules/.bin/tsx" ] || die "tsx not found in node_modules/.bin"
 }
 
-status() {
-  for p in $PORTS; do
-    pid=$(lsof -ti tcp:$p 2>/dev/null)
-    echo "$p: ${pid:-free}"
-  done
+# ---------------------------------------------------------------------------
+# Config generation — derived, never hand-typed
+# ---------------------------------------------------------------------------
+gen_router_config() {
+  ROUTER_SRC="$ROOT/router.yaml" SUPERGRAPH_SRC="$ROOT/supergraph.yaml" \
+  OUT="$ROUTER_CONFIG" ROUTER_PORT="$ROUTER_PORT" HEALTH_PORT="$HEALTH_PORT" \
+  SUBGRAPH_BASE="$SUBGRAPH_BASE" python3 - <<'PY'
+import os, re, sys
+
+router = open(os.environ['ROUTER_SRC'], encoding='utf-8').read()
+
+# Port only. The headers block (Authorization propagation) comes from the repo file,
+# so a change there can never be forgotten here.
+router = router.replace('listen: 127.0.0.1:4010', f"listen: 127.0.0.1:{os.environ['ROUTER_PORT']}")
+router = router.replace('listen: 127.0.0.1:8090', f"listen: 127.0.0.1:{os.environ['HEALTH_PORT']}")
+
+if 'propagate' not in router or 'Authorization' not in router:
+    sys.exit('router.yaml no longer propagates Authorization — refusing to generate a config that drops it')
+if f"127.0.0.1:{os.environ['ROUTER_PORT']}" not in router:
+    sys.exit('could not rewrite the router listen port; router.yaml changed shape')
+
+# Subgraph order and names come from supergraph.yaml; ports are rebased onto the alt base.
+sg = open(os.environ['SUPERGRAPH_SRC'], encoding='utf-8').read()
+names = re.findall(r'^  ([a-z_]+):\s*$', sg, re.M)
+if len(names) != 7:
+    sys.exit(f'expected 7 subgraphs in supergraph.yaml, found {len(names)}: {names}')
+
+base = int(os.environ['SUBGRAPH_BASE'])
+lines = ['', '# generated by ops/alt-stack.sh — do not edit by hand', 'override_subgraph_url:']
+for i, name in enumerate(names):
+    lines.append(f'  {name}: http://127.0.0.1:{base + i}/')
+
+open(os.environ['OUT'], 'w', encoding='utf-8').write(router.rstrip('\n') + '\n' + '\n'.join(lines) + '\n')
+print(f'alt-stack: router config -> {os.environ["OUT"]} ({len(names)} subgraphs on {base}-{base + len(names) - 1})')
+PY
 }
 
-start() {
-  if [ ! -f .env ]; then echo "[alt-stack] BLOCKED: no .env in $(pwd)"; exit 1; fi
-  set -a; . ./.env; set +a
+gen_mcp_config() {
+  MCP_SRC="$ROOT/.apollo/mcp.local.yaml" OUT="$MCP_CONFIG" \
+  ROUTER_PORT="$ROUTER_PORT" MCP_PORT="$MCP_PORT" ROOT="$ROOT" python3 - <<'PY'
+import os
+src = open(os.environ['MCP_SRC'], encoding='utf-8').read()
+out = src.replace('http://127.0.0.1:4010/', f"http://127.0.0.1:{os.environ['ROUTER_PORT']}/")
+out = out.replace('port: 5050', f"port: {os.environ['MCP_PORT']}")
+if f":{os.environ['MCP_PORT']}" not in out or f":{os.environ['ROUTER_PORT']}/" not in out:
+    raise SystemExit('could not rebase mcp.local.yaml ports; its shape changed')
+# The repo file uses relative schema/operation paths; make them absolute so the
+# server does not depend on the caller's cwd.
+root = os.environ['ROOT']
+out = out.replace('path: ./supergraph.graphql', f'path: {root}/supergraph.graphql')
+out = out.replace('- ./ops/PickupCandidates.graphql', f'- {root}/ops/PickupCandidates.graphql')
+open(os.environ['OUT'], 'w', encoding='utf-8').write(out)
+print(f'alt-stack: mcp config -> {os.environ["OUT"]}')
+PY
+}
 
-  for p in $PORTS; do
-    pid=$(lsof -ti tcp:$p 2>/dev/null)
-    if [ -n "$pid" ]; then kill "$pid" 2>/dev/null; fi
+# ---------------------------------------------------------------------------
+up() {
+  preflight
+  if [ -f "$PIDFILE" ]; then
+    die "$PIDFILE exists — a stack may already be up. Run --down first, or remove the file if it is stale."
+  fi
+  for port in $(seq "$SUBGRAPH_BASE" $((SUBGRAPH_BASE + 6))) "$ROUTER_PORT" "$MCP_PORT"; do
+    if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+      die "port $port is already in use — refusing to start over a stack I did not start"
+    fi
   done
-  sleep 1
+
+  gen_router_config
+  gen_mcp_config
   : > "$PIDFILE"
 
-  DEMO_CLOCK="${1:-0}" ALT_PORT_BASE=4101 npx tsx ops/stack-alt.mjs > /tmp/fg-alt-subgraphs.log 2>&1 &
-  echo $! >> "$PIDFILE"
-  sleep 3
+  DEMO_CLOCK="${DEMO_CLOCK:-0}" nohup "$ROOT/node_modules/.bin/tsx" "$ROOT/ops/stack-alt.mjs" \
+    > "${TMPDIR:-/tmp}/fridgegraph-alt-subgraphs.log" 2>&1 &
+  echo "subgraphs $!" >> "$PIDFILE"
 
-  if ! grep -q "7 subgraphs" /tmp/fg-alt-subgraphs.log; then
-    echo "[alt-stack] BLOCKED: alt subgraphs did not report ready — see /tmp/fg-alt-subgraphs.log"
-    cat /tmp/fg-alt-subgraphs.log
-    exit 1
-  fi
+  sleep 10
+  nohup "$ROUTER_BIN" --supergraph "$ROOT/supergraph.graphql" --config "$ROUTER_CONFIG" --log error \
+    > "${TMPDIR:-/tmp}/fridgegraph-alt-router.log" 2>&1 &
+  echo "router $!" >> "$PIDFILE"
 
-  ROUTER_BIN="$HOME/.rover/bin/router-v2.18.0"
-  if [ ! -x "$ROUTER_BIN" ]; then echo "[alt-stack] BLOCKED: $ROUTER_BIN not found"; exit 1; fi
-  "$ROUTER_BIN" --config router.alt.yaml --supergraph supergraph.graphql > /tmp/fg-alt-router.log 2>&1 &
-  echo $! >> "$PIDFILE"
+  sleep 8
+  nohup "$MCP_BIN" "$MCP_CONFIG" > "${TMPDIR:-/tmp}/fridgegraph-alt-mcp.log" 2>&1 &
+  echo "mcp $!" >> "$PIDFILE"
 
-  for _ in $(seq 1 20); do
-    if curl -sf http://127.0.0.1:8092/health > /dev/null 2>&1; then break; fi
-    sleep 0.5
-  done
-  if ! curl -sf http://127.0.0.1:8092/health > /dev/null 2>&1; then
-    echo "[alt-stack] BLOCKED: alt router health check never passed — see /tmp/fg-alt-router.log"
-    tail -30 /tmp/fg-alt-router.log
-    exit 1
-  fi
-
-  MCP_BIN="$HOME/.rover/bin/apollo-mcp-server-v2.1.0"
-  if [ ! -x "$MCP_BIN" ]; then echo "[alt-stack] BLOCKED: $MCP_BIN not found"; exit 1; fi
-  "$MCP_BIN" .apollo/mcp.alt.yaml > /tmp/fg-alt-mcp.log 2>&1 &
-  echo $! >> "$PIDFILE"
-  sleep 2
-
-  echo "[alt-stack] up: subgraphs 4101-4107, router 4012 (health 8092), MCP 5051 — DEMO_CLOCK=${1:-0}"
-  status
+  sleep 6
+  printf 'alt-stack: up (pids in %s)\n' "$PIDFILE"
+  check
 }
 
-case "${1:-start}" in
-  start) start "${2:-0}" ;;
-  stop) stop ;;
-  status) status ;;
-  *) echo "usage: $0 {start [DEMO_CLOCK]|stop|status}"; exit 1 ;;
+# ---------------------------------------------------------------------------
+down() {
+  [ -f "$PIDFILE" ] || die "no $PIDFILE — nothing started by this script is running"
+  while read -r name pid; do
+    [ -n "${pid:-}" ] || continue
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      printf 'alt-stack: stopped %s (pid %s)\n' "$name" "$pid"
+    else
+      printf 'alt-stack: %s (pid %s) already gone\n' "$name" "$pid"
+    fi
+  done < "$PIDFILE"
+  sleep 2
+  while read -r name pid; do
+    [ -n "${pid:-}" ] || continue
+    if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null || true; fi
+  done < "$PIDFILE"
+  rm -f "$PIDFILE"
+  printf 'alt-stack: down\n'
+}
+
+# ---------------------------------------------------------------------------
+check() {
+  local ok=0
+  printf 'alt-stack: checking the RUNNING stack (read-only, nothing restarted)\n'
+
+  if curl -fsS -o /dev/null "http://127.0.0.1:${HEALTH_PORT}/health?ready" 2>/dev/null; then
+    printf '  router health      OK\n'
+  else
+    printf '  router health      FAIL\n'; ok=1
+  fi
+
+  if curl -fsS -o /dev/null -X POST -H 'content-type: application/json' \
+      -d '{"query":"{__typename}"}' "http://127.0.0.1:${ROUTER_PORT}/" 2>/dev/null; then
+    printf '  router graphql     OK\n'
+  else
+    printf '  router graphql     FAIL\n'; ok=1
+  fi
+
+  if NODE_NO_WARNINGS=1 node "$ROOT/ops/alt-stack-check.mjs"; then
+    printf '  mcp PickupCandidates OK\n'
+  else
+    printf '  mcp PickupCandidates FAIL\n'; ok=1
+  fi
+
+  if [ "$ok" -eq 0 ]; then printf 'alt-stack: CHECK PASSED\n'; else printf 'alt-stack: CHECK FAILED\n'; fi
+  return "$ok"
+}
+
+case "${1:-}" in
+  --up) up ;;
+  --check) check ;;
+  --down) down ;;
+  *) printf 'usage: %s --up | --check | --down\n' "$0" >&2; exit 2 ;;
 esac

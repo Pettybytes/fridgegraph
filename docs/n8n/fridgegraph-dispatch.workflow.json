@@ -1,0 +1,222 @@
+{
+  "name": "FridgeGraph - Dispatch Pickup Attempt",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true
+  },
+  "nodes": [
+    {
+      "id": "fg-dispatch-webhook",
+      "name": "FridgeGraph Dispatch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        300
+      ],
+      "parameters": {
+        "path": "fridgegraph-dispatch",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "fg-verify-hmac",
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        300
+      ],
+      "notes": "webhook.md \u00a73a. Secret comes from the n8n environment (FRIDGEGRAPH_WEBHOOK_SECRET), never from this node. Rejects \u00b1300 s outside the window and any signature mismatch.",
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst items = $input.all();\nconst secret = 'UNSET' + '_SESSION_2B';\nif (!secret) throw new Error('FRIDGEGRAPH_WEBHOOK_SECRET missing');\nconst ts = $request?.headers?.['x-fridgegraph-timestamp'];\nconst sig = $request?.headers?.['x-fridgegraph-signature'];\nconst raw = typeof $request?.body === 'string' ? $request.body : JSON.stringify($request.body);\nif (!ts || !sig) throw new Error('missing signature headers');\nif (Math.abs(Math.floor(Date.now() / 1000) - Number(ts)) > 300) throw new Error('timestamp out of tolerance');\nconst expected = crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');\nconst a = Buffer.from(expected, 'utf8'), b = Buffer.from(String(sig), 'utf8');\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('bad signature');\nreturn items;"
+      }
+    },
+    {
+      "id": "fg-switch-channel",
+      "name": "By channel",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "SMS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "outputKey": "SMS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "CALL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "outputKey": "CALL"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fg-ghl-sms",
+      "name": "GHL - Send SMS (DISABLED)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        520,
+        180
+      ],
+      "disabled": true,
+      "notes": "DISABLED FOR THE DRAFT. Sends nothing while disabled. Message composition per webhook.md \u00a75; destination comes from the attempt, never typed here.",
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": \"SMS\",\n  \"contactId\": \"{{ $json.contactId }}\",\n  \"message\": \"{{ $json.message }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "fg-ghl-call",
+      "name": "GHL - Start Call (DISABLED)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        520,
+        420
+      ],
+      "disabled": true,
+      "notes": "DISABLED FOR THE DRAFT. Would dial only the Attempt's own destination, and only when a RealCallAuthorization exists (pickup-job.md \u00a710). Not wired to any real number.",
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/voice-ai/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agentId\": \"{{ $json.agentId }}\",\n  \"to\": \"{{ $json.destination }}\",\n  \"metadata\": { \"attemptId\": \"{{ $json.attemptId }}\" }\n}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "fg-dispatch-respond",
+      "name": "Respond 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"accepted\": true, \"attemptId\": $json.attemptId, \"sent\": false } }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    }
+  ],
+  "connections": {
+    "FridgeGraph Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC": {
+      "main": [
+        [
+          {
+            "node": "By channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "By channel": {
+      "main": [
+        [
+          {
+            "node": "GHL - Send SMS (DISABLED)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GHL - Start Call (DISABLED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL - Send SMS (DISABLED)": {
+      "main": [
+        [
+          {
+            "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL - Start Call (DISABLED)": {
+      "main": [
+        [
+          {
+            "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

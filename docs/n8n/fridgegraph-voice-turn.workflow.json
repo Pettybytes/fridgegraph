@@ -1,0 +1,235 @@
+{
+  "name": "FridgeGraph - Voice Turn",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fridgegraph-voice-turn",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "vt-hook",
+      "name": "Voice Turn Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "fridgegraph-voice-turn",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "r3SFGMCVCgINZFL7",
+          "name": "FridgeGraph GHL Action"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accept the attempt id from the body OR the query string; refuse to forward anything missing,\n// malformed or contradictory. Server-side binding is unchanged.\nconst raw = $json.body || $json;\nconst body = (raw && typeof raw === 'object') ? raw : {};\nconst query = ($json.query && typeof $json.query === 'object') ? $json.query : {};\nconst has = (v) => v !== undefined && v !== null && String(v).trim() !== '';\nconst bodyId = has(body.attemptId) ? String(body.attemptId).trim() : null;\nconst queryId = has(query.attemptId) ? String(query.attemptId).trim() : null;\n\nif (bodyId && queryId && bodyId !== queryId) {\n  return [{ json: { ok: false, status: 400, error: 'CONFLICTING_ATTEMPT_ID' } }];\n}\nconst attemptId = bodyId || queryId;\nif (!attemptId || !/^att_[a-f0-9]{24}$/.test(attemptId)) {\n  return [{ json: { ok: false, status: 400, error: 'MALFORMED' } }];\n}\nreturn [{ json: {\n  ok: true,\n  timestamp: String(Math.floor(Date.now() / 1000)),\n  body: Object.assign({}, body, { attemptId })\n} }];"
+      },
+      "id": "vt-sign",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass the server's JSON through unchanged when it succeeded; otherwise give Rosina a\n// line that is honest about the answer not being recorded.\nconst FAILED = \"Thank you. I couldn't confirm your answer was recorded. If this is time-sensitive, please contact the family directly.\";\nconst r = $json || {};\nconst status = Number(r.statusCode || 0);\nlet payload = r.body;\nif (typeof payload === 'string') { try { payload = JSON.parse(payload) } catch { payload = null } }\nif (status >= 200 && status < 300 && payload && typeof payload.say === 'string') {\n  return [{ json: payload }];\n}\nreturn [{ json: { status: 'FAILED', note: 'voice_turn_unavailable', say: FAILED } }];"
+      },
+      "id": "vt-shape",
+      "name": "Shape Say",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "vt-respond",
+      "name": "Respond to GHL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        900,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fridgegraph.loomz.stream/voice-turn",
+        "sendHeaders": true,
+        "specifiedHeaders": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-FridgeGraph-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 3000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "vt-http",
+      "name": "Call Voice Turn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        220
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MPoum0tgq94XPGvy",
+          "name": "FridgeGraph Voice Turn"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "vt-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "vt-if",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        340,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Voice Turn Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Call Voice Turn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Voice Turn": {
+      "main": [
+        [
+          {
+            "node": "Shape Say",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Say": {
+      "main": [
+        [
+          {
+            "node": "Respond to GHL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

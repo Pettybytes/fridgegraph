@@ -1,0 +1,421 @@
+{
+  "name": "FridgeGraph - Reply and Timeout",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ghl-reply",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "rt-hook-reply",
+      "name": "GHL Reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        160
+      ],
+      "webhookId": "ghl-reply",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "r3SFGMCVCgINZFL7",
+          "name": "FridgeGraph GHL Action"
+        }
+      },
+      "notes": "D1: GHL Workflow \"FG-SMS-Reply\" posts {attemptId, message}. Header auth, no HMAC."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ghl-no-answer",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "rt-hook-noanswer",
+      "name": "GHL No Answer",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        460
+      ],
+      "webhookId": "ghl-no-answer",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "r3SFGMCVCgINZFL7",
+          "name": "FridgeGraph GHL Action"
+        }
+      },
+      "notes": "D1: GHL Workflow \"FG - No Answer\" posts {attemptId}. Header auth, no HMAC."
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeReplyText(text) {\n  return String(text === null || text === undefined ? '' : text)\n    .toLowerCase()\n    // curly/typographic apostrophes become straight, then ALL punctuation separates words\n    .replace(/[\\u2018\\u2019\\u02bc\\u0060\\u00b4]/g, \"'\")\n    .replace(/[^a-z0-9'\\s]/g, ' ')\n    .replace(/'/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n}\n\nfunction containsPhrase(tokens, phrase) {\n  const want = phrase.split(' ')\n  for (let i = 0; i + want.length <= tokens.length; i++) {\n    let hit = true\n    for (let k = 0; k < want.length; k++) {\n      if (tokens[i + k] !== want[k]) { hit = false; break }\n    }\n    if (hit) return true\n  }\n  return false\n}\n\nfunction parseReply(text) {\n  const normalized = normalizeReplyText(text)\n  const tokens = normalized ? normalized.split(' ') : []\n\n  // 1. transport -- checked first, because \"no car\" also contains \"no\" and \"can t drive\" contains\n  //    \"can t\". An unavailable ride is a decline, not an \"I can't\".\n  const TRANSPORT = ['no car', 'don t have a car', 'no ride', 'can t drive']\n  for (const p of TRANSPORT) {\n    if (containsPhrase(tokens, p)) {\n      return { decision: 'DECLINED', declineReason: 'NO_TRANSPORT', matched: p, normalized }\n    }\n  }\n\n  // 2. plain decline\n  const DECLINE = ['no', 'n', 'nope', 'can t', 'cannot', 'busy']\n  for (const p of DECLINE) {\n    if (containsPhrase(tokens, p)) {\n      return {\n        decision: 'DECLINED',\n        declineReason: containsPhrase(tokens, 'busy') ? 'BUSY' : 'OTHER',\n        matched: p,\n        normalized,\n      }\n    }\n  }\n\n  // 3. acceptance\n  const ACCEPT = ['yes', 'y', 'yeah', 'yep', 'sure', 'ok', 'okay', 'i can']\n  for (const p of ACCEPT) {\n    if (containsPhrase(tokens, p)) {\n      return { decision: 'ACCEPTED', declineReason: null, matched: p, normalized }\n    }\n  }\n\n  return { decision: 'UNPARSED', declineReason: null, matched: null, normalized }\n}\n// The Webhook node emits { headers, params, query, body, webhookUrl, executionMode }, so the\n// GHL payload is nested under body. Fall back to $json for a hand-run test.\nconst j = ($json && typeof $json.body === 'object' && $json.body !== null) ? $json.body : ($json ?? {});\nconst attemptId = typeof j.attemptId === 'string' && j.attemptId.trim() ? j.attemptId.trim() : null;\n\nif (!attemptId) {\n  return [{ json: { ok: false, httpCode: 400, status: 'BAD_REQUEST', note: 'attemptId required' } }];\n}\n\nconst parsed = parseReply(j.message ?? j.body ?? '');\n\nif (parsed.decision === 'UNPARSED') {\n  return [{ json: { ok: false, httpCode: 200, status: 'UNPARSED', note: 'no_state_change' } }];\n}\n\nconst body = { attemptId, decision: parsed.decision };\nif (parsed.declineReason) body.declineReason = parsed.declineReason;\n// D2 correlation: only forwarded when the GHL payload actually carries one. Never invented.\nconst correlation = typeof j.eventId === 'string' ? j.eventId\n  : (typeof j.messageId === 'string' ? j.messageId : null);\nif (correlation) body.eventId = correlation;\n\nreturn [{ json: {\n  ok: true,\n  httpCode: 200,\n  status: parsed.decision,\n  note: 'forwarded',\n  matched: parsed.matched ?? null,\n  timestamp: String(Math.floor(Date.now() / 1000)),\n  body,\n} }];"
+      },
+      "id": "rt-decide-reply",
+      "name": "Decide Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        160
+      ],
+      "notes": "D3: deterministic parser (single source: ops/reply-parser.mjs). No model runs here."
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeReplyText(text) {\n  return String(text === null || text === undefined ? '' : text)\n    .toLowerCase()\n    // curly/typographic apostrophes become straight, then ALL punctuation separates words\n    .replace(/[\\u2018\\u2019\\u02bc\\u0060\\u00b4]/g, \"'\")\n    .replace(/[^a-z0-9'\\s]/g, ' ')\n    .replace(/'/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n}\n\nfunction containsPhrase(tokens, phrase) {\n  const want = phrase.split(' ')\n  for (let i = 0; i + want.length <= tokens.length; i++) {\n    let hit = true\n    for (let k = 0; k < want.length; k++) {\n      if (tokens[i + k] !== want[k]) { hit = false; break }\n    }\n    if (hit) return true\n  }\n  return false\n}\n\nfunction parseReply(text) {\n  const normalized = normalizeReplyText(text)\n  const tokens = normalized ? normalized.split(' ') : []\n\n  // 1. transport -- checked first, because \"no car\" also contains \"no\" and \"can t drive\" contains\n  //    \"can t\". An unavailable ride is a decline, not an \"I can't\".\n  const TRANSPORT = ['no car', 'don t have a car', 'no ride', 'can t drive']\n  for (const p of TRANSPORT) {\n    if (containsPhrase(tokens, p)) {\n      return { decision: 'DECLINED', declineReason: 'NO_TRANSPORT', matched: p, normalized }\n    }\n  }\n\n  // 2. plain decline\n  const DECLINE = ['no', 'n', 'nope', 'can t', 'cannot', 'busy']\n  for (const p of DECLINE) {\n    if (containsPhrase(tokens, p)) {\n      return {\n        decision: 'DECLINED',\n        declineReason: containsPhrase(tokens, 'busy') ? 'BUSY' : 'OTHER',\n        matched: p,\n        normalized,\n      }\n    }\n  }\n\n  // 3. acceptance\n  const ACCEPT = ['yes', 'y', 'yeah', 'yep', 'sure', 'ok', 'okay', 'i can']\n  for (const p of ACCEPT) {\n    if (containsPhrase(tokens, p)) {\n      return { decision: 'ACCEPTED', declineReason: null, matched: p, normalized }\n    }\n  }\n\n  return { decision: 'UNPARSED', declineReason: null, matched: null, normalized }\n}\n// The Webhook node emits { headers, params, query, body, webhookUrl, executionMode }, so the\n// GHL payload is nested under body. Fall back to $json for a hand-run test.\nconst j = ($json && typeof $json.body === 'object' && $json.body !== null) ? $json.body : ($json ?? {});\nconst attemptId = typeof j.attemptId === 'string' && j.attemptId.trim() ? j.attemptId.trim() : null;\n\nif (!attemptId) {\n  return [{ json: { ok: false, httpCode: 400, status: 'BAD_REQUEST', note: 'attemptId required' } }];\n}\n\nconst parsed = { decision: 'NO_ANSWER', declineReason: null };  // system-observed call outcome (D4)\n\nif (parsed.decision === 'UNPARSED') {\n  return [{ json: { ok: false, httpCode: 200, status: 'UNPARSED', note: 'no_state_change' } }];\n}\n\nconst body = { attemptId, decision: parsed.decision };\nif (parsed.declineReason) body.declineReason = parsed.declineReason;\n// D2 correlation: only forwarded when the GHL payload actually carries one. Never invented.\nconst correlation = typeof j.eventId === 'string' ? j.eventId\n  : (typeof j.messageId === 'string' ? j.messageId : null);\nif (correlation) body.eventId = correlation;\n\nreturn [{ json: {\n  ok: true,\n  httpCode: 200,\n  status: parsed.decision,\n  note: 'forwarded',\n  matched: parsed.matched ?? null,\n  timestamp: String(Math.floor(Date.now() / 1000)),\n  body,\n} }];"
+      },
+      "id": "rt-decide-noanswer",
+      "name": "Decide No Answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        460
+      ],
+      "notes": "D4: a no-answer is a system-observed outcome, not a decline. It is forwarded as NO_ANSWER."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-forward-reply",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "rt-if-reply",
+      "name": "Forward?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        140,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-forward-na",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "rt-if-noanswer",
+      "name": "Forward No Answer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        140,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fridgegraph.loomz.stream/voice-turn",
+        "sendHeaders": true,
+        "specifiedHeaders": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-FridgeGraph-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 3000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "rt-http-reply",
+      "name": "Call Voice Turn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        60
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MPoum0tgq94XPGvy",
+          "name": "FridgeGraph Voice Turn"
+        }
+      },
+      "notes": "D1: the proven voice-turn chain. The credential supplies X-FridgeGraph-Webhook-Secret."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fridgegraph.loomz.stream/voice-turn",
+        "sendHeaders": true,
+        "specifiedHeaders": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-FridgeGraph-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 3000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "rt-http-noanswer",
+      "name": "Call Voice Turn (no answer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        380
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MPoum0tgq94XPGvy",
+          "name": "FridgeGraph Voice Turn"
+        }
+      },
+      "notes": "D4: same tunnel route; the server maps NO_ANSWER to record_no_answer()."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ (() => {\n  const b = typeof $json.body === 'string' ? (() => { try { return JSON.parse($json.body || '{}') } catch { return {} } })() : ($json.body || {});\n  return { status: b.status || b.error || null, note: b.note || null };\n})() }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode === 404 ? 400 : 200 }}"
+        }
+      },
+      "id": "rt-respond-reply",
+      "name": "Respond reply",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        700,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ (() => {\n  const b = typeof $json.body === 'string' ? (() => { try { return JSON.parse($json.body || '{}') } catch { return {} } })() : ($json.body || {});\n  return { status: b.status || b.error || null, note: b.note || null };\n})() }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode === 404 ? 400 : 200 }}"
+        }
+      },
+      "id": "rt-respond-noanswer",
+      "name": "Respond no-answer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        700,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, note: $json.note } }}",
+        "options": {
+          "responseCode": "={{ $json.httpCode || 200 }}"
+        }
+      },
+      "id": "rt-respond-early",
+      "name": "Respond early",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        420,
+        260
+      ],
+      "notes": "Bad attemptId -> 400. UNPARSED -> 200 with no state change and no tunnel call."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, note: $json.note } }}",
+        "options": {
+          "responseCode": "={{ $json.httpCode || 200 }}"
+        }
+      },
+      "id": "rt-respond-early-na",
+      "name": "Respond early no-answer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        420,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "GHL Reply": {
+      "main": [
+        [
+          {
+            "node": "Decide Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL No Answer": {
+      "main": [
+        [
+          {
+            "node": "Decide No Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Reply": {
+      "main": [
+        [
+          {
+            "node": "Forward?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide No Answer": {
+      "main": [
+        [
+          {
+            "node": "Forward No Answer?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward?": {
+      "main": [
+        [
+          {
+            "node": "Call Voice Turn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond early",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward No Answer?": {
+      "main": [
+        [
+          {
+            "node": "Call Voice Turn (no answer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond early no-answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Voice Turn": {
+      "main": [
+        [
+          {
+            "node": "Respond reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Voice Turn (no answer)": {
+      "main": [
+        [
+          {
+            "node": "Respond no-answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
