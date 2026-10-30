@@ -19,7 +19,7 @@ Hard stops that still hold: no real SMS is sent, Dispatch starts INACTIVE, no
 | Voice Turn workflow | `xOfmO6T4mKbYnjqb` | **active** |
 | Reply and Timeout | `addWpgFfxXmq7GF1` | **active** |
 | FG-SMS-Reply / FG - No Answer | GHL | **published** |
-| Dispatch | `A2vnWF2L58Lvquq` | **INACTIVE** |
+| Dispatch | `A2vnWF2L58Lvquqg` | **INACTIVE** |
 | `FG - Dial Rosina` | GHL | **unpublished (draft)** |
 | Rosina's `pickup_decision` action | GHL Custom Action | query param `attemptId` = `{{contact.fg_attempt_id}}` |
 | Contact fields | GHL contact | `fg_attempt_id`, `fg_child_name`, `fg_pickup_place`, `fg_pickup_time`, `fg_reason` exist |
@@ -119,7 +119,7 @@ Final verification, all three must be true:
 
 * `select count(*) from real_call_authorizations where consumed_at is null and expires_at > now();`
   → `0` (or the row expired)
-* Dispatch `A2vnWF2L58Lvquq` → inactive; `FG - Dial Rosina` → unpublished
+* Dispatch `A2vnWF2L58Lvquqg` → inactive; `FG - Dial Rosina` → unpublished
 * `REAL_CALL_EXCEPTION_ENABLED` → unset in the environment
 
 **Leave no open attempt behind.** A job abandoned mid-discovery holds its contact's only slot, and
