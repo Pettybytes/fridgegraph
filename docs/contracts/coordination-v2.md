@@ -407,8 +407,9 @@ doc describes it, and never once a different workstream's catalog has a slot res
 | Suggest Orbit | Area F, **suggest only** — Rosina may never call `activateOrbitAlert` itself | blocked on F — **not implemented** until then, and permanently restricted to "suggest" even once built |
 
 Every row above stays "not implemented" in `web/src/features/rosina/catalog.ts` until its backing
-Area ships — the catalog's own `implemented: false` convention (already established by `start-
-pickup`/`explain-recommendation`) is the correct mechanism; nothing new is needed to express it.
+Area ships. Use the catalog's `implemented` flag. Current v1 entries describe available mock
+handlers; their live execution remains unavailable. Those mock handlers do not implement any
+of the future v2 wrappers above. No new flag mechanism is needed.
 
 ---
 

@@ -658,3 +658,13 @@ The check was corrected to return to Mission Control first; the same care naviga
 privacy assertions then passed. No assertion was relaxed and no app failure was called expected.
 Sources must remain plain language and record-authored; author metadata remains a nonblocking
 Bentley follow-up. Final rebased feature tip is pushed with a lease, never to main. No merge.
+
+Final main update: the whole stack is rebased above main 3ad23eb (Coordination v2 contract, PR #18,
+docs only): main → W1 → W2 → W3. W1/W2 code checks remain 62/70 PASS. W3's reserved contract section
+now acknowledges the merged document and waits for backing migrations/services, not merely a doc.
+A stale Area G sentence claiming current v1 catalog entries already had implemented:false was
+corrected to describe their available mock handlers and unavailable live execution; future v2
+wrappers remain unimplemented. This is a UI-reference correction only, with no new v2 action
+IDs, schema or authorization rule. Touched packet additionally includes that paragraph of
+docs/contracts/coordination-v2.md. Four future households and Family Calendar remain outside this
+copy pass; their actual backing data/migrations have not landed in this main update.

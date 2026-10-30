@@ -84,12 +84,12 @@ Apollo clearStore and selected record/person-card cleanup are part of the same b
    This is a mock retrieval of recorded care information, not a model medical judgement. Until v2's
    approved care-rule integration lands, live version says **“I can't confirm that yet”**, without guessing.
 
-The Family Calendar is deferred until the final coordination-v2 event model. W3 does not build it.
+The Family Calendar awaits the actual events migration and adult-schedules minimum slice specified by coordination-v2 §11. The contract merge alone does not deliver those models. This copy pass does not build it.
 
 ## Reserved for coordination-v2 — owned by Claude/Bryan, NOT defined here
 
-`docs/contracts/coordination-v2.md` is being authored on `docs/coordination-v2`. Its future action
-entries are not implemented or guessed in this PR. Once approved, add entries with explicit args,
+`docs/contracts/coordination-v2.md` is now on main (PR #18, docs only). Its future action
+entries remain unavailable until their backing queries/mutations ship; they are not implemented or guessed in this PR. Once approved, add entries with explicit args,
 permissions, handlers and implemented flags; unavailable entries never render usable buttons.
 This section reserves the integration point, not IDs, schemas or behaviors for those entries.
 
