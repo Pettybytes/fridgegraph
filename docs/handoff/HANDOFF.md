@@ -1131,7 +1131,7 @@ BLOCKERS: CoordinationJobs/CandidateEvaluations, CarePlan, village-directory, an
   MCP operations are not yet available (Task E) — four acceptance-example scenarios stay BLOCKED
   until Bentley ships and lists them under "Rosina tools available" above.
 
-## Task R-FIX — making PR #24 mergeable (2026-10-30, in progress)
+## Task R-FIX — making PR #24 mergeable (2026-10-30, DONE)
 
 Full detail: `docs/evidence/35-rosina-service.md` §9 (the Priya finding, turned into an enforced
 code rule + regression test, not just a prompt). This section tracks the mergeability work itself.
@@ -1184,3 +1184,11 @@ code rule + regression test, not just a prompt). This section tracks the mergeab
 identity minted — every MCP call is still made as the signed-in caller only; the four BLOCKED
 scenarios stay BLOCKED until Bentley lists their operations under "Rosina tools available"; no
 `--auto`/bypass/merge override; this agent does not merge — Bryan merges.
+
+**Final state (2026-10-30):** PR #24 head `2a0c8a6`. `gh pr view 24` → `state: OPEN`,
+`isDraft: false` (`gh pr ready 24` run), `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both
+CI checks pass: `typecheck + secret scan` (18s), `web build` (25s). `git diff origin/main...HEAD
+--stat` confirms the actual PR diff is exactly: `src/rosina/*`, `ops/rosina-catalog-drift.mjs`,
+`ops/rosina-probe.mjs`, `package.json`, one proxy line in `web/vite.config.ts`, this handoff, and
+`docs/evidence/35-rosina-service.md` — nothing from #16/#9 leaks into the diff despite the merge.
+Not merged — Bryan merges.
