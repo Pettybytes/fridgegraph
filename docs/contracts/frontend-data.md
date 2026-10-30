@@ -106,6 +106,9 @@ request, never persisted on the server, and cleared before persona switching.
 
 ## 3. Surface: Living Village (Obsidian Person Network style, `react-force-graph-2d`)
 
+Task V2-VILLAGE adds an explicit six-network mock surface; see [its scoped adapter contract](village-v2.md).
+Live v2 seed/read integration remains unavailable and queued alongside W4.
+
 ### Queries / mutations
 
 | Operation | Status | Cites |
