@@ -744,3 +744,7 @@ are derived; no Task CAL surface is represented as live. No merge/tag/release pe
 Final staged secret guard: `npm run check` PASS, 281 files scanned, **0 findings**.
 Diff scope reviewed: web/ plus companion docs only. Task CAL is ready for review on mocks;
 UI complete · backend unavailable (Bentley) · mock integrated + tested / live NOT DONE.
+
+Published: draft PR **#21**, https://github.com/Pettybytes/fridgegraph/pull/21.
+Implementation commit 9b94808; GitHub reports MERGEABLE. Not merged; live integration still
+NOT DONE. Inclusive mock dates confirmed by Bryan in-session.
