@@ -48,7 +48,15 @@ export async function makeContext({ req }: { req?: { headers?: HeaderBag } }): P
   const demoClock = process.env.DEMO_CLOCK === '1';
   const today = demoClock && demoDate && ISO_DATE.test(demoDate) ? demoDate : realToday;
 
-  if (identity.ok) return { callerId: identity.personId, today, token: bearer };
+  if (identity.ok) {
+    return {
+      callerId: identity.personId,
+      today,
+      token: bearer,
+      demo: identity.demo,
+      demoGuide: identity.demoGuide,
+    };
+  }
 
   // Never surfaced to the client; resolvers raise UNAUTHENTICATED without detail.
   return { today, identityError: identity.reason };

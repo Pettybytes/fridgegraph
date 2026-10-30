@@ -12,13 +12,21 @@
  * If a user exists but no usable stored password is available, it is REPORTED and skipped rather
  * than having its password replaced behind your back.
  *
+ * TRUSTED MARKERS: every seeded user gets `app_metadata.demo = true`; the Demo guide user also gets
+ * `app_metadata.demo_guide = true`. `app_metadata` is server-writable only, so it is the one place a
+ * client cannot forge a demo claim. Rewritten only when the value differs.
+ *
+ * IDENTITY MAP: `data/identity-map.json` (sub -> personId) is written, and the same rows are upserted
+ * into the database `identity_map` table so `current_person()` resolves for every seeded user. Both
+ * are server-side. No password, token or user id is printed.
+ *
  * Run: npx tsx scripts/seed-auth-users.ts
  */
 import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-type DemoPerson = { personId: string; first: string; last: string };
+type DemoPerson = { personId: string; first: string; last: string; demoGuide?: boolean };
 type Credential = { personId: string; userId: string; password: string };
 
 const ROOT = join(dirname(new URL(import.meta.url).pathname), '..');
@@ -41,6 +49,9 @@ const PEOPLE: DemoPerson[] = [
   { personId: 'p_ray', first: 'Ray', last: 'Coleman' },
   { personId: 'p_evelyn', first: 'Evelyn', last: 'Carter' },
   { personId: 'p_priya', first: 'Priya', last: 'Nair' },
+  // The Demo guide is not a family member: a server-only identity whose token carries
+  // app_metadata.demo_guide, and whose reads are limited to sandbox records (0025).
+  { personId: 'p_demo_guide', first: 'Demo', last: 'Guide', demoGuide: true },
 ];
 
 function loadEnv(): { url: string; publishable: string; service: string } {
@@ -77,14 +88,19 @@ async function adminError(res: Response, what: string): Promise<never> {
   throw new Error(`${what} failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
 }
 
-async function listUsers(base: string, service: string): Promise<{ id: string; email?: string }[]> {
-  const users: { id: string; email?: string }[] = [];
+async function listUsers(
+  base: string,
+  service: string,
+): Promise<{ id: string; email?: string; app_metadata?: Record<string, unknown> }[]> {
+  const users: { id: string; email?: string; app_metadata?: Record<string, unknown> }[] = [];
   for (let page = 1; page <= 50; page += 1) {
     const res = await fetch(`${base}/auth/v1/admin/users?page=${page}&per_page=200`, {
       headers: { apikey: service, authorization: `Bearer ${service}` },
     });
     if (!res.ok) await adminError(res, 'list users');
-    const body = (await res.json()) as { users?: { id: string; email?: string }[] };
+    const body = (await res.json()) as {
+      users?: { id: string; email?: string; app_metadata?: Record<string, unknown> }[];
+    };
     const batch = body.users ?? [];
     users.push(...batch);
     if (batch.length < 200) break;
@@ -139,6 +155,59 @@ function readCreds(): Record<string, Credential> {
   }
 }
 
+/**
+ * Sets the trusted markers on an existing auth user. `app_metadata` is server-only writable, which
+ * is exactly why the demo/guide claims live there and not in `user_metadata`.
+ *
+ * Written only when a value actually differs, so a re-run touches nothing.
+ */
+async function setDemoMarkers(
+  base: string,
+  service: string,
+  userId: string,
+  current: Record<string, unknown> | undefined,
+  demoGuide: boolean,
+): Promise<boolean> {
+  const wanted: Record<string, unknown> = { ...(current ?? {}), demo: true };
+  if (demoGuide) wanted.demo_guide = true;
+  if (current?.demo === true && (current?.demo_guide === true) === demoGuide) return false;
+
+  const res = await fetch(`${base}/auth/v1/admin/users/${userId}`, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json',
+      apikey: service,
+      authorization: `Bearer ${service}`,
+    },
+    body: JSON.stringify({ app_metadata: wanted }),
+  });
+  if (!res.ok) await adminError(res, 'set app_metadata');
+  return true;
+}
+
+/**
+ * Mirrors the file map into the database `identity_map` table, so `current_person()` resolves for
+ * every seeded user. Service role, server-side only; the table stays revoked for anon/authenticated.
+ */
+async function syncIdentityMap(base: string, service: string, map: Record<string, string>) {
+  const rows = Object.entries(map).map(([userId, personId]) => ({ user_id: userId, person_id: personId }));
+  const res = await fetch(`${base}/rest/v1/identity_map?on_conflict=user_id`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      apikey: service,
+      authorization: `Bearer ${service}`,
+      prefer: 'resolution=merge-duplicates,return=minimal',
+    },
+    body: JSON.stringify(rows),
+  });
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 200);
+    throw new Error(`identity_map sync failed: HTTP ${res.status} — ${detail}`);
+  }
+  return rows.length;
+}
+
 const { url, publishable, service } = loadEnv();
 console.log(`[seed] project host: ${new URL(url).host}`);
 
@@ -180,12 +249,31 @@ for (const person of PEOPLE) {
 writeFileSync(CREDS_PATH, `${JSON.stringify(creds, null, 2)}\n`, { mode: 0o600 });
 chmodSync(CREDS_PATH, 0o600);
 
+// Trusted markers on every seeded identity. Rewritten only when the value differs.
+const marked: string[] = [];
+for (const person of PEOPLE) {
+  const email = emailFor(person);
+  const userId = creds[email]?.userId;
+  if (!userId) continue;
+  const changed = await setDemoMarkers(
+    url,
+    service,
+    userId,
+    byEmail.get(email)?.app_metadata,
+    person.demoGuide === true,
+  );
+  if (changed) marked.push(`${person.personId}${person.demoGuide ? ' (guide)' : ''}`);
+}
+
 // data/identity-map.json: the ONLY identity source the servers load (sub -> personId).
 mkdirSync(dirname(MAP_PATH), { recursive: true });
 const map: Record<string, string> = {};
 for (const cred of Object.values(creds)) map[cred.userId] = cred.personId;
 writeFileSync(MAP_PATH, `${JSON.stringify(map, null, 2)}\n`, { mode: 0o600 });
 chmodSync(MAP_PATH, 0o600);
+
+// The database copy of that map: `current_person()` reads this table, never the file.
+const synced = await syncIdentityMap(url, service, map);
 
 console.log(`\n[seed] created ${created.length}:`);
 for (const line of created) console.log(`  + ${line}`);
@@ -195,6 +283,8 @@ if (skipped.length) {
   console.log(`[seed] skipped ${skipped.length} (NOT modified):`);
   for (const line of skipped) console.log(`  ! ${line}`);
 }
+console.log(`[seed] markers written: ${marked.length}${marked.length ? ` — ${marked.join(', ')}` : ''}`);
+console.log(`[seed] identity_map synced to database: ${synced} row(s)`);
 console.log(
   `\n[seed] wrote .demo-credentials (mode 600) and data/identity-map.json (${Object.keys(map).length} identities)`,
 );

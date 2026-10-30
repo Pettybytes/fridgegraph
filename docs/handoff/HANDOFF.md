@@ -1,6 +1,6 @@
 # FridgeGraph — HANDOFF
 
-_Last updated: Oct 30, 2026. Merged origin/main `f71a5ed` (Village v2 #22) into this branch; read §9 before trusting any state._
+_Last updated: Oct 30, 2026. Merged origin/main `cccbbd2` (E0 #23) into this branch; read §9 before trusting any state._
 
 ---
 
@@ -14,12 +14,130 @@ service). Always check `docs/evidence/` before numbering.
 
 | Group | Branch | Base | State |
 |---|---|---|---|
-| 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
-| 1 | `feat/e-group1` | off `feat/level-b-drafts` **`a5a9ae9`** (PR #9 unmerged; rebase onto main after it merges) | **E0 DONE — PR #23 (draft, stacked on #9)** |
-| 2 | `feat/e-group2` | | not started |
+| 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **DONE — merged as #9 (`ebb7a2c`)** |
+| 1 | `feat/e-group1` (PR #23) | off main **`275461e`** | **DONE — merged as #23 (`cccbbd2`)** |
+| 2 | `feat/e-group2` (PR #26) | off `origin/main` **`cccbbd2`** | **DONE — E1, E2a, E2b, E2c, E3. PR #26 ready, not merged** |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
 | 5 | `feat/e-group5` | | not started |
+
+### Group 2 (E1) — E1 DONE, branch `feat/e-group2`, base `275461e`
+
+**Setup after #23 merged (`cccbbd2`):** `origin/main` merged into this branch (`1c16991`), HANDOFF
+conflict resolved to the current state (#9 → `ebb7a2c`, #23 → `cccbbd2`, base refreshed), evidence
+conflicts were run-specific ids. Graph suite **115/32 PASS**, voice-turn **15/15**, typecheck clean,
+secret scan 0 findings; pushed at `aed9d99`.
+
+**E2a findings (read before writing code):** `src/auth/verify.ts` returns `{ok, personId, sub}` from
+the verified JWT and resolves `sub → personId` via `getIdentityMap()`; it does **not** expose
+`app_metadata` yet — that is the first edit for the demo marker. `ops/auth.mjs` signs in with a
+password grant and caches tokens; its header note says servers never read `.demo-credentials`, which
+is linked from the primary checkout (mode 600). `scripts/seed-auth-users.ts` seeds **13** people;
+there is **no** `p_demo_guide` auth user, so the Demo guide identity has to be created before E2c can
+prove its scope.
+
+**E1 authority model.** `0024_authority_model.sql` (applied): `household_members.role` widened to
+`parent | guardian | resident_adult | child`; `is_parent_of()` and `parent_ids_of()` accept
+`role in ('parent','guardian')`; `src/authz.ts` uses `.in('role',['parent','guardian'])` at both
+sites. Everything calling those functions inherits it with no further edits. `resident_adult` is
+outside the IN-list — residence grants nothing. Dry run `ops/0024-dry-run.mjs` **12/12 PASS** in a
+rolled-back transaction (guardian recognised, resident_adult not, invalid role rejected, counts
+unchanged). Graph suite 114/32 PASS, voice-turn 15/15, typecheck clean, secret scan 0 findings.
+Evidence `36-e1-authority-model.md` (35 stays reserved for Task R). No Rosina tool added — no new read.
+
+**PR #26** (draft, base `main`, head `0d798e2`) carries E1 only. E2/E3 will be added to the same
+branch, so #26 stays draft until they are green.
+
+**E2 demo login + sandbox enforcement + demo-guide scope.**
+
+**E2a DONE — demo login.** Contract and full response shape: `docs/handoff/E2A-REPORT.md` (this is
+what W4 builds against). `POST http://127.0.0.1:4008/api/demo/login { personaId }`, loopback only,
+`DEMO_LOGIN_ENABLED=1`, refuses production mode, localhost origins only. Sessions come from Supabase
+Auth via `admin.generateLink(magiclink)` + `verifyOtp(token_hash)` — **no password, and no server
+reads `.demo-credentials`** (the fallback was not needed; that rule is unchanged). Clients are per
+request with persistence off. `app_metadata.demo` marks every demo identity;
+`app_metadata.demo_guide` marks the guide alone; `verify.ts` exposes both from the verified token and
+defaults them false. READY personas (derived from the identity map, never hardcoded): demo-guide,
+kendra, andre, loretta, priya, dana, jax-family. UNAVAILABLE: rosa, felicia, simone, dwayne, plus any
+unknown id — never a substitute identity. Limits 20/min per IP, 8/min per persona.
+Proofs `npx tsx ops/e2a-proof.mjs` **46/46 PASS** (a endpoint+existing verifier, b marker, c parallel
+isolation, d UNAVAILABLE, e live GraphQL scoping incl. Dana UNAUTHORIZED and guide
+DEMO_GUIDE_READ_ONLY, f rate limit). Evidence `37-e2-demo-login-sandbox.md` §E2a.
+
+**New rule, unchanged in substance:** servers never read `.demo-credentials`; the demo login path
+needs no password at all. The guide identity `p_demo_guide` belongs to no household.
+
+**E2b DONE — sandbox enforcement.** `0025_demo_sandbox.sql` separates two facts that must never be
+conflated: `is_demo_caller()` (verified token marker = a property of the SESSION, refuses real
+outreach) and `sandbox` (a property of the RECORD, what the guide may read). Refusal is record-level,
+because a service-role caller later has no JWT: `coordination_jobs.demo_caller` is stamped once at
+insert, attempts inherit it, and four triggers plus `promote_attempt_to_real_consented`,
+`consume_real_call_authorization` and `assert_outreach_allowed` refuse demo attempts. `sandbox` is
+deliberately NOT a refusal condition — the consented real-call exception runs on a sandbox job.
+Simulated work stays allowed (sandbox job, TEST_RESPONDER attempts, parent approval); refusing it
+would delete the demo. Dry run `ops/0025-dry-run.mjs` **28/28** in a rolled-back transaction;
+applied proof `ops/e2b-proof.mjs` **15 PASS + 1 SKIP** — direct RPC/insert/PATCH all return
+`DEMO_OUTREACH_REFUSED`, the dispatcher TS guard returns the same code. **MCP is still UNVERIFIED:**
+nothing listens on 5050, and it is recorded as unproven, not inferred. Evidence 37 §E2b.
+
+**E2c DONE — Demo guide scope.** 25 `demo_guide_*` SELECT policies (`is_demo_guide() and sandbox`)
+plus 96 restrictive no-write policies across 32 tables, so a later permissive write policy still
+refuses the guide. `authorizeChild()` gains a read-only `'guide'` level; every mutation calls
+`refuseDemoGuideWrite()`. `ops/e2c-proof.mjs` PASS with real tokens over PostgREST: the guide reads
+`care_plans`/`parenting_schedules`/`grants` for p_jax (1/2/2 rows) where Kendra sees 0, and `events`
+for p_nora where Dana sees 0; inserts 403, PATCH/DELETE 0 rows, `request_pickup` 400 UNAUTHORIZED.
+**Two honest gaps:** (1) the seed holds 4 households / 2 children, not six networks — six-network
+breadth is a **W4 seed dependency**, and the policies are network-agnostic so no code change is
+needed; (2) `children/people/households/villages/groups/capabilities/memberships` are readable by any
+signed-in user (Milestone-1 directory posture), so for those tables the guide adds nothing and nothing
+is claimed. Evidence 37 §E2c.
+
+**E3 DONE — `Attempt.candidate` + `jobTimeline(jobId)`.** Additive schema on the coordination
+subgraph: `candidate` (nullable — `attempts.candidate_id` is), `destinationMode`, `closedAt`,
+`closedReason`, and a `TimelineEntry` list built only from stored timestamps (`created_at`,
+`attempts.at`, `closed_at`, `cost_calculated_at`, `received_at`). No evaluation without a cost
+timestamp produces an entry, and an invisible job returns `[]` rather than an error, so the id cannot
+be probed. `ops/e3-proof.mjs` **21/21**: parent 4 attempts (`p_bryan, p_gma, p_monique, p_tasha`) and
+5 timeline entries ascending; Andre 5; Dana 0 jobs / `[]` / 0 attempts; guide 5 read-only with
+`DEMO_GUIDE_READ_ONLY` on approve; missing id `[]`. The supergraph was recomposed locally and the
+router restarted — a stale supergraph had made the new fields fail validation. Guardian authority is
+inherited from 0024 but **no guardian persona is seeded, so it is not exercised** and not claimed.
+
+### Rosina tools available
+
+No new MCP tool was added, so Rosina's toolset is unchanged and this task adds no tool grant. The two
+new app reads are GraphQL operations on the coordination subgraph:
+
+| Operation | Arguments | Response shape | Allowed personas | Boundary proof |
+|---|---|---|---|---|
+| `jobTimeline` | `jobId: ID!` | `[TimelineEntry!]!` — `at`, `kind` (JOB_CREATED / ATTEMPT_OPENED / ATTEMPT_CLOSED / COST_CALCULATED / CONFIRMATION), `attemptId`, `candidate { id }`, `detail` | parents + guardians of the job's child (RLS `is_parent_of`); Demo guide on sandbox jobs; **nobody else** | e3-proof 2,3,4,5,6 — parent 5 entries, co-parent 5, unrelated adult `[]`, guide 5 read-only, missing id `[]` |
+| `Attempt.candidate` | via `attempts(jobId)`; no new argument | `Person` (nullable) + `destinationMode`, `closedAt`, `closedReason` | same as the Attempt row's own visibility | e3-proof 1 — 4 attempts, 4 distinct recorded candidates, all `TEST_RESPONDER` |
+
+Both are refused to the guide for writes (`DEMO_GUIDE_READ_ONLY`) and to a demo session for outreach
+(`DEMO_OUTREACH_REFUSED`, E2b). Nothing here dials, sends, approves or spends.
+
+**E3 is DONE** — evidence `38-e3-attempt-candidate-timeline.md`, `ops/e3-proof.mjs` 21/21. (The old
+"E3 — NOT STARTED" line here was stale and has been removed.)
+
+### Which router each run used, and the 115 vs 114 count
+
+**`ops/run-evidence.mjs` is byte-identical to `origin/main`** (`git diff origin/main -- ops/run-evidence.mjs`
+is empty; last touched by `cccbbd2`), and #23's 14b assertions are intact: `edge` requires 400/401 **with**
+`AUTH_ERROR` plus "edge rejection carries no protected data"; `downstream` requires 200 **with**
+`UNAUTHENTICATED`. A bare status never counts.
+
+The count therefore depends on WHICH router the suite is driven through, not on the suite:
+
+| Run | Router | 14b path | Assertions |
+|---|---|---|---|
+| graph suite at `0940fd4` (this task) | `router.yaml` on `127.0.0.1:4010` — **no** router-level JWT by design (it is licence-gated; subgraphs verify) | downstream: 200 `UNAUTHENTICATED` | **114 checks / 32 cases, PASS** |
+| same suite on a GraphOS-connected router | `router.graphos.yaml` — `authentication.router.jwt` on | edge: 400/401 `AUTH_ERROR` + the extra no-data assertion | **115** |
+| E2a / E2b / E2c / E3 proofs | `127.0.0.1:4010` (`router.yaml`) | n/a | as recorded in evidence 37/38 |
+| MCP boundary proof | MCP `127.0.0.1:5051` → endpoint `127.0.0.1:4012` (alt-stack router) | n/a | evidence 37 §E2d |
+
+The 115 figure was **not** re-measured here: it needs the GraphOS licence connection, and starting
+that router would have replaced the one serving 4010. What is proven is that the difference is exactly
+the one conditional assertion inside 14b, and that neither the runner nor the assertion changed.
 
 ### Group 0 (E-2, E-1) — DONE
 

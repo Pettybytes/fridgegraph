@@ -9,6 +9,7 @@ import {
   isParentOf,
   ownGrants,
   personRow,
+  refuseDemoGuideWrite,
   requireCaller,
   type Ctx,
 } from '../authz';
@@ -322,6 +323,7 @@ const resolvers = {
       { relationshipId }: { relationshipId: string },
       ctx: Ctx,
     ) => {
+      refuseDemoGuideWrite(ctx);
       const callerId = requireCaller(ctx);
       const client = dbFor(ctx);
 

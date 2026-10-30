@@ -22,6 +22,13 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
+enum AcceptanceEntryPoint
+  @join__type(graph: COORDINATION)
+{
+  WEBHOOK_CALLBACK @join__enumValue(graph: COORDINATION)
+  CANDIDATE_JWT @join__enumValue(graph: COORDINATION)
+}
+
 type Approval
   @join__type(graph: ACCESS)
 {
@@ -31,6 +38,13 @@ type Approval
   subjectId: ID!
   decision: String!
   at: String!
+}
+
+enum ApprovalDecision
+  @join__type(graph: COORDINATION)
+{
+  APPROVED @join__enumValue(graph: COORDINATION)
+  DECLINED @join__enumValue(graph: COORDINATION)
 }
 
 type ApproverResult
@@ -47,6 +61,18 @@ type Attempt
   job: CoordinationJob!
   channel: String!
   at: String!
+
+  """
+  The person this attempt was opened for. Null only on a legacy row with no recorded candidate.
+  """
+  candidate: Person
+
+  """
+  Simulated vs the one consented real-call exception (frontend-data §1.4).
+  """
+  destinationMode: DestinationMode!
+  closedAt: String
+  closedReason: String
 }
 
 enum Availability
@@ -74,6 +100,21 @@ type Candidate
   reason: String!
   authorization: String!
   availability: Availability!
+}
+
+type CandidateEvaluation
+  @join__type(graph: COORDINATION)
+{
+  candidate: Person!
+  reasonCode: String
+  available: Boolean
+  declineReason: DeclineReason
+  acceptedVia: AcceptanceEntryPoint
+  estimatedRideCostUsd: Float
+  costBasis: String
+  distanceMiles: Float
+  locationProvenance: String
+  costCalculatedAt: String
 }
 
 type Capability
@@ -110,6 +151,9 @@ type Confirmation
   id: ID!
   job: CoordinationJob!
   receivedAt: String!
+  candidate: Person!
+  approvedBy: Person!
+  overLimitApproved: Boolean!
 }
 
 enum ContactChannel
@@ -139,6 +183,9 @@ type CoordinationJob
   child: Child!
   status: String!
   version: Int!
+  candidateEvaluations: [CandidateEvaluation!]!
+  overLimitCandidate: Person
+  confirmation: Confirmation
 }
 
 enum CoordinationType
@@ -147,6 +194,21 @@ enum CoordinationType
   PICKUP @join__enumValue(graph: COORDINATION)
   INVITATION @join__enumValue(graph: COORDINATION)
   ONBOARDING @join__enumValue(graph: COORDINATION)
+}
+
+enum DeclineReason
+  @join__type(graph: COORDINATION)
+{
+  BUSY @join__enumValue(graph: COORDINATION)
+  NO_TRANSPORT @join__enumValue(graph: COORDINATION)
+  OTHER @join__enumValue(graph: COORDINATION)
+}
+
+enum DestinationMode
+  @join__type(graph: COORDINATION)
+{
+  TEST_RESPONDER @join__enumValue(graph: COORDINATION)
+  REAL_CONSENTED @join__enumValue(graph: COORDINATION)
 }
 
 type Event
@@ -283,10 +345,14 @@ type Membership
 
 type Mutation
   @join__type(graph: ACCESS)
+  @join__type(graph: COORDINATION)
   @join__type(graph: VILLAGE)
 {
   grantAccess(actorId: ID!, childId: ID!, scopes: [String!]!, validFrom: String, validUntil: String): Grant @join__field(graph: ACCESS)
   revokeGrant(id: ID!): Boolean! @join__field(graph: ACCESS)
+  requestPickup(childId: ID!, asOf: String, window: String): CoordinationJob! @join__field(graph: COORDINATION)
+  acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation! @join__field(graph: COORDINATION)
+  approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String, acceptOverLimit: Boolean = false): CoordinationJob! @join__field(graph: COORDINATION)
 
   """
   DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later.
@@ -313,6 +379,7 @@ type PermissionSlip
 
 type Person
   @join__type(graph: ACCESS, key: "id")
+  @join__type(graph: COORDINATION, key: "id")
   @join__type(graph: TRANSPORT, key: "id")
   @join__type(graph: VILLAGE, key: "id")
 {
@@ -355,6 +422,15 @@ type Query
   attempts(jobId: ID): [Attempt!]! @join__field(graph: COORDINATION)
   informationRequests(childId: ID): [InformationRequest!]! @join__field(graph: COORDINATION)
   confirmations(childId: ID): [Confirmation!]! @join__field(graph: COORDINATION)
+
+  """
+  The recorded lifecycle of one job, oldest first. Additive (E3).
+  
+  Every entry is derived from a stored timestamp — there is no synthesized or presented time. A job
+  the caller cannot see returns an empty list rather than an error, so the response never tells a
+  stranger that a job id exists.
+  """
+  jobTimeline(jobId: ID!): [TimelineEntry!]! @join__field(graph: COORDINATION)
   events(childId: ID!, date: String!): [Event!]! @join__field(graph: SCHEDULE)
   schoolReports(childId: ID!): [SchoolReport!]! @join__field(graph: SCHOOL)
   permissionSlips(childId: ID!): [PermissionSlip!]! @join__field(graph: SCHOOL)
@@ -413,6 +489,19 @@ type SchoolReport
   kind: String!
   text: String!
   at: String!
+}
+
+"""
+One recorded moment in a job's life. detail is the stored code, verbatim.
+"""
+type TimelineEntry
+  @join__type(graph: COORDINATION)
+{
+  at: String!
+  kind: String!
+  attemptId: ID
+  candidate: Person
+  detail: String
 }
 
 type Vehicle

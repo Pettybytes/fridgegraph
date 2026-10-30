@@ -1,5 +1,6 @@
 import { loadEnv } from './env';
 import { startSubgraph, type SubgraphDef } from './server';
+import { startDemoLogin } from './demo/server';
 import village from './subgraphs/village';
 import access from './subgraphs/access';
 import coordination from './subgraphs/coordination';
@@ -26,3 +27,6 @@ const subgraphs: SubgraphDef[] = [
 
 await Promise.all(subgraphs.map((s) => startSubgraph(s)));
 console.log('[fridgegraph] all 7 subgraphs listening on 4001-4007');
+
+// Demo login is a separate, local-only listener. It stays off unless DEMO_LOGIN_ENABLED=1.
+await startDemoLogin();

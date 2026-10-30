@@ -1,7 +1,7 @@
 # As Loretta: approveRelationship denied (not a parent)
 
 - endpoint: `http://127.0.0.1:4010/`
-- identity: Bearer eyJhbG…<redacted, 807 chars>  (verified Supabase JWT; token redacted, never stored)
+- identity: Bearer eyJhbG…<redacted, 823 chars>  (verified Supabase JWT; token redacted, never stored)
 - x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - HTTP status: 200
 
@@ -40,8 +40,8 @@ mutation { approveRelationship(relationshipId: "r_dana_friend_parent") { id stat
         "code": "UNAUTHORIZED",
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
-          "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:42:10)",
-          "    at approveRelationship (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:339:29)",
+          "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
+          "    at approveRelationship (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:341:29)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
         ],
         "service": "village"

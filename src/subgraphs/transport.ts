@@ -1,5 +1,5 @@
 import { parse } from 'graphql';
-import { SCOPE, authorizeChild, deny, hasScope, isParentOf, requireCaller, type Ctx } from '../authz';
+import { SCOPE, authorizeChild, deny, guideCanReadChild, hasScope, isParentOf, requireCaller, type Ctx } from '../authz';
 import { childIds, pickupCandidatesFor } from '../derive';
 import { dbFor, one, rows } from '../db';
 
@@ -67,7 +67,10 @@ async function mayReadVehicles(ctx: Ctx, personId: string): Promise<boolean> {
   if (callerId === personId) return true;
   for (const cid of await childIds(ctx)) {
     const allowed =
-      (await isParentOf(ctx, cid)) || (await hasScope(ctx, cid, SCOPE.pickupVerify, ctx.today));
+      (await isParentOf(ctx, cid))
+      || (await hasScope(ctx, cid, SCOPE.pickupVerify, ctx.today))
+      // E2c: the guide reads sandbox candidates, and a candidate's vehicle is part of that row.
+      || (await guideCanReadChild(ctx, cid));
     if (!allowed) continue;
     const candidates = await pickupCandidatesFor(ctx, cid, ctx.today);
     if (candidates.some((c) => c.personId === personId)) return true;

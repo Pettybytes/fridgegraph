@@ -23,6 +23,10 @@ export type Ctx = {
   db?: Db;
   /** Per-request memo of repeated authorization reads. */
   memo?: Map<string, Promise<unknown>>;
+  /** Verified `app_metadata.demo` marker. True only for a demo persona's real session. */
+  demo?: boolean;
+  /** Verified `app_metadata.demo_guide` marker. Read-only guide over sandbox records. */
+  demoGuide?: boolean;
 };
 
 /** Field-level scopes, as strings in data — never enums. */
@@ -55,6 +59,27 @@ export function requireCaller(ctx: Ctx): string {
   const callerId = ctx?.callerId;
   if (!callerId) throw unauthenticated();
   return callerId;
+}
+
+/**
+ * Defence in depth for anything that reaches a real person: a demo session is refused in the
+ * resolver, and the same call is refused again inside the database by is_demo_caller(). Neither
+ * layer is trusted alone, and this one is never the only gate.
+ *
+ * Simulated work (a sandbox job, a TEST_RESPONDER attempt, a parent approval) is NOT refused here —
+ * refusing it would delete the demo. Only real outreach is.
+ */
+export function refuseDemoOutreach(ctx: Ctx): void {
+  if (ctx?.demo === true) {
+    throw new GraphQLError('DEMO_OUTREACH_REFUSED', { extensions: { code: 'DEMO_OUTREACH_REFUSED' } });
+  }
+}
+
+/** A guide may read sandbox records and nothing else; every write path calls this first. */
+export function refuseDemoGuideWrite(ctx: Ctx): void {
+  if (ctx?.demoGuide === true) {
+    throw new GraphQLError('DEMO_GUIDE_READ_ONLY', { extensions: { code: 'DEMO_GUIDE_READ_ONLY' } });
+  }
 }
 
 export type GrantRow = {
@@ -97,7 +122,7 @@ export async function isParentOf(ctx: Ctx, childId: string): Promise<boolean> {
         .from('household_members')
         .select('household_id')
         .eq('person_id', callerId)
-        .eq('role', 'parent')
+        .in('role', ['parent', 'guardian'])
         .in('household_id', households),
     );
     return data.length > 0;
@@ -111,7 +136,7 @@ export async function parentIdsOfChild(ctx: Ctx, childId: string): Promise<strin
     dbFor(ctx)
       .from('household_members')
       .select('person_id')
-      .eq('role', 'parent')
+      .in('role', ['parent', 'guardian'])
       .in('household_id', households),
   );
   return [...new Set(data.map((r) => String(r.person_id)))];
@@ -151,12 +176,43 @@ export async function hasAnyGrant(ctx: Ctx, childId: string, onDate: string): Pr
   return grants.some((g) => inWindow(g, onDate));
 }
 
-export type AccessLevel = 'parent' | 'grant';
+export type AccessLevel = 'parent' | 'grant' | 'guide';
 
-/** Parents of the child have full access; otherwise the exact field scope is required. */
+/**
+ * A child whose household is sandbox-visible to the calling guide.
+ *
+ * Read through the guide's own RLS-scoped client, so the demo_guide_household_members policy (sandbox
+ * only) decides the answer. A non-guide never reaches this call.
+ */
+async function guideCanReadChildImpl(ctx: Ctx, childId: string): Promise<boolean> {
+  if (ctx.demoGuide !== true) return false;
+  const data = await memo(ctx, `guide:child:${childId}`, async () =>
+    rows(
+      dbFor(ctx)
+        .from('household_members')
+        .select('household_id')
+        .eq('person_id', childId)
+        .eq('role', 'child'),
+    ),
+  );
+  return data.length > 0;
+}
+
+/**
+ * Public form of the same check, for the subgraphs whose gates are not authorizeChild()
+ * (pickup/supervision/approver). Read-only by construction: the demo_guide_* policies decide it.
+ */
+export async function guideCanReadChild(ctx: Ctx, childId: string): Promise<boolean> {
+  return guideCanReadChildImpl(ctx, childId);
+}
+
+/** Parents of the child have full access; a guide reads sandbox children; otherwise the field scope. */
 export async function authorizeChild(ctx: Ctx, childId: string, scope: string): Promise<AccessLevel> {
   requireCaller(ctx);
   if (await isParentOf(ctx, childId)) return 'parent';
+  // Read-only: the guide's level never authorizes a mutation. Every mutation refuses it explicitly
+  // (refuseDemoGuideWrite), and the database refuses it again with restrictive policies.
+  if (await guideCanReadChild(ctx, childId)) return 'guide';
   if (await hasScope(ctx, childId, scope, ctx.today)) return 'grant';
   throw deny();
 }
