@@ -81,3 +81,22 @@ path is a 404 at the edge before Caddy is reached.
   boundary (§3b) and is availability-only.
 - **Default deny at two layers.** Edge 404 and Caddy 404.
 - **Loopback only.** If the tunnel is stopped, nothing is exposed at all.
+
+## Decision — 2026-10-29 (FridgeGraph uses dreemzy_loom; Caddy dropped)
+
+**Caddy is dropped for FridgeGraph.** The route lives on the existing `dreemzy_loom` tunnel, which
+already runs under launchd (`com.cloudflare.cloudflared`). Nothing new is started, and the tunnel and
+`loom-tunnel-proxy` are not restarted.
+
+- **Public host:** `https://fridgegraph.loomz.stream`
+- **Rule:** path `^/voice-turn$` → `http://localhost:4118`
+
+**Why not `dreemzy.com`:** `dreemzy.com` DNS is served by GoDaddy/GoHighLevel, not Cloudflare, so a
+Cloudflare tunnel route cannot publish a CNAME there. Cloudflare created the proxied CNAME on
+`loomz.stream`, which is Cloudflare-managed.
+
+**Default deny:** Cloudflare's catch-all 404 for unmatched paths, plus `voice-turn-server`'s own 404
+for anything other than `POST /voice-turn` on its loopback bind. Verified from outside:
+`GET /` → 404, `POST /elsewhere` → 404, `POST /voice-turn` with no timestamp → 401.
+
+`/webhooks/coordination/reply` stays **unexposed** until Session 2b.

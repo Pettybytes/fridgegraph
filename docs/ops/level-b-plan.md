@@ -5,6 +5,10 @@
 > authenticated GHL or n8n call below is therefore **run by Bryan**. Bentley owns everything that
 > needs no third-party auth.
 
+**Ownership superseded (2026-10-29):** Bryan authorised Bentley to use the `.env` credentials for
+GHL and n8n calls, so the "run by Bryan" assignments below no longer apply except where noted.
+Bentley ran B1-B6 and step 7 directly.
+
 Status: drafts complete in PR #9 (`feat/level-b-drafts`), nothing imported, nothing attached,
 no tunnel. n8n is on hold pending the plan check.
 
@@ -100,3 +104,10 @@ Attach it to the two GHL nodes in the dispatch workflow. They remain **disabled*
 - Custom Action attach (step 8) — only after step 7 passes and one rehearsal has succeeded.
 
 Nothing in this plan places a call, sends an SMS, or activates a workflow.
+
+## Tunnel decision (2026-10-29)
+
+Caddy dropped for FridgeGraph. The route is on the existing `dreemzy_loom` tunnel:
+`https://fridgegraph.loomz.stream`, path `^/voice-turn$` → `http://localhost:4118`. `dreemzy.com`
+DNS is at GoDaddy/GHL, so a Cloudflare tunnel CNAME cannot be published there. Default deny is
+Cloudflare's catch-all 404 plus the voice-turn server's own 404. See `docs/ops/tunnel-draft.md`.
