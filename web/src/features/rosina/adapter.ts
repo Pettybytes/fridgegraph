@@ -31,7 +31,7 @@ export function createMockRosinaAdapter(session: AuthSession | null, data?: Fron
       try {
         const snapshot = await data.readMissionControl(session.scope)
         const candidate = snapshot.candidates.find(c => c.reasonCode === 'APPROVAL_PENDING' || c.reasonCode === 'RECOMMENDED')
-        return candidate ? reply(`The detailed recommendation reason isn’t available here. ${candidate.name} is the recorded choice for this pickup. Their caregiver evaluation says: “${reasonLabel(candidate.reasonCode)}”. Parent approval is recorded separately. Source: the pickup plan.`, [{ id: 'explain-recommendation', args: {} }]) : reply('There is no recorded pickup choice to explain. No recommendation is available in your pickup plan.')
+        return candidate ? reply(`The detailed recommendation reason isn’t available here. ${candidate.name} is the recorded choice for this pickup. Their caregiver evaluation says: “${reasonLabel(candidate.reasonCode)}”. Parent approval is a separate decision. Source: the pickup plan.`, [{ id: 'explain-recommendation', args: {} }]) : reply('There is no recorded pickup choice to explain. No recommendation is available in your pickup plan.')
       } catch { return reply(`Pickup choices are shared with ${session.scope.childName.split(' ')[0]}'s parents. You can ask what information is shared with your role.`, [{ id: 'open-screen', args: { screen: 'ask-rosina' } }]) }
     }
     if (/afternoon/.test(text) && !/\d{4}-\d{2}-\d{2}/.test(text) && !history.some(m => m.role === 'assistant' && /Which date/.test(m.content))) {

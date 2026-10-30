@@ -668,3 +668,10 @@ wrappers remain unimplemented. This is a UI-reference correction only, with no n
 IDs, schema or authorization rule. Touched packet additionally includes that paragraph of
 docs/contracts/coordination-v2.md. Four future households and Family Calendar remain outside this
 copy pass; their actual backing data/migrations have not landed in this main update.
+
+Final publication check after main 3ad23eb and the approval-copy correction: ancestry verified
+main → W1 → W2 → W3; post-rebase checks actually run and observed PASS: W1 62, W2 70, W3 88 web
+tests, plus each branch's root typecheck, secret scan and web build. Human “Pickup marked confirmed”
+never substitutes for separate Confirmation evidence; recommendation copy calls parent approval
+a separate decision, not an inferred fact. All three PRs are draft and live integration remains
+untested/NOT DONE. Copy corrections and screenshots are published on their owning branches.
