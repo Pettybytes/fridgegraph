@@ -229,6 +229,13 @@ primitive reads above: `ACKNOWLEDGED` the moment `coordinationJobs` shows the jo
 
 ## 6. Surface: Family Calendar + outcomes
 
+Task CAL implements week/day UI against explicit coordination-v2-shaped mocks, including
+guardian authority, inclusive Detroit holiday dates, DST and busy-only adult slots. See
+[Family Calendar adapter](family-calendar.md). This is not proof of live event, holiday or
+busy/free reads. Those remain queued alongside W4 after Bentley’s v2 migrations.
+The older client-assembled mock below is historical; Task CAL’s fixture is in
+`web/src/features/calendar/fixture.ts` and does not introduce a server aggregate.
+
 ### Queries / mutations
 
 | Operation | Status | Cites |

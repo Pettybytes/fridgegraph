@@ -49,7 +49,9 @@ args schema, route/handler, changesData and implemented. Today's entries:
 | open-screen | screen: mission-control, village, care-information or ask-rosina | internally constructed hash route | no | yes |
 | open-person | personId | card in authorized village projection | no | yes |
 | start-pickup | childId, YYYY-MM-DD date, morning/afternoon/evening window | app-owned confirm, then mock handler | yes | mock only; live execution unavailable |
-| explain-screen | screen | factual UI explanation | no | yes |
+| open-calendar | day: YYYY-MM-DD, childId | scoped calendar day route | no | mock UI; live reads unavailable |
+| open-event | id | scoped event detail route | no | mock UI; live reads unavailable |
+| explain-screen | screen (including calendar) | factual UI explanation | no | yes |
 | explain-recommendation | empty object | recorded recommendation status; no invented ranking reasons | no | mock; live service unavailable |
 
 Args reject extra keys, invalid dates, arbitrary routes and URLs. Person cards are available only
@@ -84,7 +86,7 @@ Apollo clearStore and selected record/person-card cleanup are part of the same b
    This is a mock retrieval of recorded care information, not a model medical judgement. Until v2's
    approved care-rule integration lands, live version says **“I can't confirm that yet”**, without guessing.
 
-The Family Calendar awaits the actual events migration and adult-schedules minimum slice specified by coordination-v2 §11. The contract merge alone does not deliver those models. This copy pass does not build it.
+Task CAL provides a mock Family Calendar and scoped calendar/event catalog actions. Live integration awaits the actual events migration and adult-schedules minimum slice specified by coordination-v2 §11. See `family-calendar.md`. Calendar actions validate IDs against the current persona’s projected children/events; the service must enforce actual rights.
 
 ## Reserved for coordination-v2 — owned by Claude/Bryan, NOT defined here
 
@@ -112,6 +114,5 @@ Today's care-plan record has no author metadata: do not infer Kendra from her ro
 A denied pickup view explains the sharing policy and the person's available information. Priya:
 “Pickup plans are shared with Nora's parents. You can see Nora's schedule and care information.”
 The cards use the same catalog validation and implemented checks as chat actions: open care
-information or Ask Rosina. The schedule screen is explicitly unavailable; no Family Calendar
-is built and no unusable schedule button is offered. The care screen rechecks the persona's
+information or Ask Rosina. The mock schedule card opens the persona’s shared Family Calendar. Live calendar reads remain unavailable. The care screen rechecks the persona's
 recorded mock permission, including direct-link requests. No authorization/schema changes.

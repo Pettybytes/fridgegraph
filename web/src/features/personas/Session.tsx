@@ -29,7 +29,10 @@ export function SessionProvider({ adapter, children }: { adapter: AuthAdapter; c
       await Promise.all(pendingCleanup.map(clear => clear()))
       if (reset) await adapter.resetDemo()
       const next = id ? await adapter.signInAsPersona(id) : null
-      if (current === generation.current) setSession(next ? { ...next, generation: current } : null)
+      if (current === generation.current) {
+        if (next?.persona.initialRoute) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/${next.persona.initialRoute}`)
+        setSession(next ? { ...next, generation: current } : null)
+      }
     } catch { if (current === generation.current) setError('Unable to load this demo person. Try again.') }
     finally { if (current === generation.current) setSwitching(false) }
   }
