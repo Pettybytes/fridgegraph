@@ -276,7 +276,7 @@ voice/webhook endpoint first**. The GraphQL router stays private until every gat
 | 4 | `include_subgraph_errors` not `all` | **FAIL** — leaks subgraph error detail | both router configs |
 | 5 | CORS: no wildcard origin, explicit allowlist | not configured | both router configs |
 | 6 | `overrides.mutation_mode: explicit` | **PASS** (pinned) | `.apollo/mcp.local.yaml` |
-| 7 | Bind address / tunnel scope: only the intended listener is tunnelled | n/a (no tunnel yet) | Cloudflare |
+| 7 | Stack + named tunnel, //voice-turn only, outside proof | **BLOCKED** | `cloudflared` present; **`caddy` MISSING**; no TUNNEL/CLOUDFLARE/CADDY variables in `.env`, so there is no tunnel identity to run. Voice Turn URL still `https://TUNNEL_HOST_PENDING/voice-turn` and the workflow stays inactive. |
 | 8 | Supabase password rotation | due **before the repo goes public**, not a merge gate | — |
 
 Both router configs are **localhost-only development configs** that bind `127.0.0.1`. They are
@@ -796,8 +796,8 @@ to.
 | 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | **DONE** | 6-arg variant found; `estimate_ride_cost_usd` absent; `OVER_POLICY` absent; dedupe `EVENT_ID_CONFLICT` intact — 0020 is live |
 | 4 | GHL custom fields: report which of the six `fg_` exist, create only missing | PENDING | |
 | 5 | GHL: Rosina recording / transcription / retention (read-only) | **DONE (partial)** | Rosina id `6940d34eed6cdd7ea7a2b746`, location `GNhV1Oyh…`. `GET /voice-ai/agents?locationId=` returns 10 agents but exposes **no** recording/transcription/retention keys; `GET /voice-ai/agents/{id}` returns **403**. Settings not exposed by API → listed **for Bryan**. |
-| 6 | n8n: \$vars, Voice Turn workflow, Variables, import, credential, activate | **BLOCKED at 6c** | **6a DONE** — every `$env.*` replaced with `$vars.FG_WEBHOOK_SECRET` / `$vars.FRIDGEGRAPH_TUNNEL_URL` (dispatch 1→0, reply-timeout 4→0, both still parse). **6b DONE** — `docs/n8n/fridgegraph-voice-turn.workflow.json` committed (5 nodes: webhook → sign → HTTP 3 s → shape → respond). **6c BLOCKED** — `GET /variables` returns **403**: "Your license does not allow for feat:variables". n8n Variables do not exist on this plan, so `$vars` cannot resolve and activating Voice Turn or Reply and Timeout would ship workflows that fail at runtime. 6d-6f NOT done. Secret + tunnel URL listed **for Bryan**. |
-| 7 | Stack + router (`router.graphos.yaml`) + voice-turn + Caddy + cloudflared; outside 200 / default deny | PENDING | |
+| 6 | n8n: credentials, three workflows, states | **DONE** | Variables unavailable (403 `feat:variables`), so Option B: credential `FridgeGraph Voice Turn` `MPoum0tgq94XPGvy` (X-FridgeGraph-Webhook-Secret), `FridgeGraph GHL` `JCYLvOgzK247D3tt` (Authorization: Bearer). Workflows created — Voice Turn `xOfmO6T4mKbYnjqb` (5 nodes, inactive), Dispatch `A2vnWF2L58Lvquqg` (6 nodes, inactive, both GHL send nodes disabled, credential attached), Reply and Timeout `addWpgFfxXmq7GF1` (8 nodes, inactive; HMAC secret is the open item for Session 2b, never pasted into a Code node). No `$vars` remains in any workflow file. |
+| 7 | Stack + named tunnel, //voice-turn only, outside proof | **BLOCKED** | `cloudflared` present; **`caddy` MISSING**; no TUNNEL/CLOUDFLARE/CADDY variables in `.env`, so there is no tunnel identity to run. Voice Turn URL still `https://TUNNEL_HOST_PENDING/voice-turn` and the workflow stays inactive. |
 | 8 | Attach Pickup Decision Custom Action to Rosina | PENDING | |
 | 9 | Web Call rehearsal, evidence 29 | PENDING | |
 | 10 | HARD STOP before the real call | PENDING | |
