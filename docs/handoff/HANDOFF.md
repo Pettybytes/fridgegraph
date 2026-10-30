@@ -1358,3 +1358,7 @@ shared catalog drift PASS (7 identical ids); staged secret scan PASS (366 files,
 A test-only placeholder initially triggered the generic assignment guard; changed to its
 explicit test-only placeholder convention, without changing production logic or scanner rules.
 No-token-on-disk gate PASS; overall live smoke FAIL (foreign-name boundary); do not mark DONE.
+Published draft PR **#27**: https://github.com/Pettybytes/fridgegraph/pull/27.
+Frontend implementation f5d451c. Draft is mechanically mergeable, but **W4a NOT DONE / live
+privacy gate FAILED**. Keep the exact service regression visible; do not merge as an all-green
+integration. Await Task R correction, then rerun the same local smoke and disk gate.

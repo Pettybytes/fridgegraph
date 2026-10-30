@@ -11,6 +11,9 @@ node --import tsx ../fridgegraph-web-rosina-live/web/scripts/rosina-live-smoke.m
 ```
 
 The existing read-only alt stack on MCP 5051 was reused. Rosina ran on 4200 with that MCP URL.
+Start the existing service from the main checkout in a separate terminal when reproducing:
+`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp npm run rosina`.
+Do not reset/reseed or replace a shared running stack to execute this test.
 The harness starts its own Vite dev server on 5184 and a temporary loopback bridge. Kendra's
 actual person ID is p_mom (Bryan confirmed the correction to the requested p_kendra lookup).
 The bridge is no-store and restricted to the local Vite origin. Its bearer never appears in
