@@ -62,6 +62,15 @@ describe('persona sessions', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByRole('alert')).toHaveTextContent("You don't have access to this")
   })
+  it('clears a selected person from the route before switching', async () => {
+    window.location.hash = ''
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
+    await screen.findByText('Signed in as Kendra')
+    window.history.replaceState(null, '', '#/village?person=p_tasha')
+    fireEvent.click(screen.getByRole('button', { name: 'Switch person' }))
+    expect(window.location.hash).toBe('#/mission-control')
+  })
   it('gives Priya care information without parent jobs or pickup approval', async () => {
     const raw = await createMockAuthAdapter().signInAsPersona('priya')
     expect(raw.persona.grants).toEqual(['supervise.request', 'schedule.read', 'careplan.read'])

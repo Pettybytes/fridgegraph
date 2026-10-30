@@ -475,7 +475,7 @@ before final publication; author attribution still uses the existing record, not
 | Step | UI complete | Backend complete (Bentley) | Integrated + tested |
 |---|---|---|---|
 | W1 — PR #17 | yes | primitive reads; login unavailable | fixture-tested; live not tested; NOT DONE |
-| W2 — this branch | yes, mock | demo-login/reset/create unavailable | mock-integrated + tested; live not tested; NOT DONE |
+| W2 — PR #19 | yes, mock | demo-login/reset/create unavailable | mock-integrated + tested; live not tested; NOT DONE |
 | W3 | not started | Rosina unavailable | not started |
 | W4 | not started | awaiting delivery | not started |
 
@@ -495,8 +495,8 @@ clearStore (plus adapter clearStore when provided), remounts selections/cards un
 generation, and ignores superseded sign-in/family responses. W3 must register conversation cleanup
 with the same session registry. Connected mode never signs into the live graph with a mock identity.
 
-Validation: root typecheck PASS; secret scan PASS; **60 web tests PASS**; production build PASS
-(existing >500kB warning). Five new session tests cover cache/DOM clearing, a late sign-in response,
+Validation: root typecheck PASS; secret scan PASS; **61 web tests PASS**; production build PASS
+(existing >500kB warning). Six new session tests cover cache/DOM clearing, a late sign-in response,
 Kendra → Loretta, Priya's grants and mock family validation/reset. Existing shell tests now enter via
 Kendra instead of assuming private data before sign-in. Playwright CLI checked desktop/mobile,
 Kendra → Loretta with a MutationObserver (no old private content in switch mutations), Priya's
@@ -507,8 +507,10 @@ TASK: six-person mock entry, session isolation and sandbox demo controls.
 LAYER: frontend and companion handoff only (plus shared W1 policy prerequisite).
 TOUCHED: web/src/features/personas/, web/src/App.tsx, web/src/lib/frontendData/types.ts,
   web/src/app/Shell.test.tsx, web/src/app/VillageRoute.test.tsx, web/evidence/task-w/, this handoff.
-DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (60);
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (61);
   npm --prefix web run build; real demo-login/reset/create integration still required.
 NOT DOING: backend auth, passwords, credentials, DB, Family Calendar, merge, v2 catalog entries.
 BLOCKERS: Bentley's server-side demo-login must return the actual user session and authorized
   scope; resetDemo/createDemoFamily endpoints and their contracts remain unavailable.
+
+W2 privacy follow-up: switching/reset clears selected-person hash parameters before the next session loads. A dedicated route-cleanup test passes. PR: https://github.com/Pettybytes/fridgegraph/pull/19.

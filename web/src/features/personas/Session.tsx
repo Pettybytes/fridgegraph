@@ -24,6 +24,7 @@ export function SessionProvider({ adapter, children }: { adapter: AuthAdapter; c
     const pendingCleanup = [...cleanups.current]
     cleanups.current.clear()
     flushSync(() => { setSession(null); setSwitching(true); setError(''); setFamilies([]) })
+    if (session || reset) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/mission-control`)
     try {
       await Promise.all(pendingCleanup.map(clear => clear()))
       if (reset) await adapter.resetDemo()
