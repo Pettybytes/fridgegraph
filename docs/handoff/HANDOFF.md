@@ -276,7 +276,7 @@ voice/webhook endpoint first**. The GraphQL router stays private until every gat
 | 4 | `include_subgraph_errors` not `all` | **FAIL** — leaks subgraph error detail | both router configs |
 | 5 | CORS: no wildcard origin, explicit allowlist | not configured | both router configs |
 | 6 | `overrides.mutation_mode: explicit` | **PASS** (pinned) | `.apollo/mcp.local.yaml` |
-| 7 | Stack + named tunnel, //voice-turn only, outside proof | **BLOCKED** | `cloudflared` present; **`caddy` MISSING**; no TUNNEL/CLOUDFLARE/CADDY variables in `.env`, so there is no tunnel identity to run. Voice Turn URL still `https://TUNNEL_HOST_PENDING/voice-turn` and the workflow stays inactive. |
+| 7 | Bind address / tunnel scope: only the intended listener is tunnelled | n/a (no tunnel yet) | Cloudflare |
 | 8 | Supabase password rotation | due **before the repo goes public**, not a merge gate | — |
 
 Both router configs are **localhost-only development configs** that bind `127.0.0.1`. They are
