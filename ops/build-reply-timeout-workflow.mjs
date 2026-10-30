@@ -30,7 +30,9 @@ const code = (name, id, jsCode, position, notes) => ({
 
 // One "Decide" node per branch. It owns three outcomes: invalid, unparsed, forward.
 const decideBody = (kind) => `
-const j = $json ?? {};
+// The Webhook node emits { headers, params, query, body, webhookUrl, executionMode }, so the
+// GHL payload is nested under body. Fall back to $json for a hand-run test.
+const j = ($json && typeof $json.body === 'object' && $json.body !== null) ? $json.body : ($json ?? {});
 const attemptId = typeof j.attemptId === 'string' && j.attemptId.trim() ? j.attemptId.trim() : null;
 
 if (!attemptId) {
