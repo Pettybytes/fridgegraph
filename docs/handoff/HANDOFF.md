@@ -2,6 +2,47 @@
 
 _Last updated: Oct 26, 2026 (late). Written under context pressure — read §9 before trusting any state._
 
+---
+
+## Task E progress — v2 backend (2026-10-30)
+
+**Resume rule:** skip every step marked DONE; continue at the first not-DONE step. Work in groups;
+each group is its own branch off the main state it records below, and one PR. Never merge.
+
+| Group | Branch | Base | State |
+|---|---|---|---|
+| 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
+| 1 | `feat/e-group1` | branch off main after #9 merges | not started |
+| 2 | `feat/e-group2` | | not started |
+| 3 | `feat/e-group3` | | not started |
+| 4 | `feat/e-group4` | | not started |
+| 5 | `feat/e-group5` | | not started |
+
+### Group 0 (E-2, E-1) — DONE
+
+**E-2 rebase.** 51 commits replayed onto `origin/main` `ad720de`; `main` is now an ancestor. One
+conflict, in `docs/handoff/HANDOFF.md` (main's Task W sections vs this branch's §11 hard-constraint
+section): resolved by **union** — both sides kept verbatim, 0 conflict markers remain, Task W, Task D
+and §11 all present. PR #9 was `CONFLICTING`/draft; it is now rebased and marked ready.
+
+**E-1 cleanup.** Both Session 3 attempts were already closed (dial by rollback 17:25:55 ET, Web Call
+by its own outcome 21:35:17). State verified: **0 open attempts**, **0 active authorizations**, **1
+consumed authorization kept as audit**, every closed attempt kept, **Dispatch inactive**, flag
+**unset**, **no `fg-dial` tag**. Nothing deleted; no unrelated job touched. After-state note appended
+to `docs/evidence/33-session-3-real-call.md`.
+
+**Two facts from Session 3 that later groups inherit:**
+1. The real dial was placed once (17:24:06 ET, 25 s) and was **unanswered — recipient's line busy**;
+   no decision reached the app. The voice checks are **still unverified**.
+2. The Web Call test recorded **ACCEPTED** (`available=true`, `OVER_POLICY`, 12.40) instead of the
+expected DECLINED/NO_TRANSPORT. The parser is unit-proven; a real call did not produce the "no car"
+text. Treat as an open voice defect, not a pass.
+
+**Saturday fix (from Session 3, carried here):** a **mint path that takes `destination_mode`**, so a
+real call does not need the direct-job-insert deviation recorded in evidence 33 §2. Group 1 E0 is the
+designed replacement for that deviation.
+
+
 ## 1. State
 
 - **HEAD:** `fb0c77f` + the B3 commit (see §9).
