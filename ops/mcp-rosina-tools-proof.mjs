@@ -7,8 +7,8 @@
  *
  * For each tool (JobTimeline, Attempts):
  *   - an allowed persona (Kendra, Nora's parent) SEES data, and the call is NOT UNAUTHENTICATED
- *   - an out-of-network adult (Dana) is a KNOWN caller refused with UNAUTHORIZED — never
- *     UNAUTHENTICATED, which would mean the token never arrived and would make the refusal vacuous
+ *   - an out-of-network adult (Dana) is a KNOWN caller (never UNAUTHENTICATED) and receives exactly
+ *     what a nonexistent id and a malformed id receive — one empty result, no existence oracle
  *   - the Demo guide reads the same sandbox record (read-only) and no mutation tool is exposed
  *   - no token at all fails closed with UNAUTHENTICATED
  *
@@ -173,21 +173,39 @@ check('3 candidate display names resolve through the village entity',
   Array.isArray(aRows) && aRows.some((a) => typeof a.candidate?.displayName === 'string' && a.candidate.displayName.length > 0));
 
 // ---------------------------------------------------------------- out-of-network adult: Dana
-const dTimeline = graphOf(await rpc('tools/call', { name: 'JobTimeline', arguments: { jobId } }, danaTok));
-const dAttempts = graphOf(await rpc('tools/call', { name: 'Attempts', arguments: { jobId } }, danaTok));
+// THE CONTRACT UNDER TEST: a job the caller cannot see, a job id that does not exist, and a
+// malformed id must be INDISTINGUISHABLE. If a hidden job answered differently from a missing one,
+// the tool would be an existence oracle. Both tools answer `[]` for all three; that is the contract
+// documented in "Rosina tools available".
+const callTool = (token, name, args) => rpc('tools/call', { name, arguments: args }, token);
+const MISSING = 'job_missing_000000000000';
+const MALFORMED = 'not a job id !!!';
+
+const dTimeline = graphOf(await callTool(danaTok, 'JobTimeline', { jobId }));
+const dTimelineMissing = graphOf(await callTool(danaTok, 'JobTimeline', { jobId: MISSING }));
+const dTimelineMalformed = graphOf(await callTool(danaTok, 'JobTimeline', { jobId: MALFORMED }));
+const dAttempts = graphOf(await callTool(danaTok, 'Attempts', { jobId }));
+const dAttemptsMissing = graphOf(await callTool(danaTok, 'Attempts', { jobId: MISSING }));
+const dAttemptsMalformed = graphOf(await callTool(danaTok, 'Attempts', { jobId: MALFORMED }));
+
 const dCodes1 = codesOf(dTimeline);
 const dCodes2 = codesOf(dAttempts);
 check('4 Dana is a recognised caller on JobTimeline, not anonymous', !dCodes1.includes('UNAUTHENTICATED'), dCodes1.join('|') || 'no codes');
 check('4 Dana is a recognised caller on Attempts, not anonymous', !dCodes2.includes('UNAUTHENTICATED'), dCodes2.join('|') || 'no codes');
-check('4 Dana (out-of-network adult) is refused UNAUTHORIZED on JobTimeline',
-  dCodes1.includes('UNAUTHORIZED') || (Array.isArray(dTimeline?.data?.jobTimeline) && dTimeline.data.jobTimeline.length === 0),
-  dCodes1.join('|') || `entries=${dTimeline?.data?.jobTimeline?.length}`);
-check('4 Dana gets no attempt rows',
-  dCodes2.includes('UNAUTHORIZED') || (Array.isArray(dAttempts?.data?.attempts) && dAttempts.data.attempts.length === 0),
-  dCodes2.join('|') || `rows=${dAttempts?.data?.attempts?.length}`);
+
+const timelineIdentical = [dTimelineMissing, dTimelineMalformed]
+  .every((g) => JSON.stringify(g) === JSON.stringify(dTimeline));
+const attemptsIdentical = [dAttemptsMissing, dAttemptsMalformed]
+  .every((g) => JSON.stringify(g) === JSON.stringify(dAttempts));
+check('4 JobTimeline: hidden == nonexistent == malformed, all empty (no existence oracle)',
+  timelineIdentical && Array.isArray(dTimeline?.data?.jobTimeline) && dTimeline.data.jobTimeline.length === 0,
+  `identical=${timelineIdentical} entries=${dTimeline?.data?.jobTimeline?.length ?? 'n/a'}`);
+check('4 Attempts: hidden == nonexistent == malformed, all empty (no existence oracle)',
+  attemptsIdentical && Array.isArray(dAttempts?.data?.attempts) && dAttempts.data.attempts.length === 0,
+  `identical=${attemptsIdentical} rows=${dAttempts?.data?.attempts?.length ?? 'n/a'}`);
 check('4 Dana receives none of Kendra\u2019s record content',
-  JSON.stringify(dTimeline ?? {}).indexOf('JOB_CREATED') === -1 &&
-  JSON.stringify(dAttempts ?? {}).indexOf('TEST_RESPONDER') === -1);
+  JSON.stringify([dTimeline, dTimelineMissing, dTimelineMalformed]).indexOf('JOB_CREATED') === -1 &&
+  JSON.stringify([dAttempts, dAttemptsMissing, dAttemptsMalformed]).indexOf('TEST_RESPONDER') === -1);
 
 // ---------------------------------------------------------------- Demo guide: sandbox read-only
 const gTimeline = graphOf(await rpc('tools/call', { name: 'JobTimeline', arguments: { jobId } }, guideTok));

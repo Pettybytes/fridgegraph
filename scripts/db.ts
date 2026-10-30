@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { createSeed } from '../src/fixtures';
+import { createSimulatedCoordination, SIMULATED_LABEL } from '../src/fixtures-simulated';
 
 function parseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -147,17 +148,6 @@ function baseline() {
       id: l.id, owner_type: l.ownerType, owner_id: l.ownerId, label: l.label,
       lat: l.lat, lng: l.lng, source: l.source, captured_at: l.capturedAt,
     })),
-    // Coordination fixtures: one simulated job and its attempts. `sandbox` keeps its column default
-    // (true); nothing here creates a real-call authorization.
-    coordination_jobs: s.coordinationJobs.map((j) => ({
-      id: j.id, idempotency_key: j.idempotencyKey, type: j.type, child_id: j.childId,
-      status: j.status, version: j.version, as_of: j.asOf ?? null, created_at: j.createdAt ?? null,
-    })),
-    attempts: s.attempts.map((a) => ({
-      id: a.id, job_id: a.jobId, channel: a.channel, at: a.at,
-      candidate_id: a.candidateId ?? null, destination_mode: a.destinationMode ?? 'TEST_RESPONDER',
-      closed_at: a.closedAt ?? null, closed_reason: a.closedReason ?? null,
-    })),
   } as Record<string, Record<string, unknown>[]>;
 }
 
@@ -179,6 +169,34 @@ export async function seedDatabase() {
     total += await upsert(t, rows, CONFLICT[t]);
   }
   return total;
+}
+
+/**
+ * Applies the SIMULATED coordination fixture. Additive and idempotent by fixed id; it never touches
+ * a baseline row and never creates a real-call authorization.
+ */
+export async function seedSimulated(): Promise<{ label: string; jobs: number; attempts: number }> {
+  const s = createSimulatedCoordination();
+  const jobs = await upsert('coordination_jobs', s.coordination_jobs as unknown as Record<string, unknown>[], 'id');
+  const attempts = await upsert('attempts', s.attempts as unknown as Record<string, unknown>[], 'id');
+  return { label: SIMULATED_LABEL, jobs, attempts };
+}
+
+/** Checksum of the SIMULATED fixture's own tables only — never compared to the v1 baseline. */
+export async function checksumSimulated() {
+  const out: Record<string, { rows: number; sha: string }> = {};
+  for (const t of ['coordination_jobs', 'attempts']) {
+    const all = await fetchAll(t);
+    const wanted = new Set(
+      (t === 'coordination_jobs'
+        ? createSimulatedCoordination().coordination_jobs.map((r) => r.id)
+        : createSimulatedCoordination().attempts.map((r) => r.id)),
+    );
+    const rows = all.filter((r) => wanted.has(String(r.id)));
+    const norm = rows.map((r) => JSON.stringify(r, Object.keys(r).sort())).sort().join('\n');
+    out[t] = { rows: rows.length, sha: createHash('sha256').update(norm).digest('hex').slice(0, 16) };
+  }
+  return out;
 }
 
 export async function resetDatabase() {
@@ -235,13 +253,18 @@ if (executedDirectly) {
   const cmd = process.argv[2];
   if (cmd === 'seed') {
     console.log(`seeded ${await seedDatabase()} rows`);
+  } else if (cmd === 'seed:simulated') {
+    console.log(`seeded ${SIMULATED_LABEL} fixture: ${JSON.stringify(await seedSimulated())}`);
+  } else if (cmd === 'checksum:simulated') {
+    console.log(JSON.stringify(await checksumSimulated()));
+    process.exit(0);
   } else if (cmd === 'reset') {
     const deleted = await resetDatabase();
     console.log(`reset complete; deleted non-baseline rows: ${JSON.stringify(deleted)}`);
   } else if (cmd === 'checksum') {
     console.log(JSON.stringify(await checksumDatabase(), null, 2));
   } else {
-    console.error('usage: tsx scripts/db.ts seed|reset|checksum');
+    console.error('usage: tsx scripts/db.ts seed|seed:simulated|reset|checksum|checksum:simulated');
     process.exit(2);
   }
 }

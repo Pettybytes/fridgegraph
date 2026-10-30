@@ -72,3 +72,58 @@ authorization change.
 
 No dialing, no SMS, no dispatch, no flag set, no new persisted authorization, no service-role read on
 behalf of a caller (the proof discovers the job id with the caller's own token), no merge.
+
+---
+
+## Reconciliation 1 — no existence oracle (2026-10-30, before merge)
+
+**Chosen behaviour: one empty result.** Both tools answer `{"data":{"jobTimeline":[]}}` /
+`{"data":{"attempts":[]}}` — HTTP-equivalent, no GraphQL error, no code — for a **hidden** job, a
+**nonexistent** id and a **malformed** id. Nothing distinguishes them, so the tools cannot be used to
+learn that a job id exists.
+
+Measured through MCP 5051 → 4012 (exact payloads, Dana's own token):
+
+| Call | Input | Response |
+|---|---|---|
+| `JobTimeline` | visible job (`job_nora_oct16`) as Kendra | 5 entries |
+| `JobTimeline` | the same job as **Dana** (hidden) | `{"data":{"jobTimeline":[]}}` |
+| `JobTimeline` | `job_missing_000000000000` | `{"data":{"jobTimeline":[]}}` |
+| `JobTimeline` | `not a job id !!!` | `{"data":{"jobTimeline":[]}}` |
+| `Attempts` | the same job as **Dana** (hidden) | `{"data":{"attempts":[]}}` |
+| `Attempts` | `job_missing_000000000000` | `{"data":{"attempts":[]}}` |
+| `Attempts` | `not a job id !!!` | `{"data":{"attempts":[]}}` |
+
+The proof now asserts byte-equality of the three payloads per tool (`identical=true`), not "either
+UNAUTHORIZED or empty". The caller-is-known property is a **separate** check: Dana's call must not be
+`UNAUTHENTICATED` (it would mean the token never arrived and the comparison would be vacuous). Proof:
+**24/24 PASS** on MCP 5051.
+
+## Reconciliation 2 — v1 baseline vs the simulated fixture
+
+**The v1 baseline is unchanged by this branch.** `src/fixtures.ts` is byte-identical to `origin/main`
+(`git diff origin/main -- src/fixtures.ts` is empty); `scripts/db.ts` gains only additive
+`seed:simulated` / `checksum:simulated` commands.
+
+| Check | Result |
+|---|---|
+| Baseline checksum with the fixture applied vs before | **only `coordination_jobs` and `attempts` differ — 2 of 29 tables**; the other 27 hashes are byte-identical |
+| `db:reset` then checksum vs pre-fixture capture | **byte-identical (`true`)** |
+| Baseline tables / rows today | 29 tables / 162 rows |
+| Simulated fixture's own checksum | `coordination_jobs` 1 row `3e221662b46f5903`; `attempts` 2 rows `8e3fbbc30dfe618d` |
+
+The **28 tables / 157 rows** figure in evidence 19 is an older snapshot than the merged E2 work; today's
+`main` baseline is 29 tables / 162 rows. That delta is **not** from this branch (the baseline code is
+identical to `main`) — it is recorded here so nobody reads the two numbers as the same thing.
+
+Separation is now structural: `src/fixtures-simulated.ts` is its own module with its own label
+(`SIMULATED`), its own seeder and its own checksum. It is additive, idempotent by fixed id, and
+`TEST_RESPONDER`-only. `db:reset` removes it (that is exactly what restores v1); re-apply it with
+`npx tsx scripts/db.ts seed:simulated`.
+
+## Graph suite re-run
+
+`ops/run-evidence.mjs` against **router 4012** (alt stack, subgraphs 4101–4107 running this checkout):
+**114 checks across 32 cases — PASS** every case matched its expected status, code, count and
+disclosure rule. The suite's regenerated evidence artifacts were reverted rather than committed, to
+keep this PR scoped; the run and its counts are recorded here.

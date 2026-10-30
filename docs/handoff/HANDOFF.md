@@ -22,7 +22,7 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 exposes `Attempts, JobTimeline, PickupCandidates` and **no mutation tool**. `mutation_mode: explicit`
 and `forward_headers: [authorization]` unchanged.
 
-`node ops/mcp-rosina-tools-proof.mjs` **23/23 PASS** — Kendra (parent): 5 timeline entries, 2
+`node ops/mcp-rosina-tools-proof.mjs` **24/24 PASS** — Kendra (parent): 5 timeline entries, 2
 attempts with candidates; Dana (out-of-network, known caller): `UNAUTHORIZED`, zero rows, never
 `UNAUTHENTICATED`; guide: same sandbox rows, read-only (no write tool exists); no token:
 `UNAUTHENTICATED`.
@@ -33,6 +33,21 @@ coordination table and `fixtures.ts` had empty arrays, so one simulated job (`p_
 added to `createSeed()` and the mapping (seeded 163 rows); (2) **`Attempt.job` was a stub** (`{ id }`
 only), so `job { status version }` raised a non-null violation — replaced with a real resolver that
 loads the job through the caller's own RLS.
+
+**No existence oracle (contract).** Both tools answer one empty result for a **hidden**, a
+**nonexistent** and a **malformed** job id — `{"data":{"jobTimeline":[]}}` / `{"data":{"attempts":[]}}`,
+no error code — and the proof asserts byte-equality of those payloads. "The caller is known" is a
+separate assertion (Dana is never `UNAUTHENTICATED`). Do not "improve" a hidden id into
+`UNAUTHORIZED`: that would tell a stranger the job exists.
+
+**Seed separation.** The coordination fixture is **not** baseline. `src/fixtures-simulated.ts` holds
+it (label `SIMULATED`, one job on `p_nora` + two `TEST_RESPONDER` attempts, accepted via `p_gma`,
+declined via `p_tasha`), seeded with `npx tsx scripts/db.ts seed:simulated` and checked with
+`checksum:simulated`. `src/fixtures.ts` is byte-identical to `main`; `scripts/db.ts` only gains those
+two commands. Applying the fixture changes **2 of 29 tables**; `db:reset` restores the baseline
+byte-identically. Baseline today: 29 tables / 162 rows (evidence 19's 28/157 is an older snapshot,
+not this branch). `db:reset` removes the fixture by design — re-apply it when the demo needs
+coordination reads to show a record.
 
 Reproduce with the **alt stack running this checkout** (4101–4107 restarted; router 4012 and MCP 5051
 untouched apart from the MCP restart that loaded the new operation files). Rosina's allowlist is
