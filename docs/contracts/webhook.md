@@ -425,3 +425,32 @@ as well as voice (§5). Still open:
    this section should be revisited rather than left as the permanent weaker boundary.
 3. **Durable duplicate-event storage mechanism** (§3a) — which store, what retention — is
    specified as a requirement, not a concrete implementation.
+
+---
+
+## Appendix — Level B decisions (Bryan, recorded 2026-10-30)
+
+**D1.** SMS replies and no-answer events reuse the `voice-turn` chain: GHL Workflow → n8n (header
+auth `X-FG-Action-Token`) → n8n stamps a fresh timestamp, attaches the `FridgeGraph Voice Turn`
+credential, posts to `https://fridgegraph.loomz.stream/voice-turn`. The signed
+`/webhooks/coordination/reply` route stays closed at the tunnel and is not used by GHL.
+
+**D2.** One open attempt per contact, enforced by a partial unique index
+(`attempts_one_open_per_contact` on `(candidate_id) where closed_at is null`). A new attempt is
+refused while another is open. An event naming a non-open attempt is rejected **before** the event id
+is claimed, so `webhook_events` does not grow.
+
+**D2-correlation is NOT satisfied.** One open attempt narrows the window; it does not correlate. A
+delayed event from attempt A can still be read as attempt B once `contact.fg_attempt_id` has changed.
+Closing that requires an event identifier from the trigger, which neither Customer Replied nor Call
+Details documents today (see `docs/ghl/ghl-workflows.md` §3). Rejecting a directly supplied closed
+attempt id is **not** evidence of stale-event protection.
+
+**D3.** Deterministic parsing in an n8n Code node (`ops/reply-parser.mjs`, single source of truth).
+No model parses a reply. Unparsed text changes nothing.
+
+**D4.** `webhook_events.source` distinguishes `reply` from `no_answer`. `record_no_answer()` writes
+no `candidate_evaluations` row: a call nobody answered is never a person saying no.
+
+**D5.** Say lines carry the requester's and child's real first names, resolved server-side from the
+attempt; unresolved names become "the family".

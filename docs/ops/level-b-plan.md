@@ -111,3 +111,45 @@ Caddy dropped for FridgeGraph. The route is on the existing `dreemzy_loom` tunne
 `https://fridgegraph.loomz.stream`, path `^/voice-turn$` → `http://localhost:4118`. `dreemzy.com`
 DNS is at GoDaddy/GHL, so a Cloudflare tunnel CNAME cannot be published there. Default deny is
 Cloudflare's catch-all 404 plus the voice-turn server's own 404. See `docs/ops/tunnel-draft.md`.
+
+---
+
+## Bryan-approved design for Level B (recorded 2026-10-30)
+
+These are decisions, not proposals. Implementation status is in the handoff table.
+
+**D1 — SMS replies and no-answer reuse the proven voice-turn chain.**
+GHL Workflow → n8n (`Header Auth` credential `FridgeGraph GHL Action`, header `X-FG-Action-Token`)
+→ n8n adds a fresh timestamp and the `FridgeGraph Voice Turn` credential →
+`https://fridgegraph.loomz.stream/voice-turn`. `/webhooks/coordination/reply` stays closed at the
+tunnel. *Done: B2.*
+
+**D2 — ONE OPEN ATTEMPT PER CONTACT.** A new attempt for a contact is refused while another of that
+contact's attempts is open; an event naming an attempt that is no longer open is rejected with no
+state change. Enforced by the partial unique index `attempts_one_open_per_contact`, never by a
+read-then-write check. *Done: B1.*
+
+Correlation is a **separate** requirement and is **not** satisfied by the above: verify from GHL's
+docs and a real payload which identifiers the Customer Replied and call-outcome triggers provide, add
+one to the workflow body where it exists, and require it to match the attempt. Where no reliable
+identifier exists, the limitation must be documented — one open attempt narrows the window but does
+not stop a delayed event from attempt A being read as attempt B after the contact field changes.
+*Checked in B3: neither trigger documents an event id, so the hole is documented, not claimed shut.*
+
+**D3 — text replies are parsed deterministically**, never by a model. Normalize (lowercase, straight
+apostrophes, punctuation to spaces, collapse whitespace); match whole words/phrases only;
+precedence transport → decline → accept → `UNPARSED` (no state change). *Done: B2, tested in B4.*
+
+**D4 — no-answer is a SYSTEM-OBSERVED outcome**, persisted with its own source
+(`webhook_events.source = 'no_answer'`). Never recorded or displayed as the caregiver declining.
+*Done: B1 + B2.*
+
+**D5 — Rosina's say lines use real first names**, requester and child, resolved server-side from the
+attempt; fallback "the family". Never model-written, never from a GHL field. *Done: B5.*
+
+## Phase C dial path (2026-10-30)
+
+`C1` in `docs/ops/session-3-dial-path.md`: GHL documents exactly one supported way to place a Voice
+AI outbound call — the **Voice AI Outbound Call** workflow action. There is no public dialing
+endpoint, and a call-log endpoint must never be mistaken for one. Dispatch therefore triggers a
+dedicated GHL workflow, it does not dial.
