@@ -229,9 +229,12 @@ export type DemoLoginResponse =
         initialRoute?: 'calendar' | 'village';
       };
       scope: { childId: string; childName: string; parentName: string; villageId: string };
+      /**
+       * The browser gets a short-lived access token and its REAL expiry. It never gets the refresh
+       * token: Supabase rotates those, so only the server may hold and use one.
+       */
       session: {
         access_token: string;
-        refresh_token: string;
         token_type: string;
         expires_in: number;
         expires_at: number;

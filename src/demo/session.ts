@@ -109,3 +109,52 @@ export async function mintSession(persona: DemoPersona): Promise<MintedSession> 
     expires_at: session.expires_at ?? 0,
   };
 }
+
+/**
+ * Refreshes a cached persona session server-side.
+ *
+ * ONLY THE SERVER MAY DO THIS: Supabase rotates the refresh token, so a browser refreshing it would
+ * invalidate the shared session for every other visitor of that persona. The new refresh token
+ * replaces the old one in the cache and never leaves the process.
+ *
+ * The refreshed session is re-checked against the same invariants as a mint: it must still belong to
+ * the requested person and still carry the trusted demo marker. A refresh that returns a session for
+ * somebody else is an error, not a session.
+ */
+export async function refreshCachedSession(
+  persona: DemoPersona,
+  refreshToken: string,
+): Promise<MintedSession> {
+  const url = required('SUPABASE_URL').replace(/\/$/, '');
+  const publishableKey = required('SUPABASE_PUBLISHABLE_KEY');
+
+  const anon = createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  const refreshed = await anon.auth.refreshSession({ refresh_token: refreshToken });
+  if (refreshed.error || !refreshed.data?.session || !refreshed.data?.user) {
+    throw new MintError('MINT_REFRESH_FAILED');
+  }
+
+  const { session, user } = refreshed.data;
+
+  if (mappedPersonId(user.id) !== persona.personId) {
+    throw new MintError('MINT_IDENTITY_MISMATCH');
+  }
+  if (user.app_metadata?.demo !== true) {
+    throw new MintError('MINT_MARKER_MISSING');
+  }
+  const isGuide = persona.id === 'demo-guide';
+  if (isGuide !== (user.app_metadata?.demo_guide === true)) {
+    throw new MintError('MINT_MARKER_MISSING');
+  }
+
+  return {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    token_type: session.token_type ?? 'bearer',
+    expires_in: session.expires_in,
+    expires_at: session.expires_at ?? 0,
+  };
+}

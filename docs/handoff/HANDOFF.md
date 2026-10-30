@@ -4,6 +4,40 @@ _Last updated: Oct 30, 2026. Merged origin/main `cccbbd2` (E0 #23) into this bra
 
 ---
 
+## Task E-NEXT progress — personas, Rosina tools, Groups 3–5 (2026-10-30)
+
+Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none merged.
+
+| Sub-task | Branch | State |
+|---|---|---|
+| 1 Persona sessions | `feat/e-next-persona-sessions` | **DONE** — evidence `39-persona-sessions.md`, proofs 26/26 |
+| 2 Rosina read tools | | not started |
+| 3 Group 3 (events + adult schedules) | | not started |
+| 4 Group 4 (care + Cast v2 seed) | | not started |
+| 5 Group 5 (reset, demo family, consent) | | not started |
+
+### 1 Persona sessions — DONE
+
+**Response contract (W4b builds against this).** `POST http://127.0.0.1:4008/api/demo/login`
+`{ "personaId": "<id>" }` → READY 200 with `status`, `personaId`, `personId`, `persona`, `scope`,
+`marks`, and `session: { access_token, token_type, expires_in, expires_at }` — **no `refresh_token`
+ever reaches the browser.** `expires_at` is the session's real expiry. Renewal = call the same
+endpoint again: inside the last **5 minutes** the server refreshes once (single-flight) and returns
+the new token and its real expiry; outside it, the cached token with no mint and no refresh. HTTP 503
+`MINT_*` and HTTP 429 `RATE_LIMITED` (`Retry-After`) are both retryable; 60/min per IP, 8/min per
+persona. Full detail: `docs/evidence/39-persona-sessions.md`.
+
+- One Supabase session per persona in **server memory**, minted on first pick and reused for every
+  visitor; concurrent mint and concurrent refresh each collapse to one operation per persona (Supabase
+  rotates refresh tokens, so only the server may refresh).
+- No global "current persona" on the server; selection is browser-local, and switching/leaving never
+  signs out or revokes the shared session.
+- `dropPersonaSessionCache()` exists and is proven; wiring it into `resetDemo` is Group 5.
+- `ops/persona-sessions-proof.mjs` 26/26; `ops/e2a-proof.mjs` a3 updated to the new contract;
+  typecheck clean, secret scan 0 findings.
+
+---
+
 ## Task E progress — v2 backend (2026-10-30)
 
 **Resume rule:** skip every step marked DONE; continue at the first not-DONE step. Work in groups;
