@@ -350,3 +350,47 @@ Behavioural verification, direct PostgREST (`node ops/run-evidence.mjs`, case 26
 
 Residual drift, not fixed (needs its own decision): `local_today()` is not SECURITY DEFINER and has
 no pinned `search_path` in the live database, unlike the repo's 0006.
+
+---
+
+## Task W progress — judge-ready web (2026-10-30)
+
+**Three states per step: UI complete · backend complete · integrated + tested. A step is DONE only
+when all three hold.** Branch per step off `main` (`72c1cf5`). Never merge; Bryan merges.
+
+| Step | UI | Backend | Integrated + tested | Notes |
+|---|---|---|---|---|
+| W1 graphql adapter (`feat/web-graphql-adapter`) | not started | n/a | not started | **BLOCKED on two missing reads** |
+| W2 persona picker | not started | mock | not started | |
+| W3 Ask Rosina | not started | contract not written | not started | |
+| W4 live integration | not started | not delivered | not started | |
+
+### W1 blocker: two operations Mission Control needs do not exist
+
+Verified against `schema/*.graphql` **before** writing adapter code:
+
+1. **No event feed.** `MissionControlData.events: RecordedEvent[]` has no server source. No `events`
+   query exists in village/access/coordination/schedule/school/transport/activities, and
+   `docs/contracts/frontend-data.md` lists only `coordinationJobs`, `chatThread` and
+   `informationRequests` for that surface.
+2. **`chatThread` does not exist yet.** The contract labels it **NEW** (its own §2 table: "no
+   message/thread type exists anywhere in `schema/*.graphql` today"), so `readParentChat` cannot be
+   sourced live either.
+
+A third, subtler gap that decides the design rather than blocking it: the web `Candidate` type
+carries `id, name, channel, reasonCode, distanceMiles, estimatedRideCostUsd, costBasis`, but the
+graph's `CandidateEvaluation` has `candidate { id displayName } reasonCode estimatedRideCostUsd
+costBasis distanceMiles` and **no `channel`**. A channel comes from
+`contactMethods(personId, childId)` — one extra read per candidate, i.e. a fan-out decision, not a
+rename.
+
+Writing a graphql adapter against fields that do not exist would be inventing exactly what the
+contract forbids, so no adapter code was committed in this step.
+
+**What W1 needs from Bentley (backend):**
+- an `events` read (or a documented equivalent) for the Mission Control feed;
+- `chatThread(childId)` as the contract already specifies.
+
+Then W1 is: Vite proxy `/graphql` → `127.0.0.1:4010`, Apollo auth link carrying the Supabase access
+token, `VITE_DATA_MODE=mock|graphql` with mock as the test default, and adapter tests over the
+composed reads.
