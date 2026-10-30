@@ -60,7 +60,7 @@ describe('persona sessions', () => {
     await screen.findByText('Signed in as Loretta')
     expect(screen.queryByRole('button', { name: 'Select Tasha Ellison' })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(await screen.findByRole('alert')).toHaveTextContent("You don't have access to this")
+    expect(await screen.findByRole('alert')).toHaveTextContent("Pickup plans are shared with Nora's parents")
   })
   it('clears a selected person from the route before switching', async () => {
     window.location.hash = ''
@@ -79,7 +79,13 @@ describe('persona sessions', () => {
     expect(adapter.approvePickup).toBeUndefined()
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: /Priya/ }))
+    const boundary = await screen.findByRole('alert')
+    expect(boundary).toHaveTextContent("You can see Nora's schedule and care information.")
+    fireEvent.click(screen.getByRole('link', { name: 'Open care information' }))
+    fireEvent(window, new HashChangeEvent('hashchange'))
     expect(await screen.findByText('Peanut allergy. Epi-pen in right backpack pocket.')).toBeVisible()
+    expect(screen.getByText("Source: Nora's care plan")).toBeVisible()
+    expect(screen.queryByText(/added by Kendra|src\/|fixture/)).not.toBeInTheDocument()
     expect(screen.queryByText('Tasha Ellison')).not.toBeInTheDocument()
   })
   it('makes no backend family facts and validates names', async () => {

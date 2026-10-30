@@ -31,3 +31,15 @@
 .persona-entry button:disabled { opacity: .55; cursor: wait; }
 @media(max-width: 760px) { .persona-grid { grid-template-columns: repeat(2, 1fr); } .persona-entry { padding: 1.4rem; } .persona-card { padding: 1rem; } .persona-card > svg { display: none; } }
 @media(max-width: 440px) { .persona-grid { grid-template-columns: 1fr; gap: .7rem; } .persona-card { min-height: 100px; } .persona-intro { margin-top: 2.5rem; } .persona-card > svg { display: block; } }
+
+.persona-group { margin-top: 1.8rem; }
+.persona-group > h2 { font-size: 1.15rem; font-weight: 650; color: #3a506b; margin-bottom: .85rem; }
+.persona-portrait { display: grid; place-items: center; width: 3.5rem; height: 4.2rem; flex-shrink: 0; }
+.care-information, .persona-access-state { max-width: 42rem; background: white; border: 1px solid #d4cadd; border-radius: 1rem; padding: 1.4rem; margin: 1rem 0; }
+.care-information h2, .persona-access-state h2 { font-size: 1.2rem; font-weight: 650; margin-bottom: .8rem; line-height: 1.4; }
+.care-information p, .persona-access-state p { line-height: 1.65; }
+.care-information p:last-child, .persona-access-note { color: #62708a; font-size: .8rem; margin-top: .6rem; }
+.persona-access-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.2rem; }
+.persona-access-card { padding: .8rem 1rem; border: 1px solid #c9b9df; border-radius: .6rem; color: #624389; background: #fbf9fd; text-decoration: none; font-size: .85rem; }
+.persona-group .persona-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media(max-width: 440px) { .persona-group .persona-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -3,10 +3,11 @@ import type { ReactNode } from 'react'
 import { LayoutDashboard, MessagesSquare, Network, ArrowUpRight, Sprout } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'mission-control' | 'parent-chat' | 'village'
+export type Route = 'mission-control' | 'parent-chat' | 'village' | 'care-information'
 const routes = [
   { path: 'mission-control', label: 'Mission Control', icon: LayoutDashboard },
   { path: 'parent-chat', label: 'Parent chat', icon: MessagesSquare },
+  { path: 'care-information', label: 'Care information', icon: MessagesSquare },
   { path: 'village', label: 'Living Village', icon: Network },
 ] as const
 function readRoute(): string { return window.location.hash.slice(2) || 'mission-control' }

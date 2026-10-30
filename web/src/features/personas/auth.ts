@@ -10,6 +10,12 @@ export const personas: readonly Persona[] = [
   { id: 'dana', personId: 'p_dana', name: 'Dana', role: "New to Nora's village · Jax's mom", childId: 'p_jax', childName: 'Jax Coleman', villageId: 'v_jax', grants: [], parent: true },
   { id: 'jax-family', personId: 'p_ray', name: "Jax's family", role: "Ray · Jax's dad", childId: 'p_jax', childName: 'Jax Coleman', villageId: 'v_jax', grants: [], parent: true },
 ]
+// Presentation groups are explicit so future households can be added without changing the grid.
+// A village group includes relatives and caregivers, not a claim that they share one address.
+export const personaGroups = [
+  { id: 'nora-village', label: "Nora's village", personaIds: ['kendra', 'andre', 'loretta', 'priya'] },
+  { id: 'jax-family', label: "Jax's family", personaIds: ['dana', 'jax-family'] },
+] as const
 export type DemoFamilyInput = { parentName: string; childName: string }
 export type DemoFamily = DemoFamilyInput & { id: string; childId: string }
 export type AuthSession = { persona: Persona; scope: Scope; generation: number }

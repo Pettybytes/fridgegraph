@@ -8,6 +8,8 @@ import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/P
 import { ApolloSessionCleanup } from '@/features/personas/ApolloSessionCleanup'
 import { createPersonaDataAdapter } from '@/features/personas/personaData'
 import '@/app/village-route.css'
+import { CareInformation } from '@/features/personas/careInformation'
+import { PersonaAccessState } from '@/features/personas/PersonaAccessState'
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SignedInVillage() {
   const { session, switching } = useSession()
@@ -19,14 +21,15 @@ function SignedInVillage() {
     <DataProvider adapter={adapter} scope={session.scope}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
-        'mission-control': <><p className="persona-mock">Mock village · services are not connected</p>{session.persona.grants.includes('careplan.read') && <section aria-label="Care information"><h2>Care information for Nora</h2><p>Peanut allergy. Epi-pen in right backpack pocket.</p><p>Source: Nora's care plan · demo fixture</p></section>}<MissionControl /></>,
-        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><LivingVillage /></section></Suspense>,
+        'mission-control': <><p className="persona-mock">Demo village · sample information</p><MissionControl accessDenied={<PersonaAccessState surface="pickup" />} /></>,
+        'care-information': <CareInformation />,
+        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><LivingVillage accessDenied={<PersonaAccessState surface="village" />} /></section></Suspense>,
       }} />
     </DataProvider>
   </div>
 }
 export default function App() {
   const auth = useMemo(() => createMockAuthAdapter(), [])
-  if (import.meta.env.VITE_DATA_MODE && import.meta.env.VITE_DATA_MODE !== 'mock') return <><SandboxBanner /><main className="persona-entry"><h1>Demo sign-in unavailable</h1><p>The server demo-login service is required for connected mode. Mock identities cannot sign into the live graph.</p></main></>
+  if (import.meta.env.VITE_DATA_MODE && import.meta.env.VITE_DATA_MODE !== 'mock') return <><SandboxBanner /><main className="persona-entry"><h1>Demo sign-in unavailable</h1><p>Demo sign-in isn’t connected yet. You’ll be able to choose a person when it’s ready.</p></main></>
   return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage /></SessionProvider>
 }

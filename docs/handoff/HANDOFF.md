@@ -520,3 +520,24 @@ All UI steps complete; Bentley services unavailable and live integration unteste
 W3 worktree: /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina. Main still 72c1cf5; rebase
 after Bryan merges earlier steps. W3 already registers conversation cleanup and owns the catalog
 structure; do not implement future coordination-v2 entries or the Family Calendar prematurely.
+
+### Task W pre-merge copy corrections — W2 (current)
+
+W2 is rebased onto updated W1 (f6d4744); PR base remains main. Shared policy commits were
+deduplicated. The feature branch history is rewritten only for this requested stack rebase.
+The picker groups Nora's four existing personas under “Nora's village” and Dana/Ray under
+“Jax's family”. Portrait space keeps initials; no portraits or additional households invented.
+The sharing boundary derives its explanation from the persona's recorded mock grants. Priya sees
+“Pickup plans are shared with Nora's parents. You can see Nora's schedule and care information.”
+Her implemented care screen is offered; schedule is explicitly unavailable, not a new calendar.
+W3 replaces these read-only screen links with catalog-validated cards on its branch.
+Care sources say “Source: Nora's care plan”. Current CarePlan has no author field, so Kendra is
+not attributed. A display helper accepts an author only when actual source metadata supplies one.
+No file paths or workflow codes appear in the new source labels. Visual identity retained.
+Added paths: web/src/features/personas/PersonaAccessState.tsx, careInformation.tsx,
+PersonaPicker.test.tsx; MissionControl/LivingVillage use W1's denied-state slot. Care information
+is a derived mock projection; live service remains unavailable. No auth/schema/DB changes.
+Validation: root typecheck, secret scan, production build PASS; **70 web tests PASS** including
+household grouping, care privacy and persona-isolation regressions. Playwright CLI checked the
+grouped entry and Priya's sharing → care path at desktop/mobile. New screenshots are append-only:
+web/evidence/task-w/w2-copy-desktop.png and w2-copy-mobile.png. W2 remains NOT DONE for live integration.
