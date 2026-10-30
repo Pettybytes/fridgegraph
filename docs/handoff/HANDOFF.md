@@ -791,7 +791,7 @@ to.
 | # | Step | State | Observed |
 |---|---|---|---|
 | 0 | Worktree `../fridgegraph-level-b` + symlinks | **DONE** | branch `feat/level-b-drafts` @ `9256178`; `.env`, `data`, `.demo-credentials` linked from the primary checkout |
-| 1 | Rebase onto `origin/main`, `push --force-with-lease` | **BLOCKED** | `origin/main` is `d43c12e` and contains no `0019`/`0020`; PR #14 reports `state=OPEN`, `mergeable=MERGEABLE`, `mergeState=CLEAN`. Rebasing now would put Level B on a tree three migrations behind the database. |
+| 1 | Rebase onto `origin/main`, `push --force-with-lease` | **DONE** | rebased onto `1a576a7` (PR #14 squash-merged); `0019_transport_policy.sql` and `0020_transport_reply_cost.sql` both present in the branch; force-pushed with lease to `0630d08` |
 | 2 | `node ops/voice-turn-check.mjs` → 12/12 | PENDING | |
 | 3 | Preflight: 6-arg `accept_pickup_webhook` has no `estimate_ride_cost_usd` and no `OVER_POLICY` | PENDING | |
 | 4 | GHL custom fields: report which of the six `fg_` exist, create only missing | PENDING | |
@@ -802,11 +802,7 @@ to.
 | 9 | Web Call rehearsal, evidence 29 | PENDING | |
 | 10 | HARD STOP before the real call | PENDING | |
 
-### Why step 1 is blocked
+### Step 1 blocker — resolved
 
-The run authorises step 1 on the stated premise that PR #14 is merged. It is not: GitHub reports
-`state=OPEN`, `mergedAt=null`, and `origin/main` is still `d43c12e` (last merged: #13). The shared
-database already has `0019` and `0020` applied from Task A, so a rebase onto today's `origin/main`
-would produce a branch that cannot reproduce its own schema.
-
-No rebase, no force-push, no GHL, no n8n, no tunnel work has been done. Waiting on the merge.
+PR #14 squash-merged to `1a576a7`; `origin/main` now carries `0019` and `0020`, matching the shared
+database. Rebase applied cleanly with no conflicts.
