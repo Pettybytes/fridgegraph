@@ -25,7 +25,7 @@ describe('app shell', () => {
     await screen.findByText('Signed in as Kendra')
     window.location.hash = '#/parent-chat'
     fireEvent(window, new HashChangeEvent('hashchange'))
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Parent chat')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Ask Rosina')
   })
   it('provides recovery for an unknown route', async () => {
     window.location.hash = '#/missing'

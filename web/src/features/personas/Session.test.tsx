@@ -22,16 +22,15 @@ describe('persona sessions', () => {
     render(<ApolloProvider client={client}><SessionProvider adapter={auth}><Controls /></SessionProvider></ApolloProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'Kendra' }))
     await waitFor(() => expect(screen.getAllByText('Kendra')).toHaveLength(2))
+    let atLoad: unknown
     signIn.mockImplementationOnce(async id => {
-      expect(id).toBe('loretta')
-      expect(clear).toHaveBeenCalledTimes(1)
-      expect(client.readQuery({ query: secret })).toBeNull()
-      expect(screen.queryAllByText('Kendra')).toHaveLength(1) // entry button only; private session gone
+      atLoad = { id, clearCalls: clear.mock.calls.length, cached: client.readQuery({ query: secret }), kendraNodes: screen.queryAllByText('Kendra').length }
       return createMockAuthAdapter().signInAsPersona(id)
     })
     fireEvent.click(screen.getByRole('button', { name: 'Loretta' }))
     expect(screen.getByText('Switching')).toBeVisible()
     await waitFor(() => expect(screen.getAllByText('Loretta')).toHaveLength(2))
+    expect(atLoad).toEqual({ id: 'loretta', clearCalls: 1, cached: null, kendraNodes: 1 })
   })
   it('ignores a superseded sign-in response', async () => {
     const auth = createMockAuthAdapter(), real = auth.signInAsPersona

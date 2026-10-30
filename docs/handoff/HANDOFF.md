@@ -547,3 +547,69 @@ and current progress table. Post-rebase root typecheck, secret scan, build and *
 Full-page grouped picker evidence: web/evidence/task-w/w2-grouped-final-desktop.png and
 w2-grouped-final-mobile.png. Existing evidence retained. W2 remains mock-tested, NOT DONE for live
 integration. PR #19 stays based on main; no main merge. W3 must be rebased onto this updated tip.
+
+## Task W progress — W3 Ask Rosina (2026-10-30)
+
+| Step | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|
+| W1 — PR #17 | yes | primitive reads exist; real login unavailable | fixture-tested; live not tested; NOT DONE |
+| W2 — PR #19 | yes, six personas | login/reset/create unavailable | mock-tested, 61 tests; live not tested; NOT DONE |
+| W3 — this branch | yes, mock | Rosina endpoint/proxy target unavailable | mock-tested, 78 tests; live not tested; NOT DONE |
+| W4 | not started | awaiting real services | not tested |
+
+This branch was created from main 72c1cf5 and carries shared policy + W2 prerequisite commits,
+without W1's GraphQL adapter. After Bryan merges earlier steps, rebase onto main, deduplicate
+prerequisites and reconcile App's connected entry. No agent merge. No step is DONE yet.
+
+### W3 surfaces and authority
+
+- Ask Rosina appears on every mock screen, including entry. **Unavailable live**, explicitly
+  scripted mock. Desktop dock; mobile sheet with close/Escape. History uses the existing
+  ChatMessage model in memory, scoped to persona; each request sends prior role/content messages.
+  Switching aborts/discards pending replies and removes draft/thread/pending confirmations.
+- Current-screen explanation is **derived** from implemented UI behavior. Recommendation
+  explanation is **derived** from the current recorded candidate reasonCode, never invented
+  ranking reasons. Mock afternoon answer reads the current pickup status and does not imply
+  a complete calendar. Care answer is **derived** from the care-plan fixture, cited verbatim.
+- The catalog owns id/label/schema/handler/changesData/implemented. Unknown/bad/unimplemented
+  actions are dropped. Routes are built locally; a person must occur in the available village
+  projection. Child scope is rechecked for pickup. Model-written HTML and links remain plain text.
+- Pickup execution is **unavailable live**: mock review always passes through the app-owned
+  confirmation dialog, even if a response says no confirmation is needed. Cancel performs no
+  action. Confirm consumes the card; the reply explicitly says no live job was created.
+- Service adapter POST /api/rosina attaches the user bearer and client history, checks response
+  shape, and refuses missing sessions. The live snack flow returns exactly “I can't confirm that
+  yet” until the approved v2 care-rule integration exists. No guessed service port/proxy target.
+- Contract: docs/contracts/ask-rosina.md. Its clearly marked coordination-v2 section defines no
+  future IDs or args. Every current catalog entry has implemented. Family Calendar is deferred.
+
+Validation run: root typecheck PASS; staged secret scan PASS; **78 web tests PASS**; production
+build PASS (existing >500kB warning). Seventeen Rosina tests cover all seven acceptance examples,
+unknown/bad/unimplemented actions, app confirmation despite a response's bypass claim, Cancel,
+plain text/links, bearer/history shape, live care uncertainty and late reply/persona isolation.
+Playwright CLI exercised all seven scripted examples, no cross-family disclosure, confirmed mock
+pickup, Kendra → Priya conversation clearing, actual Loretta card routing, mobile close/Escape,
+and additional boundary replies as Andre, Dana and Jax's family. These are scripted mock checks,
+not W4 independent exploration or evidence of a live model. Desktop/mobile screenshots:
+web/evidence/task-w/w3-desktop.png and w3-mobile.png.
+
+Browser finding, corrected (verbatim initial mock reply): “You can open an available person card
+from your own village.” The requested Tasha card was absent from that mock projection, so the
+catalog correctly dropped it; the mock now resolves named people from the available projection
+and explicitly explains an unavailable card. Loretta's card was exercised successfully. No live
+Rosina model ran, so there are no live model errors to report or conceal.
+
+BRANCH: feat/web-ask-rosina; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-web-ask-rosina
+TASK: catalog-controlled Ask Rosina with seven scripted flows and private client-side history.
+LAYER: frontend and companion frontend contract/handoff (plus shared prerequisites).
+TOUCHED: web/src/features/rosina/, web/src/App.tsx, web/src/app/Shell.tsx,
+  web/src/app/Shell.test.tsx, web/src/features/village/LivingVillage.tsx,
+  web/src/features/personas/Session.test.tsx, web/evidence/task-w/, docs/contracts/ask-rosina.md,
+  docs/handoff/HANDOFF.md. Earlier prerequisites are separately committed.
+DONE WHEN: npm run typecheck; npm run check; npm --prefix web test (78);
+  npm --prefix web run build; real service + W4 exploration/browser runs still required.
+NOT DOING: schema/auth/DB, service implementation, Family Calendar, future v2 catalog definitions,
+  real outreach, merge/tag/release.
+BLOCKERS: Bentley's authenticated demo login/scopes, Rosina service URL/port and endpoint,
+  no-history-persistence guarantee, live pickup handler integration, reset/create APIs,
+  jobTimeline and Attempt.candidate. W4 must report actual model mistakes verbatim.

@@ -8,23 +8,26 @@ import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/P
 import { ApolloSessionCleanup } from '@/features/personas/ApolloSessionCleanup'
 import { createPersonaDataAdapter } from '@/features/personas/personaData'
 import '@/app/village-route.css'
+import { RosinaPanel } from '@/features/rosina/RosinaPanel'
 import { CareInformation } from '@/features/personas/careInformation'
 import { PersonaAccessState } from '@/features/personas/PersonaAccessState'
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SignedInVillage() {
   const { session, switching } = useSession()
   const adapter = useMemo(() => session ? createPersonaDataAdapter(session) : null, [session])
-  if (switching) return <PersonaPicker key="switching" />
-  if (!session || !adapter) return <PersonaPicker key="picker" />
+  if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
+  if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
   return <div key={session.generation} data-state="unavailable" data-mode="mock">
     <SessionChip />
     <DataProvider adapter={adapter} scope={session.scope}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
         'mission-control': <><p className="persona-mock">Demo village · sample information</p><MissionControl accessDenied={<PersonaAccessState surface="pickup" />} /></>,
+        'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
         'care-information': <CareInformation />,
         village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><LivingVillage accessDenied={<PersonaAccessState surface="village" />} /></section></Suspense>,
       }} />
+      <RosinaPanel dataAdapter={adapter} />
     </DataProvider>
   </div>
 }
