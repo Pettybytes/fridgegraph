@@ -1,7 +1,7 @@
 # Contract — Coordination v2 (whole-life foundations)
 
-**Status: DRAFT — needs Bryan's approval. Docs only; no code, no schema change, no data write
-happened to produce this file, in this revision or the last one.**
+**Status: DRAFT — ready for Bryan's approval as of Revision 3. Docs only; no code, no schema
+change, no data write has happened to produce this file, in any revision.**
 
 Branch `docs/coordination-v2`, worktree `../fridgegraph-coordination-v2`, created from
 `origin/main` at **base SHA `72c1cf54cf98a370e43ff39e22bb52d9f513b971`**
@@ -15,6 +15,19 @@ responsibility and approval authority into distinct facts, with a literal audit 
 resolver/function/policy that needs to change; adds adult schedules (parents/guardians, sitters,
 teachers, other caregivers); restates the seed budget precisely; and adds the matrices this
 revision's own rules require as deliverables.
+
+**Revision 3 (2026-10-30):** restructures §11 into four tiers — Sunday (now including the adult-
+schedules *minimum* slice) / **P0 parallel work** (the persona picker, PR #19, and live Ask Rosina
+integration, PR #20 + Bentley's backend — correctly not "deferred," since both are already
+underway in other workstreams) / Before Nov 4, ranked (unchanged order, plus the adult-schedule
+editing UI) / **awaiting Bryan's choice** (only School's live authoring flow and visual polish —
+nothing else is left unscheduled); adds a Sunday risk note (trim BACKBONE first, never a family,
+a STORIES event, or the adult-schedules minimum); corrects §9.5's Dana row, which had overclaimed
+"full access" where the evidence (`11c`, `11c2`, `11d`) shows only one bounded `pickup.request`
+grant, and re-checks every other persona row against the same standard; corrects "60–80 connected
+STORIES events" to "60–80 historical events total, grouped into connected stories" everywhere it
+appeared; and updates Area G now that `docs/contracts/ask-rosina.md` exists (PR #20) and already
+correctly reserves this contract's future entries rather than guessing at them.
 
 ## 0. Goal and how to read this
 
@@ -257,7 +270,7 @@ rule.
 only. Stage 2: read — parent/guardian, or a frozen `requiredApproverIds` member; decide — only a
 frozen-list member, **never** "whoever is today's scheduled parent."
 
-**Migrations.** `0028_consent_minimal.sql` (Stage 1, Sunday). `0031_consent_requirement_full.sql`
+**Migrations.** `0028_consent_minimal.sql` (Stage 1, Sunday). `0032_consent_requirement_full.sql`
 (Stage 2, ranked candidate).
 
 ### D. Care information
@@ -304,7 +317,8 @@ task's owner acting on a parent's/guardian's behalf.
 
 **Migration.** `0027_school_reports_and_tasks.sql` — schema and tables ship with the Sunday
 seed-generation work (STORIES needs the rows); the live `fileSchoolReport` mutation being a
-**polished, demoable authoring flow** is a separate, not-yet-promised piece of work (§7).
+**polished, demoable authoring flow** is listed under "awaiting Bryan's choice" (§11), not
+scheduled either way by this contract.
 
 ### F. Coordination types — the shared job engine
 
@@ -355,24 +369,38 @@ audience_members`/`orbit_responses` row (same shape as `candidate_evaluations_re
 id = current_person()`); **zero** INSERT/UPDATE/DELETE grant to `authenticated`, matching `0013`'s
 stated posture exactly.
 
-**Migrations.** `0029_coordination_types_extended.sql`; `0030_orbit_alert_minimal.sql`;
-`0032_supervision_coordination.sql`.
+**Migrations.** `0030_coordination_types_extended.sql`; `0031_orbit_alert_minimal.sql`;
+`0033_supervision_coordination.sql`.
 
 ### G. Ask Rosina's action catalog
 
-`docs/contracts/ask-rosina.md` still does not exist on any branch or worktree visible from here —
-checked again this revision (`git branch -a`, `git worktree list`, and every worktree's own tree)
-— so this section is unchanged from Revision 1: an action is usable only once its underlying
-primitive is itself built, not once a doc describes it.
+**Updated this revision:** `docs/contracts/ask-rosina.md` now exists, on `feat/web-ask-rosina`
+(PR #20, open — Codex Task W3). It is a frontend/service contract Bentley and Codex own; this
+section does not restate it, only states how the two contracts meet. `ask-rosina.md`'s own
+catalog (`web/src/features/rosina/catalog.ts`) already ships five entries, each independently
+marked implemented or mock-only in that document: `open-screen`, `open-person`, and
+`explain-screen` (implemented); `start-pickup` and `explain-recommendation` (mock only — live
+execution unavailable). That document **explicitly reserves** this contract's future action
+entries rather than guessing at them ("Reserved for coordination-v2 — owned by Claude/Bryan, NOT
+defined here") and **explicitly defers** the Family Calendar until this contract's event model
+lands — both already correct, nothing to change on this side.
 
-| Action | Primitive | Status |
+This contract's own rule is unchanged from Revision 1 and now has a live catalog to apply it to:
+**an entry is a usable UI action only once its own backing query/mutation is built — never once a
+doc describes it, and never once a different workstream's catalog has a slot reserved for it.**
+
+| Action (from the original brief) | Primitive | Status |
 | --- | --- | --- |
-| Read schedule | `events`, `practices`, `parentingSchedule` | primitives exist; action wrapper **NEW-PROPOSED** |
+| Read schedule | `events`, `practices`, `parentingSchedule` | primitives exist; this contract's own action wrapper **NEW-PROPOSED** — distinct from `ask-rosina.md`'s own `open-screen`/`explain-screen`, which already cover *reading* a screen, not yet this contract's schedule semantics |
 | Explain a rule | `householdPolicy` | primitive exists; action wrapper **NEW-PROPOSED** |
-| Propose an event | Area A | blocked on A |
-| Request consent | Area C | blocked on C (Stage 1 unblocks a minimal version) |
-| Propose a parenting swap | Area B | blocked on B |
-| Suggest Orbit | Area F, **suggest only** — Rosina may never call `activateOrbitAlert` itself | blocked on F, permanently restricted even once built |
+| Propose an event | Area A | blocked on A — **not implemented** in the live catalog until A ships |
+| Request consent | Area C | blocked on C (Stage 1 unblocks a minimal version) — **not implemented** until then |
+| Propose a parenting swap | Area B | blocked on B — **not implemented** until then |
+| Suggest Orbit | Area F, **suggest only** — Rosina may never call `activateOrbitAlert` itself | blocked on F — **not implemented** until then, and permanently restricted to "suggest" even once built |
+
+Every row above stays "not implemented" in `web/src/features/rosina/catalog.ts` until its backing
+Area ships — the catalog's own `implemented: false` convention (already established by `start-
+pickup`/`explain-recommendation`) is the correct mechanism; nothing new is needed to express it.
 
 ---
 
@@ -509,9 +537,12 @@ form.
 the early pickup this requires creates a one-off Area B exception (a handoff-time shift), tying
 Area E (school), Area B (schedule), and this section together in one connected story.
 
-**Migration.** `0033_adult_schedules.sql` — **flagged in §9 as a candidate for deferral, not
-committed to either the Sunday or the pre-Nov-4 tier**, since point 3's own Sunday list and ranked
-candidate list do not name it. Bryan should confirm whether it ships at all before Nov 4.
+**Migrations.** Split across two tiers (§11), numbered in application order: `0029_adult_
+schedules_minimum.sql` — **Sunday ships the minimum**: seeded `BusySlot` rows for the people
+Scenarios 9–11 actually name, plus the `busyStatus` (busy/free-only) read those scenarios need.
+`0034_adult_schedules_editing.sql` — **Before Nov 4** ships the rest: `myScheduleDetail`, the
+`visibility`/`DETAIL_TO_*` gating logic in full, and any UI for creating or editing a `BusySlot`
+rather than reading a seeded one.
 
 ---
 
@@ -539,7 +570,7 @@ strictly separate, per this revision's instruction.
 | --- | --- | --- | --- |
 | **Recurring routine definitions** | n/a — templates, not occurrences | ~4 per family × 6 families (school-day pattern, one activity, bedtime, parenting handoff/weekly-split) | **~24 definitions** |
 | **BACKBONE** (generated occurrences) | Sep 1 – Oct 29 (~59 days) | mechanical expansion of the definitions above across all 6 families' ~10 children — school days, activities, bedtime, handoffs; deliberately light filler, not meant to be read individually | **~600–900 generated rows** (estimate — exact count depends on each family's actual weekly pattern once written, not a promise) |
-| **STORIES** (the connected, meaningful layer) | Oct 19 – 25 | the 60–80 connected historical **events** the task specifies, **once, across the whole ecosystem** — Nora's stories stay central (completed pickup, unavailable caregiver, `NO_TRANSPORT` reply + approval, early-dismissal → coordination → outreach → confirmation chain, past consent decision, verified allergy, cancelled practice, moved recital, approved swap); the other five families contribute **selected** stories inside the same 60–80 total, not an additional budget — e.g. Emma's teacher-shares-narrower-scope moment, Taylor's cross-household birthday invite, Micah/Avery's competing-activity conflict, Malik's night-shift coverage chain, Scenario 7's homework follow-up | **60–80 events total** |
+| **STORIES** (the connected, meaningful layer) | Oct 19 – 25 | **60–80 historical events total, grouped into connected stories** — once, across the whole ecosystem, not per family. Nora's stories stay central (completed pickup, unavailable caregiver, `NO_TRANSPORT` reply + approval, early-dismissal → coordination → outreach → confirmation chain, past consent decision, verified allergy, cancelled practice, moved recital, approved swap); the other five families contribute **selected** stories inside the same total, not an additional budget — e.g. Emma's teacher-shares-narrower-scope moment, Taylor's cross-household birthday invite, Micah/Avery's competing-activity conflict, Malik's night-shift coverage chain, Scenario 7's homework follow-up | **60–80 events total** |
 | **UPCOMING** | Oct 30 – Nov 30 | open field-trip consent, partially-confirmed school closure, Thanksgiving arrangement, one still-unapproved swap request, one genuinely unconfirmed coverage need, plus ordinary upcoming calendar entries per family | **~15–20 records** |
 
 Dana (`p_dana`) is absent from **all** history before 2026-10-24, exactly as already implemented
@@ -602,17 +633,23 @@ See §5.6 — the table there **is** this deliverable; not duplicated here.
 
 ### 9.5 Expected visibility per persona
 
+**Rule for reading this table, stated once so no row implies more than it means:** "everything"
+appears only where the person holds unbounded **parent/guardian authority** for that child (§3 —
+not a grant, so there is no narrower scope to list). Every grant-holder's row instead names the
+**specific** grant and what it does and does not reach — "everything" is never shorthand for a
+grant-holder's access, including a grant-holder who happens to be a relative.
+
 | Persona | Can see | Cannot see |
 | --- | --- | --- |
-| Kendra (`p_mom`) | everything for Nora; Tigers roster/coach for any team Nora's on | Jax's/Emma's/Taylor's/Micah's/Malik's care plans, schedules, or consent records — no grant exists |
-| Andre (`p_dad`) | everything for Nora | same as Kendra |
-| Loretta (`p_gma`) | Nora's pickup-relevant data (her own grants); after §5.6, a pickup-candidate-shaped view of Avery (Lee household) | Avery's care plan/schedule; anything about Jax, Emma, Taylor, Malik |
-| Priya (`p_priya`) | Nora's care plan/schedule (her grant) **and** Malik's schedule only (her separate, narrower grant) | Malik's care plan (not granted); anything about Nora's household from the Malik side or vice versa |
-| Dana (`p_dana`) | everything for Jax; nothing in Nora's history before 2026-10-24, full access to Nora's data from that date forward once her relationship/grant exist | any pre-2026-10-24 record naming her in Nora's village (none exist) |
-| Rosa Castellano (new, Castellano) | everything for Emma (guardian authority, §3); Room 12 roster | Emma's teacher's `careplan.read` was never granted to her **for** Emma — n/a, she already holds full authority; cannot see any other family's data |
-| Felicia Reyes (new, Vance–Reyes) | everything for Taylor; Skye's existence via the shared-sibling relationship, not Skye's care plan | Skye's care plan/consent (Darnell/Imani's side); Marcus's own schedule beyond what he discloses |
-| Simone Lee (new, Lee) | everything for Micah and Avery (co-equal with Denise) | anything about the other five families |
-| Dwayne Ferris (new, Ferris) | everything for Malik | Cassandra's or Oscar's own personal schedules beyond busy/free; anything about the other five families |
+| Kendra (`p_mom`) | everything for Nora (full parent authority, not grant-bounded); Tigers roster/coach for any team Nora's on | Jax's/Emma's/Taylor's/Micah's/Malik's care plans, schedules, or consent records — no grant exists |
+| Andre (`p_dad`) | everything for Nora (full parent authority) | same as Kendra |
+| Loretta (`p_gma`) | **only** what her own grants name for Nora (`pickup.request`, `schedule.read`, `goals.read` — `src/fixtures.ts:305`); after §5.6, a separate, equally bounded `pickup.request` grant for Avery | Nora's care plan (no `careplan.read` grant); Avery's care plan or schedule beyond `pickup.request`; anything about Jax, Emma, Taylor, Malik |
+| Priya (`p_priya`) | for Nora: `supervise.request`, `schedule.read`, `careplan.read` (`g_priya`); for Malik: `supervise.request`, `schedule.read` **only** — a separate, narrower grant (`g_priya_malik`, §5.5) | Malik's care plan (not granted in `g_priya_malik`); anything about Nora's household from the Malik side or vice versa |
+| **Dana (`p_dana`)** | everything for **Jax** (full parent authority, unrelated to the point below); for **Nora**: nothing before her relationship is even `DISCOVERED` (2026-10-24, `src/fixtures.ts:200`); from Kendra's approval onward (`docs/evidence/11c`, `11c2`), **only** what that one bounded grant allows — `pickup.request` alone (`docs/evidence/11d`: she appears as a pickup candidate, nothing more) | Nora's schedule, care plan, goals, or anything else outside `pickup.request` — the grant was never widened, so neither is her visibility; no pre-2026-10-24 record in Nora's village names her (none exist) |
+| Rosa Castellano (new, Castellano) | everything for Emma (full **guardian** authority, §3 — structurally identical to parent authority, not a grant, so there is no narrower scope to list) | any other family's data; nothing of Emma's was ever withheld from her specifically, since her authority isn't grant-shaped in the first place |
+| Felicia Reyes (new, Vance–Reyes) | everything for Taylor (full parent authority); Skye's existence via the shared-sibling relationship only, not Skye's data | Skye's care plan/consent (Darnell's/Imani's side); Marcus's own schedule beyond what his own `BusySlot` visibility discloses |
+| Simone Lee (new, Lee) | everything for Micah **and** Avery — each a full parent authority, co-equal with Denise, not a grant | anything about the other five families |
+| Dwayne Ferris (new, Ferris) | everything for Malik (full parent authority) | Cassandra's or Oscar's own personal schedules beyond busy/free (§6); anything about the other five families |
 
 ### 9.6 Persona picker
 
@@ -635,35 +672,71 @@ existing 28-table baseline is untouched.
 | 2 | `0024_events_status_participants.sql` | A | Sunday |
 | 3 | `0025_care_facts.sql` | D | Sunday |
 | 4 | `0026_holiday_arrangements.sql` | B | Sunday |
-| 5 | `0027_school_reports_and_tasks.sql` | E | Sunday (schema/seed only — live mutation not promised) |
+| 5 | `0027_school_reports_and_tasks.sql` | E | Sunday (schema/seed only — live mutation awaiting Bryan's choice) |
 | 6 | `0028_consent_minimal.sql` | C, Stage 1 | Sunday |
-| 7 | `0029_coordination_types_extended.sql` | F (enum/constraint only) | Before Nov 4, rank 1 (cheap, could move earlier) |
-| 8 | `0030_orbit_alert_minimal.sql` | F, Orbit | Before Nov 4, rank 1 |
-| 9 | `0031_consent_requirement_full.sql` | C, Stage 2 | Before Nov 4, rank 2 |
-| 10 | `0032_supervision_coordination.sql` | F, Supervision | Before Nov 4, rank 3 |
-| 11 | `0033_adult_schedules.sql` | §6 | **Flagged for Bryan's confirmation — not committed to either tier** |
+| 7 | `0029_adult_schedules_minimum.sql` | §6, minimum slice | Sunday |
+| 8 | `0030_coordination_types_extended.sql` | F (enum/constraint only) | Before Nov 4, rank 1 (cheap, could move earlier) |
+| 9 | `0031_orbit_alert_minimal.sql` | F, Orbit | Before Nov 4, rank 1 |
+| 10 | `0032_consent_requirement_full.sql` | C, Stage 2 | Before Nov 4, rank 2 |
+| 11 | `0033_supervision_coordination.sql` | F, Supervision | Before Nov 4, rank 3 |
+| 12 | `0034_adult_schedules_editing.sql` | §6, full editing UI | Before Nov 4, rank 4 |
 
-Numbers re-checked at implementation time (§2).
+No migration in this contract is unscheduled — the two genuinely open items (§11's "awaiting
+Bryan's choice") are documentation/UI-polish work, not schema. Numbers re-checked at
+implementation time (§2).
 
 ---
 
-## 11. Schedule — three tiers
+## 11. Schedule — four tiers
 
 ### SUNDAY TARGET (committed)
 
-Events (A) + Care info (D) + the seed generator **with Cast v2** (all six family networks, §5,
-§8) + Holiday precedence (B) + single-approver, `PermissionSlip`-based Consent (C, Stage 1). The
-Authority model (§3) ships alongside these as a prerequisite — Cast v2 cannot work without it,
-since Emma's household would otherwise be locked out of everything. School's tables (E) ship for
-the seed generator's sake; its live authoring mutation is not promised by Sunday.
+Authority model (§3, prerequisite — Cast v2 cannot work without it, since Emma's household would
+otherwise be locked out of everything) + Events (A) + **Adult schedules, minimum slice** (§6:
+seeded `BusySlot` rows for the people Scenarios 9–11 actually name, plus the `busyStatus`
+busy/free-only read those scenarios need — the full editing UI is a Before-Nov-4 item, ranked
+below) + Care information (D) + the seed generator **with Cast v2** (all six family networks, §5,
+§8) + Holiday precedence (B) + single-approver, `PermissionSlip`-based Consent (C, Stage 1).
+School's tables (E) ship alongside these for the seed generator's sake; its live authoring
+mutation is a separate, not-yet-promised piece of work (see "awaiting Bryan's choice" below).
+
+**Risk note.** If Sunday's time runs short, **trim BACKBONE generated-occurrence rows first** —
+fewer weeks of mechanical routine filler, which the task itself calls "light... not meant to be
+read individually" (§8). **Never**, as a way to save time, drop a family, drop a STORIES event, or
+drop the adult-schedules minimum slice — those are the connected, meaningful, and scenario-blocking
+pieces; BACKBONE is the one layer built to be cut first without anyone noticing.
+
+### P0 — PARALLEL WORK (other workstreams, already underway — not deferred)
+
+A capability being actively built in another workstream is never "deferred"; it is simply not this
+contract's own critical path. Two such workstreams run alongside the Sunday/Before-Nov-4 work
+above:
+
+- **The persona picker** — Codex Task W2, PR #19 (`feat/web-persona-picker`, open). Adds the
+  six-persona demo entry point and private-session cleanup. §9.6's four new personas (Rosa
+  Castellano, Felicia Reyes, Simone Lee, Dwayne Ferris) are additions to the file this PR
+  establishes (`web/src/features/personas/personaData.ts`), landing once this contract's families
+  exist to add them for.
+- **Live Ask Rosina integration** — Codex Tasks W3 (`feat/web-ask-rosina`, PR #20, open:
+  `docs/contracts/ask-rosina.md` now exists on that branch) and W4 (unscripted/cross-persona
+  testing, per that contract's own "Bentley delivery needed" section), **plus** Bentley's matching
+  backend — demo login, the Rosina service itself, reset, and create-demo-family. `ask-rosina.md`
+  already reserves this contract's future action entries explicitly ("Reserved for
+  coordination-v2 — owned by Claude/Bryan, NOT defined here") rather than guessing at them, and
+  already defers the Family Calendar until this contract's event model lands — both exactly
+  correct from that side. **Area G below covers only the catalog-wiring question once both
+  contracts exist: an entry is a usable UI action only once its *backing* query/mutation is
+  itself built — v2's own action entries stay marked "not implemented" in that catalog until
+  Areas A–F ship behind them, which is a statement about sequencing, not about this being
+  deferred work.**
 
 ### BEFORE NOV 4 (remaining build time, Mon–Tue) — ranked candidates, in priority order
 
 **1. Orbit, minimal slice.** This is a requested capability, not something to classify as
 deferred — the concrete tradeoff, as asked:
 
-- **Exact migrations:** `0029_coordination_types_extended.sql` (enum widening, all three new
-  types at once) + `0030_orbit_alert_minimal.sql` (`orbit_alerts`, `orbit_audience_members`,
+- **Exact migrations:** `0030_coordination_types_extended.sql` (enum widening, all three new
+  types at once) + `0031_orbit_alert_minimal.sql` (`orbit_alerts`, `orbit_audience_members`,
   `orbit_responses` — **no location field anywhere in this slice**).
 - **States:** `PENDING_ACTIVATION → ACTIVE → CLOSED` only — no richer sub-states.
 - **Actions:** `activateOrbitAlert`, `respondToOrbitAlert` (three response values), `closeOrbit
@@ -678,8 +751,8 @@ deferred — the concrete tradeoff, as asked:
 - **Estimate:** roughly 1.5–2 days for migration + resolvers + the one Mission Control card + the
   tests above. **This is an estimate, not a promise** — it depends on how much of Mission
   Control's existing rendering is reusable versus needing new chrome.
-- **What it pushes aside:** `ConsentRequirement`'s full generality and `SUPERVISION` both stay
-  unbuilt through this window, per the priority order below.
+- **What it pushes aside:** `ConsentRequirement`'s full generality, `SUPERVISION`, and the
+  adult-schedule editing UI all stay unbuilt through this window, per the priority order below.
 - **What remains unproven even after this slice ships:** the parent-only last-check-in view (no
   location plumbing exists yet in the minimal slice, so "parents still see the last check-in in
   their own view," from the original task, is **not yet satisfied** — stated honestly, not
@@ -688,24 +761,23 @@ deferred — the concrete tradeoff, as asked:
   broadcast-to-a-frozen-list shape is a new call pattern into that same pipe, unproven); and any
   UI for editing `orbit_notify_eligible` itself (seeded directly, not editable yet).
 
-**2. `ConsentRequirement` generality** (`0031_consent_requirement_full.sql`) — upgrading Stage 1's
+**2. `ConsentRequirement` generality** (`0032_consent_requirement_full.sql`) — upgrading Stage 1's
 single named approver to the frozen multi-approver list with a deadline and `EXPIRED` handling.
 
-**3. `SUPERVISION`** (`0032_supervision_coordination.sql`) — `request_supervision`, reusing
+**3. `SUPERVISION`** (`0033_supervision_coordination.sql`) — `request_supervision`, reusing
 pickup's machine and the existing `supervisionCandidates` ranking.
 
-### EXPLICITLY DEFERRED — only what Bryan confirms
+**4. Adult-schedule editing UI** (`0034_adult_schedules_editing.sql`) — `myScheduleDetail`, full
+`visibility`/`DETAIL_TO_*` gating, and the UI to create/edit a `BusySlot` rather than only read a
+seeded one (the Sunday minimum slice is read-only, seeded data).
 
-Nothing is deferred by this contract's own authority. Candidates raised for Bryan to confirm or
-reject:
+### AWAITING BRYAN'S CHOICE
 
-- **Adult schedules (§6)** — not named in either tier above by the task itself; raised here rather
-  than assumed.
-- **Ask Rosina action-catalog wiring (G)** — blocked on Codex's `ask-rosina.md`, which still does
-  not exist on any branch as of this revision; cannot be scheduled against a document that isn't
-  written.
-- **School's live `fileSchoolReport` authoring flow** — the schema/seed half ships Sunday; turning
-  it into a polished, demoable mutation is separate, unscheduled work.
+Not deferred by this contract's own authority — these are the two genuine candidates for
+deferral, named so Bryan can decide, not assumed either way:
+
+- **School's live `fileSchoolReport` authoring flow** — the schema/seed half ships Sunday (item 5,
+  §10); turning it into a polished, demoable mutation is separate, unscheduled work.
 - **Visual-intent polish (§7)** beyond what the existing per-resolver scoping already produces for
   free.
 
@@ -750,16 +822,25 @@ America/Detroit.
 
 ## 13. Summary for Bryan (one screen)
 
+**This revision addresses your feedback and, pending your sign-off below, this contract is ready
+for approval.**
+
 - All eight Revision-1 recommendations are now **Decided (2026-10-30)** — including the fourth
   `SUPERVISION` coordination type and "no location of any kind to the Orbit audience, ever."
 - **Migration numbers restarted at `0023`** — `feat/level-b-drafts` (PR #9) already claimed
   0021/0022 and merges first; every number here is a placeholder, re-checked at implementation
   time.
-- **Three-tier schedule, not one deadline:** Sunday commits Events, Care info, the seed generator
-  with all six Cast v2 families, Holiday precedence, and a minimal single-approver Consent. Before
-  Nov 4, ranked: Orbit's minimal slice (concrete migrations/states/UI/tests/estimate above), then
-  Consent's full generality, then Supervision. Adult schedules and the Ask Rosina wiring are
-  raised for your confirmation, not assumed deferred.
+- **Four tiers, not three, and not one deadline:** **Sunday** commits the Authority model, Events,
+  the adult-schedules *minimum* slice, Care info, the seed generator with all six Cast v2
+  families, Holiday precedence, and minimal single-approver Consent — with an explicit risk note
+  to trim BACKBONE filler first if time is short, never a family, a STORIES event, or the
+  adult-schedules minimum. **P0 parallel work** — the persona picker (PR #19) and live Ask Rosina
+  integration (PR #20 + Bentley's backend) — runs alongside, correctly not labeled deferred just
+  because it isn't this contract's own critical path. **Before Nov 4**, ranked: Orbit's minimal
+  slice (concrete migrations/states/UI/tests/estimate inside), then Consent's full generality,
+  then Supervision, then the adult-schedule editing UI. **Awaiting your choice**, not assumed
+  either way: School's live authoring mutation, and visual-intent polish beyond what per-resolver
+  scoping already gives for free.
 - **Authority is now explicitly four separate facts**, not three role labels — the fix is four
   literal line-level edits (`0001_schema.sql:28`, `0003_rls.sql:18`, `0010_derived_query_helpers.
   sql:59`, `src/authz.ts:100`/`114`); every other RLS policy and resolver call site (30+ of them,
@@ -768,7 +849,12 @@ America/Detroit.
   household, a blended family with delegated authority, a two-mother household, a night-shift
   single-father household) and seven concrete cross-family connections, each stating exactly what
   each side can and cannot see — none of it touches the Ellisons or Colemans.
+- **Corrected this revision:** §9.5's Dana row overclaimed "full access to Nora's data" — fixed to
+  match the actual evidence (`11c`, `11c2`, `11d`): her relationship is `DISCOVERED`, and her only
+  access is the one bounded `pickup.request` grant Kendra approved, nothing wider. Every other
+  persona row was re-checked against the same standard: "everything" now appears only where the
+  person holds unbounded parent/guardian authority, never as shorthand for a grant.
 - **Seed budget restated precisely:** ~24 recurring routine definitions, ~600–900 generated
-  backbone rows (estimate), 60–80 connected STORIES events across the **whole** ecosystem (not
-  per-family), ~15–20 UPCOMING records — all in a separate checksum baseline from the existing
-  28-table one.
+  backbone rows (estimate), **60–80 historical events total, grouped into connected stories**,
+  across the **whole** ecosystem (not per-family), ~15–20 UPCOMING records — all in a separate
+  checksum baseline from the existing 28-table one.
