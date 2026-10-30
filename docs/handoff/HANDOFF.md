@@ -805,3 +805,71 @@ companion contracts/handoff only. UI complete · backend pending · mock integra
 live NOT DONE. No credentials needed or accessed.
 Published draft PR **#22**: https://github.com/Pettybytes/fridgegraph/pull/22.
 Implementation c582c1f; GitHub reported MERGEABLE. Not merged. Live integration remains NOT DONE.
+
+### PR #22 follow-ups — anonymous scale and Demo guide
+
+Same feat/web-village-v2 branch/worktree. Source classification remains mock/unavailable;
+counts, graph layout and connections are derived from recorded fictional memberships.
+Tigers: 4 children (family total unavailable because Zion's family is unspecified); Room 12:
+4 students (the prompt's 5 was an example, not a recorded fixture fact); Route 14: 3 children
+from 3 networks. Normal roster projections now include only identities in the viewer's child
+scope. Rosa gets class scale but no foreign child names. This supersedes the earlier broader
+team-directory name projection; original evidence is retained as historical, not current proof.
+Tomás's village person record now uses Tomás Castellano, matching the calendar source.
+
+Demo guide has a separate picker card with the exact fictional-ecosystem disclaimer, a read-only
+mock overview of six family clusters, shared team/class/bus/sitter/helper edges and family
+village drilldowns. Sandbox banner retained. No parent/guardian authority is assigned to the
+guide persona itself; selecting it is not a real authentication mechanism.
+
+**Task E requirement:** deliver a server-enforced, sandbox-only, read-only Demo guide scope,
+with scoped discovery/session claims and no data-changing catalog actions. Also deliver
+permission-safe aggregate counts separately from name/identity reads. No browser ID, relationship
+label, or client-filtered result may grant broad live access. Exact wire fields await delivery.
+
+### W4 readiness audit — after PR #22 follow-ups
+
+Fetched origin/main remains ad720de. Checked this HANDOFF plus the read-only handoffs in
+fridgegraph-level-b and fridgegraph-rosina-service. Task E progress in level-b reports Groups
+0/E-2/E-1 and 1/E0 complete on unmerged work; Groups 2–5 not started. E0 adds no Rosina tools.
+Rosina service checkout contains uncommitted implementation work but no “Rosina tools available”
+readiness entry. That work is not a delivered frontend integration contract. No credentials read,
+no database actions or services started, no speculative endpoint/auth fields implemented.
+
+| W4 service/surface | UI | Backend readiness observed | Integrated + tested |
+|---|---|---|---|
+| Demo login/reset/create family | mock complete | no delivered Task E API/session contract | mock only; live NOT DONE |
+| POST /api/rosina | mock complete | service WIP; readiness marker absent | live NOT DONE |
+| jobTimeline / Attempt.candidate | derived feed / unknown channel | no delivered reads in main | live NOT DONE |
+| v2 event/busy/care/holiday reads | mock calendar complete | Task E Groups 2–5 not started | live NOT DONE |
+| Guide scope + aggregate scale | mock complete | Task E requirement above | live NOT DONE |
+
+W4 starts per delivered service in its own branch/worktree after readiness is recorded. Required
+live acceptance: Kendra/Rosa/Priya/Dana/guide compare Village, Calendar, Mission Control and one
+Rosina answer per surface; test synchronous persona cleanup; 3 unscripted questions + 2 followups
+per persona, denied and ambiguous requests, created-family query/Rosina visibility then reset
+absence; one Playwright E2E per persona. Record every model error verbatim and cross-surface
+mismatch. None of these live runs has happened; no live model mistakes or consistency results
+can honestly be reported yet. Mock success does not satisfy W4 and is never marked DONE.
+Source gaps retained honestly: Vance–Reyes has no recorded team/class/bus/sitter connection in
+the current Cast v2 slice, so the guide shows its cluster with “No shared connections recorded”
+instead of manufacturing a cross-family edge. Task E can supply such an edge when seeded.
+Zion's family mapping is likewise needed before Tigers can show a total family count.
+
+Follow-up verification actually run: **137 web tests PASS**; root typecheck PASS; production
+build PASS (existing chunk-size advisory); three refreshed Playwright flows PASS for Kendra,
+Rosa and Demo guide, including counts, forbidden identities, source full name, guide drilldown,
+mobile overflow and persona-switch isolation. Guide viewport cropping found by screenshot
+inspection was corrected; both family rows and all recorded shared edges now fit the diagram.
+Screenshots/proof: web/evidence/village-v2/follow-ups/ (desktop/mobile for all three personas).
+
+| Follow-up surface | UI | Backend (Bentley/Claude Code) | Integrated + tested |
+|---|---|---|---|
+| Anonymous connection scale | complete on mocks | aggregate read contract pending | mock tested; live NOT DONE |
+| Demo guide | complete on mocks | Task E sandbox scope pending | mock tested; live NOT DONE |
+| W4 cross-surface consistency | acceptance queued | required service deliveries pending | NOT RUN; NOT DONE |
+
+Final readiness recheck: origin/main still ad720de; open backend PR #23 is E0 mint-path work,
+not the required v2/auth/Rosina reads. Rosina readiness marker still absent. W4 cannot start on
+these undelivered services; do not label a mock-backed end-to-end run as live evidence.
+Follow-up staged secret scan PASS: 295 files, zero findings. Diff remains web + companion docs.

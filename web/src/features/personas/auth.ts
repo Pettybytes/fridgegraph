@@ -1,8 +1,9 @@
 import type { Scope } from '@/lib/frontendData/types'
-export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone'
+export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone' | 'demo-guide'
 export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'calendar' | 'village' }
 // Mock identity/scope examples from src/fixtures.ts and coordination-v2 Cast; never credentials or production authorization.
 export const personas: readonly Persona[] = [
+  { id:'demo-guide', personId:'p_demo_guide', name:'Demo guide', role:'Demo guide: sees the whole fictional ecosystem. No real family would have this view.', childId:'p_nora', childName:'Nora Ellison', villageId:'v_nora', grants:[], parent:false, initialRoute:'village' },
   { id: 'kendra', personId: 'p_mom', name: 'Kendra', role: "Nora's mom", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: [], parent: true },
   { id: 'andre', personId: 'p_dad', name: 'Andre', role: "Nora's dad", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: [], parent: true },
   { id: 'loretta', personId: 'p_gma', name: 'Loretta', role: "Nora's grandma · pickup, schedule and goals", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: ['pickup.request', 'schedule.read', 'goals.read'], parent: false },

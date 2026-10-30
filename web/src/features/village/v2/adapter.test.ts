@@ -2,7 +2,7 @@ import { describe,it,expect } from 'vitest'
 import { createMockRosinaAdapter } from '@/features/rosina/adapter'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { networks } from './fixture'
-import { connections,readVillage,villageChildren } from './adapter'
+import { connections,readVillage,villageChildren,ecosystem,GUIDE_ID } from './adapter'
 describe('Cast v2 scoped village projections',()=>{
  it('contains six networks and ten family children, with cross-household support facts',()=>{
   expect(networks).toHaveLength(6)
@@ -17,7 +17,7 @@ describe('Cast v2 scoped village projections',()=>{
  })
  it('Kendra can see the team directory but cannot traverse to another private village',()=>{
   const data=readVillage('p_mom','p_nora')
-  expect(connections(data,'g_tigers').map(p=>p.name)).toEqual(['Nora Ellison','Jax Coleman','Micah','Zion','Marcus Reyes'])
+  expect(connections(data,'g_tigers').map(p=>p.name)).toEqual(['Nora Ellison','Marcus Reyes'])
   expect(data.people.some(p=>p.id==='p_jax')).toBe(false)
   expect(connections(data,'p_jax')).toEqual([])
   expect(()=>readVillage('p_mom','p_jax')).toThrow('UNAUTHORIZED')
@@ -60,4 +60,23 @@ it('does not answer with Nora care information in Priya’s Malik village contex
  const reply=await createMockRosinaAdapter({...session,generation:1}).send({message:'Can this child have a peanut snack?',currentRoute:'#/village?childId=p_malik',history:[]})
  expect(reply.reply).toContain("I can't confirm that yet")
  expect(reply.reply).not.toMatch(/Nora|Peanut allergy/)
+})
+
+it('separates visible scale from hidden identities for Kendra and Rosa',()=>{
+ const kendra=readVillage('p_mom','p_nora'),rosa=readVillage('p_rosa','p_emma')
+ expect(kendra.directories.find(d=>d.id==='g_tigers')).toMatchObject({countLabel:'4 children',roster:[{id:'p_nora',name:'Nora Ellison'}]})
+ expect(JSON.stringify(kendra)).not.toMatch(/Jax|Micah|Zion|p_jax|p_micah|p_zion/)
+ expect(rosa.directories[0].countLabel).toBe('4 students')
+ expect(JSON.stringify(rosa)).not.toMatch(/Nora|Jax|Micah|Zion/)
+ expect(kendra.directories.find(d=>d.id==='g_route14')?.countLabel).toBe('3 children from 3 families')
+})
+it('grants only the explicit mock guide all six clusters and recorded shared edges',()=>{
+ const guide=ecosystem()
+ expect(guide.networks).toHaveLength(6)
+ expect(guide.shared.find(s=>s.id==='p_priya')?.networkIds).toEqual(['ellison','ferris'])
+ expect(guide.shared.find(s=>s.id==='p_gma')?.networkIds).toEqual(['ellison','lee'])
+ expect(guide.shared.find(s=>s.id==='g_room12')?.networkIds).toEqual(['ellison','coleman','castellano','lee'])
+ expect(villageChildren(GUIDE_ID)).toHaveLength(10)
+ expect(readVillage(GUIDE_ID,'p_skye').people.some(p=>p.id==='p_imani')).toBe(true)
+ expect(()=>readVillage('p_mom','p_skye')).toThrow('UNAUTHORIZED')
 })
