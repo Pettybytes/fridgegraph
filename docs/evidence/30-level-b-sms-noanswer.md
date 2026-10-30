@@ -346,3 +346,76 @@ Practical lifetime of that window: an answer is still accepted while the job is 
 `awaiting_approval`, until one of — the job goes terminal, the attempt is closed by an outcome, or a
 new attempt-creation for the same contact sweeps the stale attempt. This is the honest bound the
 Session 3 runbook must quote; the policy was not changed to make the test pass.
+
+---
+
+## B5 — D5: real first names in Rosina's say lines
+
+**Changed:** `ops/voice-turn-server.mjs`. Names are resolved **server-side from the attempt**, and a
+missing name becomes `the family` — Rosina never reads a placeholder.
+
+| Name | Source | Fallback |
+|---|---|---|
+| child | `coordination_jobs.child_id` → `people.display_name`, first token | `the family` |
+| requester | the parent scheduled for the job's `as_of` — the same rule `_is_approver_for` uses; only when **exactly one** parent matches | `the family` |
+
+Requester resolution is deliberately strict. `p_nora` is in two households with two parents
+(`Kendra Ellison`, `Andre Ellison`), so "who asked" is only unambiguous when the parenting schedule
+names one parent for that date (Wed → Kendra, Thu → Andre). Anything else says "the family" rather
+than guessing between two parents. Nothing is caller-supplied and nothing is model-written.
+
+Lines carrying names: the opener (`{requester}` + `{child}`), ACCEPTED (`{child}` + `{requester}`),
+and the failure line (`{requester}`). DECLINED, ESCALATE and END_CALL are unchanged from KB §16.
+`docs/ghl/rosina-kb.md` §16 was updated for the one wording change (the ACCEPTED line now names the
+child), so the guide and the server do not disagree.
+
+### `node ops/voice-turn-check.mjs` — 15/15 passed
+
+```
+PASS  CONTINUE answers under 2 s with one line  163ms say="I'm calling on behalf of Kendra about a …"
+PASS  CONTINUE changed no state  available=null via=null
+PASS  ACCEPTED answers under 2 s with one line  327ms
+PASS  ACCEPTED recorded availability via the shared function  available=true via=WEBHOOK_CALLBACK
+PASS  the same decision replays without a second change  status=200 note=rejected_closed
+PASS  DECLINED records the refusal  available=false reason=BUSY
+PASS  ESCALATE and END_CALL change no state  144ms/138ms
+PASS  bad secret rejected 401  status=401
+PASS  stale timestamp rejected 401  status=401
+PASS  endpoint source contains no approve_pickup call
+PASS  no confirmation was created  before=0 after=0
+PASS  the job was never approved by this endpoint  status=discovering
+PASS  D5: opener names the requester and the child  say="I'm calling on behalf of Kendra about a pickup for Nora. Is now a good t…"
+PASS  D5: the closing line names the requester too  say="Thank you. I've recorded that you're available for Nora's pi…"
+PASS  D5: an unresolved requester falls back to "the family"  say="I'm calling on behalf of the family about a pickup for Nora. Is now a go…"
+SUMMARY 15/15 passed
+```
+
+The 12 original cases are unchanged; the three new ones are opener names, ACCEPTED names, and the
+fallback. The fallback case uses a job with `as_of = null`, which makes the schedule lookup return no
+parent — the honest way to reach that branch, since every real child here has exactly one scheduled
+parent on every day of the week.
+
+### Re-proven through n8n — `node ops/b5-n8n-say-check.mjs`
+
+A real reply injected at the GHL webhook boundary, then the response body read back from the
+deployed workflow's own execution (not from a direct call to the server):
+
+```
+n8n replied 200 {"status":"ACCEPTED","note":"recorded"}
+node "Call Voice Turn" received say: Thank you. I've recorded that you're available for Nora's
+  pickup. Kendra still needs to approve the arrangement, and you'll hear back once it's decided.
+PASS  the tunnel returned a say line through n8n
+PASS  the line names the requester
+PASS  the line names the child
+PASS  the line reads no placeholder
+B5 N8N CHECK OK
+```
+
+Only the voice-turn server (4118) was restarted. cloudflared and loom-tunnel-proxy were not touched.
+
+### One finding, again from D2 behaving correctly
+
+The first run of this script left its job's four attempts open, so the *next* pickup request created
+no attempts at all and `voice-turn-check` fell to 8/15. That is D2 doing its job — the fix was the
+script cleaning up after itself, not a change to the rule. Recorded because it is exactly the wedge
+an operator will hit in Session 3 if a job is abandoned mid-discovery.

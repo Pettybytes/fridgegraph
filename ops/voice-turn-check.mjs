@@ -119,6 +119,33 @@ rec('no confirmation was created', after.rows[0].n === before.rows[0].n,
 const jobStatus = (await db.query(`select status from coordination_jobs where id=$1`, [job])).rows[0].status
 rec('the job was never approved by this endpoint', jobStatus !== 'confirmed', `status=${jobStatus}`)
 
+// --- D5 (B5): real first names, resolved server-side from the attempt ---
+rec('D5: opener names the requester and the child',
+  typeof cont.json.say === 'string' && cont.json.say.includes('Kendra') && cont.json.say.includes('Nora')
+    && !cont.json.say.includes('the family'),
+  `say="${String(cont.json.say).slice(0, 72)}…"`)
+
+rec('D5: the closing line names the requester too',
+  typeof acc.json.say === 'string' && acc.json.say.includes('Kendra'),
+  `say="${String(acc.json.say).slice(0, 60)}…"`)
+
+// Fallback: with no single scheduled parent (as_of null) there is no unambiguous requester, so the
+// line must say "the family" while still naming the child. Fixture only -- removed below.
+const fbJob = 'job_voicecheckfb_' + RUN
+const fbAtt = 'att_voicecheckfb_' + RUN
+await db.query(`insert into coordination_jobs
+    (id, idempotency_key, type, child_id, status, version, request_version, as_of)
+    values ($1,$2,'PICKUP','p_nora','discovering',1,1,null)`, [fbJob, 'voice-check-fb:' + fbJob])
+await db.query(`insert into attempts
+    (id, job_id, channel, at, candidate_id, destination, destination_mode)
+    values ($1,$2,'CALL',now(),'p_priya',null,'TEST_RESPONDER')`, [fbAtt, fbJob])
+const fbCall = await callVoice({ attemptId: fbAtt, decision: 'CONTINUE' })
+rec('D5: an unresolved requester falls back to "the family"',
+  fbCall.status === 200 && String(fbCall.json.say).includes('the family')
+    && String(fbCall.json.say).includes('Nora'),
+  `say="${String(fbCall.json.say).slice(0, 72)}…"`)
+await db.query(`delete from coordination_jobs where id=$1`, [fbJob])
+
 await db.query(`delete from coordination_jobs where id=$1`, [job])
 await db.end()
 

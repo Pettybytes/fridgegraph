@@ -46,17 +46,52 @@ if (!SECRET || !BASE || !SVC || !DB) {
 
 const DECISIONS = new Set(['CONTINUE', 'ACCEPTED', 'DECLINED', 'ESCALATE', 'END_CALL'])
 const SYSTEM_OUTCOMES = new Set(['NO_ANSWER'])
-const SAY = {
-  CONTINUE: "I'm calling on behalf of the family about a pickup. Is now a good time?",
-  ACCEPTED: "Thank you. I've recorded that you're available. The family still needs to approve the arrangement, and you'll hear back once it's decided.",
+
+// D5: say lines carry the requester's and the child's real first names, resolved SERVER-SIDE from
+// the attempt. Never model-written, never taken from a GHL field. If a name cannot be resolved
+// from data, the line says "the family" -- Rosina never reads a placeholder aloud.
+const FAMILY = 'the family'
+const LINE = {
+  CONTINUE: "I'm calling on behalf of {requester} about a pickup for {child}. Is now a good time?",
+  ACCEPTED: "Thank you. I've recorded that you're available for {child}'s pickup. {requester} still needs to approve the arrangement, and you'll hear back once it's decided.",
   DECLINED: 'No problem at all, thanks for letting me know. Have a good day.',
   DECLINED_NO_TRANSPORT: 'No problem at all, thanks for letting me know. Have a good day.',
   ESCALATE: "Thanks for your patience. I've passed this along.",
   END_CALL: 'Thanks for your time. Goodbye.',
-  FAILED: "Thank you. I couldn't confirm your answer was recorded. If this is time-sensitive, please contact the family directly.",
+  FAILED: "Thank you. I couldn't confirm your answer was recorded. If this is time-sensitive, please contact {requester} directly.",
 }
+const say = (key, names) => String(LINE[key] ?? '')
+  .replace(/\{requester\}/g, names?.requester || FAMILY)
+  .replace(/\{child\}/g, names?.child || FAMILY)
 
 const db = new pg.Client({ connectionString: DB, ssl: { rejectUnauthorized: false } })
+
+// D5: resolve the requester and child first names from the attempt itself.
+//   child     -- the job's child_id -> people.display_name
+//   requester -- the parent scheduled for the job's as_of, the SAME rule _is_approver_for uses.
+//                Only when exactly one parent is scheduled is there an unambiguous requester;
+//                otherwise the honest answer is "the family".
+// Every lookup is server-side; nothing here is caller-supplied or model-written.
+const firstName = (s) => (typeof s === 'string' && s.trim() ? s.trim().split(/\s+/)[0] : null)
+async function resolveNames(jobId) {
+  const child = await db.query(
+    `select p.display_name name
+       from coordination_jobs j join people p on p.id = j.child_id
+      where j.id = $1`, [jobId])
+  const req = await db.query(
+    `select p.display_name name
+       from coordination_jobs j
+       join parenting_schedules ps on ps.child_id = j.child_id
+       join people p on p.id = ps.parent_id
+      where j.id = $1
+        and j.as_of is not null
+        and upper(to_char(j.as_of, 'DY')) = any (ps.weekdays)`, [jobId])
+  return {
+    child: firstName(child.rows[0]?.name) || FAMILY,
+    requester: req.rowCount === 1 ? (firstName(req.rows[0].name) || FAMILY) : FAMILY,
+    requesterAmbiguous: req.rowCount !== 1,
+  }
+}
 const send = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)) }
 const readBody = (req) => new Promise((resolve, reject) => {
   const chunks = []; let size = 0
@@ -87,7 +122,10 @@ async function handle(req, res) {
   if (!a.rowCount) return send(res, 404, { error: 'UNKNOWN_ATTEMPT' })
   const row = a.rows[0]
   if (row.status === 'confirmed' || row.status === 'failed')
-    return send(res, 409, { status: 'END_CALL', note: 'terminal', say: SAY.END_CALL })
+    return send(res, 409, { status: 'END_CALL', note: 'terminal', say: say('END_CALL', await resolveNames(row.job_id)) })
+
+  // D5: resolved once per request, from the attempt's own job.
+  const names = await resolveNames(row.job_id)
 
   // D4: a system-observed call outcome. Not a decline, and nothing is spoken.
   if (SYSTEM_OUTCOMES.has(String(decision))) {
@@ -111,7 +149,7 @@ async function handle(req, res) {
 
   // Non-committal turns change nothing.
   if (decision !== 'ACCEPTED' && decision !== 'DECLINED')
-    return send(res, 200, { status: decision, note: 'no_state_change', say: SAY[decision] })
+    return send(res, 200, { status: decision, note: 'no_state_change', say: say(decision, names) })
 
   const available = decision === 'ACCEPTED'
   const reason = available ? null : (typeof declineReason === 'string' ? declineReason : 'OTHER')
@@ -130,20 +168,21 @@ async function handle(req, res) {
   if (!r.ok) {
     const msg = (() => { try { return JSON.parse(text || '{}').message } catch { return null } })()
     console.log(`[voice-turn] ${decision} rejected ${msg} ${Date.now() - started}ms`)
-    if (msg === 'EVENT_ID_CONFLICT') return send(res, 409, { error: 'EVENT_ID_CONFLICT', say: SAY.FAILED })
-    return send(res, 200, { status: decision, note: 'not_recorded', say: SAY.FAILED })
+    if (msg === 'EVENT_ID_CONFLICT') return send(res, 409, { error: 'EVENT_ID_CONFLICT', say: say('FAILED', names) })
+    return send(res, 200, { status: decision, note: 'not_recorded', say: say('FAILED', names) })
   }
   const outcome = (() => { try { return JSON.parse(text) } catch { return 'recorded' } })()
-  const say = available ? SAY.ACCEPTED : (reason === 'NO_TRANSPORT' ? SAY.DECLINED_NO_TRANSPORT : SAY.DECLINED)
+  const line = say(available ? 'ACCEPTED'
+    : (reason === 'NO_TRANSPORT' ? 'DECLINED_NO_TRANSPORT' : 'DECLINED'), names)
   console.log(`[voice-turn] ${decision} ${outcome} ${Date.now() - started}ms`)
-  return send(res, 200, { status: decision, note: String(outcome), say })
+  return send(res, 200, { status: decision, note: String(outcome), say: line })
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method !== 'POST' || !req.url?.startsWith('/voice-turn')) return send(res, 404, { error: 'NOT_FOUND' })
   try { await handle(req, res) } catch (e) {
     console.log('[voice-turn] 500', e.message)
-    if (!res.headersSent) send(res, 500, { error: 'INTERNAL', say: SAY.FAILED })
+    if (!res.headersSent) send(res, 500, { error: 'INTERNAL', say: say('FAILED', {}) })
   }
 })
 

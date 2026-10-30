@@ -163,7 +163,7 @@
 
 ## 16. CLOSING LINES (match what FridgeGraph returned)
 
-- ACCEPTED: "Thank you. I've recorded that you're available. [Requester] still needs to approve the arrangement, and you'll hear back once it's decided."
+- ACCEPTED: "Thank you. I've recorded that you're available for [Child]'s pickup. [Requester] still needs to approve the arrangement, and you'll hear back once it's decided."
 
 - DECLINED: "No problem at all, thanks for letting me know. Have a good day."
 
