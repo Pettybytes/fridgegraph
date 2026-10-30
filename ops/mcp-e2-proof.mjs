@@ -121,7 +121,11 @@ const list = await rpc('tools/list', {})
 const tools = (list.body?.result?.tools ?? []).map((t) => t.name)
 console.log(`  tools exposed: ${tools.join(', ') || '(none)'}`)
 check('0 tools/list succeeds', Array.isArray(tools) && tools.length > 0, tools.join(','))
-check('0 only PickupCandidates is exposed', tools.length === 1 && tools[0] === 'PickupCandidates', tools.join(','))
+// The Rosina read tools (JobTimeline, Attempts) were added to the same operation list by the
+// persona/Rosina-tools task. The boundary this file proves is unchanged, so the guard is now
+// "PickupCandidates is exposed and nothing writable is" rather than "only one tool exists".
+check('0 PickupCandidates is exposed', tools.includes('PickupCandidates'), tools.join(','))
+check('0 no mutation tool is exposed', !tools.some((t) => /^(approve|accept|request|grant|revoke|promote|consume)/i.test(t)), tools.join(','))
 
 const { tokenForPersonId } = await import('./auth.mjs')
 

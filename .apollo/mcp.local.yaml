@@ -11,6 +11,8 @@ operations:
   source: local
   paths:
     - ./ops/PickupCandidates.graphql
+    - ./ops/JobTimeline.graphql
+    - ./ops/Attempts.graphql
 introspection:
   introspect:
     enabled: false

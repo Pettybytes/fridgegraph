@@ -1,0 +1,24 @@
+# Rosina tool: Attempts — who Rosina asked, through which channel, and how it closed.
+#
+# `candidate` is the person the attempt was opened for (null only on a legacy row with no recorded
+# candidate). `destinationMode` is TEST_RESPONDER (simulated) or REAL_CONSENTED (the one consented
+# real-call exception). Authorization is the Attempt row's own visibility.
+query Attempts($jobId: ID) {
+  attempts(jobId: $jobId) {
+    id
+    channel
+    at
+    destinationMode
+    closedAt
+    closedReason
+    job {
+      id
+      status
+      version
+    }
+    candidate {
+      id
+      displayName
+    }
+  }
+}
