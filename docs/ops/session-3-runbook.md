@@ -22,7 +22,7 @@ Hard stops that still hold: no real SMS, Dispatch INACTIVE, `REAL_CALL_EXCEPTION
 | 7 | Dispatch | `… A2vnWF2L58Lvquqg` | `FridgeGraph - Dispatch Pickup Attempt` — **active: false** |
 | 8 | Dial workflow | `python3 ops/ghl-workflows.py` | `FG - Dial Rosina` **6f2b386e-60ed-4848-959b-ed97f1307d92, state=draft** |
 | 9 | 0022 deployed | query `pg_proc` for the live signatures | `open_attempt` **5 args**, `consume_real_call_authorization` **2 args** — the 0014 4-arg form is gone |
-| 10 | Window + daily guard | `node ops/dispatcher.mjs --dry <contactId>` | runs the real reads; last run: contact ok, tz `America/Detroit` (from area code), window ok, local day `04:00Z→04:00Z`, **already-called-today = 0** |
+| 10 | Window + daily guard | `node ops/dispatcher.mjs --dry <contactId>` | runs the real reads; **D6 run 16:55**: contact ok, tz `America/Detroit` (from area code), window ok, local day `04:00Z→04:00Z`, **already-called-today = none** |
 | 11 | Call-history coverage | the guard reads `total` from `GET /voice-ai/dashboard/call-logs` filtered by `locationId` + `contactId` + the local-day `startDate`/`endDate`, **no `agentId` filter** | `total` is the full match count for that filter, independent of `pageSize`, so the cross-agent daily check covers every agent and every page |
 | 12 | Rosina's action query param | GHL → Rosina's `pickup_decision` Custom Action | reads **`{{contact.fg_attempt_id}}`** — the literal rehearsal id is gone. **Confirmed by Bryan (UI), 2026-10-30 16:50 ET.** The API returns 403 on agent detail, so this stays a human confirmation, not a check this token can run |
 | 13 | Contact `fg_` fields | GHL contact | `fg_attempt_id`, `fg_child_name`, `fg_pickup_place`, `fg_pickup_time`, `fg_reason` present |

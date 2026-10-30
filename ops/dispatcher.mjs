@@ -209,15 +209,20 @@ if (isMain) {
   if (a === '--dry') {
     // A CALL dry run needs a REAL contact id: the window guard's checks are live reads and must
     // actually run (D2). A placeholder would prove nothing and hide a 400.
-    const contactId = b
+    // Arguments after --dry: <contactId> [attemptId] [SMS|CALL]. The attempt id is optional and is
+    // recognised by not being a channel name, so `--dry <contactId> CALL` still works.
+    const rest = process.argv.slice(3)
+    const contactId = rest[0]
     if (!contactId) {
       console.log('usage: node ops/dispatcher.mjs --dry <contactId> [attemptId] [SMS|CALL]')
       console.log('  (a real contact id is required — the window guard reads the contact and its call history)')
       process.exit(2)
     }
-    const channel = c || 'CALL'
+    const chanArg = rest.find((x) => /^(SMS|CALL)$/i.test(x))
+    const channel = (chanArg ?? 'CALL').toUpperCase()
+    const attemptId = rest.slice(1).find((x) => x !== chanArg) ?? 'att_dryrun'
     try {
-      const out = await dispatchAttempt({ attemptId: 'att_dryrun', contactId, channel }, { dry: true })
+      const out = await dispatchAttempt({ attemptId, contactId, channel }, { dry: true })
       console.log(JSON.stringify(out, null, 2))
       console.log('dry run: nothing sent. Dispatch remains INACTIVE.')
     } catch (e) {

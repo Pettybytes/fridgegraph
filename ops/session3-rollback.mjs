@@ -220,7 +220,8 @@ console.log('\n4. final state')
               where (attempt_id = a.id or (job_id = a.job_id and candidate_id = a.candidate_id))
                 and consumed_at is null and expires_at > now()) live_auths
        from attempts a where a.id = $1`, [attemptId])).rows[0]
-  step('attempt closed', Boolean(final.closed_at), final.closed_at ? 'yes' : 'NO')
+  step('attempt closed', final.closed_at ? true : (DRY ? null : false),
+    final.closed_at ? 'yes' : (DRY ? 'would be closed by this run (dry)' : 'NO'))
   step('no live authorization', final.live_auths === 0, `${final.live_auths} live`)
 
   const flag = env.REAL_CALL_EXCEPTION_ENABLED
@@ -242,7 +243,8 @@ console.log('\n4. final state')
   const open = (await db.query(
     `select count(*)::int n from attempts where candidate_id = $1 and closed_at is null`,
     [att.candidate_id])).rows[0].n
-  step('no open attempt left for this contact', open === 0, `${open} open`)
+  step('no open attempt left for this contact', open === 0 ? true : (DRY ? null : false),
+    open === 0 ? '0 open' : (DRY ? `would be 0 after the close (${open} open now)` : `${open} open`))
 }
 
 await db.end()
