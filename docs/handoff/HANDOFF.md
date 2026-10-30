@@ -12,7 +12,7 @@ each group is its own branch off the main state it records below, and one PR. Ne
 | Group | Branch | Base | State |
 |---|---|---|---|
 | 0 | `feat/level-b-drafts` (PR #9) | `origin/main` **`ad720de`** | **E-2 DONE, E-1 DONE — waiting on Bryan to merge #9** |
-| 1 | `feat/e-group1` | off `feat/level-b-drafts` **`a5a9ae9`** (PR #9 unmerged; rebase onto main after it merges) | **E0 DONE** |
+| 1 | `feat/e-group1` | off `feat/level-b-drafts` **`a5a9ae9`** (PR #9 unmerged; rebase onto main after it merges) | **E0 DONE — PR #23 (draft, stacked on #9)** |
 | 2 | `feat/e-group2` | | not started |
 | 3 | `feat/e-group3` | | not started |
 | 4 | `feat/e-group4` | | not started |
@@ -68,6 +68,10 @@ authorization. Evidence `34-e0-real-call-mint.md`.
 consumes. **No direct job insert anywhere in the path.**
 
 **Rosina tools:** none added (this step is a mutation path; mutations are never exposed).
+
+**PR #23** (draft, base `main`, stacked on #9 — rebase after #9 merges). Head `60d3cf5`.
+**Next:** Group 2 (E1/E2/E3) branches off `feat/e-group1` while #9 and #23 are unmerged, and rebases
+after each merge.
 
 
 ## 1. State
