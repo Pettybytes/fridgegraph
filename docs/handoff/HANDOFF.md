@@ -446,3 +446,20 @@ displayCopy.test.ts and web/src/features/village/PersonCard.tsx; frontend only.
 Validation: root typecheck, secret scan, web build PASS; **62 web tests PASS**. Playwright CLI
 screenshots: web/evidence/task-w/w1-access-desktop.png and w1-access-mobile.png. No live integration
 claim; W1 remains NOT DONE. Follow-up stack rebase is authorized by Bryan's copy-fix request.
+
+## Task W progress — pre-merge copy review (current)
+
+| Step | PR | Web tests | UI complete | Backend complete (Bentley) | Integrated + tested |
+|---|---|---|---|---|---|
+| W1 | #17 | 62 PASS | yes | primitive reads available; session delivery incomplete | fixture-tested, live untested; NOT DONE |
+| W2 | #19 | 70 PASS | yes | demo login/reset/create unavailable | mock-tested, live untested; NOT DONE |
+| W3 | #20 | 88 PASS | yes | Rosina service/action integration unavailable | mock-tested, live untested; NOT DONE |
+| W4 | — | not run | pending services | unavailable | not tested |
+
+Copy corrections stay on the owning feature branches. No author is recorded on the current care
+plan; sources use “Nora's care plan” without attributing Kendra. W2 groups existing personas and
+reserves portrait space. W3 answers first, cites plain-language evidence and offers role-aware,
+catalog-validated screen cards. Schedule remains unavailable; Family Calendar and future v2
+entries are deferred. Existing visual identity retained. Branch stack is W1 → W2 → W3 with PR
+bases kept on main; final readable-label changes must be included before pushing the rebased tips.
+No main merge, tag, release, server/auth/schema change or live database action was performed.
