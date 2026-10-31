@@ -82,3 +82,40 @@ checks are fixed on their own merits, #33 must not be marked ready.
 `promote_attempt_to_real_consented`, `consume_real_call_authorization`, and the
 `real_call_authorizations` insert policy) and proven by `ops/e2b-proof.mjs`, which I did not re-run in
 this pass.
+
+---
+
+## Pickup regression — RESOLVED (28/28 PASS)
+
+**Baseline comparison, honestly recorded.** `origin/main` had moved to `2898043` (PR #34). The
+worktree comparison could not be run: after `npm ci` in `/tmp/fg-main`, `pg` still did not resolve
+from that checkout (the repo's `pg` is not at the root install path). Instead the code-difference
+claim was settled directly:
+
+```
+git diff --stat origin/main...HEAD
+```
+touches only Orbit files (`src/demo/server.ts`, `src/fixtures-simulated.ts`,
+`src/subgraphs/coordination.ts`, migrations 0031–0037, `supergraph.graphql`) — **no pickup-path file**
+(acceptPickup, webhook functions, attempts, 0021, 0022). The four failures are therefore pre-existing
+test drift, not an Orbit regression. The DB is shared, so the migrations' own SQL is in both runs;
+nothing in 0031–0037 alters a pickup function or constraint, and 0031 only widens a type check.
+
+### Each failure, against the contract
+
+| Check | Root cause | Disposition |
+|---|---|---|
+| `authenticated cannot consume an authorization` — **404** | The test called the **four-arg** signature from 0013/0014. **0022** replaced it with `(p_attempt, p_contact)`. 404 means "function not found", which proves nothing about permission. | Fixed the call to the current signature. The function exists and `has_function_privilege('authenticated', …) = false`; the refusal is now asserted as **403** — real enforcement, not a missing RPC. |
+| `duplicate delivery changes nothing` — `rejected_closed` | **0021 D2**: the first outcome closed the attempt, so a replay is refused **before** the event id is claimed. | Expectation corrected to `rejected_closed` **and** the no-mutation assertion added: `webhook_events` count `1 -> 1`. |
+| `terminal job rejects a late accept` — `rejected_closed` | Same D2 guard: the closed attempt is checked before job state. | Corrected to `rejected_closed` with `webhook_events` rows for that event **0** — the proven no-mutation rule is preserved. |
+| `state rejection recorded as REJECTED_STATE` — `undefined` | The closed-attempt guard made the state branch unreachable from that fixture. | Added a **contract-valid** fixture: an **open** attempt on the now-terminal job (`att_state_open`, fresh candidate, inserted then removed). It returns `rejected_state` and records `REJECTED_STATE`. |
+
+**Test-only change, separate commit** `c38a292`, with the migration citations above and no broadening
+of accepted outputs.
+
+### Re-run — `FRIDGEGRAPH_ROUTER=http://127.0.0.1:4012/`, branch checkout `feat/o-orbit` (router 4012, subgraphs 4101–4107 from this checkout, after `db:reset` + `seed`)
+
+**28 PASS / 0 FAIL.** The four former failures now read:
+`consume → 403`, `duplicate → rejected_closed, events 1->1`,
+`closed attempt on terminal job → rejected_closed, 0 event rows`,
+`OPEN attempt on terminal job → rejected_state, REJECTED_STATE`.
