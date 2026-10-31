@@ -67,7 +67,7 @@ const priya = await token('p_priya');
 const kendra = await token('p_mom');
 const dana = await token('p_dana');
 
-const Q = `{ myChildren { child { id } scopes } }`;
+const Q = `{ myChildren { child { id person { displayName } } scopes } }`;
 const mine = (await gql(priya, Q)).data?.myChildren ?? [];
 const malik = mine.find((c) => c.child.id === 'p_malik');
 const noraRow = mine.find((c) => c.child.id === 'p_nora');
@@ -111,6 +111,12 @@ const mcp = await rpc('tools/call', { name: 'MyChildren', arguments: {} }, priya
 const payload = JSON.parse(mcp?.result?.content?.find((p) => p.type === 'text')?.text ?? '{}');
 const mcpMine = payload?.data?.myChildren ?? [];
 check('9 MCP MyChildren matches GraphQL exactly', JSON.stringify(mcpMine) === JSON.stringify(mine), `${mcpMine.length} child(ren)`);
+
+// Names come from data, never a static map: every child the caller holds anything for must carry one.
+const named = (rows) => rows.every((c) => typeof c.child?.person?.displayName === 'string' && c.child.person.displayName.length > 0);
+check('10 Kendra\u2019s children all carry a displayName', named(kendraMine), kendraMine.map((c) => c.child.id).join(','));
+check('10 Priya\u2019s children all carry a displayName', named(mine), mine.map((c) => c.child.id).join(','));
+check('10 the no-authority adult list is empty AND nameless by definition', oscarMine.length === 0, `${oscarMine.length}`);
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} — ${failed} failure(s)`);
 process.exit(failed === 0 ? 0 : 1);
