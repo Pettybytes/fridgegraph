@@ -12,9 +12,29 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 |---|---|---|
 | 1 Persona sessions | `feat/e-next-persona-sessions` | **DONE** — evidence `39-persona-sessions.md`, proofs 26/26 |
 | 2 Rosina read tools | `feat/e-next-rosina-tools` | **DONE — evidence `40-rosina-read-tools.md`, proof 23/23 on MCP 5051** |
-| 3 Group 3 (events + adult schedules) | | not started |
+| 3 Group 3 (events + adult schedules) | `feat/e-next-group3` | **PARTIAL — migration 0027 applied, dry run 18/18; read layer + MCP tools next.** Evidence `41-group3-events-holidays-availability.md` |
 | 4 Group 4 (care + Cast v2 seed) | | not started |
 | 5 Group 5 (reset, demo family, consent) | | not started |
+
+
+### 3 Group 3 — PARTIAL (data layer done)
+
+`0027_events_holidays_availability.sql` (applied): `events.status` (proposed/confirmed/cancelled),
+`routines`, `holidays` with **inclusive** ends, `holiday_covers()`, `day_kind()`, `day_routines()`
+(no routine on a holiday — precedence lives in the function), `adult_availability` with a **private**
+`reason`, and the `adult_availability_free_busy` view that shares **state only** (base table stays
+owner-only because RLS filters rows, not columns). Guide gets read-only access with three restrictive
+policies per table. **Grants**: 0004 predates these tables, so 0027 grants `select`/`execute`
+explicitly — without that every caller hits `42501` before RLS (the dry run caught it).
+
+`node ops/0027-dry-run.mjs` **18/18 PASS**, one rolled-back transaction, real `request.jwt.claims`
+impersonation (guide markers included). `node ops/0027-apply.mjs` verifies the applied shape.
+
+**Next in this PR:** `childEvents(childId, from, to)` and `adultAvailability(personId, from, to)`
+(state only) with RLS; MCP operations `ChildEvents` + `AdultAvailability` with the **same no-oracle
+contract** (hidden == nonexistent == malformed == one empty result); persona-boundary proofs on both
+surfaces; a SIMULATED fixture (holiday + routine + one availability row) kept out of the v1 baseline;
+0026 guide-seam re-check for any derived read.
 
 ### 2 Rosina read tools — DONE
 
