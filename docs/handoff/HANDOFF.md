@@ -3368,3 +3368,32 @@ Proof status: mutation, concurrency, non-sandbox totals and rollback logic are w
 at the cascade. `src/demo/reset.ts` + `POST /api/demo/reset` are committed on `feat/reset-demo`.
 
 **Next step depends on the decision above.** No PR opened; no merge.
+
+## Group 5 Piece 1 — option 1 IMPLEMENTED, proof mid-flight (2026-10-31 03:30)
+
+**Migration `0042_demo_reset_disposable_orbit.sql` applied.** The exception is database-enforced and
+narrow, exactly as decided:
+
+- `_orbit_responses_append_only()` permits DELETE **only** when all hold: transaction-local
+  `app.demo_reset='on'`; parent alert `sandbox`; the alert is **not** tied to the consented real-call
+  path (job not `demo_caller`, no `real_call_authorizations` row); **every** audience
+  `notification_outcome` ∈ (`SIMULATED`,`TEST_RESPONDER`). UPDATE and INSERT still raise.
+- `reset_demo_orbit(actor)` is `SECURITY DEFINER`, sets the GUC locally, deletes, and writes
+  `demo_reset_audit` (actor, at, per-table counts) **inside the same transaction** — a failed reset
+  leaves no audit row, a successful one leaves a row that survives.
+- `EXECUTE` revoked from `public, anon, authenticated`: a browser/RPC caller cannot reach it.
+- `resetDemo()` no longer touches `orbit_alerts` directly; it calls the privileged function.
+
+**Proof state (`ops/reset-demo-proof.mjs`).** Written and iterated; each run surfaced a genuine issue
+that is now fixed: `people/households/children` have no `sandbox` column (use totals); ACTIVE alerts
+require `activated_at`; responses allow only `WITH_ME|ON_WAY|CANNOT_HELP`; one ACTIVE alert per child.
+
+**Current failing point:** an insert in the proof throws `transformInsertRow` (analyze.c 1043 —
+expression/column count mismatch) on a statement whose columns and values look balanced in source, so
+the mismatch is likely in the fixture **upsert** in `src/demo/reset.ts` (cols derived per-table while a
+row carries extra keys). **Next step:** print the generated SQL (table, cols.length vs params.length)
+before executing, fix, then complete the remaining checks: responded disposable alert resets; ordinary
+DELETE fails; GUC alone fails on a non-disposable record; RPC refused; protected hash unchanged;
+injected failure rolls back with no audit row.
+
+No PR, no merge. Pieces 2–3 not started.
