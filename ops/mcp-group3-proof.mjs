@@ -108,6 +108,14 @@ check('1 Kendra reads the calendar', evRows.length >= 1, `${evRows.length} row(s
 // PENDING: no cancelled row is seeded (see evidence 41 — `events` is a baseline table), so this
 // asserts only that nothing cancelled leaks into the response. The filter itself is unproven.
 check('1 no cancelled entry appears in a default read', evRows.every((e) => e.status !== 'cancelled'));
+
+// The cancelled entry is a FIXTURE row (marked, own id prefix). The default read hides it; asking for
+// it explicitly proves the filter with real data rather than an empty response.
+const EVENTS_ALL = `query($childId: ID!, $from: String!, $to: String!){ childEvents(childId:$childId, from:$from, to:$to, includeCancelled:true){ id title status } }`;
+const evAll = await gql(kendra, EVENTS_ALL, { childId: CHILD, ...WINDOW });
+check('1 includeCancelled:true surfaces the cancelled fixture event',
+  (evAll?.data?.childEvents ?? []).some((e) => e.status === 'cancelled'),
+  `${(evAll?.data?.childEvents ?? []).length} row(s)`);
 check('1 the confirmed event carries its status', evRows.some((e) => e.status === 'confirmed'));
 
 const eff25 = await gql(kendra, EFFECTIVE, { childId: CHILD, date: '2026-11-25' });
@@ -129,6 +137,12 @@ check('2 Andre sees Kendra\u2019s recorded BUSY state', avA?.data?.adultAvailabi
 check('2 …and still no reason', !JSON.stringify(avA).includes(PRIVATE_REASON));
 const evG = await gql(guide, EVENTS, { childId: CHILD, ...WINDOW });
 check('2 the guide reads the sandbox calendar', (evG?.data?.childEvents ?? []).length >= 1);
+// GUIDE SEAM: the audit household is deliberately NON-sandbox, in the same village. A guide that
+// could read it would mean 0026's seam leaked; the title must not appear in any response.
+const seam = await gql(guide, EVENTS, { childId: 'fx_audit_child', ...WINDOW });
+check('2 the guide CANNOT read the non-sandbox record (0026 seam holds)',
+  codesOf(seam).includes('UNAUTHORIZED') && !JSON.stringify(seam).includes('Private appointment'),
+  codesOf(seam).join('|') || 'no codes');
 const avG = await gql(guide, AVAIL, { personId: 'p_mom', ...WINDOW });
 check('2 the guide sees state only', avG?.data?.adultAvailability?.[0]?.state === 'BUSY' && !JSON.stringify(avG).includes(PRIVATE_REASON));
 

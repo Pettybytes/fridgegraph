@@ -15,7 +15,12 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { createSeed } from '../src/fixtures';
-import { createSimulatedCalendar, createSimulatedCoordination, SIMULATED_LABEL } from '../src/fixtures-simulated';
+import {
+  createSimulatedCalendar,
+  createSimulatedCoordination,
+  createSimulatedPrivate,
+  SIMULATED_LABEL,
+} from '../src/fixtures-simulated';
 
 function parseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -97,8 +102,10 @@ async function del(table: string, filter: string) {
   if (!res.ok) throw new Error(`${table} delete failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
 }
 
-async function fetchAll(table: string): Promise<Record<string, unknown>[]> {
-  const res = await fetch(`${base()}/rest/v1/${table}?select=*`, { headers: headers() });
+async function fetchAll(table: string, filtered = false): Promise<Record<string, unknown>[]> {
+  // `filtered` only changes how the argument is read: a raw PostgREST filter is appended as-is.
+  const query = filtered ? `${table}` : `${table}?select=*`;
+  const res = await fetch(`${base()}/rest/v1/${query}`, { headers: headers() });
   if (!res.ok) throw new Error(`${table} read failed: HTTP ${res.status}`);
   return (await res.json()) as Record<string, unknown>[];
 }
@@ -185,7 +192,46 @@ export async function seedSimulated(): Promise<Record<string, number | string>> 
   counts.routines = await upsert('routines', c.routines, 'id');
   counts.adult_availability = await upsert('adult_availability', c.adult_availability, 'id');
   counts.holiday_arrangements = await upsert('holiday_arrangements', c.holiday_arrangements, 'id');
+  // A NON-SANDBOX household the Demo guide must NOT see (guide-seam audit). Identifier prefix `fx_`.
+  const priv = createSimulatedPrivate();
+  counts.households = await upsert('households', priv.households, 'id');
+  counts.people = await upsert('people', priv.people, 'id');
+  counts.children = await upsert('children', priv.children, 'person_id');
+  counts.household_members = await upsert('household_members', priv.household_members, 'person_id,household_id');
+  // Events LAST: the audit event references the audit child, which must exist first.
+  counts.events = await upsert('events', c.events, 'id');
   return counts;
+}
+
+/**
+ * Removes EXACTLY the fixture rows and nothing else: `fixture = true` on the marked tables, plus the
+ * `fx_` identifier prefix on the tables that have no marker column. Baseline rows are never touched,
+ * so the baseline checksum returns byte-identical.
+ */
+export async function cleanupSimulated(): Promise<Record<string, number>> {
+  const deleted: Record<string, number> = {};
+  const countRows = async (table: string, filter: string) =>
+    (await fetchAll(`${table}?${filter}`, true)).length;
+
+  // Children before jobs (attempts reference jobs), then the audit household set child-first.
+  for (const [table, filter] of [
+    ['events', 'fixture=eq.true'],
+    ['attempts', 'fixture=eq.true'],
+    ['coordination_jobs', 'fixture=eq.true'],
+    ['holiday_arrangements', 'fixture=eq.true'],
+    ['adult_availability', 'fixture=eq.true'],
+    ['routines', 'fixture=eq.true'],
+    ['holidays', 'fixture=eq.true'],
+    ['household_members', 'household_id=like.fx_*'],
+    ['children', 'person_id=like.fx_*'],
+    ['households', 'id=like.fx_*'],
+    ['people', 'id=like.fx_*'],
+  ] as const) {
+    const n = await countRows(table, filter);
+    if (n > 0) await del(table, filter);
+    deleted[table] = n;
+  }
+  return deleted;
 }
 
 /** Checksum of the SIMULATED fixture's own tables only — never compared to the v1 baseline. */
@@ -266,6 +312,8 @@ if (executedDirectly) {
     console.log(`seeded ${await seedDatabase()} rows`);
   } else if (cmd === 'seed:simulated') {
     console.log(`seeded ${SIMULATED_LABEL} fixture: ${JSON.stringify(await seedSimulated())}`);
+  } else if (cmd === 'cleanup:simulated') {
+    console.log(`cleaned SIMULATED fixture: ${JSON.stringify(await cleanupSimulated())}`);
   } else if (cmd === 'checksum:simulated') {
     console.log(JSON.stringify(await checksumSimulated()));
     process.exit(0);
@@ -275,7 +323,7 @@ if (executedDirectly) {
   } else if (cmd === 'checksum') {
     console.log(JSON.stringify(await checksumDatabase(), null, 2));
   } else {
-    console.error('usage: tsx scripts/db.ts seed|seed:simulated|reset|checksum|checksum:simulated');
+    console.error('usage: tsx scripts/db.ts seed|seed:simulated|cleanup:simulated|reset|checksum|checksum:simulated');
     process.exit(2);
   }
 }

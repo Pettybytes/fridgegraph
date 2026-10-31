@@ -12,7 +12,7 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 |---|---|---|
 | 1 Persona sessions | `feat/e-next-persona-sessions` | **DONE** — evidence `39-persona-sessions.md`, proofs 26/26 |
 | 2 Rosina read tools | `feat/e-next-rosina-tools` | **DONE — evidence `40-rosina-read-tools.md`, proof 23/23 on MCP 5051** |
-| 3 Group 3 (events + adult schedules) | `feat/e-next-group3` (PR **#31**) | **DONE — 0027/0028/0029 applied, dry runs 18/18 + 20/20, read layer + 3 MCP tools proven 24/24. PENDING: seeded cancelled-event fixture, 0026 seam audit.** Evidence `41-group3-events-holidays-availability.md` |
+| 3 Group 3 (events + adult schedules) | `feat/e-next-group3` (PR **#31**) | **DONE — 0027/0028/0029/0030 applied; dry runs 18/18 + 20/20; reads + 3 MCP tools 26/26; fixture contract 6/6; cancelled-event and non-sandbox guide-seam items CLOSED.** Evidence `41-group3-events-holidays-availability.md` |
 | 4 Group 4 (care + Cast v2 seed) | | not started |
 | 5 Group 5 (reset, demo family, consent) | | not started — **resetDemo restores v1 baseline + SIMULATED coordination fixture (later + Cast v2 seed); `db:reset` alone is insufficient; prove Kendra's Mission Control still lists the sample job and Rosina's `JobTimeline` still returns its entries after a reset** |
 
@@ -25,6 +25,31 @@ coordination fixture** (`npx tsx scripts/db.ts seed:simulated`) and, once it exi
 `db:reset` alone is **not** sufficient — it removes the fixture by design. After any reset the
 evidence must show **Kendra's Mission Control** still lists the sample job and **Rosina's
 `JobTimeline`** still returns its entries. Prove both in Group 5's evidence.
+
+
+### Fixture rule (operator, 2026-10-30 — replaces "no rows in a baseline table")
+
+Additive fixture rows MAY go into existing tables when: baseline rows are untouched, fixture rows are
+identifiable (`fixture` marker — migration **0030** — or `fx_` id prefix), the fixture keeps its own
+checksum, and cleanup removes exactly those rows and restores the baseline checksum **byte-for-byte**.
+Proven by `node ops/fixture-rule-proof.mjs` (6/6) and used to seed the cancelled event that closes
+Group 3's `includeCancelled` item.
+
+### Group 4 requirement — approval policy is PER HOUSEHOLD, never an assumed second parent
+
+`BOTH_PARENTS` and the self-approval refusal must follow each household's explicit
+`schedule_swap_approval` policy. Record the policy in the seed and prove each case in Group 4 evidence:
+
+| Household | Policy to seed | Proof |
+|---|---|---|
+| Ellison (two parents) | `BOTH_PARENTS` | a swap still needs the OTHER parent; self-approval refused (already proven in 0028 dry run) |
+| Castellano (guardians Rosa & Tomás, no parents) | names the guardians | an arrangement proposed by one guardian is approvable by the **other guardian** |
+| Ferris (single father Dwayne) | one approver | Dwayne's arrangement does not wait on a nonexistent second parent; Cassandra, Oscar and Priya are **never** approvers |
+| Lee | `ANY_PARENT` where the contract says so | any parent may approve |
+| Vance–Reyes | stepdad Marcus is `resident_adult` | Marcus is **never** an approver |
+
+`can_approve_swap()` currently assumes "the other parent/guardian in the household" — it must read the
+per-household policy and count guardians as approvers where the household has no parents.
 
 ### 3 Group 3 — PARTIAL (data layer done)
 

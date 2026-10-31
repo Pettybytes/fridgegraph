@@ -30,6 +30,7 @@ export type SimulatedJob = {
   version: number;
   as_of: string;
   created_at: string;
+  fixture: true;
 };
 
 export type SimulatedAttempt = {
@@ -41,6 +42,7 @@ export type SimulatedAttempt = {
   destination_mode: 'TEST_RESPONDER';
   closed_at: string;
   closed_reason: string;
+  fixture: true;
 };
 
 export type SimulatedCoordination = {
@@ -62,6 +64,7 @@ export function createSimulatedCoordination(): SimulatedCoordination {
         version: 3,
         as_of: '2026-10-16',
         created_at: '2026-10-16T15:00:00Z',
+        fixture: true,
       },
     ],
     attempts: [
@@ -74,6 +77,7 @@ export function createSimulatedCoordination(): SimulatedCoordination {
         destination_mode: 'TEST_RESPONDER',
         closed_at: '2026-10-16T15:02:40Z',
         closed_reason: 'ACCEPTED',
+        fixture: true,
       },
       {
         id: 'att_nora_oct16_tasha',
@@ -84,6 +88,7 @@ export function createSimulatedCoordination(): SimulatedCoordination {
         destination_mode: 'TEST_RESPONDER',
         closed_at: '2026-10-16T15:03:35Z',
         closed_reason: 'DECLINED',
+        fixture: true,
       },
     ],
   };
@@ -97,7 +102,34 @@ export type SimulatedCalendar = {
   routines: Record<string, unknown>[];
   adult_availability: Record<string, unknown>[];
   holiday_arrangements: Record<string, unknown>[];
+  events: Record<string, unknown>[];
 };
+
+/**
+ * A NON-SANDBOX record the Demo guide must NOT see. It lives in the same village as Nora so the
+ * only reason the guide is refused is the sandbox flag — that is the seam being audited.
+ */
+export type SimulatedPrivate = {
+  households: Record<string, unknown>[];
+  people: Record<string, unknown>[];
+  children: Record<string, unknown>[];
+  household_members: Record<string, unknown>[];
+};
+
+export function createSimulatedPrivate(): SimulatedPrivate {
+  return {
+    households: [{ id: 'fx_audit_hh', village_id: 'v_nora', sandbox: false }],
+    people: [
+      { id: 'fx_audit_parent', display_name: 'Audit Parent', birth_date: '1985-04-04' },
+      { id: 'fx_audit_child', display_name: 'Audit Child', birth_date: '2016-09-09' },
+    ],
+    children: [{ person_id: 'fx_audit_child' }],
+    household_members: [
+      { person_id: 'fx_audit_parent', household_id: 'fx_audit_hh', role: 'parent' },
+      { person_id: 'fx_audit_child', household_id: 'fx_audit_hh', role: 'child' },
+    ],
+  };
+}
 
 export function createSimulatedCalendar(): SimulatedCalendar {
   return {
@@ -109,6 +141,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         name: 'Thanksgiving break',
         start_date: '2026-11-25',
         end_date: '2026-11-27',
+        fixture: true,
       },
     ],
     routines: [
@@ -121,6 +154,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         end_time: '08:30',
         location: 'Nora\u2019s school',
         applies_on: 'SCHOOL_DAY',
+        fixture: true,
       },
       {
         id: 'rt_nora_bedtime',
@@ -131,6 +165,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         end_time: '21:00',
         location: null,
         applies_on: 'ANY_DAY',
+        fixture: true,
       },
     ],
     adult_availability: [
@@ -141,6 +176,29 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         end_at: '2026-11-25T22:00:00Z',
         state: 'BUSY',
         reason: 'late shift',
+        fixture: true,
+      },
+    ],
+    events: [
+      {
+        id: 'fx_ev_nora_recital_cancelled',
+        child_id: 'p_nora',
+        title: 'Recital (cancelled)',
+        start_at: '2026-11-21T18:00:00Z',
+        end_at: '2026-11-21T20:00:00Z',
+        location: 'Community hall',
+        status: 'cancelled',
+        fixture: true,
+      },
+      {
+        id: 'fx_ev_audit_private',
+        child_id: 'fx_audit_child',
+        title: 'Private appointment',
+        start_at: '2026-11-21T09:00:00Z',
+        end_at: '2026-11-21T10:00:00Z',
+        location: null,
+        status: 'confirmed',
+        fixture: true,
       },
     ],
     holiday_arrangements: [
@@ -155,6 +213,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         dropoff_duty_parent_id: 'p_dad',
         status: 'APPROVED',
         proposed_by_id: 'p_dad',
+        fixture: true,
       },
       {
         id: 'ha_nora_thanksgiving_overlap',
@@ -167,6 +226,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         dropoff_duty_parent_id: 'p_dad',
         status: 'APPROVED',
         proposed_by_id: 'p_mom',
+        fixture: true,
       },
     ],
   };

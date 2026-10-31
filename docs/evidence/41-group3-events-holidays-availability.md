@@ -191,3 +191,51 @@ callers — `authenticated` still reaches them through RLS.
   `effectiveScheduleFor`/`scheduleConflicts` are SECURITY DEFINER functions that authorize through
   `authorizeChild` first; the guide path is covered by the proof above (it reads sandbox data), but
   a dedicated seam audit is PENDING.
+
+---
+
+## Additive fixture rule — adopted, and the two PENDING items are CLOSED
+
+The earlier rule ("never write into a table that already has baseline data") is replaced by a
+provable contract:
+
+1. fixture rows MAY be added to existing tables;
+2. baseline rows are never rewritten;
+3. fixture rows are identifiable — `fixture boolean not null default false` (migration **0030**) on
+   `events`, `coordination_jobs`, `attempts`, `holidays`, `routines`, `adult_availability`,
+   `holiday_arrangements`, plus the `fx_` identifier prefix on tables without a marker column;
+4. the fixture keeps its own checksum;
+5. cleanup removes exactly the fixture rows and restores the baseline checksum byte-for-byte.
+
+### Proof — `node ops/fixture-rule-proof.mjs` — 6/6 PASS
+
+| # | Check | Result |
+|---|---|---|
+| 1 | fixture seeds into existing tables | jobs 1, attempts 2, holidays 1, routines 2, availability 1, arrangements 2, events 2, households 1, people 2, children 1, members 2 |
+| 2 | baseline event row survives (row count grew by fixture rows only) | 1 → 3 |
+| 3 | every fixture row is identifiable + has its own checksum | PASS |
+| 4 | cleanup removes rows | events 2, attempts 2, jobs 1, arrangements 2, availability 1, routines 2, holidays 1, members 2, children 1, households 1, people 2 |
+| 5 | **baseline checksum byte-identical after cleanup** | `identical` (29 tables / 162 rows) |
+| 6 | no fixture row survives cleanup | all `0` |
+
+### `includeCancelled` proven with real data (was PENDING)
+
+A cancelled event `fx_ev_nora_recital_cancelled` is a marked fixture row on a sandbox child. The
+default `childEvents` read hides it; `includeCancelled: true` returns it. Both assertions run in
+`ops/mcp-group3-proof.mjs`.
+
+### 0026 guide-seam audit with a NON-sandbox record (was PENDING)
+
+`fx_audit_hh` is a **non-sandbox** household in `v_nora` with its own parent, child and a confirmed
+event (`Private appointment`). The Demo guide belongs to no household and reads sandbox data, so the
+only thing that can refuse it here is the sandbox flag:
+
+- guide → `childEvents(childId: "fx_audit_child")` = **`UNAUTHORIZED`**, and the event title never
+  appears in the response;
+- guide → `childEvents(p_nora)` still returns sandbox rows, and `adultAvailability(p_mom)` still
+  returns state only (no reason).
+
+`ops/mcp-group3-proof.mjs` is now **26/26 PASS** on router **4012** and MCP **5051 → 4012**.
+
+**No PENDING items remain in Group 3.** The only open thread is Group 4's per-household approval
+policy (recorded in HANDOFF).
