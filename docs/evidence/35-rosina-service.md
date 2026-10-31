@@ -1168,3 +1168,287 @@ catalog entry). `TESTED + ENABLED`: `CareFacts`. The `careOnlyChildren` suppleme
 narrow — one entry, CareFacts-only, reflecting exactly the one real grant this task was told
 about and verified; record for Bentley that the same `MyChildren`/grants-by-caller MCP read that
 would replace `scopedRoster` would also replace this. Not merged.
+
+## 15. TASK R-MYCHILDREN (2026-10-31) — the static roster replaced with a live, per-child-scoped MCP read
+
+Branch `feat/rosina-mychildren`, worktree `../fridgegraph-rosina-mychildren`, from `origin/main` at
+`d738616` (#43... never merged to `main` as a standalone PR, but its content is live on the shared
+alt-stack MCP — see below). Contract: PR #43's own branch (`feat/my-children`, fetched read-only
+for its schema/resolver/evidence — never merged into this checkout) and `docs/evidence/48-my-
+children.md` on that branch.
+
+### Premise check, done before building anything (reported plainly)
+
+`gh pr view 43` shows `state: OPEN` — not merged, contradicting the task's "#43 is merged." Checked
+whether the dependency was functionally real anyway, the same way earlier tasks checked #35: probed
+the live alt-stack MCP directly. `MyChildren` IS present in `tools/list` and returns real,
+caller-scoped data (Kendra: three children, full scope; Priya: Malik `careplan.read`-only + her
+baseline Nora grant; Dana: her own child Jax; Oscar: `[]`; the Demo guide: also `[]` — see below).
+Concluded the dependency is real and live even though the PR number is not merged; proceeded on
+that basis, same as the #35 situation in TASK R-ORBIT.
+
+### A second, more consequential premise gap found and resolved (reported before relying on it)
+
+`MyChildren`'s own contract (`ChildAccess { child: Child!, scopes: [String!]! }`, confirmed against
+the live tool and PR #43's own evidence 48) returns **ids and scopes only — no child name,
+anywhere**. The task's own instruction — "resolve children and child names only through the
+caller's authenticated MyChildren result" — assumes a name is available. It is not, today. Checked
+whether a name could be added without a schema change: `Child.person { displayName }` already
+exists and resolves (used elsewhere, e.g. `PickupCandidates`'s/`EffectiveSchedule`'s adult
+`displayName` fields; `Child.person` itself is a trivial `{id: c.id}` passthrough in
+`village.ts`), so `src/rosina/childAccess.ts#parseMyChildren` already reads `child.person.
+displayName` when present and will pick up a name automatically the moment Bentley's own
+`ops/MyChildren.graphql` selects it — but that file, `.apollo/mcp.local.yaml`, and
+`supergraph.graphql` are schema/ops-composition artifacts this task does not own and cannot safely
+add without risking exactly the "No schema changes" hard stop, so none of those three files were
+touched here. Recorded as a **Bentley follow-up**, not worked around with a parallel static
+lookup table (explicitly forbidden: "remove all static child mappings").
+
+**The real, honest consequence, verified live below:** Rosina genuinely does not know any child's
+name today. A reply that nonetheless says a child's proper name (which a model will naturally
+tend to do, echoing the caller's own word for them) is caught and replaced by the output guard —
+correctly, safely, but less smoothly than before. This is reported as a real, visible UX
+regression traded for a real correctness gain (the roster is now live and per-child-scoped
+instead of a static, one-child-per-persona guess) — not something to paper over.
+
+### What shipped
+
+- **`src/rosina/childAccess.ts`** (new, replaces `src/rosina/roster.ts`, deleted): `SCOPE` (the
+  eight real scope strings), `ChildAccess` type, `parseMyChildren(data)` — defensive: returns
+  `null` for a shape that is not even a list (a discovery FAILURE), `[]` for a genuinely empty,
+  real result (Oscar/the Demo guide), and reads `child.person.displayName` when present.
+- **`src/rosina/model.ts`**: `runRosinaTurn` now calls `MyChildren` itself, once, unconditionally,
+  BEFORE the model ever runs — never a tool the model chooses to call or skip (`MyChildren` is
+  deliberately NOT in `ALLOWED_MCP_TOOL_NAMES`). A discovery failure (the call errors, or the
+  shape doesn't parse) returns `"I couldn't check that just now."` immediately, `rounds: 0` — the
+  model never runs; there is no static-roster fallback anywhere in the code path any more. A
+  genuinely empty result (`[]`) is NOT a failure — the turn proceeds with zero known children.
+  `permittedIds` (the pre-call id gate every childId-keyed tool already used) is now seeded from
+  THIS turn's own fresh `childAccessById.keys()` instead of a static roster. A NEW
+  `REQUIRED_SCOPE_BY_TOOL` map additionally requires the EXACT scope `MyChildren` reported for
+  that child before `ChildEvents`/`EffectiveSchedule` (`schedule.read`) or `CareFacts`
+  (`careplan.read`) may be called — a `careplan.read`-only grant (Priya on Malik) now correctly
+  reaches `CareFacts` but is refused `SCOPE_NOT_GRANTED` for `ChildEvents`/`EffectiveSchedule` on
+  that same child, proven both in unit tests and live below. `CheckInStatus`/`OrbitStatus` have no
+  corresponding scope in the enum at all — unchanged, still gated only by "is this id known," with
+  the backend's own parent-only check remaining the real authority, exactly as TASK R-ORBIT left
+  it. `AdultAvailability` (personId-keyed, harvested-ids-this-turn + self) is completely untouched
+  — adult ids and names never flowed through the roster and still don't.
+  **The Demo guide's childId-keyed reads bypass the MyChildren-derived gate entirely** — verified
+  live that her own `MyChildren` reports `[]` (she holds no household membership or grant
+  anywhere; there is no guide-specific branch in the `myChildren` resolver at all), which would
+  otherwise have silently broken her previously-working, previously-tested sandbox reads
+  (R-ORBIT, R-CARE). The bypass is not a static mapping — no id is ever assumed permitted for her;
+  the backend's own `demo_guide_*` RLS policies (sandbox + read-only, per row) remain the sole and
+  real authority, exactly mirroring how `CheckInStatus` already trusts the backend over a pre-call
+  list for everyone else.
+- **`src/rosina/outputGuard.ts`**: the `roster` parameter is gone — `applyOutputGuard(reply,
+  toolResultText)`. There is no static name list to allow against any more; a name is grounded
+  ONLY if it appears in this turn's own real tool-result JSON (adults: unchanged, e.g.
+  `PickupCandidates`/`EffectiveSchedule`'s own `displayName` fields; a child: only if `MyChildren`
+  itself supplied a `displayName` this turn, which `model.ts` pushes into the same grounding text).
+  Deliberately did NOT widen grounding to include the caller's own message text — that would let a
+  caller confirm an out-of-scope child merely by naming them first, exactly the leak rule 9 exists
+  to prevent "even if the person asking already said a name themselves."
+- **`src/rosina/systemPrompt.ts`**: `buildSystemPrompt(children: ChildAccess[], isGuide,
+  selfPersonId)` — one list, one mechanism, replacing both the old roster and the old
+  `careOnlyChildren` supplement. Each entry is shown with its own scopes (`- Nora Ellison (p_nora):
+  scopes = schedule.read, careplan.read, ...` or `- (name not disclosed by this read) (p_nora):
+  scopes = ...`), explicit "never infer a broader scope from a narrower one," explicit
+  ask-rather-than-guess guidance when a name could match more than one known child, and the
+  SCOPED_REFUSAL rule unchanged for anyone off the list. A separate `guideBlock` tells the Demo
+  guide plainly that her own `MyChildren` reports no children (expected, not an error) and that
+  her documented role is a backend-enforced, read-only exception with no pre-listed roster.
+
+### Tests — `npm run test:rosina`, 75/75 PASS (prior 66 rebuilt for the new API + 9 new)
+
+Every existing test file (`model.test.ts`, `calendarTools.test.ts`, `jobTools.test.ts`,
+`careFacts.test.ts`, `orbit.test.ts`) was rebuilt against the new `MyChildren`-first API — none of
+the underlying SAFETY properties regressed (confirmed one at a time below); several assertions
+changed to reflect the real, now-visible consequence that a child's own name is not available
+unless `MyChildren` supplies one. New coverage:
+
+```
+ok - MyChildren itself erroring fails the whole turn closed — the model never even runs
+ok - a malformed MyChildren shape also fails closed, distinct from a genuinely empty roster
+ok - a genuinely empty MyChildren array is NOT a failure (Oscar/no-oracle case)
+ok - a careplan.read-only child allows CareFacts but refuses ChildEvents for that same child
+ok - a child entirely absent from MyChildren is refused pre-call (OUT_OF_SCOPE_ID), as before
+ok - the Demo guide may attempt a childId-keyed read even though her own MyChildren is empty
+ok - a non-guide caller with the SAME empty MyChildren gets no such bypass
+ok - output guard (stricter now): naming a child with no grounding trips the guard even for
+     that child's own family — MyChildren today reports no name at all
+ok - output guard: a displayName MyChildren itself reports (future-correct contract) DOES
+     ground the name
+```
+Zero network calls, zero Meta API cost. `npm run typecheck` PASS. `npm run check` PASS (519
+files, 0 findings). `npm run check:rosina-catalog` PASS (8 ids, unchanged). `npm --prefix web run
+build` PASS; `npm --prefix web test` **206 PASS** (unchanged — no `web/` file touched).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+No reservation was held or needed: `docs/handoff/HANDOFF.md`'s own "Stack reservations" section
+confirmed no reservation in effect and every shared service already up; this task's probes are
+read-only (direct `MyChildren` reads plus a second, unused Rosina port, 4203) and required no
+`db:reset`, seed, restart, or checkout switch, so none was requested.
+
+```
+Priya (p_priya), "Can Malik have a peanut butter snack?":
+  reply: "I can only help with children shared with you." outputGuardTriggered: true
+  tools=mcp:MyChildren,mcp:CareFacts (CareFacts succeeded — Priya's careplan.read on Malik is
+  real and live) — the model said "Malik" naturally in its first-drafted answer, and the output
+  guard correctly wiped it: nothing this turn ever supplied that string (MyChildren's displayName
+  is null on the live contract; CareFacts's own result never names the child, only the verifier).
+  The GATE worked exactly as intended; the NAME did not come through — the honest consequence
+  flagged above, not a safety failure.
+
+Priya (p_priya), "What's on p_malik's calendar this week?":
+  reply: "I couldn't check that just now. The calendar check came back with an error, so I can't
+  confirm what's on the calendar this week." actions: []
+  tools=mcp:MyChildren,refused:ChildEvents! — SCOPE_NOT_GRANTED: her careplan.read-only grant on
+  Malik does not extend to his calendar, exactly as the task required ("Malik's calendar refused").
+
+Kendra (p_mom), "Can I have a list of all my children and their ids?":
+  reply: "You have 3 children shared with you: p_leo, p_max, p_nora. That's from the shared
+  children list for this turn, which didn't include names." actions: []
+  tools=mcp:MyChildren — all three of her real children (Leo, Max, Nora) are resolvable; the
+  model reported plainly that it has no names rather than inventing any.
+
+Kendra (p_mom), "Who could pick up p_nora tomorrow afternoon?":
+  reply: "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis could pick up tomorrow
+  afternoon. Per the pickup list, all four have a valid pickup grant for that time..." actions: []
+  tools=mcp:MyChildren,mcp:PickupCandidates outputGuardTriggered: false — co-parent/caregiver
+  (ADULT) names from a real, authorized tool result still flow through completely unaffected.
+
+Dana (p_dana), "What's on p_jax's calendar this week?":
+  reply: "Library club — Oct 29, 3:30 PM at the Public library. The calendar shows it as
+  confirmed." actions: [] tools=mcp:MyChildren,mcp:ChildEvents — her real, own child, unaffected.
+
+Dana (p_dana), "What's on p_nora's calendar this week?":
+  reply: "I can only help with children shared with you." actions: []
+  tools=mcp:MyChildren only — ChildEvents was never attempted; her fresh MyChildren has no entry
+  for Nora at all right now (confirmed directly via MCP probe: she holds no grant on Nora in the
+  live data as of this task — there is currently no "legitimate bounded grant" to preserve for
+  her; if one is added later, this same mechanism picks it up automatically, same turn).
+
+Oscar (p_oscar), "Can you tell me about any children I have access to?":
+  reply: "No children are shared with you right now. That's what this turn's access check
+  returned." actions: [] tools=mcp:MyChildren — genuinely empty, no name anywhere, no false claim.
+
+Demo guide (p_demo_guide), "Can you check care notes for p_malik?":
+  reply: "Here are the recorded care notes: Bedtime: Lights out 8:00pm... confirmed by Dwayne...
+  Snack: No peanut butter... Snack... TV: 20 minutes after homework..." actions: []
+  tools=mcp:MyChildren,mcp:CareFacts — her own MyChildren reported [] (confirmed directly), the
+  bypass let CareFacts(p_malik) reach the backend anyway, and the backend's own sandbox RLS
+  answered for real; read-only, no action offered, as documented.
+```
+
+Every `tools=`/`outputGuardTriggered=` line and reply above was asserted against directly from
+the running server's own log and the probe's own HTTP response; `grep -nE
+'[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}'` over both server logs found no phone digit or token.
+
+### Scope discipline
+
+No schema, auth, or DB change — `ops/MyChildren.graphql`, `.apollo/mcp.local.yaml`, and
+`supergraph.graphql` were deliberately left untouched (Bentley's domain; adding the richer
+selection myself without being able to compile/verify it against this checkout's own schema would
+have been exactly the kind of unverified schema-adjacent change the hard stop exists to prevent).
+No `db:reset`, seed, restart, or checkout switch — none was needed; the shared stack was confirmed
+idle and unreserved before any probe. No mutation tool added. `TESTED + ENABLED`: `MyChildren`.
+`ENABLED + TESTED` (unchanged, now gated by it): `ChildEvents`, `EffectiveSchedule`,
+`AdultAvailability`, `CheckInStatus`, `OrbitStatus`, `OrbitVocabulary`, `CareFacts`.
+**`src/rosina/roster.ts` is deleted; every static child mapping is gone.** The one honest,
+reported trade-off: a child's own name is not available until Bentley's `MyChildren` selects
+`person { displayName }` — this service is already written to use it the moment it does. Not
+merged.
+
+## 16. Orbit handler: honor the catalog flag after the gates (2026-10-31, same PR)
+
+Bryan assigned this server-side fix directly, mid-task, as a second piece of the same PR: the
+`prepareOrbitAlert` branch in `src/rosina/model.ts` refused `UNIMPLEMENTED` **unconditionally** —
+it ran the authority + vocabulary gate, then always pushed the refusal regardless of
+`catalog.prepareOrbitAlert.implemented`. A catalog flag flip alone could never have enabled the
+action; both halves (metadata + server logic) were required and only one existed.
+
+**Coordinated with a concurrent, overlapping draft (PR #45, `feat/orbit-handler`, head
+`b414a2e`) rather than duplicating it** — Bryan's instruction was explicit: review #45, don't
+redo independent work. Read its full diff: an equivalent `decideOrbitAction()` in
+`src/rosina/orbit.ts`, an `ORBIT_HANDLER_PRESENT` export in `model.ts`, and the same ordering
+(shape → gate → catalog flag → handler-present). Agreed with the design and implemented the
+equivalent in this branch rather than merging #45 directly, since Bryan assigned the authoritative
+commit to this PR specifically. The two should be reconciled/closed by Bryan, not by this task.
+
+**What shipped:** `decideOrbitAction({ shapeOk, gate, enabled, handlerPresent })` in
+`src/rosina/orbit.ts` — gate failures (`NOT_PARENT`/`VALUE_NOT_IN_VOCABULARY`/`INVALID_ACTION`)
+are never overridden by `enabled` or `handlerPresent`; only once the gate is clean does the
+catalog's `implemented` flag get a say; only once BOTH agree does `ORBIT_HANDLER_PRESENT` (new,
+`model.ts`, `= true` — this server build ships Codex's W-ORBIT handler) matter. An enabled
+catalog with no handler, or a disabled catalog with a handler, both still refuse `UNIMPLEMENTED`.
+The `prepareOrbitAlert` branch in `model.ts` now pushes the action into `proposedActions` and
+records `isError: false` when `decision.propose` is true; the refusal path is otherwise
+unchanged. `catalog.prepareOrbitAlert.implemented` itself was NOT flipped here — that flag flip
+is explicitly W-ORBIT's own scope (their worktree, their PR #44), not this one's; this PR only
+makes the server correctly HONOR whichever value it already carries.
+
+**Tests** (in `src/rosina/orbit.test.ts`): `decideOrbitAction` unit-tested directly for all four
+gate/enabled/handler combinations; the pre-existing disabled negative control
+(`implemented: false` → `UNIMPLEMENTED`, gate otherwise clean) is unchanged and still passes;
+two new integration tests monkey-patch `catalog.prepareOrbitAlert.implemented = true` for the
+duration of one test (restored in a `finally`) to prove the ENABLED case end-to-end: a clean gate
++ flipped flag returns the action with `isError: false`; a flipped flag with a failed gate
+(`NOT_PARENT`) still refuses — authority is never overridden by metadata. All 9 Orbit-handler
+tests are part of the 75/75 total reported in §15 above (same PR, same test run).
+
+**Scope discipline:** no catalog file touched (`src/rosina/catalog.ts`,
+`web/src/features/rosina/catalog.ts` both untouched — confirmed via `git diff`); no schema/auth/
+DB change; no mutation tool added; `ORBIT_HANDLER_PRESENT` describes this server BUILD's own
+readiness, never a substitute for the catalog flag or the authority/vocabulary gate. No live
+scenario-clock run performed (none requested by this piece; W-ORBIT's own future window covers
+that). Not merged.
+
+## 17. Fix: one Orbit test assumed the ambient catalog flag was false (2026-10-31)
+
+Branch `fix/orbit-test-disabled-flag`, worktree `../fridgegraph-orbit-test-fix`, from `origin/main`
+at `cb3dd68` (#47, §§15–16 above, merged). Reported by W-ORBIT after rebasing PR #44 (the catalog
+metadata flip for `prepareOrbitAlert`) onto `main`: with the real `implemented` flag now `true` on
+their branch, `npm run test:rosina` dropped to 74/75.
+
+### The actual bug, reproduced before fixing it
+
+`src/rosina/orbit.test.ts`'s `card: a valid, fully-verified prepareOrbitAlert...` test (the
+"disabled negative control" from §16) asserted `result.actions` is `[]` and the error is
+`UNIMPLEMENTED`, but — unlike the two ENABLED-state tests right below it — never actually
+controlled `catalog.prepareOrbitAlert.implemented` itself; it silently relied on the AMBIENT real
+value in `src/rosina/catalog.ts` happening to be `false`. Reproduced exactly: flipped the real
+flag to `true` on disk, reran the suite, got the identical failure W-ORBIT reported (`result.
+actions` held the proposed card instead of `[]`) — confirming `decideOrbitAction()` itself is
+correct (it is honoring the flag exactly as designed) and the defect is in the TEST, not the
+server logic. Reverted the flip immediately; `src/rosina/catalog.ts` carries no diff in this PR.
+
+### Fix
+
+The test now explicitly sets `catalog.prepareOrbitAlert.implemented = false` for its own duration
+and restores the original value in a `finally` — the same controlled, explicit pattern the two
+ENABLED-state tests already used. This makes the DISABLED case deterministic regardless of
+whatever the real catalog file says at the time the suite runs, exactly like the ENABLED case
+already was. The authority/vocabulary gate itself (`decideOrbitAction`'s own ordering — gate
+checked and can short-circuit BEFORE the catalog flag is ever consulted) was not touched; the two
+gate-failure tests (`NOT_PARENT`, `VALUE_NOT_IN_VOCABULARY`) were already correctly flag-agnostic,
+confirmed by inspection — no change needed there.
+
+### Verification
+
+Re-ran the exact repro twice more after the fix: with the real `catalog.prepareOrbitAlert.
+implemented` left at its real, current value (`false` — W-ORBIT's own PR #44 is not yet merged to
+`main`), and with it flipped to `true` on disk as a stand-in for #44 having landed. **75/75 PASS
+in both cases.** `npm run typecheck` PASS. `npm run check` PASS (519 files, 0 findings). `npm run
+check:rosina-catalog` PASS (8 ids, unchanged). `npm --prefix web run build` PASS; `npm --prefix web
+test` **206 PASS** (unchanged — no `web/` file touched by this fix).
+
+### Scope discipline
+
+No catalog file touched (`src/rosina/catalog.ts` and `web/src/features/rosina/catalog.ts` both
+carry zero diff in this PR, confirmed via `git diff` after the repro was reverted) — the flag flip
+remains exclusively W-ORBIT's own change (PR #44), as it has been throughout. No schema/auth/DB
+change. No mutation tool. No live run needed or performed (a test-suite fix, not a behavior
+change). Not merged.

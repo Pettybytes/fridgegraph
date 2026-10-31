@@ -14,6 +14,7 @@ import { catalog } from './catalog';
 import { runRosinaTurn, type McpClientLike } from './model';
 import {
   checkInStatusFrom,
+  decideOrbitAction,
   DESCRIPTOR_KEYS,
   injectOverdueFlag,
   isCheckInOverdue,
@@ -59,9 +60,22 @@ const ORBIT_TOOLS: McpTool[] = [
   { name: 'OrbitVocabulary', description: 'read', inputSchema: {} },
 ];
 
+/** TASK R-MYCHILDREN: every runRosinaTurn call makes an eager MyChildren call first. Orbit's own
+ * tools (CheckInStatus/OrbitStatus) have no corresponding scope in the enum — MyChildren only
+ * needs to report the id as KNOWN; the backend's own parent-only check remains the real
+ * authority (unchanged by that task). Defaults to Kendra knowing p_nora with the full scope set. */
+const MY_CHILDREN_NORA_FULL: McpToolCall = {
+  data: { myChildren: [{ child: { id: 'p_nora' }, scopes: ['schedule.read', 'careplan.read', 'school.read', 'contacts.read', 'transport.read', 'goals.read', 'pickup.verify', 'pickup.request'] }] },
+  errors: [],
+  isError: false,
+  raw: null,
+};
+
 /** A stub MCP client whose callTool is scripted by exact tool name -> result; records every call
- * so a test can assert the client was (or was not) actually invoked, and with what args. */
-function stubOrbitMcp(byTool: Partial<Record<string, McpToolCall>>): McpClientLike & { calls: Array<{ name: string; args: Record<string, unknown> }> } {
+ * so a test can assert the client was (or was not) actually invoked, and with what args.
+ * `myChildrenResult` answers the eager MyChildren call every turn makes (default: Nora, full
+ * scope, matching every test in this file's implicit assumption of a parent caller). */
+function stubOrbitMcp(byTool: Partial<Record<string, McpToolCall>>, myChildrenResult: McpToolCall = MY_CHILDREN_NORA_FULL): McpClientLike & { calls: Array<{ name: string; args: Record<string, unknown> }> } {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   return {
     calls,
@@ -71,6 +85,7 @@ function stubOrbitMcp(byTool: Partial<Record<string, McpToolCall>>): McpClientLi
     },
     async callTool(name: string, args: Record<string, unknown>) {
       calls.push({ name, args });
+      if (name === 'MyChildren') return myChildrenResult;
       return byTool[name] ?? { data: null, errors: [{ message: 'NO_SUCH_FIXTURE' }], isError: true, raw: null };
     },
   };
@@ -195,7 +210,7 @@ test('orbit.ts DESCRIPTOR_KEYS matches the catalog\'s own accepted descriptor ke
 
 // --- Card shape / no-activate-path / integration through runRosinaTurn ---
 
-test('card: a valid, fully-verified prepareOrbitAlert is gated correctly but never included — UNIMPLEMENTED until Codex\'s app handler exists', async () => {
+test('card: DISABLED state — a valid, fully-verified prepareOrbitAlert is gated correctly but never included while the catalog marks it unimplemented', async () => {
   const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: true }), OrbitVocabulary: VOCAB_OK });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' }), toolCall('c2', 'OrbitVocabulary', {})] }),
@@ -203,11 +218,81 @@ test('card: a valid, fully-verified prepareOrbitAlert is gated correctly but nev
     chatResult({ content: 'Here is a card to prepare an Orbit alert.' }),
   ]);
 
-  const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+  // Controlled, explicit, and restored — never assumes the ambient catalog value (W-ORBIT's own
+  // PR #44 flips the real flag to true once merged; this test must hold regardless of that).
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = false;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.deepEqual(result.actions, [], 'never returned as a real action — the catalog marks it implemented: false');
-  const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
-  assert.deepEqual(evidence?.errorCodes, ['UNIMPLEMENTED'], 'the gate itself passed cleanly; only the implemented flag blocks it');
+    assert.deepEqual(result.actions, [], 'never returned as a real action while the catalog marks it unimplemented');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.deepEqual(evidence?.errorCodes, ['UNIMPLEMENTED'], 'the gate itself passed cleanly; only the implemented flag blocks it');
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
+});
+
+// --- decideOrbitAction(): the catalog flag is honored, but only AFTER the gate, and only
+// alongside this server's own handlerPresent claim — a metadata flip alone is never enough. ---
+
+test('decideOrbitAction: gate failures are never overridden by an enabled flag or a present handler', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: false, gate: 'OK', enabled: true, handlerPresent: true }), { propose: false, errorCode: 'INVALID_ACTION' });
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'NOT_PARENT', enabled: true, handlerPresent: true }), { propose: false, errorCode: 'NOT_PARENT' });
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'VALUE_NOT_IN_VOCABULARY', enabled: true, handlerPresent: true }), { propose: false, errorCode: 'VALUE_NOT_IN_VOCABULARY' });
+});
+
+test('decideOrbitAction: an enabled catalog with NO handler still refuses — metadata alone can never enable it', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: true, handlerPresent: false }), { propose: false, errorCode: 'UNIMPLEMENTED' });
+});
+
+test('decideOrbitAction: a disabled catalog refuses even when the handler is present', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: false, handlerPresent: true }), { propose: false, errorCode: 'UNIMPLEMENTED' });
+});
+
+test('decideOrbitAction: only gate OK + enabled + handler present proposes the action', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: true, handlerPresent: true }), { propose: true });
+});
+
+test('card: ENABLED state — with the catalog flag flipped and the gate clean, the action IS proposed', async () => {
+  const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: true }), OrbitVocabulary: VOCAB_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' }), toolCall('c2', 'OrbitVocabulary', {})] }),
+    chatResult({ toolCalls: [toolCall('c3', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora', wearColor: 'YELLOW', wearGarment: 'RAINCOAT' })] }),
+    chatResult({ content: 'Here is a card to prepare an Orbit alert.' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+    assert.equal(result.actions.length, 1, 'the action is returned once the gate and the flag agree');
+    assert.deepEqual(result.actions[0], { id: 'prepareOrbitAlert', args: { childId: 'p_nora', wearColor: 'YELLOW', wearGarment: 'RAINCOAT' } });
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.equal(evidence?.isError, false, 'recorded as accepted, not refused');
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
+});
+
+test('card: flag flipped but the gate fails on authority — authority still decides, never overridden by the flag', async () => {
+  const mcp = stubOrbitMcp({ OrbitVocabulary: VOCAB_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'OrbitVocabulary', {})] }),
+    chatResult({ toolCalls: [toolCall('c2', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora', wearColor: 'YELLOW' })] }),
+    chatResult({ content: 'card' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+    assert.deepEqual(result.actions, [], 'no same-turn successful CheckInStatus call for this exact child ever happened — the flag cannot override that');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.deepEqual(evidence?.errorCodes, ['NOT_PARENT']);
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
 });
 
 test('card: refused for a child the caller has no verified parent authority over this turn', async () => {
@@ -247,8 +332,9 @@ test('no activate path exists: an activate-shaped tool name is refused like any 
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 0, 'an activate-shaped tool name must never reach the MCP client');
-  assert.deepEqual(result.toolCalls[0], { round: 1, kind: 'refused', name: 'OrbitActivateAlert', argsPreview: { childId: 'p_nora' }, isError: true, errorCodes: ['TOOL_NOT_ALLOWED'] });
+  assert.equal(mcp.calls.length, 1, 'only the eager MyChildren call — an activate-shaped tool name must never reach the MCP client');
+  const refused = result.toolCalls.find((t) => t.kind === 'refused');
+  assert.deepEqual(refused, { round: 1, kind: 'refused', name: 'OrbitActivateAlert', argsPreview: { childId: 'p_nora' }, isError: true, errorCodes: ['TOOL_NOT_ALLOWED'] });
 
   for (const id of Object.keys(catalog)) assert.doesNotMatch(id, /activate/i, `catalog id "${id}" must not be an activate action`);
   for (const tool of ACTION_TOOLS) assert.doesNotMatch(tool.function.name, /activate/i, `action tool "${tool.function.name}" must not activate anything`);
@@ -258,7 +344,7 @@ test('911 guidance surfaces to the model exactly as the tool returned it, alongs
   const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ dueAt: '2020-01-01T16:00:00Z', guidance: 'If this is an emergency, call 911.' }) });
   const { fn: chatFn, seenMessages } = recordingChat([
     chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' })] }),
-    chatResult({ content: "Nora's 4:00 check-in hasn't been recorded. If this is an emergency, call 911." }),
+    chatResult({ content: "The 4:00 check-in hasn't been recorded. If this is an emergency, call 911." }),
   ]);
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
@@ -278,12 +364,13 @@ test('a routine question triggers no Orbit tool call at all — nothing forces O
 
   const result = await runRosinaTurn({ ...baseOptions, message: "what's on Nora's calendar today?", chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 0, 'answering a routine question never requires or triggers an Orbit tool call by itself');
-  assert.deepEqual(result.toolCalls, []);
+  assert.equal(mcp.calls.length, 1, 'only the eager MyChildren call — answering a routine question never requires or triggers an Orbit tool call by itself');
+  assert.equal(result.toolCalls.length, 1);
+  assert.equal(result.toolCalls[0].name, 'MyChildren');
 });
 
 test('the system prompt explicitly instructs that a routine question is not itself a reason to bring up Orbit', () => {
-  const prompt = buildSystemPrompt([{ id: 'p_nora', name: 'Nora Ellison' }], false, 'p_mom');
+  const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: 'Nora Ellison' }], false, 'p_mom');
   assert.match(prompt, /NOT itself a reason to bring up Orbit/);
   assert.match(prompt, /I can help notify your approved village/);
   assert.match(prompt, /never infer it from/);

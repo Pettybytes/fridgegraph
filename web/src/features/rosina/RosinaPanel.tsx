@@ -1,3 +1,5 @@
+import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
+import type {OrbitController} from '@/features/orbit/controller'
 import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -17,7 +19,9 @@ export function RosinaPanel(props:PanelProps){
   const {session}=useSession()
   return <PersonaRosinaPanel key={session?.generation??'signed-out'} {...props}/>
 }
-function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
+function PersonaRosinaPanel(props:PanelProps){const orbit=useOrbit();return orbit?<ConnectedOrbitPanel {...props} orbit={orbit}/>:<RosinaConversation {...props}/> }
+function ConnectedOrbitPanel(props:PanelProps&{orbit:OrbitController}){useOrbitState(props.orbit);return <RosinaConversation {...props}/> }
+function RosinaConversation({dataAdapter,service,orbit}:PanelProps&{orbit?:OrbitController}){
   const { session, registerPrivateCleanup, getSessionGeneration, renewSession, authMode } = useSession()
   const calendarScope = useCalendarActionScope(session?.persona.personId)
   const sessionRef = useRef(session)
@@ -39,7 +43,7 @@ function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
   const nextId = useRef(0), active = useRef(true), abort = useRef<AbortController | null>(null)
   const threadRef = useRef<HTMLDivElement>(null), launcherRef = useRef<HTMLButtonElement>(null)
   const sent = useRef(false), executed = useRef(new Set<string>())
-  const context = { ...calendarScope, readOnly: session?.marks?.demoGuide===true, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
+  const context = { ...calendarScope, canPrepareOrbit:orbit?.canPrepare()??false, readOnly: session?.marks?.demoGuide===true, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
   useEffect(() => {
     active.current = true
     const unregister = registerPrivateCleanup(() => {
@@ -65,6 +69,7 @@ function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
     window.addEventListener('hashchange', followRoute)
     return () => window.removeEventListener('hashchange', followRoute)
   }, [])
+  useEffect(()=>{const prepare=(event:Event)=>{const text=(event as CustomEvent<unknown>).detail;if(typeof text==='string'){setDraft(text);setOpen(true);setDismissed(false)}};window.addEventListener('orbit:ask',prepare);return()=>window.removeEventListener('orbit:ask',prepare)},[])
   function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = []) {
     if (!active.current) return
     const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions }
@@ -107,6 +112,7 @@ function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
   }
   async function execute(action: CatalogAction, key: string, confirmed = false) {
     if (!active.current || !validateActions([action]).length || !actionAllowed(action, context) || executed.current.has(key)) return
+    if(action.id==='prepareOrbitAlert'){if(!orbit?.canPrepare())return;executed.current.add(key);closePanel();location.hash='#/orbit';void orbit.prepare(action.args);return}
     if (catalog[action.id].changesData && !confirmed) { setPending({ action, key }); return }
     if (catalog[action.id].changesData) {
       executed.current.add(key); setPending(null)
