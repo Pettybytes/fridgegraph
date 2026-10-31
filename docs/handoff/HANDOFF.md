@@ -1757,3 +1757,10 @@ NOT DOING: schema/auth/DB changes, service-role reads, mutation tools, adding th
   merging.
 BLOCKERS: none for this task. CarePlan, village-directory and the Group-3 trio remain the open
   follow-ups under "Rosina tools available" above.
+
+**Final state (2026-10-30):** PR #34 head `4c3da49`. `gh pr ready 34` run; `gh pr view 34` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (17s), `web build` (25s). Diff vs `origin/main` legitimately
+includes R-LEAK's files (`roster.ts`, `outputGuard.ts`, PR #30, not yet merged) since this task's
+code hard-depends on them — will shrink to just this task's own changes once #30 merges. Not
+merged — Bryan merges.
