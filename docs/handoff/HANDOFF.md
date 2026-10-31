@@ -1926,7 +1926,7 @@ results. Full assertions remain nonzero; do not mark integrated or DONE from the
 Guide topology remains parent-only per E2e; guide goals refusal is recorded, not invented away.
 
 Two simultaneous contexts verified independent browser identities. Supplemental Kendra → Dana
-visual check sampled **32 frames, zero old pickup records**. Token-leak scans in-process PASS:
+visual check sampled **35 frames, zero old pickup records**. Token-leak scans in-process PASS:
 zero held token/current-prefix hits, zero new generic-prefix matches; existing generic matches
 inspected (redacted evidence/patterns/integrity text/binary PNG), no matching content printed.
 Coverage/filenames and exclusions are in the receipts. No credential-file reads, traces, HAR,
@@ -1968,5 +1968,13 @@ Removed the obsolete, unused ConnectedEntry browser Supabase client; all session
 through the documented endpoint. No browser Supabase imports remain in application source.
 Final after rebase/provenance correction: root staged secret scan **420 files, 0 findings**.
 The refreshed full live receipt has exactly six directory-name failures, not a weakened assertion.
-Supplementary frame audit: 32 frames / zero old pickup records. Temporary Playwright logs were
+Supplementary frame audit: 35 frames / zero old pickup records. Temporary Playwright logs were
 scanned before cleanup; screenshots and safe receipts remain in web/evidence/demo-login/.
+
+Published **DRAFT PR #32**: https://github.com/Pettybytes/fridgegraph/pull/32.
+UI complete · backend partial · integrated + tested partial; NOT DONE. Keep the six directory
+isolation failures visible. Local final suite 197/197, web typecheck/build and root typecheck
+PASS; secret scan 420 files / 0 findings; catalog drift PASS. CI typecheck/secret scan and web
+build passed on initial implementation 25c5b6f; final evidence/copy follow-up checked on the PR.
+Only the task-owned local Rosina process was stopped after the probes; shared demo login,
+routers and MCP were not stopped or reset. No merge, tag, release, seed or database mutation.

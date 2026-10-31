@@ -4,7 +4,7 @@
     "scope": "Additional visual and frame-isolation checks only; does not override the failing full directory gate",
     "frameAudit": {
       "pass": true,
-      "frames": 32,
+      "frames": 35,
       "leaks": 0
     },
     "screenshots": [
@@ -14,7 +14,7 @@
   },
   "scan": {
     "pass": true,
-    "scanned": 586,
+    "scanned": 569,
     "heldSessions": 2,
     "tokenFindings": [],
     "genericFilesToInspect": [
