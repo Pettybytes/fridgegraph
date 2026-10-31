@@ -9,10 +9,11 @@
  */
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
-import { validateActions, type CatalogAction } from './catalog';
+import { catalog, validateActions, type CatalogAction } from './catalog';
 import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
-import { scopedRoster } from './roster';
+import { checkInStatusFrom, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
+import { careOnlyChildren, scopedRoster } from './roster';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string };
@@ -71,8 +72,42 @@ export type RosinaTurnResult = {
  * service refuses to call anything by a name it does not already know is a read. Grown one tool
  * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
  * available" — a new read ships in the same PR as its own persona-boundary tests). `Attempts`
- * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40, PR #29's own tool contract). */
-const ALLOWED_MCP_TOOL_NAMES = new Set(['PickupCandidates', 'Attempts', 'JobTimeline']);
+ * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40). `ChildEvents`, `EffectiveSchedule`
+ * and `AdultAvailability` added in TASK R-TOOLS-2 (evidence 41). `CheckInStatus`, `OrbitStatus`
+ * and `OrbitVocabulary` added in TASK R-ORBIT (evidence 42/43/44) — still no activate/draft/
+ * preview tool exists or ever will; Orbit's mutations are never exposed here. `CareFacts` added
+ * in TASK R-CARE (evidence 35 §14): read-only, no oracle (an unauthorized, nonexistent, and
+ * genuinely-empty child all return the identical `[]`). */
+const ALLOWED_MCP_TOOL_NAMES = new Set([
+  'PickupCandidates',
+  'Attempts',
+  'JobTimeline',
+  'ChildEvents',
+  'EffectiveSchedule',
+  'AdultAvailability',
+  'CheckInStatus',
+  'OrbitStatus',
+  'OrbitVocabulary',
+  'CareFacts',
+]);
+
+/**
+ * TASK R-TOOLS-2: "ID authorization is a code rule." For these three tools, the id argument
+ * (child or person) is checked against `permittedIds` BEFORE the tool is ever called — never
+ * trust a browser route, message history, or a model-supplied argument. A permitted id is either
+ * the caller's own child/self (seeded from R-LEAK's roster), or an id an authorized tool result
+ * already handed back THIS turn (e.g. EffectiveSchedule's parent, or a candidate from
+ * Attempts/JobTimeline/PickupCandidates) — never an id invented from outside the conversation.
+ */
+const ID_ARG_BY_TOOL: Record<string, string> = {
+  ChildEvents: 'childId',
+  EffectiveSchedule: 'childId',
+  AdultAvailability: 'personId',
+  CheckInStatus: 'childId',
+  OrbitStatus: 'childId',
+  CareFacts: 'childId',
+  // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
+};
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
   return tools
@@ -87,6 +122,23 @@ function truncate(text: string, max = 600): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+/** Collects every string value found under a key literally named `id`, anywhere in a tool
+ * result — the generic "what ids did an authorized read just hand back" scan. Harmless if it
+ * also picks up a job/attempt id: those are never checked against (only child/person-id
+ * arguments are gated), so an extra id in the set cannot grant anything it shouldn't. */
+function harvestIds(value: unknown, into: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) harvestIds(item, into);
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      if (key === 'id' && typeof v === 'string') into.add(v);
+      else harvestIds(v, into);
+    }
+  }
+}
+
 export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaTurnResult> {
   const config = options.providerConfig ?? resolveProvider(options.provider);
   const chatImpl = options.chatFn ?? chat;
@@ -98,10 +150,13 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), ...ACTION_TOOLS];
 
   const roster = scopedRoster(options.personId, options.isGuide);
+  // TASK R-CARE: a narrow, CareFacts-only supplement to the roster above — see
+  // src/rosina/roster.ts#careOnlyChildren. Never used by any other tool.
+  const careRoster = careOnlyChildren(options.personId, options.isGuide);
 
   const started = Date.now();
   const messages: ModelMessage[] = [
-    { role: 'system', content: buildSystemPrompt(roster, options.isGuide) },
+    { role: 'system', content: buildSystemPrompt(roster, options.isGuide, options.personId, careRoster) },
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
   ];
@@ -120,6 +175,18 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // action — requires that proof; every other proposeAction_* is navigation/explanation only and
   // carries no such requirement.
   const verifiedChildIds = new Set<string>();
+  // ID authorization is a code rule, not a prompt suggestion: seeded with the caller's own
+  // scoped child(ren) and their own personId (always safe to ask about yourself), then grown as
+  // authorized tool results hand back ids this turn. Gates ChildEvents/EffectiveSchedule/
+  // AdultAvailability's child/person-id arguments — see ID_ARG_BY_TOOL.
+  const permittedIds = new Set<string>([...roster.map((c) => c.id), ...careRoster.map((c) => c.id), options.personId]);
+  // Orbit-specific gates (src/rosina/orbit.ts): CheckInStatus throws UNAUTHORIZED for anyone who
+  // is not the child's parent, so a SUCCESSFUL call is proof of parent authority — never an
+  // assumption. vocabularyByKind accumulates every value THIS turn's own OrbitVocabulary call(s)
+  // actually returned; a descriptor value not in it is refused regardless of how plausible it
+  // looks, so the model can never silently substitute a near match.
+  const verifiedParentOf = new Set<string>();
+  const vocabularyByKind = new Map<string, Set<string>>();
 
   let finalContent = '';
 
@@ -162,6 +229,18 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         continue;
       }
 
+      const idArgKey = ID_ARG_BY_TOOL[call.name];
+      if (idArgKey) {
+        const idValue = args[idArgKey];
+        if (typeof idValue !== 'string' || !permittedIds.has(idValue)) {
+          // Never executed: this is the pre-call gate, not a backend denial. No hint is given
+          // either way about whether the id exists — the model gets the same refusal regardless.
+          toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'OUT_OF_SCOPE_ID' }) });
+          continue;
+        }
+      }
+
       const callResult = await mcp.callTool(call.name, args).catch((error: unknown): McpToolCall => ({
         data: null,
         errors: [{ message: (error as Error).message }],
@@ -172,21 +251,59 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       if (call.name === 'PickupCandidates' && !callResult.isError && typeof args.childId === 'string') {
         verifiedChildIds.add(args.childId);
       }
+      // Grow the permitted-id set from whatever an authorized call just handed back (a
+      // candidate, a parent, a child) — never from the call's own arguments, so a rejected or
+      // out-of-scope call (isError) contributes nothing.
+      if (!callResult.isError) harvestIds(callResult.data, permittedIds);
+      if (call.name === 'CheckInStatus' && !callResult.isError && typeof args.childId === 'string') {
+        verifiedParentOf.add(args.childId);
+      }
+      if (call.name === 'OrbitVocabulary' && !callResult.isError) {
+        for (const [kind, values] of vocabularyMapFrom(callResult.data)) {
+          const existing = vocabularyByKind.get(kind) ?? new Set<string>();
+          for (const v of values) existing.add(v);
+          vocabularyByKind.set(kind, existing);
+        }
+      }
+      // "Overdue" is real-time arithmetic, not something to trust the model to compute from a
+      // dueAt string — the server decides it here, against the real clock, before the result
+      // ever reaches a message. Never derived from recorded=false alone (src/rosina/orbit.ts).
+      let overdueFlag: boolean | null = null;
+      if (call.name === 'CheckInStatus' && !callResult.isError) {
+        const status = checkInStatusFrom(callResult.data);
+        if (status) overdueFlag = isCheckInOverdue(status);
+      }
       // Deterministic, not a hope the model converts UTC correctly: any `at`/`closedAt` in a
       // JobTimeline/Attempts result is rewritten to the family's own local time before the
       // model ever sees it. A no-op for PickupCandidates, which has neither field.
       const localizedData = callResult.isError ? callResult.data : localizeTimestamps(callResult.data);
-      if (!callResult.isError && localizedData) toolResultTexts.push(JSON.stringify(localizedData));
+      const finalData = overdueFlag !== null ? injectOverdueFlag(localizedData, overdueFlag) : localizedData;
+      if (!callResult.isError && finalData) toolResultTexts.push(JSON.stringify(finalData));
       toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: callResult.isError, errorCodes });
       messages.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: localizedData } : localizedData),
+        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: finalData } : finalData),
       });
     }
 
     for (const { call, args } of actionCalls) {
       const id = call.name.slice(ACTION_TOOL_PREFIX.length);
+
+      if (id === 'prepareOrbitAlert') {
+        // ALWAYS refused, never included in `actions` — the shared catalog marks this
+        // UNIMPLEMENTED until Codex's app handler (orbitDraft + orbitPreview + the confirm UI)
+        // exists, regardless of how cleanly it validates. The gate itself (parent authority +
+        // vocabulary membership) still runs in full, so it is already correct, and already
+        // tested, for the moment that flag flips — see src/rosina/orbit.ts.
+        const shapeArgs = catalog.prepareOrbitAlert.argsSchema.parse(args);
+        const semantic = shapeArgs ? validatePrepareOrbitAlert(shapeArgs as OrbitAlertArgs, verifiedParentOf, vocabularyByKind) : null;
+        const errorCode = !shapeArgs ? 'INVALID_ACTION' : !semantic!.ok ? semantic!.reason : 'UNIMPLEMENTED';
+        toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: true, errorCodes: [errorCode] });
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: false, error: 'Orbit alerts are not available through this app yet.' }) });
+        continue;
+      }
+
       let validated = validateActions([{ id, args }]);
       let refusalReason: string | null = null;
       // Catalog presence never implies permission: start-pickup additionally requires a
@@ -220,7 +337,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     { prompt: 0, completion: 0, total: 0 },
   );
 
-  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", roster, toolResultTexts.join('\n'));
+  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", [...roster, ...careRoster], toolResultTexts.join('\n'));
 
   return {
     reply: guarded.reply,

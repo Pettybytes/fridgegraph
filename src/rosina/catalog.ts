@@ -19,6 +19,7 @@ export type ActionArgs = {
   'start-pickup': { childId: string; date: string; window: 'morning' | 'afternoon' | 'evening' };
   'explain-screen': { screen: ExplainableScreen };
   'explain-recommendation': Record<string, never>;
+  'prepareOrbitAlert': { childId: string; wearColor?: string; wearGarment?: string; hair?: string; carryColor?: string; carryItem?: string };
 };
 
 export type ActionId = keyof ActionArgs;
@@ -28,7 +29,7 @@ type ArgsSchema<T> = { parse(value: unknown): T | null };
 type CatalogEntry<Id extends ActionId> = {
   id: Id;
   argsSchema: ArgsSchema<ActionArgs[Id]>;
-  routeOrHandler: 'route' | 'person-card' | 'pickup' | 'explain';
+  routeOrHandler: 'route' | 'person-card' | 'pickup' | 'explain' | 'orbit';
   changesData: boolean;
   implemented: boolean;
 };
@@ -71,6 +72,26 @@ function pickupArgs(value: unknown): ActionArgs['start-pickup'] | null {
   return { childId: value.childId, date: value.date, window: value.window as ActionArgs['start-pickup']['window'] };
 }
 
+/** Mirrors web/src/features/rosina/catalog.ts#orbitAlertArgs exactly. Vocabulary MEMBERSHIP is a
+ * separate, dynamic check (src/rosina/orbit.ts) — this only enforces shape. No location-shaped
+ * field exists here or ever should. */
+const ORBIT_DESCRIPTOR_KEYS = ['wearColor', 'wearGarment', 'hair', 'carryColor', 'carryItem'] as const;
+function orbitAlertArgs(value: unknown): ActionArgs['prepareOrbitAlert'] | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const obj = value as Record<string, unknown>;
+  if (!personId(obj.childId)) return null;
+  const allowed = new Set<string>(['childId', ...ORBIT_DESCRIPTOR_KEYS]);
+  if (!Object.keys(obj).every((key) => allowed.has(key))) return null;
+  const out: ActionArgs['prepareOrbitAlert'] = { childId: obj.childId as string };
+  for (const key of ORBIT_DESCRIPTOR_KEYS) {
+    if (!(key in obj)) continue;
+    const v = obj[key];
+    if (typeof v !== 'string' || v.length < 1 || v.length > 40) return null;
+    out[key] = v;
+  }
+  return out;
+}
+
 export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
   'open-calendar': { id: 'open-calendar', argsSchema: { parse: (value) => (record(value, ['day', 'childId']) && validDay(value.day) && personId(value.childId) ? { day: value.day, childId: value.childId } : null) }, routeOrHandler: 'route', changesData: false, implemented: true },
   'open-event': { id: 'open-event', argsSchema: { parse: (value) => (record(value, ['id']) && typeof value.id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value.id) ? { id: value.id } : null) }, routeOrHandler: 'route', changesData: false, implemented: true },
@@ -79,6 +100,7 @@ export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
   'start-pickup': { id: 'start-pickup', argsSchema: { parse: pickupArgs }, routeOrHandler: 'pickup', changesData: true, implemented: true },
   'explain-screen': { id: 'explain-screen', argsSchema: { parse: (value) => screenArgs(value) ?? (record(value, ['screen']) && value.screen === 'calendar' ? { screen: 'calendar' } : null) }, routeOrHandler: 'explain', changesData: false, implemented: true },
   'explain-recommendation': { id: 'explain-recommendation', argsSchema: { parse: (value) => (record(value, []) ? {} : null) }, routeOrHandler: 'explain', changesData: false, implemented: true },
+  'prepareOrbitAlert': { id: 'prepareOrbitAlert', argsSchema: { parse: orbitAlertArgs }, routeOrHandler: 'orbit', changesData: true, implemented: false },
 };
 
 /** Diffed against the real web catalog by ops/rosina-catalog-drift.mjs. Keep in id order. */

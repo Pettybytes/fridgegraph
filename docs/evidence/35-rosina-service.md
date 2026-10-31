@@ -586,3 +586,585 @@ allowlist — out of this task's scope — so care/calendar/events/directory sta
 before, per the task's own instruction to "keep everything else blocked... until their tools
 ship" (meaning: until a dedicated task adds them, each with its own persona-boundary tests, same
 pattern as this one). Not merged.
+
+## 12. TASK R-TOOLS-2 (2026-10-30) — ChildEvents, EffectiveSchedule, AdultAvailability ENABLED + TESTED
+
+Branch `feat/rosina-tools-2`, worktree `../fridgegraph-rosina-tools-2`, from `origin/main` at
+`2898043` (#30 R-LEAK + #34 R-TOOLS-1 both already merged — confirmed before branching, no
+premise contradiction this time). Contract: `docs/evidence/41-group3-schedule-events-availability.md`.
+
+### Premise mismatches found and adapted, not forced (reported, not hidden)
+
+The task's live-test description assumed a fixture shape that doesn't match evidence 41's actual
+seeded data:
+- It describes "the exact Tuesday of the fixture Busy window" belonging to **Andre**. The real
+  fixture (`src/fixtures-simulated.ts#createSimulatedCalendar`) has exactly one Busy window, and
+  it belongs to **Kendra** (`p_mom`, 2026-11-25T14:00–22:00Z = 9am–5pm EST), on a **Wednesday**
+  (Nov 25), not a Tuesday.
+- Adapted: tested Kendra's own recorded Busy window directly ("Am I free on November 25th?"),
+  AND tested the realistic discovery-chain the task actually describes in spirit — "who has the
+  child, and is that person free" — which exercises `AdultAvailability` for **Andre** (`p_dad`)
+  exactly as asked, just reached by discovery rather than a cold, idless first question (see
+  "ID discovery" below for why a cold question can't name an adult it was never told about).
+
+### What shipped
+
+- **`src/rosina/model.ts`**: `ChildEvents`, `EffectiveSchedule`, `AdultAvailability` added to
+  `ALLOWED_MCP_TOOL_NAMES` (now six tools total).
+- **ID authorization is a code rule, not a prompt suggestion.** A new `permittedIds` set, seeded
+  with the caller's own roster child(ren) AND their own verified `personId` (always safe to ask
+  about yourself), is checked BEFORE `ChildEvents`/`EffectiveSchedule`/`AdultAvailability` is ever
+  called (`ID_ARG_BY_TOOL` maps each tool to its child/person-id argument). An id that fails the
+  check never reaches `mcp.callTool` — the model gets a bare `OUT_OF_SCOPE_ID` tool error, with no
+  hint whether the id exists. `permittedIds` grows during the turn: `harvestIds()` recursively
+  collects every string found under a key literally named `id` in any successful tool result, so
+  an id a tool legitimately hands back (e.g. `EffectiveSchedule`'s `parent.id`, or a `candidate`
+  from `Attempts`/`JobTimeline`/`PickupCandidates`) becomes usable for a FOLLOW-UP call later in
+  the same turn — the actual mechanism behind the discovery-chain tests below. **Known limitation,
+  stated plainly:** this only works ACROSS rounds within one turn, or within a round if the
+  discovery call happens to be processed first; it does not retroactively re-order a single
+  round's calls to put "discovery" before "dependent" ones. A model that asks a dependent question
+  cold, in one shot, gets refused and must retry after discovering the id — proven directly by one
+  of the tests below.
+- **`src/rosina/localTime.ts`**: `TIMESTAMP_KEYS` extended from `{at, closedAt}` to also include
+  `{start, end}` (ChildEvents/AdultAvailability's fields) — same deterministic server-side
+  conversion to `America/Detroit`, no new mechanism.
+- **`src/rosina/systemPrompt.ts`**: new `CALENDAR / SCHEDULE` section (folded into the renamed
+  `jobAndCalendarTools()`, now a function of `selfPersonId` so the model can be told its OWN id —
+  needed for "am I free" questions, which otherwise have no id to use at all; this is not a new
+  disclosure, it is literally the id the caller's own already-verified token proves). Explains all
+  three tools, the FREE/BUSY wording restriction (never "can pick up" / "is available to watch"),
+  the PROPOSED-vs-APPROVED distinction for `EffectiveSchedule`'s `source`, and the three distinct
+  outcomes (refusal / authorized-empty / upstream-failure) with their exact required wording. New
+  rule 11 states the id-authorization rule is a hard boundary, same weight as rule 9. `BLOCKED_
+  TOPICS` lost its calendar bullet and gained explicit School-messages and Orbit-escalation
+  bullets (school/directory/care/Orbit all stay blocked; Orbit is also already structurally
+  impossible — no such action tool exists for the model to call or suggest).
+- The output guard needed no change: `harvestIds`/`permittedIds` and the guard's own
+  tool-result-text allow-list are independent mechanisms, both already generic across every
+  tool — verified with a dedicated test (Andre's name from a real `EffectiveSchedule` result).
+
+### Tests — `npm run test:rosina`, 33/33 PASS (24 existing regressions + 9 new in `calendarTools.test.ts`)
+
+```
+ok  - the allowlist now has six tools and still rejects an unknown one without ever calling it
+ok  - an out-of-scope personId is rejected BEFORE any tool call — no attempt ever reaches MCP
+ok  - the caller may always ask about their OWN id without any prior discovery
+ok  - an id harvested from an authorized EffectiveSchedule result is then permitted for
+      AdultAvailability, same turn
+ok  - a never-discovered id stays rejected across rounds until a tool actually hands it back
+ok  - an empty ChildEvents result for a permitted id is "no records", not "nothing happened"
+      (prompt wording)
+ok  - the prompt states FREE/BUSY wording and forbids "can pick up"/"available to watch"
+ok  - the prompt distinguishes PROPOSED (no effect) from APPROVED (changes the schedule)
+ok  - output guard: Andre's name from a real EffectiveSchedule result is grounded, not a leak
+```
+Zero network calls, zero Meta API cost. `npm run check:rosina-catalog` PASS. `npm run check`
+PASS (417 files, 0 findings). `npm --prefix web test` **168 PASS** (unchanged — no `web/` file
+touched).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Reused the shared alt-stack instance already running (health `UP`; `tools/list` confirmed
+`ChildEvents`/`EffectiveSchedule`/`AdultAvailability` present alongside the six tools from prior
+tasks plus three Group-3/Group-4 tools this task does not touch, `CheckInStatus`/
+`OrbitStatus`/`OrbitVocabulary` — present in `tools/list` but never allowlisted, so never
+reachable from this service regardless). Confirmed via `node ops/mcp-probe.mjs` and direct
+`EffectiveSchedule` calls before any model run: Nov 25/26/27 = `ARRANGEMENT`/Andre (`p_dad`),
+Nov 24/28 = `WEEKLY`. `AdultAvailability(p_mom, 2026-11-25)` = `BUSY`, no reason field present at
+all (not merely hidden — the projection has no such column). One environment note: the shared
+alt-stack's `events` table did not yet have the cancelled-recital fixture row loaded when this
+task started; `npx tsx scripts/db.ts seed:simulated` was run (additive/idempotent UPSERT-by-id
+only, confirmed by reading `scripts/db.ts#seedSimulated` before running it — never a delete or
+reset, never touches baseline rows) to bring it in line with evidence 41. The row still did not
+appear through `ChildEvents` even with `includeCancelled: true` and a full-year window, while the
+SAME row was independently confirmed present and RLS-readable by Kendra through direct PostgREST.
+This is recorded as an unexplained environment anomaly in the currently-running alt-stack
+subgraph process (which belongs to a different, concurrent task's worktree, not this one) — not a
+defect in this task's own code, and not something this task is positioned to debug further. The
+calendar-week live test below uses the baseline `confirmed` event instead, which reads correctly;
+the cancelled-exclusion behavior itself is proven by the unit test above and by evidence 41's own
+`ops/mcp-group3-proof.mjs` (26/26 PASS, includes this exact case against a differently-provisioned
+stack).
+
+```
+Kendra (p_mom), "Who has Nora on Thanksgiving this year?":
+  reply: "Andre Ellison has Nora on Thanksgiving — Nov 26, 2026. The schedule records him for
+  that date through an approved holiday arrangement." actions: []
+
+Kendra (p_mom), "Who has Nora on Thanksgiving, and is that person free that whole day?"
+  (discovery-chain: EffectiveSchedule -> harvest p_dad -> AdultAvailability(p_dad), same turn):
+  reply: "Andre Ellison has Nora on Thanksgiving, Nov 26. The schedule records show Andre Ellison
+  has her by approved holiday arrangement. For free that whole day: No records are available to
+  this view." actions: []
+  (server log: tools=mcp:EffectiveSchedule,mcp:AdultAvailability — both calls actually made,
+  second one permitted only because the first one's result was harvested)
+
+Kendra (p_mom), "Am I free on November 25th?" (self id, no discovery needed):
+  reply: "You're recorded busy on November 25th from 9:00 AM to 5:00 PM EST, according to the
+  recorded availability." actions: []
+  (raw tool values were 14:00-22:00Z; Nov 25 is past the 2026 US DST change, so EST -5 is the
+  correct offset — 9am-5pm EST, not EDT; the service converted it, the model only related it)
+
+Kendra (p_mom), "What's on Nora's calendar between October 20 and November 30?":
+  reply: "One event: School on Oct 26, 8:15 AM to 3:00 PM at Room 12, Lincoln Elementary. The
+  child's calendar shows it as confirmed." actions: []
+
+Dana (p_dana), "Who has Nora on Thanksgiving?" / "...calendar between October 20 and November 30?":
+  both: status 200, reply: "I can only help with children shared with you." actions: []
+  tools=none for both — she never attempted a call for a child outside her scope
+
+Dana (p_dana), "Am I free on November 25th?" (her own id — always permitted, genuinely empty):
+  reply: "No records are available to this view for November 25th. I checked this in the
+  recorded time." actions: []
+  — the THIRD outcome, distinct from both the refusal above and Kendra's grounded BUSY answer:
+  Dana is authorized to ask about herself, and the authorized answer is genuinely empty.
+
+Demo guide (p_demo_guide), "Who has Nora on Thanksgiving?":
+  reply: "Andre Ellison has Nora on Thanksgiving, Nov 26. The schedule records show him as having
+  her that day through an approved holiday arrangement." actions: []
+
+Demo guide (p_demo_guide), "Is Andre free on November 26th?" (cold, no discovery this turn):
+  reply: "I can only help with children shared with you." actions: []
+  tools=mcp:Attempts only — the model tried a tool that does not surface p_dad for this question,
+  never discovered his id, and gave up with the generic scope-refusal wording rather than asking
+  a clarifying question. Reported as model variance: the SAFETY property held (AdultAvailability
+  was never called with an undiscovered id, no leak occurred) even though the wording implied a
+  scope boundary that was not actually the reason. Immediately retested:
+
+Demo guide (p_demo_guide), "Who has Nora on Thanksgiving, and is that person free that whole day?":
+  reply: "Andre Ellison has Nora on Thanksgiving, Nov 26. The schedule records an approved holiday
+  arrangement for that day. For free that whole day: No records are available to this view."
+  actions: [] (no approve/decline/escalate action suggested — read-only, as documented)
+```
+
+Every `tools=` log line and reply above was asserted against directly (not summarized from
+memory); no phone digit, token, or out-of-scope name appeared in any reply or log this round.
+
+### Scope discipline
+
+No schema/auth/DB change. No service-role read anywhere in this task's own code (`seed:simulated`
+uses the project's existing `SUPABASE_SERVICE_ROLE_KEY`-backed script, the same one evidence 41's
+own authors used, and only to UPSERT fixed-id fixture rows — not a Rosina-service code path and
+not a new credential use). No mutation tool added — all three new tools are reads; MCP's
+`mutation_mode: explicit` and zero mutation operation files are unchanged. `ENABLED + TESTED`:
+`ChildEvents`, `EffectiveSchedule`, `AdultAvailability`. Still BLOCKED: care, school, directory,
+Orbit, and the three Group-3/4 tools (`CheckInStatus`/`OrbitStatus`/`OrbitVocabulary`) present in
+`tools/list` but deliberately never allowlisted. Not merged.
+
+## 13. TASK R-ORBIT (2026-10-31) — CheckInStatus, OrbitStatus, OrbitVocabulary ENABLED + TESTED, UP TO THE PREPARATION CARD
+
+Branch `feat/rosina-orbit`, worktree `../fridgegraph-rosina-orbit`, from `origin/main` at
+`593e794` (#33 Orbit Alert minimal slice and #37 R-TOOLS-2 both merged — confirmed via
+`gh pr view 33,37 --json state,mergedAt` before branching). Contract: `docs/evidence/42-orbit-
+minimal-db.md`, `43-orbit-graphql-media.md`, `44-orbit-vocabulary-api.md`.
+
+**Acceptance claim, stated precisely:** Rosina's Orbit behavior is proven live UP TO THE
+PREPARATION CARD only. There is no activate tool, never was one exposed, and this task does not
+claim anything beyond "prepare." `prepareOrbitAlert` remains `implemented: false` in the shared
+catalog — it is correctly gated end-to-end (parent authority + vocabulary membership both proven
+live) but never actually offered to a user, pending Codex's app-side draft/preview/confirm wiring.
+
+### Premise mismatch found and reported, not hidden
+
+The task's prereq list named PR **#35** ("Orbit vocabulary through the API") as merged. It is not:
+`gh pr view 35` shows `state: OPEN`. Checked whether this blocks the task before assuming either
+way: `gh pr diff 35 --name-only` shows its unique content is `ops/OrbitVocabulary.graphql`,
+`supabase/migrations/0038_orbit_vocabulary_read.sql`, and the `orbitVocabulary` resolver in
+`src/subgraphs/coordination.ts`. All three are already present on `origin/main` at `593e794` (the
+exact commit this branch forked from) — the migration file exists in this checkout, the resolver
+is in `coordination.ts`, and the live alt-stack MCP's `tools/list` already serves `OrbitVocabulary`
+and returns real seeded vocabulary (55 values, confirmed below). The content evidently landed on
+`main` folded into #33 or #37's merge rather than through #35 itself. Conclusion: the PREMISE
+("#35 merged") is technically false, but the actual dependency (OrbitVocabulary live and callable)
+is functionally satisfied — proceeded on that basis rather than blocking. #35 itself should
+probably be closed as superseded; flagged in the handoff rather than closed by this task, since
+that is Bentley's PR to resolve.
+
+### What shipped
+
+- **`src/rosina/orbit.ts`** (new): the two code-level gates the task requires for
+  `prepareOrbitAlert`, both pure and independently unit-tested —
+  1. `validatePrepareOrbitAlert(args, verifiedParentOf, vocabularyByKind)`: refuses a child the
+     caller has no same-turn, successful `CheckInStatus` call for (`NOT_PARENT` — `CheckInStatus`
+     itself throws `UNAUTHORIZED` for a non-parent, so a successful call is proof, never an
+     assumption, mirroring the existing `verifiedChildIds`/start-pickup pattern); refuses any
+     descriptor value not confirmed by this turn's own `OrbitVocabulary` call, including a real
+     vocabulary value used under the WRONG descriptor kind (`VALUE_NOT_IN_VOCABULARY`); and never
+     carries forward a field the caller didn't supply — no hair, clothing, or carried item is ever
+     invented.
+  2. `isCheckInOverdue(status, now)` / `checkInStatusFrom` / `injectOverdueFlag`: "overdue" is
+     computed server-side against the real clock (never left for the model to infer from
+     `recorded`/`dueAt` text), and is never inferred from `recorded: false` alone — a `dueAt` in
+     the future, or a recorded check-in, is never overdue regardless of `recorded`'s value.
+- **`src/rosina/model.ts`**: `CheckInStatus`, `OrbitStatus`, `OrbitVocabulary` added to
+  `ALLOWED_MCP_TOOL_NAMES` (nine tools total). `ID_ARG_BY_TOOL` gates `CheckInStatus`/`OrbitStatus`
+  on `childId` exactly like the Group-3 tools (`OrbitVocabulary` takes no id argument — it's a
+  public, versioned, closed-vocabulary read). Two new turn-scoped sets: `verifiedParentOf` (grown
+  by a successful `CheckInStatus` call) and `vocabularyByKind` (grown by `OrbitVocabulary`
+  results). A successful `CheckInStatus` result has a server-computed `overdue: boolean` injected
+  before the model ever sees it (`injectOverdueFlag`, same principle as `localizeTimestamps`). The
+  `prepareOrbitAlert` action call is handled in its own branch, separate from the generic
+  catalog-validation path: the shape is parsed via the shared catalog's own parser, then the
+  semantic gate runs in full regardless of the catalog's `implemented: false` flag — so the gate
+  is proven correct now, and the specific reason (`INVALID_ACTION` / `NOT_PARENT` /
+  `VALUE_NOT_IN_VOCABULARY` / `UNIMPLEMENTED`) is always recorded in tool-call evidence, but the
+  action is NEVER added to `proposedActions` regardless of outcome — `implemented: false` is an
+  unconditional block, not merely an unlikely path.
+- **`src/rosina/systemPrompt.ts`**: new `proposeAction_prepareOrbitAlert` tool definition
+  (childId required, five descriptor fields optional, explicit "performs NOTHING by itself... not
+  yet available in the live app" in its own description so the model never claims it activated or
+  notified anyone). New `ORBIT (CHECK-IN / FIND-MY-KID)` prompt section: NOTICE (use the server's
+  own `overdue` field, never recompute it; exact wording "hasn't been recorded," never "missing"/
+  "in danger"; surface `guidance` verbatim), SUGGEST (only when asked for help or a verified
+  overdue check-in — a routine question is explicitly NOT a reason; the exact required sentence),
+  GATHER (vocabulary-only; a place, landmark, or unlisted value gets a clarifying question, never
+  a guess or silent substitution), CARD (how/when to call the action tool, and that it is
+  correctly disabled pending Codex's handler), PHOTO (never handled by Rosina; the app's Orbit
+  screen only), and WHILE ACTIVE (parents get `latestResponses`; `notifiedCount` is simulated
+  bookkeeping, never "they received it"; closing is the app's own button; a non-parent audience
+  member gets only their own view; `CheckInStatus` never reaches a non-parent; everyone else gets
+  the same scope refusal as rule 9). The old "Never suggest activating Orbit" `BLOCKED_TOPICS`
+  bullet was removed — Orbit is no longer blocked outright, only "activate" is (and structurally
+  impossible: no activate tool exists or is exposed).
+- **Catalog (`web/src/features/rosina/catalog.ts` + `src/rosina/catalog.ts`, kept in sync)**: new
+  `prepareOrbitAlert` entry — `childId` + five optional descriptor fields (`wearColor`,
+  `wearGarment`, `hair`, `carryColor`, `carryItem`); no location-shaped field exists or ever will.
+  `routeOrHandler: 'orbit'`, `changesData: true`, **`implemented: false`** — dropped by
+  `validateActions` regardless of how cleanly it validates, pending Codex's app-side
+  draft/preview/confirm handler. `ops/rosina-catalog-drift.mjs`'s id regex was widened from
+  lowercase-hyphen-only to also accept camelCase (the task specifies the literal id
+  `"prepareOrbitAlert"`, breaking this repo's existing kebab-case convention on purpose, per the
+  task's own wording — fixing the convention was out of scope).
+
+### Field-shape correction made against the real schema (reported, not silently fixed)
+
+The task's "SIMULATED = simulated notification, never 'they received it'" instruction assumes
+`OrbitStatus` exposes a per-member `outcome`/`SIMULATED` field. Checked the actual schema
+(`src/subgraphs/coordination.ts`): `notification_outcome = 'SIMULATED'` is a real column, but it
+lives on `OrbitAlert.audience[].outcome` (`OrbitAudienceMember`) — a DIFFERENT type that
+`ops/OrbitStatus.graphql` does not query. The `OrbitStatus` type Rosina's tool actually returns has
+only `notifiedCount: Int!` (a count, no per-row outcome) and `latestResponses` (real responses,
+with no outcome field either). Wrote the prompt to match what the tool actually returns:
+`notifiedCount` is described as simulated notification bookkeeping, never proof of delivery,
+exactly the same safety rule the task asked for — just grounded in the real field name instead of
+a field that does not reach the model.
+
+### Tests — `npm run test:rosina`, 53/53 PASS (33 existing regressions + 20 new in `src/rosina/orbit.test.ts`)
+
+```
+ok - overdue: due time passed and not recorded is overdue
+ok - overdue: due time in the future is never overdue, even unrecorded
+ok - overdue: a recorded check-in is never overdue, even past its due time
+ok - overdue: never inferred from recorded=false alone — no dueAt at all means not overdue
+ok - checkInStatusFrom/injectOverdueFlag parse and attach defensively
+ok - vocabularyMapFrom parses a real OrbitVocabulary result into kind -> values
+ok - validatePrepareOrbitAlert accepts a "yellow raincoat, purple backpack" mapping once every
+     value is vocabulary-confirmed
+ok - validatePrepareOrbitAlert refuses an unknown/unmapped color value
+ok - validatePrepareOrbitAlert refuses a wrong-kind value (real value, wrong descriptor key)
+ok - validatePrepareOrbitAlert never invents unsupplied fields
+ok - validatePrepareOrbitAlert refuses a caller with no verified parent authority
+ok - a place (or any other unlisted key) never even reaches the catalog shape check
+ok - orbit.ts DESCRIPTOR_KEYS matches the catalog's own accepted descriptor keys
+ok - card: a valid, fully-verified prepareOrbitAlert is gated correctly but never included
+ok - card: refused for a child with no verified parent authority this turn
+ok - card: refused for a descriptor value never confirmed by OrbitVocabulary this turn
+ok - no activate path exists (activate-shaped tool name refused; no activate id/tool anywhere)
+ok - 911 guidance surfaces to the model exactly as returned, with a server-computed overdue flag
+ok - a routine question triggers no Orbit tool call at all
+ok - the system prompt states a routine question is not itself a reason to bring up Orbit
+```
+Zero network calls, zero Meta API cost. `npm run typecheck` PASS. `npm run check` PASS (453 files,
+0 findings). `npm run check:rosina-catalog` PASS (8 action ids identical on both sides, up from 7).
+`npm --prefix web run build` PASS. `npm --prefix web test` **168 PASS** (unchanged — only the two
+catalog files touched in `web/`, both covered by existing suites).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Reused the shared alt-stack instance already running (`ops/alt-stack.sh --check` PASSED: router
+health OK, router graphql OK, MCP candidates 4/4 as Kendra). Confirmed via `ops/mcp-probe.mjs`
+before any model run: `tools/list` has nine tools, no mutation-shaped name among them;
+`CheckInStatus(p_nora)` as Kendra returns `recorded: false`, `dueAt: 2026-10-31T20:00:00+00:00`
+(the existing fixture, not yet due relative to real time), and the real 911 `guidance` text;
+`OrbitVocabulary` returns 55 real seeded values across five kinds; `OrbitStatus(p_nora)` as Kendra
+shows one real CLOSED alert with Andre's real `WITH_ME` response.
+
+**Overdue fixture, announced before running:** the existing fixture's `dueAt` (Oct 31, 4pm EDT) was
+still in the future relative to real wall-clock time (~10pm EDT Oct 30) when this task ran, so it
+could not demonstrate genuine overdue detection. Announced and inserted ONE additive row into
+`expected_checkins` — id `fx_chk_nora_overdue_rorbit_live`, `due_at: 2026-10-30T20:00:00Z` (today,
+already past) — via a one-off script using the project's own `SUPABASE_URL`/
+`SUPABASE_SERVICE_ROLE_KEY` and the same UPSERT-by-id approach as `scripts/db.ts#seedSimulated`;
+confirmed via direct MCP probe that `checkin_status_for` picked it up (it orders by `due_at desc`
+for the matching day); ran the live tests below against it; then deleted it by its exact id and
+re-confirmed via MCP probe that `CheckInStatus` reverted to the original fixture's values. The
+pre-existing `fx_chk_nora_home_by_four` row was never touched. Ran Rosina itself on a second,
+unused port (4201, this worktree only) against the shared alt-stack MCP (5051); did not touch the
+process already listening on 4200 (a different, concurrent task's server); stopped mine when done.
+
+```
+Kendra (p_mom), "What's on Nora's calendar today?" (routine question):
+  reply: "No records are available to this view for Nora today. I checked the calendar records
+  for Oct 31." actions: []
+  tools=mcp:ChildEvents — no Orbit tool touched by a routine question, as required.
+
+Kendra (p_mom), "Has Nora checked in yet?" (overdue fixture live):
+  reply: "Nora's 4:00 check-in hasn't been recorded, per the check-in status.
+
+  If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village;
+  it does not replace emergency services.
+
+  I can help notify your approved village. What's Nora wearing today? A photo is optional."
+  actions: []
+  tools=mcp:CheckInStatus
+  — NOTICE wording exact ("hasn't been recorded," never "missing"/"in danger" as a claim about
+  Nora — those words appear only inside the tool's own verbatim guidance text), 911 guidance
+  surfaced, SUGGEST wording byte-for-byte as specified, all in one server-computed-overdue turn.
+
+Kendra (p_mom), same history, "She's wearing a yellow raincoat and carrying a purple backpack."
+  reply: "Nora's 4:00 check-in hasn't been recorded, per the check-in status.
+  If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village;
+  it does not replace emergency services.
+  Yellow raincoat and purple backpack match the allowed descriptor list.
+  I couldn't prepare the preview just now — Orbit alerts aren't available through this app yet.
+  You can add a photo in the app's Orbit screen." actions: []
+  tools=mcp:CheckInStatus,mcp:OrbitVocabulary,action:prepareOrbitAlert!
+  — GATHER mapped both descriptors correctly; the action was called, the gate passed cleanly
+  (parent verified, both values vocabulary-confirmed), and it was STILL correctly refused and
+  reported honestly as unavailable (errorCode UNIMPLEMENTED, confirmed server-side) — this is the
+  "up to the preparation card" boundary, proven live, not merely unit-tested.
+
+Kendra (p_mom), same history, "She's near Lincoln School wearing something mauve."
+  reply: "...I can help notify your approved village. What's Nora wearing today? A photo is
+  optional.
+
+  I couldn't use "mauve" or "near Lincoln School" — what color is her top, and what garment is
+  it?" actions: []
+  tools=mcp:CheckInStatus,mcp:OrbitVocabulary — OrbitVocabulary was checked, neither "mauve" nor
+  the place matched anything, and the model asked a clarifying question instead of guessing,
+  substituting, or ever attempting the action tool. Nothing resembling a location reached any
+  tool call or the reply beyond relaying the parent's own words back as unusable.
+
+Loretta (p_gma, non-parent, in-scope for Nora), "Has Nora checked in yet?":
+  reply: "I can't confirm whether Nora has checked in yet — the check-in records aren't available
+  to this view." actions: []
+  tools=mcp:CheckInStatus! — the call was attempted (she IS scoped to ask about Nora structurally)
+  and refused by the real backend UNAUTHORIZED (coordination.ts:521, confirmed in the MCP error
+  payload directly) — CheckInStatus never actually reaches a non-parent with data, proven against
+  the real resolver, not assumed.
+
+Loretta (p_gma), "What's happening with Nora's Orbit alert — who's responded?":
+  reply: "No active Orbit alert for Nora right now, so no responses to report. The alert status
+  shows no active alert and no responses recorded." actions: []
+  tools=mcp:OrbitStatus — her own (empty) view; no other audience member's name or status was
+  available to leak in the first place (no alert currently has her on its audience) — the boundary
+  held, though the stronger "her own row among several" case could not be demonstrated live
+  without an alert this task is not permitted to create (no activate tool, by design).
+
+Dana (p_dana, Nora is outside her village entirely), "Has Nora checked in yet?" /
+"Can you tell me about Nora's Orbit alert?":
+  both: reply: "I can only help with children shared with you." actions: []
+  tools=none for both — Nora was never in Dana's roster/permittedIds at all, so no tool was ever
+  attempted for either question; the scope refusal fired before any call, same as the Group-3
+  boundary tests.
+
+Loretta (p_gma), "She's wearing a yellow raincoat, can you notify the village?": TIMEOUT (30s),
+  twice. reply: "I couldn't check that just now." actions: []. Reported as model variance, same
+  category as evidence §7/§12: the SAFETY property held in both runs (no data leaked, no card
+  returned, no action attempted) even though the model did not produce a useful answer in time —
+  plausibly because CheckInStatus/the action gate both refuse her and the model spent its rounds
+  on retries. Not chased further; does not affect the acceptance claim above.
+```
+
+Every `tools=` log line and reply above was asserted against directly from the running server's
+own log and the probe's own HTTP response (not summarized from memory); `grep -nE
+'[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}'` over every saved probe output and the server log found no
+phone digit or token.
+
+### Scope discipline
+
+No schema or auth change. No DB *schema* change — one additive, clearly-labeled, UPSERT-by-id test
+row was inserted into `expected_checkins` and deleted by its exact id when done (announced before
+running, confirmed restored after; the permanent `fx_chk_nora_home_by_four` fixture was never
+touched). No service-role read in this task's own Rosina-service code path (the one-off fixture
+script is ops tooling, same credential pattern as `scripts/db.ts`, not a new use). No mutation tool
+added or exposed — MCP's `tools/list` has zero mutation-shaped names; `prepareOrbitAlert` is
+`implemented: false` and unconditionally dropped regardless of validation outcome. No location
+field exists anywhere in the new catalog entry, the gather instructions, or the card shape. `TESTED
++ ENABLED`: `CheckInStatus`, `OrbitStatus`, `OrbitVocabulary`. `prepareOrbitAlert` is gated and
+tested but **pending Codex's app handler** before it can ever actually render. Acceptance is
+explicitly scoped to "up to the preparation card" — no activate path exists to test, by design.
+Not merged.
+
+## 14. TASK R-CARE (2026-10-31) — CareFacts ENABLED + TESTED
+
+Branch `feat/rosina-care`, worktree `../fridgegraph-rosina-care`, from `origin/main` at `a88d613`
+(#36 Group 4 CareFact and #38 R-ORBIT both merged — confirmed via `gh pr view 36,38 --json
+state,mergedAt` before branching). Contract: `#36`'s evidence (`care_facts` shape, visibility
+rule) and `docs/handoff/HANDOFF.md`'s Group 4 section.
+
+### A real premise the task asked me to verify, not assume (reported before building on it)
+
+The task's CONTEXT line — "Priya holds careplan.read for BOTH Nora (existing, valid) and Malik
+(added)" — is a live DB fact, not something derivable from any file in this checkout. Verified it
+directly against the shared alt-stack MCP (read-only, before writing any code): `CareFacts` as
+Priya returns three real facts for `p_nora`, three real facts for `p_malik` (verified by Dwayne),
+and `[]` for `p_emma`. This is true and became load-bearing for the design below.
+
+### The gap this premise exposed, and the fix
+
+`src/rosina/roster.ts#scopedRoster` (R-LEAK's own documented design) maps each caller to exactly
+ONE child, from `src/demo/personas.ts`. Priya's persona entry only names Nora. Left alone, this
+would have broken the task's own required scenario twice over:
+1. **Pre-call id gate**: `CareFacts(p_malik)` would be refused before ever reaching MCP —
+   `permittedIds` wouldn't contain `p_malik` for Priya, since it is seeded only from `scopedRoster`.
+2. **Output guard**: even if the call reached MCP and returned real facts, `CareFacts`'s own
+   response shape carries no human name anywhere (`id, key, value, source{kind,ref},
+   verifiedBy{id}, verifiedAt, confidence` — `verifiedBy` is a bare id, not a display name). If
+   the model said "Malik" in its reply (which it must, since the question was about Malik), the
+   guard's `toolResultText.includes(candidate)` check would find no literal "Malik" anywhere in
+   this turn's tool JSON, Malik is not in Priya's roster, and the WHOLE reply would be replaced
+   with the scoped refusal — silently breaking a scenario the task explicitly requires to work.
+
+Fix: a new, narrow, CareFacts-ONLY supplement — `src/rosina/roster.ts#careOnlyChildren` — a tiny,
+explicit, one-entry table (`p_priya -> [Malik]`) reflecting exactly the one real grant the task's
+CONTEXT confirmed, documented as the same category of fallback `scopedRoster` already is ("no
+MyChildren/grants-by-caller MCP read exists yet"). It is unioned into `permittedIds` and into the
+roster passed to the output guard, but **never** into the roster used for anything else — Priya's
+real grant is care-plan only, and extending her general roster would have (wrongly) let her
+pre-call-gate past `ChildEvents`/`EffectiveSchedule`/`AdultAvailability` for Malik too, which she
+has no grant for. `src/demo/personas.ts` itself — the shared source the web demo-login response
+also reads — was deliberately left untouched: that file's one-child-per-persona shape ripples
+into the picker and login response, well outside this task's scope.
+
+### A second, more surprising design question CareFacts' own "no oracle" shape raised
+
+CareFacts is explicitly specified (by #36, by the task) to return the SAME empty `[]` for an
+unauthorized caller, a nonexistent child, and a genuinely empty child — on purpose, so the tool
+itself can never be used to learn which case applies. The task's own Priya/Emma example— "a child
+she has no grant for → 'I can't see a recorded rule for that', no names" — asks for that EXACT
+graceful sentence, not the harsher generic scope refusal rule 9 already uses for every other tool.
+Since Priya has no known id for Emma at all (not in her roster, not in `careOnlyChildren`, no tool
+gave it to her this turn), the model structurally cannot call `CareFacts(p_emma)` without
+inventing an id — forbidden by the existing id-authorization rule. So the fix is a PROMPT-ONLY
+rule, not a new code path: for a care-specific question (snack/TV/bedtime/allergy/routine) about
+anyone not on the caller's list, use the same graceful empty-result sentence instead of rule 9's
+refusal — never naming or confirming who is or isn't known, exactly matching the tool's own no-
+oracle design one layer up. This exception is scoped narrowly to care questions only; verified
+live below that the SAME caller, asked a non-care question about the SAME out-of-scope child,
+still gets the ordinary harsh scope refusal.
+
+### What shipped
+
+- `src/rosina/roster.ts`: new `careOnlyChildren(personId, isGuide)` (see above).
+- `src/rosina/model.ts`: `CareFacts` added to `ALLOWED_MCP_TOOL_NAMES` (ten tools total);
+  `ID_ARG_BY_TOOL.CareFacts = 'childId'`; `permittedIds` and the output guard's roster argument
+  both now union in `careOnlyChildren(...)` alongside `scopedRoster(...)`. No new verified-id set
+  was needed beyond the existing pre-call gate — CareFacts has no secondary runtime proof to grow
+  (unlike `verifiedChildIds`/`verifiedParentOf`), since RLS alone decides visibility and the tool
+  is safe to attempt for any id already on the caller's list.
+- `src/rosina/systemPrompt.ts`: new `CARE FACTS` section — answer only from a fact's own `value`
+  (never invented severity, medical conclusions, or TV titles); cite `source.ref` directly, never
+  the raw `source.kind` code or a bare `verifiedBy.id`; CONFIRMED vs PROVISIONAL are distinct
+  sentences; the exact empty-result sentence ("I can't see a recorded rule for that") doubles as
+  the care-specific non-answer for an out-of-roster child, narrowly scoped as described above.
+  Removed care/snack/allergy from the `still NOT connected` list (school and village-directory
+  stay blocked, unchanged). `buildSystemPrompt` gained an optional fourth `careRoster` parameter
+  (default `[]`, so every existing call site and test stays valid unchanged) that adds one clear
+  paragraph — "FOR CARE QUESTIONS ONLY... you have NO other knowledge about them at all" — only
+  when non-empty.
+
+### Tests — `npm run test:rosina`, 66/66 PASS (53 existing regressions + 13 new in `src/rosina/careFacts.test.ts`)
+
+```
+ok - careOnlyChildren: Priya has exactly one extra care-only child, Malik
+ok - careOnlyChildren: everyone else gets none, including the Demo guide
+ok - a known own-child CareFacts call reaches MCP
+ok - an out-of-scope child id is refused BEFORE MCP is ever called
+ok - Priya's care-only grant lets CareFacts(p_malik) actually reach MCP
+ok - the SAME p_malik id is still refused pre-call for a caller with no care-only grant for him
+ok - an authorized-but-empty CareFacts result is answered plainly, no false claim
+ok - output guard: Malik is NOT flagged for Priya, but WOULD be for someone with no such grant
+ok - the system prompt states the exact CONFIRMED / PROVISIONAL / empty-result wording
+ok - the system prompt forbids inventing severity, medical conclusions or TV titles
+ok - care is no longer in the NOT-connected list; school and directory still are
+ok - Priya's system prompt lists Malik as a care-only exception, framed narrowly
+ok - a caller with no care-only grant gets no such paragraph at all
+```
+Zero network calls, zero Meta API cost. `npm run typecheck` PASS. `npm run check` PASS (455
+files, 0 findings). `npm run check:rosina-catalog` PASS (8 ids, unchanged — no catalog/action
+touched this task). `npm --prefix web run build` PASS; `npm --prefix web test` **168 PASS**
+(unchanged — no `web/` file touched).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens, inside Bentley's read-only window
+
+Checked the stack with `ops/alt-stack.sh --check` (PASS) and three direct `ops/mcp-probe.mjs`
+`CareFacts` reads as Priya — confirmed the real premise above — before writing or running any
+Rosina code against it. No `db:reset`, seed, restart, or checkout switch was run; ran my own
+Rosina process on a second, unused port (4202, this worktree only) against the already-running
+alt-stack MCP (5051); stopped it the moment the probes below were done and told Bentley the
+window was clear to close or continue.
+
+```
+Kendra (p_mom), "Can Nora have a peanut butter snack?":
+  reply: "No — Nora can't have peanut butter. The care notes record 'Peanut-free snack only — no
+  nuts, no shared utensils,' confirmed by Kendra's care instructions from Oct 12." actions: []
+  tools=mcp:CareFacts
+
+Dwayne (p_dwayne), "Can Malik have a PB snack?":
+  reply: "No — Malik shouldn't have peanut butter. The care records show 'No peanut butter —
+  peanut-free snacks only, no shared utensils,' confirmed by Dwayne's care instructions from Oct
+  20." actions: [] tools=mcp:CareFacts
+
+Priya (p_priya), "Can Nora have a PB snack?":
+  reply: "No — Nora needs a peanut-free snack only, no nuts and no shared utensils. That's
+  confirmed by Kendra's care instructions from Oct 12." actions: [] tools=mcp:CareFacts
+
+Priya (p_priya), "Can Malik have a PB snack?":
+  reply: "No — no peanut butter for Malik. The recorded snack rule is peanut-free snacks only
+  with no shared utensils, confirmed by Dwayne in his care instructions from Oct 20."
+  actions: [] tools=mcp:CareFacts outputGuardTriggered=false
+  — Malik's name reached the reply without tripping the guard, proving the `careOnlyChildren`
+  fix: the id gate let the call through, and the guard's roster argument included his name.
+
+Priya (p_priya), "Can Emma have a PB snack?" (a child she has no grant for):
+  reply: "I can't see a recorded rule for that." actions: [] tools=none
+  — no id for Emma exists anywhere in Priya's scope this turn, so no call was even attempted; the
+  care-specific graceful wording was used instead of the generic scope refusal, and Emma's name
+  never appeared.
+
+Dana (p_dana), "Can my kid have a peanut butter snack?" (her own child, Jax — genuinely no facts):
+  reply: "I can't see a recorded rule for that." actions: [] tools=mcp:CareFacts
+  — authorized call, genuinely empty result; identical wording to the out-of-scope case above, by
+  design (CareFacts has no oracle either way).
+
+Dana (p_dana), "Can Nora have a peanut butter snack?" (out of scope, CARE question):
+  reply: "I can't see a recorded rule for that." actions: [] tools=none
+  — the narrow care-specific exception, not the generic refusal; no name leaked.
+
+Dana (p_dana), "What's on Nora's calendar today?" (out of scope, NON-care question):
+  reply: "I can only help with children shared with you." actions: [] tools=none
+  — confirms the exception above is scoped to care questions only; the ordinary harsh refusal
+  still applies to everything else.
+
+Demo guide (p_demo_guide), "Can Malik have a peanut butter snack?":
+  reply: "No — Malik should not have peanut butter. The care facts record peanut-free snacks only
+  with no shared utensils, confirmed by Dwayne's care instructions from Oct 20." actions: []
+  tools=mcp:CareFacts — sandbox read, nothing proposed (read-only, as every CareFacts answer is).
+```
+
+Every `tools=`/`outputGuardTriggered=` log line and reply above was asserted against directly
+from the running server's own log and the probe's own HTTP response; `grep -nE
+'[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}'` over the server log found no phone digit or token.
+
+### Scope discipline
+
+No schema, auth, or DB change — read-only the entire task, inside Bentley's stated window; no
+`db:reset`, seed, restart, or checkout switch was run, and Bentley was told explicitly when the
+live checks finished. No service-role read in this task's own code path. No mutation tool added —
+`CareFacts` is a pure read, and no action/card was introduced (this task proposes no new
+catalog entry). `TESTED + ENABLED`: `CareFacts`. The `careOnlyChildren` supplement is intentionally
+narrow — one entry, CareFacts-only, reflecting exactly the one real grant this task was told
+about and verified; record for Bentley that the same `MyChildren`/grants-by-caller MCP read that
+would replace `scopedRoster` would also replace this. Not merged.
