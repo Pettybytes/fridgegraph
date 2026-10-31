@@ -3319,3 +3319,27 @@ Required preflight, before any visitor run:
 - the token is minted in-process and **never logged** (no token, no `Authorization` header, no payload
   echo in output);
 - treat a non-JSON / error / empty result as **preflight FAIL**, not as an empty answer.
+
+## Group 5 resume point — 2026-10-31 02:30 (Piece 1 in progress)
+
+**Branch `feat/reset-demo` pushed.** Written and typechecking, **NOT PROVEN — no PR yet**:
+
+- `src/demo/reset.ts` — sandbox-scoped restore in ONE transaction under `pg_advisory_xact_lock`;
+  deletes only sandbox/fixture rows, upserts the fixture set, `dropPersonaSessionCache()` **after**
+  commit. Never calls `db:reset`.
+- `src/rosina/server.ts` — `POST /api/demo/reset`: loopback-only, demo-session-only, refuses the
+  Demo guide, 30 s per-person cooldown.
+
+**Exact next step (do this first):**
+1. Reserve the stack in this file (the proof resets state).
+2. Write `ops/reset-demo-proof.mjs`: mutate demo state (activate + close an Orbit alert, one response,
+   one calendar change) → call the route as a demo session → assert restore.
+3. Verify after reset, all of: `jobTimeline`, Thanksgiving `effectiveScheduleFor`, `orbitVocabulary`,
+   `checkInStatus`, `careFacts`, `myChildren`, **plus one authenticated MCP tool call** (Task H),
+   11/11 personas READY, Kendra's Mission Control job still answers, and non-sandbox row counts
+   unchanged (capture before/after).
+4. Failure path: inject a mid-restore error and confirm the transaction rolls back with the demo
+   still intact — "never partially restored" is a claim that needs a negative control.
+5. Only then open the PR and report the three lines separately: backend / button wiring / browser.
+
+Pieces 2–3 untouched. No merges.
