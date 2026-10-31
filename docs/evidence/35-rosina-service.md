@@ -1452,3 +1452,108 @@ carry zero diff in this PR, confirmed via `git diff` after the repro was reverte
 remains exclusively W-ORBIT's own change (PR #44), as it has been throughout. No schema/auth/DB
 change. No mutation tool. No live run needed or performed (a test-suite fix, not a behavior
 change). Not merged.
+
+## 18. Re-verification: MyChildren now supplies `displayName` — the §15 name gap is closed (2026-10-31)
+
+Branch `verify/mychildren-displayname`, worktree `../fridgegraph-mychildren-verify`, from
+`origin/main` at `49205cc` (#43 MyChildren, #44 Orbit catalog flip, and #48 the Orbit test fix all
+merged — confirmed via `gh pr view`/`git log` before starting). Pure verification task: rerun the
+name-based live probes §15 flagged as blocked on a Bentley follow-up, now that follow-up has
+landed. No code change was needed — see the DONE WHEN below.
+
+### Premise confirmed before probing
+
+`git show origin/main:ops/MyChildren.graphql` now selects `child { id person { displayName } }`
+(previously just `id`) — exactly the extension §15 asked Bentley for, landed as part of #43's
+merge. `src/rosina/childAccess.ts#parseMyChildren` already read `child.person.displayName`
+defensively since it was written in TASK R-MYCHILDREN; no server code change was required to
+pick it up.
+
+### Baseline, checked before any live call
+
+`npm run test:rosina` **75/75 PASS** on current `main`, unchanged. `npm run typecheck`; `npm run
+check` (551 files, 0 findings); `npm run check:rosina-catalog` (8 ids); `npm --prefix web run
+build`; `npm --prefix web test` **231 PASS** — all green with zero code changes in this worktree.
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Coordinated with Bentley: the prior W-ORBIT live window (recorded above) was explicitly released
+at 05:50 UTC, before its own 06:05 UTC end; `docs/handoff/HANDOFF.md`'s "Stack reservations"
+section shows no reservation held; `ops/alt-stack.sh --check` PASSED (router health OK, router
+graphql OK, MCP candidates 4/4 as Kendra) immediately before probing. Three direct `MyChildren`
+MCP reads (read-only) confirmed the premise before running anything through the model: Kendra now
+gets `{p_leo: "Leo Ellison", p_max: "Max Ellison", p_nora: "Nora Ellison"}` (each the full scope
+set); Priya gets `{p_malik: "Malik Ferris" (careplan.read only), p_nora: "Nora Ellison"
+(careplan.read + schedule.read + supervise.request)}`; Oscar still gets `[]`. Ran a second,
+unused Rosina port (4205, this worktree only) against the already-running alt-stack MCP; no
+`db:reset`, seed, restart, or checkout switch was run or needed.
+
+```
+Kendra (p_mom), "Can you list my children by name?":
+  reply: "Leo Ellison, Max Ellison, Nora Ellison. From the sharing list for this turn."
+  actions: [] tools=mcp:MyChildren outputGuardTriggered: false
+  — all three real names resolved and spoken with ZERO output-guard trips, the exact §15 gap
+  now closed: MyChildren's own displayName is pushed into this turn's grounding text.
+
+Kendra (p_mom), "Who could pick up Nora tomorrow afternoon?":
+  reply: "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis could pick up Nora
+  tomorrow afternoon, Nov 1. ... I've offered a review card to start that request — only your
+  confirmation in the app would send anything."
+  actions: [{"id":"start-pickup","args":{"childId":"p_nora","date":"2026-11-01","window":"afternoon"}}]
+  tools=mcp:MyChildren,mcp:PickupCandidates,action:start-pickup outputGuardTriggered: false
+  — "Nora" (named by Kendra, resolved to p_nora, grounded via MyChildren) and the four adult
+  names (grounded via PickupCandidates, unaffected by this change) all passed; the pickup card
+  was correctly proposed on the same-turn PickupCandidates proof, exactly as designed.
+
+Priya (p_priya), "Can Malik have a peanut butter snack?":
+  reply: "No — Malik should not have peanut butter. The care instructions record peanut-free
+  snacks only, no shared utensils — confirmed by Dwayne's care instructions from Oct 20."
+  actions: [] tools=mcp:MyChildren,mcp:CareFacts outputGuardTriggered: false
+  — THE exact case §15 flagged as broken (guard wiped "Malik" even on a successful call) now
+  passes cleanly. Named correctly on the first try, by name, no id ever typed by the caller.
+
+Priya (p_priya), "What's on Malik's calendar this week?":
+  reply: "I couldn't check that just now — the calendar check didn't go through."
+  actions: [] tools=mcp:MyChildren,refused:ChildEvents!
+  — SCOPE_NOT_GRANTED, unchanged: careplan.read-only on Malik still never extends to his
+  calendar, now proven resolvable and refusable BY NAME, not just by id.
+
+Priya (p_priya), "Can Nora have a peanut butter snack, and what's on her calendar this week?":
+  reply: "No — Nora needs peanut-free snack only... confirmed by Kendra's care instructions from
+  Oct 12... On her calendar this week is a parent-teacher conference Nov 4, 4:00 PM to 4:30 PM at
+  Lincoln Elementary, per the calendar." actions: []
+  tools=mcp:MyChildren,mcp:CareFacts,mcp:ChildEvents outputGuardTriggered: false
+  — Nora's SEPARATE, wider scope set (careplan.read + schedule.read) correctly allows BOTH reads
+  for the same caller who is simultaneously careplan.read-ONLY on Malik — scopes never unioned
+  across children, proven by name for both children in the same persona.
+
+Oscar (p_oscar), "Can you tell me about any children I have access to, by name?":
+  reply: "I don't see any children shared with you right now, so I can't list any names. That's
+  what was shared with you this turn." actions: [] tools=mcp:MyChildren
+  — genuinely empty, no name anywhere, no false claim; unaffected by the displayName change.
+
+Dana (p_dana), "Can Nora have a peanut butter snack?" (boundary re-check: Nora is now a REAL,
+named entity for Kendra/Priya — confirming the boundary still holds for someone with no grant):
+  reply: "I can't see a recorded rule for that." actions: [] tools=mcp:MyChildren
+  — no tool attempted (Dana's fresh MyChildren has no entry for Nora at all), no name leaked;
+  the care-specific graceful refusal fired exactly as before, unaffected by displayName existing
+  elsewhere in the system.
+```
+
+Every `tools=`/`outputGuardTriggered=` line and reply above was asserted against directly from
+the running server's own log and the probe's own HTTP response; `grep -nE
+'[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}'` over the server log found no phone digit or token.
+
+### Result: no fix needed
+
+All six probes passed on the first run, with zero code changes. The Bentley follow-up recorded
+in §15 ("MyChildren should also select `child.person.displayName`; this service already reads it
+the moment it's there") is now fully resolved and confirmed working end to end. No fix PR opened
+— this append is the entire deliverable for this task.
+
+### Scope discipline
+
+No code changed in this worktree at all — pure verification. No schema/auth/DB change. No
+`db:reset`, seed, restart, or checkout switch (none needed; coordinated via the HANDOFF
+reservation record and a direct `ops/alt-stack.sh --check`, confirmed idle before probing). No
+mutation performed (`start-pickup`'s card was proposed, never confirmed/executed). Not merged.
