@@ -3590,3 +3590,4 @@ GraphQL against the MCP `MyChildren` call. Both must return `p_leo,p_max,p_nora`
 before the window opens. No identity substitution to make the check pass.
 
 Bryan input: **not required** — this is a restore/config issue, not a decision.
+| 2026-10-31 04:26 | **W-RESET OPEN — 30 min, deadline 04:54 EDT.** Restoration from `f01021b` (serving code `dd84886`): alt stack 4101–4107 restarted (4102–4106 had been dead — that, not the DB, caused empty `myChildren`), 4008 serving the reset route, MCP 5051 up. **Both paths verified**: router 4012 `myChildren` = `p_leo,p_max,p_nora` named=true; MCP `MyChildren` = same. Reset route returns 401 unauthenticated (present + guarded). No db:reset. | serving `dd84886` (docs HEAD `f01021b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **OPEN to W-RESET until 04:54 EDT** |
