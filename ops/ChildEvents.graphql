@@ -1,0 +1,18 @@
+# Rosina tool: ChildEvents — a child's calendar in a window, cancelled entries hidden by default.
+#
+# Authorization is the row's own RLS (parent/guardian, schedule.read holder, or the read-only Demo
+# guide on sandbox data). A child the caller cannot see returns an EMPTY list, never an error — the
+# same shape a nonexistent child id returns, so the tool cannot be used to probe for ids.
+query ChildEvents($childId: ID!, $from: String!, $to: String!) {
+  childEvents(childId: $childId, from: $from, to: $to) {
+    id
+    title
+    start
+    end
+    location
+    status
+    child {
+      id
+    }
+  }
+}

@@ -13,6 +13,9 @@ operations:
     - ./ops/PickupCandidates.graphql
     - ./ops/JobTimeline.graphql
     - ./ops/Attempts.graphql
+    - ./ops/ChildEvents.graphql
+    - ./ops/AdultAvailability.graphql
+    - ./ops/EffectiveSchedule.graphql
 introspection:
   introspect:
     enabled: false

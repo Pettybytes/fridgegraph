@@ -84,6 +84,22 @@ enum Availability
   DECLINED @join__enumValue(graph: ACCESS)
 }
 
+"""
+Busy/Free only. The reason is private to its owner and is not part of this type.
+"""
+type AvailabilityWindow
+  @join__type(graph: SCHEDULE)
+{
+  person: Person!
+  start: String!
+  end: String!
+
+  """
+  BUSY | FREE — recorded state, never a statement of consent or willingness.
+  """
+  state: String!
+}
+
 type BusRoster
   @join__type(graph: TRANSPORT)
 {
@@ -91,6 +107,20 @@ type BusRoster
   child: Child!
   route: String!
   riding: Boolean!
+}
+
+type CalendarEvent
+  @join__type(graph: SCHEDULE)
+{
+  id: ID!
+  child: Child!
+  title: String!
+  start: String!
+  end: String!
+  location: String
+
+  """proposed | confirmed | cancelled"""
+  status: String!
 }
 
 type Candidate
@@ -211,6 +241,16 @@ enum DestinationMode
   REAL_CONSENTED @join__enumValue(graph: COORDINATION)
 }
 
+type EffectiveSchedule
+  @join__type(graph: SCHEDULE)
+{
+  parent: Person
+
+  """ARRANGEMENT | WEEKLY — which rule produced the answer."""
+  source: String!
+  arrangementId: ID
+}
+
 type Event
   @join__type(graph: SCHEDULE)
 {
@@ -312,13 +352,13 @@ scalar join__FieldSet
 scalar join__FieldValue
 
 enum join__Graph {
-  ACCESS @join__graph(name: "access", url: "http://127.0.0.1:4002/")
-  ACTIVITIES @join__graph(name: "activities", url: "http://127.0.0.1:4007/")
-  COORDINATION @join__graph(name: "coordination", url: "http://127.0.0.1:4003/")
-  SCHEDULE @join__graph(name: "schedule", url: "http://127.0.0.1:4004/")
-  SCHOOL @join__graph(name: "school", url: "http://127.0.0.1:4005/")
-  TRANSPORT @join__graph(name: "transport", url: "http://127.0.0.1:4006/")
-  VILLAGE @join__graph(name: "village", url: "http://127.0.0.1:4001/")
+  ACCESS @join__graph(name: "access", url: "http://127.0.0.1:4102/")
+  ACTIVITIES @join__graph(name: "activities", url: "http://127.0.0.1:4107/")
+  COORDINATION @join__graph(name: "coordination", url: "http://127.0.0.1:4103/")
+  SCHEDULE @join__graph(name: "schedule", url: "http://127.0.0.1:4104/")
+  SCHOOL @join__graph(name: "school", url: "http://127.0.0.1:4105/")
+  TRANSPORT @join__graph(name: "transport", url: "http://127.0.0.1:4106/")
+  VILLAGE @join__graph(name: "village", url: "http://127.0.0.1:4101/")
 }
 
 scalar link__Import
@@ -380,6 +420,7 @@ type PermissionSlip
 type Person
   @join__type(graph: ACCESS, key: "id")
   @join__type(graph: COORDINATION, key: "id")
+  @join__type(graph: SCHEDULE, key: "id")
   @join__type(graph: TRANSPORT, key: "id")
   @join__type(graph: VILLAGE, key: "id")
 {
@@ -432,6 +473,32 @@ type Query
   """
   jobTimeline(jobId: ID!): [TimelineEntry!]! @join__field(graph: COORDINATION)
   events(childId: ID!, date: String!): [Event!]! @join__field(graph: SCHEDULE)
+
+  """
+  A child's calendar across a date range (YYYY-MM-DD, both ends inclusive). Cancelled entries are
+  hidden unless includeCancelled is true; proposed and confirmed are returned with their status.
+  """
+  childEvents(childId: ID!, from: String!, to: String!, includeCancelled: Boolean = false): [CalendarEvent!]! @join__field(graph: SCHEDULE)
+
+  """
+  Recorded Busy/Free windows for a person.
+  
+  FREE means RECORDED FREE TIME. It is NOT confirmation of willingness, permission, or suitability
+  to care for a child, and it never means the person can pick a child up. Never read it that way to
+  a parent: say "has free time recorded", not "is available to watch" or "can pick up".
+  """
+  adultAvailability(personId: ID!, from: String!, to: String!): [AvailabilityWindow!]! @join__field(graph: SCHEDULE)
+
+  """
+  Who has the child on a date and which rule produced it: an APPROVED holiday arrangement first
+  (its interval is inclusive at both ends), otherwise the weekly schedule.
+  """
+  effectiveScheduleFor(childId: ID!, date: String!): EffectiveSchedule! @join__field(graph: SCHEDULE)
+
+  """
+  Overlaps and gaps in parenting coverage for a window. Surfaced, never resolved silently.
+  """
+  scheduleConflicts(childId: ID!, from: String!, to: String!): [ScheduleConflict!]! @join__field(graph: SCHEDULE)
   schoolReports(childId: ID!): [SchoolReport!]! @join__field(graph: SCHOOL)
   permissionSlips(childId: ID!): [PermissionSlip!]! @join__field(graph: SCHOOL)
   busRoster(childId: ID!, date: String!): BusRoster @join__field(graph: TRANSPORT)
@@ -479,6 +546,16 @@ enum RelationshipStatus
   ACTIVE @join__enumValue(graph: VILLAGE)
   EXPIRED @join__enumValue(graph: VILLAGE)
   REVOKED @join__enumValue(graph: VILLAGE)
+}
+
+type ScheduleConflict
+  @join__type(graph: SCHEDULE)
+{
+  """OVERLAP | GAP"""
+  kind: String!
+  onDay: String!
+  arrangementIds: [ID!]!
+  detail: String!
 }
 
 type SchoolReport

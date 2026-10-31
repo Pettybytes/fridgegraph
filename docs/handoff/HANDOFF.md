@@ -12,9 +12,86 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 |---|---|---|
 | 1 Persona sessions | `feat/e-next-persona-sessions` | **DONE** — evidence `39-persona-sessions.md`, proofs 26/26 |
 | 2 Rosina read tools | `feat/e-next-rosina-tools` | **DONE — evidence `40-rosina-read-tools.md`, proof 23/23 on MCP 5051** |
-| 3 Group 3 (events + adult schedules) | | not started |
+| 3 Group 3 (events + adult schedules) | `feat/e-next-group3` (PR **#31**) | **DONE — 0027/0028/0029/0030 applied; dry runs 18/18 + 20/20; reads + 3 MCP tools 26/26; fixture contract 6/6; cancelled-event and non-sandbox guide-seam items CLOSED.** Evidence `41-group3-events-holidays-availability.md` |
 | 4 Group 4 (care + Cast v2 seed) | | not started |
-| 5 Group 5 (reset, demo family, consent) | | not started |
+| 5 Group 5 (reset, demo family, consent) | | not started — **resetDemo restores v1 baseline + SIMULATED coordination fixture (later + Cast v2 seed); `db:reset` alone is insufficient; prove Kendra's Mission Control still lists the sample job and Rosina's `JobTimeline` still returns its entries after a reset** |
+
+
+
+### Group 5 requirement (recorded 2026-10-30, re-added — the earlier copy landed on a merged branch)
+
+`resetDemo` restores the **demo-ready** state, not a bare baseline: **v1 baseline + the SIMULATED
+coordination fixture** (`npx tsx scripts/db.ts seed:simulated`) and, once it exists, the Cast v2 seed.
+`db:reset` alone is **not** sufficient — it removes the fixture by design. After any reset the
+evidence must show **Kendra's Mission Control** still lists the sample job and **Rosina's
+`JobTimeline`** still returns its entries. Prove both in Group 5's evidence.
+
+
+### Fixture rule (operator, 2026-10-30 — replaces "no rows in a baseline table")
+
+Additive fixture rows MAY go into existing tables when: baseline rows are untouched, fixture rows are
+identifiable (`fixture` marker — migration **0030** — or `fx_` id prefix), the fixture keeps its own
+checksum, and cleanup removes exactly those rows and restores the baseline checksum **byte-for-byte**.
+Proven by `node ops/fixture-rule-proof.mjs` (6/6) and used to seed the cancelled event that closes
+Group 3's `includeCancelled` item.
+
+### Group 4 requirement — approval policy is PER HOUSEHOLD, never an assumed second parent
+
+`BOTH_PARENTS` and the self-approval refusal must follow each household's explicit
+`schedule_swap_approval` policy. Record the policy in the seed and prove each case in Group 4 evidence:
+
+| Household | Policy to seed | Proof |
+|---|---|---|
+| Ellison (two parents) | `BOTH_PARENTS` | a swap still needs the OTHER parent; self-approval refused (already proven in 0028 dry run) |
+| Castellano (guardians Rosa & Tomás, no parents) | names the guardians | an arrangement proposed by one guardian is approvable by the **other guardian** |
+| Ferris (single father Dwayne) | one approver | Dwayne's arrangement does not wait on a nonexistent second parent; Cassandra, Oscar and Priya are **never** approvers |
+| Lee | `ANY_PARENT` where the contract says so | any parent may approve |
+| Vance–Reyes | stepdad Marcus is `resident_adult` | Marcus is **never** an approver |
+
+`can_approve_swap()` currently assumes "the other parent/guardian in the household" — it must read the
+per-household policy and count guardians as approvers where the household has no parents.
+
+### 3 Group 3 — PARTIAL (data layer done)
+
+`0028_holiday_arrangements.sql` (applied) is the correction: a **SCHOOL_CLOSURE** (`holidays` +
+`day_kind` → `SCHOOL_CLOSURE`) is not a **HolidayArrangement**; closures suppress `SCHOOL_DAY`
+routines only (`routines.applies_on`), while only an `APPROVED` arrangement overrides parenting time,
+inside its inclusive interval. `effective_schedule_for()` is the single precedence point;
+`_is_approver_for` delegates to it (still revoked from `authenticated`) and
+`src/derive.ts#approverForChild` calls it by RPC. `schedule_conflicts()` surfaces OVERLAP/GAP and
+never resolves them; a table trigger refuses self-approval, default policy `BOTH_PARENTS`.
+Dry run `node ops/0028-dry-run.mjs` **20/20 PASS** (rolled back).
+
+`0027_events_holidays_availability.sql` (applied): `events.status` (proposed/confirmed/cancelled),
+`routines`, `holidays` with **inclusive** ends, `holiday_covers()`, `day_kind()`, `day_routines()`
+(no routine on a holiday — precedence lives in the function), `adult_availability` with a **private**
+`reason`, and the `adult_availability_free_busy` view that shares **state only** (base table stays
+owner-only because RLS filters rows, not columns). Guide gets read-only access with three restrictive
+policies per table. **Grants**: 0004 predates these tables, so 0027 grants `select`/`execute`
+explicitly — without that every caller hits `42501` before RLS (the dry run caught it).
+
+`node ops/0027-dry-run.mjs` **18/18 PASS**, one rolled-back transaction, real `request.jwt.claims`
+impersonation (guide markers included). `node ops/0027-apply.mjs` verifies the applied shape.
+
+**Read layer DONE.** GraphQL `childEvents`, `adultAvailability` (state only),
+`effectiveScheduleFor`, `scheduleConflicts`; MCP `ChildEvents`, `AdultAvailability`,
+`EffectiveSchedule` — `node ops/mcp-group3-proof.mjs` **24/24 PASS** on router **4012** and MCP
+**5051 → 4012**. The no-oracle contract holds on both surfaces (`UNAUTHORIZED` for a known
+out-of-network caller, identical to a nonexistent and a malformed id). Availability is Busy/Free
+only; the required "recorded free time, not willingness" wording is in the GraphQL description and
+the MCP operation file. SIMULATED calendar fixture (closure, two routines, Busy window, two approved
+arrangements) seeds with `seed:simulated` and has its own checksum; **no rows are written into a
+baseline table** (an earlier attempt to seed `events` was removed — that is why `events` shows only
+the 0027 column change). `0029` grants `service_role` on the four new tables (seeding failed with
+42501 otherwise).
+
+**Still PENDING:** a seeded cancelled event (cannot go in `events` without moving the baseline
+checksum) so the `includeCancelled` filter is proven by data, and the dedicated 0026 guide-seam
+audit for these reads.
+
+**Required wording (recorded, lands with the read):** FREE means *recorded free time*, NOT confirmed
+willingness or permission to care for a child — in the GraphQL field description **and** the MCP tool
+description. Rosina says "has free time recorded", never "is available to watch" / "can pick up".
 
 ### 2 Rosina read tools — DONE
 

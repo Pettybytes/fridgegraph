@@ -154,15 +154,15 @@ export async function approverForChild(
   childId: string,
   date: string,
 ): Promise<{ approverId: string | null; fyiParentIds: string[] }> {
-  const weekday = weekdayOf(date);
-  const data = await rows(
-    dbFor(ctx)
-      .from('parenting_schedules')
-      .select('parent_id,weekdays')
-      .eq('child_id', childId),
-  );
-  const row = data.find((s) => ((s.weekdays as string[]) ?? []).includes(weekday));
-  const approverId = row ? String(row.parent_id) : null;
+  // The approver follows the EFFECTIVE schedule (0028): an APPROVED HolidayArrangement first, then
+  // the weekly rule. Where no arrangement exists this is exactly the previous behaviour.
+  const { data: effective, error: effectiveErr } = await dbFor(ctx).rpc('effective_schedule_for', {
+    p_child: childId,
+    p_day: date,
+  });
+  if (effectiveErr) throw effectiveErr;
+  const row = (effective as Array<{ parent_id: string | null }> | null)?.[0];
+  const approverId = row?.parent_id ? String(row.parent_id) : null;
   // Co-parents, from a definer helper: household_members is readable only inside your own
   // household, so a parent cannot see the other parent's membership row directly (migration 0010).
   const { data: parentIds, error: parentErr } = await dbFor(ctx).rpc('parent_ids_of', {
