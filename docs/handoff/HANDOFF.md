@@ -3397,3 +3397,28 @@ DELETE fails; GUC alone fails on a non-disposable record; RPC refused; protected
 injected failure rolls back with no audit row.
 
 No PR, no merge. Pieces 2–3 not started.
+
+## Group 5 Piece 1 — corrections applied, one failure left (2026-10-31 03:40)
+
+**Correction 1 (guard was inverted).** Condition 3 no longer uses `demo_caller`. It was backwards:
+`demo_caller = true` marks a demo-session-originated job (real outreach refused) — exactly the
+disposable case. Real-consented records are now protected by their own markers only:
+`real_call_authorizations.job_id` reference, and `attempts.real_consent_authorization_id` non-null.
+No marker's meaning was changed.
+
+**Correction 2 (append-only applies to UPDATE/DELETE, not INSERT).** The earlier "INSERT still raises"
+wording was wrong. 0032 creates triggers on UPDATE and DELETE only; INSERT through the authorised
+`orbitRespond` path always worked and still does. The migration recreates only the UPDATE/DELETE
+guard. Regression still to be added: orbitRespond appends normally while UPDATE/ordinary DELETE fail.
+
+**SQL bug found and fixed** — the diagnostics (shape only: table, column names, counts, placeholders)
+identified a nested row expression: `valueRow()` already emits `(...)`, and the statement wrapped it
+again. Fixed; placeholders now equal columns. A second real defect followed: `events` was restored
+before `children`, violating `events_child_id_fkey` — restore now runs in FK-safe order with `events`
+last, matching the fixture's own ordering.
+
+**Remaining failure:** a DELETE on `orbit_responses` still hits `_orbit_responses_append_only()` line 8
+during the run. Next step: log the alert id and `_orbit_response_disposable()`'s verdict at the delete,
+confirm whether the GUC is visible to the trigger inside the SECURITY DEFINER call, and whether an
+audience row with a NULL `notification_outcome` is making a genuinely disposable alert ineligible.
+No PR; no merge.
