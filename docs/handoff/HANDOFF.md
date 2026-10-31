@@ -393,6 +393,7 @@ Then run it, then say it is restored. Never leave the stack pointed at a differe
 | 2026-10-30 22:20 | **W4b post-reload 401 — fixed** (identity map missing from the worktree cwd). Rosina 4200 restarted with `IDENTITY_MAP_PATH` → owning checkout's map and `ROSINA_MCP_URL` → 5051. Probe: **200**. NO reset, NO seed. | worktree `fridgegraph-main` @ 593e794 | 4200 only | **restored, verified** |
 | 2026-10-30 22:32 | **W4b window released** — final instrumented acceptance PASS (seven READY, Rosa Coming soon, boundaries, isolation, #37 Thanksgiving, exact Dana refusal, 120-frame Kendra→Dana audit zero leaks). 4200 remains on worktree @ 593e794 with MCP 5051. | `fridgegraph-main` @ 593e794 | 4200 | **released to normal** |
 | 2026-10-30 22:36 | **#38 acceptance window (~8 min, READ-ONLY)** — Rosina 4200 reloaded to main `a88d613` (#38 Rosina Orbit), PID 40176, worktree `fridgegraph-main`; `IDENTITY_MAP_PATH` + `ROSINA_MCP_URL=5051` preserved; status probe **200**. NO reset/seed/subgraph/router change. | worktree @ a88d613 | 4200 only | **restored, verified** |
+| 2026-10-30 22:48 | **W4b window released** (all11 actual picker PASS, screenshots saved; #38 seven-flow paused on matcher pending AGENTS1.4). **Piece 2 (Rosa guardian) DONE and RESTORED** — `ops/rosa-guardian-proof.mjs` 9/9 on Emma's own job/facts, Micah+Malik negatives. NO reset. | `feat/rosa-guardian` (PR #40) | 4101–4107 / 4012 / 5051 | **restored** |
 | 2026-10-30 22:35 | **Group 4 pieces 1–3** — **Piece 1 (Cast v2) DONE and RESTORED**: baseline seed 404 rows, 11/11 personas READY (Piece 1 availability, not a Coming-soon regression), restoration reads verified (jobTimeline 5 · effectiveScheduleFor ARRANGEMENT · orbitVocabulary 55 · checkInStatus · careFacts Nora 3 / Malik 3). **Pieces 2–3 QUEUED, NOT ACTIVE.** Stack PAUSED for W4b's read-only window; no reset/seed/subgraph/router change. | `feat/cast-v2` (PR #39); pieces 2–3 not started | 4101–4107 / 4012 / 5051 | **restored / paused** |
 
 ## Group 4 — CareFact (2026-10-30)
@@ -2295,6 +2296,57 @@ as Busy.
 Why the previous 4200 worked: it ran from `/Users/user/Desktop/bentley/fridgegraph`, whose cwd *does*
 contain the map. Nothing about the tokens or credentials changed — only the process working directory.
 
+---
+
+## W4b coordination — 503 `DEMO_LOGIN_UNAVAILABLE` (2026-10-30, sanitized)
+
+**Symptom.** The actual picker returned HTTP 503 `DEMO_LOGIN_UNAVAILABLE` while port 4008 was served by
+the `fridgegraph-level-b` checkout. After the restored window, 4008 returns **200 READY** from
+`/Users/user/Desktop/bentley/fridgegraph`.
+
+**Owning layer: process-start runtime configuration — not credentials, not cached-session renewal.**
+
+| Evidence | Where |
+|---|---|
+| The only producer of that exact code is the missing-value gate: `required(name)` throws `MintError('DEMO_LOGIN_UNAVAILABLE')` when `process.env[name]` is empty | `src/demo/session.ts:38–41` |
+| Values read by the mint: the three Supabase configuration keys (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) — **names only, no values** | `src/demo/session.ts` call sites |
+| The login route maps any `MintError` to **HTTP 503** `{status:'UNAVAILABLE', reason: code}` | `src/demo/server.ts:221–223` |
+| The gate runs **before** any Supabase call, so an invalid or expired credential cannot produce this code | same |
+
+**Why it differed between checkouts.** `.env` living on disk is not the same as `.env` loaded into the
+serving process. The older `fridgegraph-level-b` process on 4008 had been started without an env load,
+so its environment was empty at mint time even though the file existed in that checkout — the same
+failure I reproduced on this checkout by starting the server without `--env-file`, and the same restart
+that fixed it (`--env-file=.env`). Persona readiness is a *different* path and returns **200**
+`UNAVAILABLE` with `NO_SEEDED_IDENTITY` / `UNKNOWN_PERSONA`; a Supabase mint rejection would be
+`MINT_FAILED`. Neither is this code.
+
+**Restoration.** The level-b process was stopped; 4008 now runs from
+`/Users/user/Desktop/bentley/fridgegraph` (verified by the process working directory), and login answers
+200 READY. No reset, no checkout switch, no stack change was made for this request.
+
+**Caveat, stated honestly.** The old process is gone, so its environment cannot be read after the fact.
+"Env not loaded" is inferred from (a) that code being the only producer of this error, (b) the gate
+being pre-network, and (c) the reproduced failure and fix on this checkout. If it recurs, capture the
+serving process's environment **at failure time** (names only) before restarting.
+
+---
+
+
+### Root cause (sanitized) — 401 on every first message after the reload
+
+`src/auth/verify.ts` resolves the caller by mapping the token's subject through
+`identityMapPath()` — and that path is **`process.cwd()/data/identity-map.json`**
+(`src/demo/personas.ts:181–183`). A git worktree has no `data/` directory: the file is a runtime
+artifact, not a tracked file. With the map absent, `mappedPersonId()` returns `undefined`,
+`verifyBearer` answers `{ ok:false, reason:'unmapped' }`, and the handler replies
+`401 {"error":"UNAUTHENTICATED"}` (`src/rosina/server.ts:61–65`) — which the frontend surfaces as the
+"send your question again" manual-resend path. Follow-ups then hit the per-person limiter, so they read
+as Busy.
+
+Why the previous 4200 worked: it ran from `/Users/user/Desktop/bentley/fridgegraph`, whose cwd *does*
+contain the map. Nothing about the tokens or credentials changed — only the process working directory.
+
 Fix applied (no file copied, no contents read): start 4200 with
 `IDENTITY_MAP_PATH=/Users/user/Desktop/bentley/fridgegraph/data/identity-map.json` and
 `ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`. Verification: process cwd is the worktree, startup log
@@ -2840,3 +2892,24 @@ and affected live acceptance are complete; broader W4 dependencies remain separa
 This documentation follow-up is pushed normally; final-head CI/status are reported in the user
 response and the PR. No PR merge. W-ORBIT begins only after Bryan merges #32; do not start it on
 this worktree/branch or infer that READY means merged.
+
+---
+
+## Stack reservations — status as of 2026-10-31 03:21
+
+**No reservation is held right now.** Services are idle and verified:
+
+| Service | PID | Note |
+|---|---|---|
+| demo/picker 4008 | 10834 | up |
+| router 4012 | 36262 | up |
+| Rosina 4200 | 40176 | worktree @ **a88d613** — now **behind main 2e6e869** |
+| MCP 5051 | 36876 | up |
+| alt subgraphs 4101–4107 | — | up via `ops/stack-alt.mjs` |
+
+**W-ORBIT requested a future scenario-clock window**: simulated-only draft / preview / activate /
+respond / close, photo access, and a mid-activation perspective switch, driven by the actual picker.
+No real sends. Pending: the branch/commit to run and the scenario-clock start date.
+
+**Bentley pending**: #41 rebase after #40 merges (~10 min, needs no stack) and the later Rosina 4200
+reload for the catalog metadata flip (~5 min, restart, needs the reservation).
