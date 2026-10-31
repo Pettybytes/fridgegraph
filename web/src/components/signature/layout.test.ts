@@ -1,0 +1,6 @@
+import {expect,it} from 'vitest'
+import {ActivityLedger} from './activityLedger'
+import {orderedPeople,relationshipGroup,ringSlots} from './layout'
+it('groups descriptive relationships without translating them into permission',()=>{expect(relationshipGroup('grandmother')).toBe('Family');expect(relationshipGroup('sitter')).toBe('Care');expect(relationshipGroup('teacher')).toBe('School & activities');expect(relationshipGroup('not_recorded')).toBe('Connections')})
+it('keeps the network geometry stable and sorts without response or authority ranking',()=>{const people=[{id:'b',name:'Zoe',relationship:'parent',group:'Family',authorityLabel:'can approve'},{id:'a',name:'Ana',relationship:'sitter',group:'Care'}];expect(orderedPeople(people).map(p=>p.id)).toEqual(['a','b']);expect(ringSlots(5)).toEqual(ringSlots(5));expect(ringSlots(0)).toEqual([])})
+it('baseline responses never animate and each newly recorded response is observed once',()=>{const ledger=new ActivityLedger();expect(ledger.observe(['old'])).toEqual([]);expect(ledger.observe(['old','new'])).toEqual(['new']);expect(ledger.observe(['old','new'])).toEqual([]);expect(ledger.observe(['old'])).toEqual([]);expect(ledger.observe(['old','new'])).toEqual([]);ledger.clear();expect(ledger.observe(['new'])).toEqual([])})

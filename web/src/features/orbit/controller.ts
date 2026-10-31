@@ -1,3 +1,4 @@
+import {ActivityLedger} from '@/components/signature/activityLedger'
 import {descriptorKeys,vocabularyKinds,orbitError} from './adapter'
 import type {OrbitAdapter,CheckIn,Vocabulary,Descriptors,DescriptorKey,Alert,Status,Preview,ResponseChoice} from './adapter'
 export type Phase='loading'|'idle'|'editing'|'preparing'|'preview'|'activating'|'active'|'closed'|'unavailable'
@@ -5,6 +6,7 @@ export type OrbitState={phase:Phase;busy:string|null;check:CheckIn|null;vocabula
 export type OrbitScope={childId:string;personId:string;parent:boolean;readOnly:boolean;generation:number}
 export function overdue(check:CheckIn|null,now=Date.now()){return !!check&&!check.recorded&&!!check.dueAt&&Number.isFinite(Date.parse(check.dueAt))&&Date.parse(check.dueAt)<now}
 export class OrbitController{
+ readonly responseActivity=new ActivityLedger()
  private state:OrbitState={phase:'loading',busy:null,check:null,vocabulary:[],values:{},preview:null,alert:null,status:null,error:'',guidance:'',authority:false,revision:0,previewRevision:-1,closeConfirm:false,started:false}
  private listeners=new Set<()=>void>();private alive=true;private operation=0;private readSequence=0;private mediaAbort=new AbortController();private loadFlight:Promise<void>|null=null;private refreshFlight:{id?:string;promise:Promise<void>}|null=null
  readonly adapter:OrbitAdapter;readonly scope:OrbitScope;private generation:()=>number;private now:()=>number
@@ -43,7 +45,7 @@ export class OrbitController{
  }
  refresh(alertId?:string){
   if(!this.current()||this.state.busy)return Promise.resolve()
-  if(this.refreshFlight&&this.refreshFlight.id===alertId)return this.refreshFlight.promise
+  if(this.refreshFlight)return this.refreshFlight.promise
   const operation=this.operation,sequence=++this.readSequence
   const owns=()=>this.current()&&operation===this.operation&&sequence===this.readSequence
   const flight={id:alertId,promise:Promise.resolve()};this.refreshFlight=flight
