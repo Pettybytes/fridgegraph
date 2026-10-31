@@ -78,7 +78,9 @@ const suiteRun = spawnSync(process.execPath, ['--import', 'tsx', 'ops/run-eviden
   encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
 });
 const suiteOut = `${suiteRun.stdout ?? ''}${suiteRun.stderr ?? ''}`;
-check('the default suite run passes', suiteRun.status === 0, `exit=${suiteRun.status}`);
+// Diagnostics on failure: the suite's own last lines, so a red assertion is never a guess.
+const suiteTail = suiteOut.trim().split('\n').slice(-4).join(' | ').slice(0, 300);
+check('the default suite run passes', suiteRun.status === 0, `exit=${suiteRun.status}${suiteRun.status === 0 ? '' : ' :: ' + suiteTail}`);
 const assertions = /Assertions: (\d+) checks across (\d+) cases/.exec(suiteOut);
 check('it ran the full case set', Boolean(assertions), assertions ? `${assertions[1]}/${assertions[2]}` : 'no summary line');
 const printed = /\[evidence\] writing to (.+)/.exec(suiteOut)?.[1]?.trim() ?? '';
