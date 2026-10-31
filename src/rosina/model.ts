@@ -71,8 +71,30 @@ export type RosinaTurnResult = {
  * service refuses to call anything by a name it does not already know is a read. Grown one tool
  * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
  * available" — a new read ships in the same PR as its own persona-boundary tests). `Attempts`
- * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40, PR #29's own tool contract). */
-const ALLOWED_MCP_TOOL_NAMES = new Set(['PickupCandidates', 'Attempts', 'JobTimeline']);
+ * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40). `ChildEvents`, `EffectiveSchedule`
+ * and `AdultAvailability` added in TASK R-TOOLS-2 (evidence 41). */
+const ALLOWED_MCP_TOOL_NAMES = new Set([
+  'PickupCandidates',
+  'Attempts',
+  'JobTimeline',
+  'ChildEvents',
+  'EffectiveSchedule',
+  'AdultAvailability',
+]);
+
+/**
+ * TASK R-TOOLS-2: "ID authorization is a code rule." For these three tools, the id argument
+ * (child or person) is checked against `permittedIds` BEFORE the tool is ever called — never
+ * trust a browser route, message history, or a model-supplied argument. A permitted id is either
+ * the caller's own child/self (seeded from R-LEAK's roster), or an id an authorized tool result
+ * already handed back THIS turn (e.g. EffectiveSchedule's parent, or a candidate from
+ * Attempts/JobTimeline/PickupCandidates) — never an id invented from outside the conversation.
+ */
+const ID_ARG_BY_TOOL: Record<string, string> = {
+  ChildEvents: 'childId',
+  EffectiveSchedule: 'childId',
+  AdultAvailability: 'personId',
+};
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
   return tools
@@ -85,6 +107,23 @@ function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
 
 function truncate(text: string, max = 600): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+/** Collects every string value found under a key literally named `id`, anywhere in a tool
+ * result — the generic "what ids did an authorized read just hand back" scan. Harmless if it
+ * also picks up a job/attempt id: those are never checked against (only child/person-id
+ * arguments are gated), so an extra id in the set cannot grant anything it shouldn't. */
+function harvestIds(value: unknown, into: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) harvestIds(item, into);
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      if (key === 'id' && typeof v === 'string') into.add(v);
+      else harvestIds(v, into);
+    }
+  }
 }
 
 export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaTurnResult> {
@@ -101,7 +140,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
 
   const started = Date.now();
   const messages: ModelMessage[] = [
-    { role: 'system', content: buildSystemPrompt(roster, options.isGuide) },
+    { role: 'system', content: buildSystemPrompt(roster, options.isGuide, options.personId) },
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
   ];
@@ -120,6 +159,11 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // action — requires that proof; every other proposeAction_* is navigation/explanation only and
   // carries no such requirement.
   const verifiedChildIds = new Set<string>();
+  // ID authorization is a code rule, not a prompt suggestion: seeded with the caller's own
+  // scoped child(ren) and their own personId (always safe to ask about yourself), then grown as
+  // authorized tool results hand back ids this turn. Gates ChildEvents/EffectiveSchedule/
+  // AdultAvailability's child/person-id arguments — see ID_ARG_BY_TOOL.
+  const permittedIds = new Set<string>([...roster.map((c) => c.id), options.personId]);
 
   let finalContent = '';
 
@@ -162,6 +206,18 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         continue;
       }
 
+      const idArgKey = ID_ARG_BY_TOOL[call.name];
+      if (idArgKey) {
+        const idValue = args[idArgKey];
+        if (typeof idValue !== 'string' || !permittedIds.has(idValue)) {
+          // Never executed: this is the pre-call gate, not a backend denial. No hint is given
+          // either way about whether the id exists — the model gets the same refusal regardless.
+          toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'OUT_OF_SCOPE_ID' }) });
+          continue;
+        }
+      }
+
       const callResult = await mcp.callTool(call.name, args).catch((error: unknown): McpToolCall => ({
         data: null,
         errors: [{ message: (error as Error).message }],
@@ -172,6 +228,10 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       if (call.name === 'PickupCandidates' && !callResult.isError && typeof args.childId === 'string') {
         verifiedChildIds.add(args.childId);
       }
+      // Grow the permitted-id set from whatever an authorized call just handed back (a
+      // candidate, a parent, a child) — never from the call's own arguments, so a rejected or
+      // out-of-scope call (isError) contributes nothing.
+      if (!callResult.isError) harvestIds(callResult.data, permittedIds);
       // Deterministic, not a hope the model converts UTC correctly: any `at`/`closedAt` in a
       // JobTimeline/Attempts result is rewritten to the family's own local time before the
       // model ever sees it. A no-op for PickupCandidates, which has neither field.

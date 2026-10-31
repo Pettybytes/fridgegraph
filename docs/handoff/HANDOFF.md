@@ -1455,9 +1455,10 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 |---|---|
 | `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), wired into the live service |
 | `Attempts` / `JobTimeline` (coordination subgraph) | **AVAILABLE** — shipped by `#29` (evidence 40), wired into the allowlist by TASK R-TOOLS-1 (evidence 35 §11): Mission Control's job status, "what happened with this pickup," and the full chronological story are now answerable live |
+| `ChildEvents` / `EffectiveSchedule` / `AdultAvailability` (schedule subgraph, Group 3 `#31`) | **AVAILABLE** — wired into the allowlist by TASK R-TOOLS-2 (evidence 35 §12): a child's calendar, who has the child on a date (WEEKLY vs an APPROVED holiday ARRANGEMENT — PROPOSED never changes it), and recorded Busy/Free (never a reason, never "can pick up") are now answerable live. Child/person-id arguments are gated by a new pre-call `permittedIds` check in `src/rosina/model.ts` — never trust a browser route, history, or a model argument; an id must come from the caller's own roster/self or a tool result already returned this turn. |
 | CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
 | Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person`; also needed for a proper `MyChildren`/`myVillages` caller-scoped read (R-LEAK's fallback, evidence 35 §10, uses `src/demo/personas.ts` in the meantime) |
-| `ChildEvents` / `AdultAvailability` / `EffectiveSchedule` (Group 3, `#31`) | shipped and present in `tools/list`, but **deliberately NOT added to the allowlist yet** — out of TASK R-TOOLS-1's scope; needs its own task with its own persona-boundary tests, same pattern as this one |
+| `CheckInStatus` / `OrbitStatus` / `OrbitVocabulary` | present in the live `tools/list` (from a concurrent, further-ahead worktree not yet on `main`) but **deliberately NOT added to the allowlist** — Orbit stays explicitly blocked per contract (coordination-v2 Area F: Rosina may at most "suggest," never call, and no suggest action exists yet either); needs its own task when/if it lands on `main`, with its own persona-boundary tests |
 
 **Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
 new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
@@ -1780,3 +1781,75 @@ test:rosina` **24/24 PASS**; `npm run check` PASS; `npm --prefix web test` **168
 `git diff origin/main...HEAD --stat` confirmed to contain ONLY this task's own files. Pushed;
 `gh pr view 34` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
 merged — Bryan merges.
+
+## Task R-TOOLS-2 — ChildEvents, EffectiveSchedule, AdultAvailability ENABLED + TESTED (2026-10-30)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §12.
+
+BRANCH: feat/rosina-tools-2; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-tools-2
+BASE: origin/main `2898043` (#30 R-LEAK and #34 R-TOOLS-1 both already merged — confirmed via
+`gh api .../pulls/30,34 -q .merged` before branching; no premise contradiction this time).
+
+**Premise mismatches found and adapted (reported, not forced):** the task described the fixture
+Busy window as belonging to "Andre" on "the exact Tuesday." The real fixture
+(`src/fixtures-simulated.ts`) has exactly one Busy window, and it is Kendra's (`p_mom`), on a
+Wednesday (Nov 25). Adapted the live tests to use the real data directly (Kendra's own busy
+window) and additionally proved the Andre/AdultAvailability case the task actually wanted via the
+realistic discovery-chain path ("who has the child, and are they free" — `EffectiveSchedule` then
+`AdultAvailability(p_dad)`, the id harvested from the first call).
+
+**Shipped:**
+- `src/rosina/model.ts`: `ChildEvents`, `EffectiveSchedule`, `AdultAvailability` added to
+  `ALLOWED_MCP_TOOL_NAMES` (six tools total). New `permittedIds` set — seeded with the caller's
+  own roster child(ren) plus their own verified `personId` — gates these three tools' child/
+  person-id argument BEFORE the tool is ever called (`ID_ARG_BY_TOOL`). Grows via `harvestIds()`,
+  which recursively collects every string under a key named `id` in any successful tool result,
+  so a discovered id (e.g. `EffectiveSchedule`'s `parent.id`) becomes usable for a later call in
+  the same turn. **Known limitation:** this does not re-order calls WITHIN one round, only across
+  rounds — a cold, one-shot dependent question gets refused and the model must retry after a
+  discovery call; proven directly by a dedicated test and observed once live (the Demo guide
+  asking about Andre's availability cold, with no leak, just an imperfect refusal wording — see
+  evidence for the exact transcript).
+- `src/rosina/localTime.ts`: `TIMESTAMP_KEYS` extended to include `start`/`end` (ChildEvents/
+  AdultAvailability's own time fields), same deterministic America/Detroit conversion.
+- `src/rosina/systemPrompt.ts`: new CALENDAR/SCHEDULE section; `buildSystemPrompt` now also takes
+  `selfPersonId` so "am I free" questions have an id to use at all (the caller's own, already
+  verified by their own token — not a new disclosure). FREE/BUSY wording restriction, PROPOSED-
+  vs-APPROVED distinction, and the three distinct required outcomes (refusal / authorized-empty /
+  upstream-failure) are all explicit. New rule 11: id authorization is a hard boundary. Care/
+  school/directory/Orbit bullets updated; Orbit explicitly named as permanently blocked (no
+  suggest action exists either).
+
+**Tests:** `npm run test:rosina` **33/33 PASS** (24 existing regressions, still green, + 9 new in
+`src/rosina/calendarTools.test.ts`). `npm run check:rosina-catalog` PASS. `npm run check` PASS
+(417 files, 0 findings). `npm --prefix web test` **168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls:** Kendra's Thanksgiving question, the
+discovery-chain availability question, her own-id "am I free," and a calendar-window question all
+answered correctly and grounded; Dana refused on Nora's child/calendar questions (zero names,
+HTTP 200) but correctly got a genuinely-empty (not refused) answer for her OWN availability — the
+third outcome, distinct from both; the Demo guide got the sandbox answer with no action
+suggested. One environment anomaly recorded plainly: a cancelled-event fixture row, confirmed
+present and RLS-readable via direct PostgREST, did not appear through `ChildEvents` on the
+currently-shared alt-stack (which belongs to a different, further-ahead concurrent worktree) —
+not a defect in this task's own code; the cancelled-exclusion behavior is still proven by the
+unit test and by evidence 41's own existing proof.
+
+BRANCH/WORKTREE as above.
+TASK: enable ChildEvents/EffectiveSchedule/AdultAvailability in Rosina's allowlist with a
+  pre-call id-authorization gate; distinct refusal/empty/failure wording; PROPOSED vs APPROVED;
+  FREE/BUSY wording restriction.
+LAYER: server (src/rosina/ only; no web/, schema, auth or DB change).
+TOUCHED: src/rosina/model.ts, src/rosina/systemPrompt.ts, src/rosina/localTime.ts,
+  src/rosina/calendarTools.test.ts (new), src/rosina/model.test.ts, src/rosina/jobTools.test.ts
+  (buildSystemPrompt call-site signature change only), docs/evidence/35-rosina-service.md
+  (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (33/33); npm --prefix web test (168); live persona-boundary probes against the alt stack (not
+  GraphOS) — all actually run above, not just described.
+NOT DOING: schema/auth/DB changes, service-role reads (`seed:simulated` uses the project's own
+  existing script and service-role key, not a new Rosina code path), mutation tools, enabling
+  CheckInStatus/OrbitStatus/OrbitVocabulary (not on main yet, Orbit stays blocked regardless),
+  merging.
+BLOCKERS: none for this task. CarePlan, village-directory, and the three Orbit/check-in tools
+  (once they land on main) remain the open follow-ups under "Rosina tools available" above.

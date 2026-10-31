@@ -176,7 +176,7 @@ test('a non-allowlisted MCP tool name is refused without ever calling the MCP cl
 });
 
 test('the system prompt tells the model it cannot see the caller\'s role (the actual fix for the capability-fabrication finding)', () => {
-  const prompt = buildSystemPrompt([{ id: 'p_nora', name: 'Nora Ellison' }], false);
+  const prompt = buildSystemPrompt([{ id: 'p_nora', name: 'Nora Ellison' }], false, 'p_mom');
   assert.match(prompt, /NO tool that tells you the caller's own role/);
   assert.match(prompt, /Never assert what the signed-in person "can" do/);
 });
@@ -184,25 +184,25 @@ test('the system prompt tells the model it cannot see the caller\'s role (the ac
 // --- TASK R-LEAK: the roster the model is told about is scoped per caller, never global ---
 
 test("Kendra's system prompt names Nora and does not name Jax", () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false);
+  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
   assert.match(prompt, /\bNora\b/);
   assert.doesNotMatch(prompt, /\bJax\b/);
 });
 
 test("Jax's family's system prompt names Jax and does not name Nora", () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_ray', false), false);
+  const prompt = buildSystemPrompt(scopedRoster('p_ray', false), false, 'p_ray');
   assert.match(prompt, /\bJax\b/);
   assert.doesNotMatch(prompt, /\bNora\b/);
 });
 
 test("Dana's system prompt names only her own child, no child she can't see", () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_dana', false), false);
+  const prompt = buildSystemPrompt(scopedRoster('p_dana', false), false, 'p_dana');
   assert.match(prompt, /\bJax\b/);
   for (const foreign of ['Nora', 'Emma', 'Taylor', 'Micah', 'Malik']) assert.doesNotMatch(prompt, new RegExp(`\\b${foreign}\\b`));
 });
 
 test("the Demo guide's system prompt names every sandbox child and is labeled as the broad exception", () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_demo_guide', true), true);
+  const prompt = buildSystemPrompt(scopedRoster('p_demo_guide', true), true, 'p_demo_guide');
   for (const child of ['Nora', 'Jax', 'Emma', 'Taylor', 'Micah', 'Malik']) assert.match(prompt, new RegExp(`\\b${child}\\b`));
   assert.match(prompt, /Demo guide only/);
 });
@@ -210,7 +210,7 @@ test("the Demo guide's system prompt names every sandbox child and is labeled as
 test('an unrecognized personId gets an empty roster — no child is ever named on a guess', () => {
   const roster = scopedRoster('p_some_unlisted_person', false);
   assert.deepEqual(roster, []);
-  const prompt = buildSystemPrompt(roster, false);
+  const prompt = buildSystemPrompt(roster, false, 'p_some_unlisted_person');
   assert.match(prompt, /none recorded for this account/);
 });
 

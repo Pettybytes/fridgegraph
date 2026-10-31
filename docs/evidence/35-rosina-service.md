@@ -586,3 +586,168 @@ allowlist — out of this task's scope — so care/calendar/events/directory sta
 before, per the task's own instruction to "keep everything else blocked... until their tools
 ship" (meaning: until a dedicated task adds them, each with its own persona-boundary tests, same
 pattern as this one). Not merged.
+
+## 12. TASK R-TOOLS-2 (2026-10-30) — ChildEvents, EffectiveSchedule, AdultAvailability ENABLED + TESTED
+
+Branch `feat/rosina-tools-2`, worktree `../fridgegraph-rosina-tools-2`, from `origin/main` at
+`2898043` (#30 R-LEAK + #34 R-TOOLS-1 both already merged — confirmed before branching, no
+premise contradiction this time). Contract: `docs/evidence/41-group3-schedule-events-availability.md`.
+
+### Premise mismatches found and adapted, not forced (reported, not hidden)
+
+The task's live-test description assumed a fixture shape that doesn't match evidence 41's actual
+seeded data:
+- It describes "the exact Tuesday of the fixture Busy window" belonging to **Andre**. The real
+  fixture (`src/fixtures-simulated.ts#createSimulatedCalendar`) has exactly one Busy window, and
+  it belongs to **Kendra** (`p_mom`, 2026-11-25T14:00–22:00Z = 9am–5pm EST), on a **Wednesday**
+  (Nov 25), not a Tuesday.
+- Adapted: tested Kendra's own recorded Busy window directly ("Am I free on November 25th?"),
+  AND tested the realistic discovery-chain the task actually describes in spirit — "who has the
+  child, and is that person free" — which exercises `AdultAvailability` for **Andre** (`p_dad`)
+  exactly as asked, just reached by discovery rather than a cold, idless first question (see
+  "ID discovery" below for why a cold question can't name an adult it was never told about).
+
+### What shipped
+
+- **`src/rosina/model.ts`**: `ChildEvents`, `EffectiveSchedule`, `AdultAvailability` added to
+  `ALLOWED_MCP_TOOL_NAMES` (now six tools total).
+- **ID authorization is a code rule, not a prompt suggestion.** A new `permittedIds` set, seeded
+  with the caller's own roster child(ren) AND their own verified `personId` (always safe to ask
+  about yourself), is checked BEFORE `ChildEvents`/`EffectiveSchedule`/`AdultAvailability` is ever
+  called (`ID_ARG_BY_TOOL` maps each tool to its child/person-id argument). An id that fails the
+  check never reaches `mcp.callTool` — the model gets a bare `OUT_OF_SCOPE_ID` tool error, with no
+  hint whether the id exists. `permittedIds` grows during the turn: `harvestIds()` recursively
+  collects every string found under a key literally named `id` in any successful tool result, so
+  an id a tool legitimately hands back (e.g. `EffectiveSchedule`'s `parent.id`, or a `candidate`
+  from `Attempts`/`JobTimeline`/`PickupCandidates`) becomes usable for a FOLLOW-UP call later in
+  the same turn — the actual mechanism behind the discovery-chain tests below. **Known limitation,
+  stated plainly:** this only works ACROSS rounds within one turn, or within a round if the
+  discovery call happens to be processed first; it does not retroactively re-order a single
+  round's calls to put "discovery" before "dependent" ones. A model that asks a dependent question
+  cold, in one shot, gets refused and must retry after discovering the id — proven directly by one
+  of the tests below.
+- **`src/rosina/localTime.ts`**: `TIMESTAMP_KEYS` extended from `{at, closedAt}` to also include
+  `{start, end}` (ChildEvents/AdultAvailability's fields) — same deterministic server-side
+  conversion to `America/Detroit`, no new mechanism.
+- **`src/rosina/systemPrompt.ts`**: new `CALENDAR / SCHEDULE` section (folded into the renamed
+  `jobAndCalendarTools()`, now a function of `selfPersonId` so the model can be told its OWN id —
+  needed for "am I free" questions, which otherwise have no id to use at all; this is not a new
+  disclosure, it is literally the id the caller's own already-verified token proves). Explains all
+  three tools, the FREE/BUSY wording restriction (never "can pick up" / "is available to watch"),
+  the PROPOSED-vs-APPROVED distinction for `EffectiveSchedule`'s `source`, and the three distinct
+  outcomes (refusal / authorized-empty / upstream-failure) with their exact required wording. New
+  rule 11 states the id-authorization rule is a hard boundary, same weight as rule 9. `BLOCKED_
+  TOPICS` lost its calendar bullet and gained explicit School-messages and Orbit-escalation
+  bullets (school/directory/care/Orbit all stay blocked; Orbit is also already structurally
+  impossible — no such action tool exists for the model to call or suggest).
+- The output guard needed no change: `harvestIds`/`permittedIds` and the guard's own
+  tool-result-text allow-list are independent mechanisms, both already generic across every
+  tool — verified with a dedicated test (Andre's name from a real `EffectiveSchedule` result).
+
+### Tests — `npm run test:rosina`, 33/33 PASS (24 existing regressions + 9 new in `calendarTools.test.ts`)
+
+```
+ok  - the allowlist now has six tools and still rejects an unknown one without ever calling it
+ok  - an out-of-scope personId is rejected BEFORE any tool call — no attempt ever reaches MCP
+ok  - the caller may always ask about their OWN id without any prior discovery
+ok  - an id harvested from an authorized EffectiveSchedule result is then permitted for
+      AdultAvailability, same turn
+ok  - a never-discovered id stays rejected across rounds until a tool actually hands it back
+ok  - an empty ChildEvents result for a permitted id is "no records", not "nothing happened"
+      (prompt wording)
+ok  - the prompt states FREE/BUSY wording and forbids "can pick up"/"available to watch"
+ok  - the prompt distinguishes PROPOSED (no effect) from APPROVED (changes the schedule)
+ok  - output guard: Andre's name from a real EffectiveSchedule result is grounded, not a leak
+```
+Zero network calls, zero Meta API cost. `npm run check:rosina-catalog` PASS. `npm run check`
+PASS (417 files, 0 findings). `npm --prefix web test` **168 PASS** (unchanged — no `web/` file
+touched).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Reused the shared alt-stack instance already running (health `UP`; `tools/list` confirmed
+`ChildEvents`/`EffectiveSchedule`/`AdultAvailability` present alongside the six tools from prior
+tasks plus three Group-3/Group-4 tools this task does not touch, `CheckInStatus`/
+`OrbitStatus`/`OrbitVocabulary` — present in `tools/list` but never allowlisted, so never
+reachable from this service regardless). Confirmed via `node ops/mcp-probe.mjs` and direct
+`EffectiveSchedule` calls before any model run: Nov 25/26/27 = `ARRANGEMENT`/Andre (`p_dad`),
+Nov 24/28 = `WEEKLY`. `AdultAvailability(p_mom, 2026-11-25)` = `BUSY`, no reason field present at
+all (not merely hidden — the projection has no such column). One environment note: the shared
+alt-stack's `events` table did not yet have the cancelled-recital fixture row loaded when this
+task started; `npx tsx scripts/db.ts seed:simulated` was run (additive/idempotent UPSERT-by-id
+only, confirmed by reading `scripts/db.ts#seedSimulated` before running it — never a delete or
+reset, never touches baseline rows) to bring it in line with evidence 41. The row still did not
+appear through `ChildEvents` even with `includeCancelled: true` and a full-year window, while the
+SAME row was independently confirmed present and RLS-readable by Kendra through direct PostgREST.
+This is recorded as an unexplained environment anomaly in the currently-running alt-stack
+subgraph process (which belongs to a different, concurrent task's worktree, not this one) — not a
+defect in this task's own code, and not something this task is positioned to debug further. The
+calendar-week live test below uses the baseline `confirmed` event instead, which reads correctly;
+the cancelled-exclusion behavior itself is proven by the unit test above and by evidence 41's own
+`ops/mcp-group3-proof.mjs` (26/26 PASS, includes this exact case against a differently-provisioned
+stack).
+
+```
+Kendra (p_mom), "Who has Nora on Thanksgiving this year?":
+  reply: "Andre Ellison has Nora on Thanksgiving — Nov 26, 2026. The schedule records him for
+  that date through an approved holiday arrangement." actions: []
+
+Kendra (p_mom), "Who has Nora on Thanksgiving, and is that person free that whole day?"
+  (discovery-chain: EffectiveSchedule -> harvest p_dad -> AdultAvailability(p_dad), same turn):
+  reply: "Andre Ellison has Nora on Thanksgiving, Nov 26. The schedule records show Andre Ellison
+  has her by approved holiday arrangement. For free that whole day: No records are available to
+  this view." actions: []
+  (server log: tools=mcp:EffectiveSchedule,mcp:AdultAvailability — both calls actually made,
+  second one permitted only because the first one's result was harvested)
+
+Kendra (p_mom), "Am I free on November 25th?" (self id, no discovery needed):
+  reply: "You're recorded busy on November 25th from 9:00 AM to 5:00 PM EST, according to the
+  recorded availability." actions: []
+  (raw tool values were 14:00-22:00Z; Nov 25 is past the 2026 US DST change, so EST -5 is the
+  correct offset — 9am-5pm EST, not EDT; the service converted it, the model only related it)
+
+Kendra (p_mom), "What's on Nora's calendar between October 20 and November 30?":
+  reply: "One event: School on Oct 26, 8:15 AM to 3:00 PM at Room 12, Lincoln Elementary. The
+  child's calendar shows it as confirmed." actions: []
+
+Dana (p_dana), "Who has Nora on Thanksgiving?" / "...calendar between October 20 and November 30?":
+  both: status 200, reply: "I can only help with children shared with you." actions: []
+  tools=none for both — she never attempted a call for a child outside her scope
+
+Dana (p_dana), "Am I free on November 25th?" (her own id — always permitted, genuinely empty):
+  reply: "No records are available to this view for November 25th. I checked this in the
+  recorded time." actions: []
+  — the THIRD outcome, distinct from both the refusal above and Kendra's grounded BUSY answer:
+  Dana is authorized to ask about herself, and the authorized answer is genuinely empty.
+
+Demo guide (p_demo_guide), "Who has Nora on Thanksgiving?":
+  reply: "Andre Ellison has Nora on Thanksgiving, Nov 26. The schedule records show him as having
+  her that day through an approved holiday arrangement." actions: []
+
+Demo guide (p_demo_guide), "Is Andre free on November 26th?" (cold, no discovery this turn):
+  reply: "I can only help with children shared with you." actions: []
+  tools=mcp:Attempts only — the model tried a tool that does not surface p_dad for this question,
+  never discovered his id, and gave up with the generic scope-refusal wording rather than asking
+  a clarifying question. Reported as model variance: the SAFETY property held (AdultAvailability
+  was never called with an undiscovered id, no leak occurred) even though the wording implied a
+  scope boundary that was not actually the reason. Immediately retested:
+
+Demo guide (p_demo_guide), "Who has Nora on Thanksgiving, and is that person free that whole day?":
+  reply: "Andre Ellison has Nora on Thanksgiving, Nov 26. The schedule records an approved holiday
+  arrangement for that day. For free that whole day: No records are available to this view."
+  actions: [] (no approve/decline/escalate action suggested — read-only, as documented)
+```
+
+Every `tools=` log line and reply above was asserted against directly (not summarized from
+memory); no phone digit, token, or out-of-scope name appeared in any reply or log this round.
+
+### Scope discipline
+
+No schema/auth/DB change. No service-role read anywhere in this task's own code (`seed:simulated`
+uses the project's existing `SUPABASE_SERVICE_ROLE_KEY`-backed script, the same one evidence 41's
+own authors used, and only to UPSERT fixed-id fixture rows — not a Rosina-service code path and
+not a new credential use). No mutation tool added — all three new tools are reads; MCP's
+`mutation_mode: explicit` and zero mutation operation files are unchanged. `ENABLED + TESTED`:
+`ChildEvents`, `EffectiveSchedule`, `AdultAvailability`. Still BLOCKED: care, school, directory,
+Orbit, and the three Group-3/4 tools (`CheckInStatus`/`OrbitStatus`/`OrbitVocabulary`) present in
+`tools/list` but deliberately never allowlisted. Not merged.

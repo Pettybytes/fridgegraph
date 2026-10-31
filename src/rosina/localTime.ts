@@ -1,8 +1,12 @@
 /**
- * Rewrites the `at`/`closedAt` timestamps in a JobTimeline/Attempts tool result to the family's
- * own local time (America/Detroit) BEFORE the result ever reaches the model — a deterministic
- * server-side transform, not a hope that the model converts a raw UTC string correctly on its
- * own. A no-op on anything without those keys (PickupCandidates' response is untouched).
+ * Rewrites known timestamp fields in a tool result to the family's own local time
+ * (America/Detroit) BEFORE the result ever reaches the model — a deterministic server-side
+ * transform, not a hope that the model converts a raw UTC string correctly on its own. A no-op
+ * on anything without those keys (PickupCandidates' and EffectiveSchedule's responses are
+ * untouched; neither has a timestamp field).
+ *
+ *   at, closedAt       — JobTimeline / Attempts (TASK R-TOOLS-1)
+ *   start, end         — ChildEvents / AdultAvailability (TASK R-TOOLS-2)
  */
 const ZONE = 'America/Detroit';
 
@@ -16,7 +20,7 @@ const FORMAT = new Intl.DateTimeFormat('en-US', {
   timeZoneName: 'short',
 });
 
-const TIMESTAMP_KEYS = new Set(['at', 'closedAt']);
+const TIMESTAMP_KEYS = new Set(['at', 'closedAt', 'start', 'end']);
 
 export function toFamilyLocalTime(value: unknown): unknown {
   if (typeof value !== 'string') return value;
