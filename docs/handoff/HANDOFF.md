@@ -3563,3 +3563,4 @@ process.
 
 Piece 3 also still owes its HANDOFF record (the earlier commit was skipped) and its resolver/proof.
 Piece 2 after that. Nothing merged.
+| 2026-10-31 08:19 | **RESERVED: W-RESET window (~30 min)** — restart 4008 from authoritative move `dd84886`, restore MCP 5051, confirm authenticated MyChildren (Task H), GraphQL + reset route ready. Then actual-UI shared reset + two-tab valid-token explicit-refetch. No db:reset. Window starts on restoration confirmation. | `piece3-consent` @ `dd84886` | 4008 / 4012 / 4200 / 5051 | **reserved** |
