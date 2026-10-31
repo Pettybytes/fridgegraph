@@ -28,7 +28,7 @@
 .demo-family input { padding: .7rem; border: 1px solid #c5b9d6; border-radius: .5rem; }
 .demo-family button { padding: .75rem 1rem; background: #7559a1; color: white; border-radius: .5rem; }
 .persona-entry button:focus-visible, .session-chip button:focus-visible { outline: 3px solid #7559a1; outline-offset: 4px; }
-.persona-entry button:disabled { opacity: .55; cursor: wait; }
+.persona-entry button:disabled { opacity: .55; cursor: not-allowed; }
 @media(max-width: 760px) { .persona-grid { grid-template-columns: repeat(2, 1fr); } .persona-entry { padding: 1.4rem; } .persona-card { padding: 1rem; } .persona-card > svg { display: none; } }
 @media(max-width: 440px) { .persona-grid { grid-template-columns: 1fr; gap: .7rem; } .persona-card { min-height: 100px; } .persona-intro { margin-top: 2.5rem; } .persona-card > svg { display: block; } }
 

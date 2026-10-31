@@ -54,7 +54,7 @@ it('shows Rosa counts without another child identity and uses Tomás full record
 it('keeps the guide picker card separate and opens family clusters without conferring that view to Rosa',async()=>{
  window.location.hash='#/';render(<App/>)
  expect(screen.getByRole('complementary',{name:'Demo guide entry'})).toHaveTextContent('No real family would have this view.')
- fireEvent.click(screen.getByRole('button',{name:/Demo guide: sees/}))
+ fireEvent.click(screen.getByRole('button',{name:/Explore as the Demo guide/}))
  const guide=await screen.findByRole('region',{name:'Demo guide ecosystem'})
  expect(guide.querySelectorAll('.vv-guide-networks>button')).toHaveLength(6)
  fireEvent.click(within(guide).getByRole('button',{name:/Castellano.*Open village/}))

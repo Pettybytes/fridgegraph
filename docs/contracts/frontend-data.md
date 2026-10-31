@@ -11,8 +11,11 @@ every NEW item is a request, not an implementation.
 
 ### 1.1 Identity: Supabase Auth → JWT → router
 
-- The browser signs in with Supabase Auth (`@supabase/supabase-js`, publishable key only — see
-  `frontend.md` §3). It never holds a service-role key or a DB URL.
+- Demo visitors choose a perspective through `POST /api/demo/login`; no sign-in form or browser
+  Supabase client. Only `session.access_token` and the actual `session.expires_at` enter memory.
+  Renewal repeats that endpoint; no refresh token, persistence, sign-out or revoke. The shared
+  server session contract in HANDOFF and `docs/evidence/39-persona-sessions.md` supersedes the
+  earlier browser-sign-in wording. The browser never holds a service-role key or a DB URL.
 - Apollo Client attaches the signed-in user's Supabase **access token** as the GraphQL request's
   `Authorization: Bearer <token>` header. There is no separate FridgeGraph login.
 - **Router-level JWT is active** on the GraphOS-connected router (`docs/evidence/15-graphos-jwt-router.md`,
@@ -38,7 +41,9 @@ every NEW item is a request, not an implementation.
     router-level — `data-model.md` §4);
   - a caller the server cannot identify at all gets `UNAUTHENTICATED`.
 - The UI must render these two cases differently. `UNAUTHENTICATED` → send the user back through
-  Supabase sign-in. `UNAUTHORIZED` → show "you don't have access to this," never a blank/broken
+  the same demo endpoint once for eligible reads (never replay mutations or Rosina messages);
+  if expired renewal fails, return to the perspective picker. `UNAUTHORIZED` → show a role-aware
+  sharing boundary with permitted catalog cards, never a blank/broken
   widget, and never retry as if it were a network error.
 - No screen hardcodes a `childId`. Kendra's phone, in every mock below, is scoped to Nora
   (`p_nora`) only because Kendra is a parent of Nora in the graph — the same query run as a
