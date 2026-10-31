@@ -1,0 +1,2 @@
+import {personas} from './auth'
+export const readyBody=(id='kendra')=>{const p=personas.find(p=>p.id===id)!;return {status:'READY',personaId:id,personId:p.personId,persona:p,scope:{childId:p.childId,childName:p.childName,parentName:p.name,villageId:p.villageId},session:{access_token:'test-only-session',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600},marks:{demo:true,demoGuide:id==='demo-guide'}}}

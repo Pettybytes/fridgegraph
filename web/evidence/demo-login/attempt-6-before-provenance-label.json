@@ -1,0 +1,1448 @@
+{
+  "proof": {
+    "passed": false,
+    "errors": [
+      "kendra: foreign child disclosed",
+      "andre: foreign child disclosed",
+      "loretta: foreign child disclosed",
+      "priya: foreign child disclosed",
+      "dana: foreign child disclosed",
+      "jax-family: foreign child disclosed"
+    ],
+    "contexts": "Kendra A unchanged while Dana B switched to Andre",
+    "rows": [
+      {
+        "persona": "kendra",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": true,
+            "data": {
+              "householdMembers": [
+                {
+                  "person": {
+                    "id": "p_leo",
+                    "displayName": "Leo Ellison",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_a",
+                    "__typename": "Household"
+                  },
+                  "role": "child",
+                  "__typename": "HouseholdMember"
+                },
+                {
+                  "person": {
+                    "id": "p_max",
+                    "displayName": "Max Ellison",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_a",
+                    "__typename": "Household"
+                  },
+                  "role": "child",
+                  "__typename": "HouseholdMember"
+                },
+                {
+                  "person": {
+                    "id": "p_mom",
+                    "displayName": "Kendra Ellison",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_a",
+                    "__typename": "Household"
+                  },
+                  "role": "parent",
+                  "__typename": "HouseholdMember"
+                },
+                {
+                  "person": {
+                    "id": "p_nora",
+                    "displayName": "Nora Ellison",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_a",
+                    "__typename": "Household"
+                  },
+                  "role": "child",
+                  "__typename": "HouseholdMember"
+                }
+              ]
+            }
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": true,
+            "data": {
+              "pickupCandidates": [
+                {
+                  "person": {
+                    "id": "p_gma",
+                    "displayName": "Loretta Brooks",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_bryan",
+                    "displayName": "Bryan Brooks",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_tasha",
+                    "displayName": "Tasha Ellison",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_monique",
+                    "displayName": "Monique Davis",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                }
+              ]
+            }
+          },
+          "foreignPickup": {
+            "ok": false,
+            "refused": true
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_nora",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "goals": {
+            "ok": true,
+            "data": {
+              "goals": [
+                {
+                  "id": "goal_reading",
+                  "status": "APPROVED",
+                  "__typename": "Goal"
+                },
+                {
+                  "id": "goal_passing",
+                  "status": "PROPOSED",
+                  "__typename": "Goal"
+                }
+              ]
+            }
+          },
+          "foreignSchedule": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignCare": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": [
+                {
+                  "id": "job_nora_oct16",
+                  "status": "awaiting_approval",
+                  "version": 3,
+                  "idempotencyKey": "pickup:p_nora:2026-10-16:afternoon",
+                  "overLimitCandidate": null,
+                  "candidateEvaluations": [],
+                  "confirmation": null,
+                  "__typename": "CoordinationJob"
+                }
+              ]
+            }
+          },
+          "runs": [
+            {
+              "job": {
+                "id": "job_nora_oct16",
+                "status": "awaiting_approval",
+                "version": 3,
+                "idempotencyKey": "pickup:p_nora:2026-10-16:afternoon",
+                "overLimitCandidate": null,
+                "candidateEvaluations": [],
+                "confirmation": null,
+                "__typename": "CoordinationJob"
+              },
+              "timeline": {
+                "ok": true,
+                "data": {
+                  "jobTimeline": [
+                    {
+                      "at": "2026-10-16T15:00:00+00:00",
+                      "kind": "JOB_CREATED",
+                      "attemptId": null,
+                      "candidate": null,
+                      "detail": null,
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:02:00+00:00",
+                      "kind": "ATTEMPT_OPENED",
+                      "attemptId": "att_nora_oct16_gma",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "detail": "CALL",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:02:40+00:00",
+                      "kind": "ATTEMPT_CLOSED",
+                      "attemptId": "att_nora_oct16_gma",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "detail": "ACCEPTED",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:03:00+00:00",
+                      "kind": "ATTEMPT_OPENED",
+                      "attemptId": "att_nora_oct16_tasha",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "detail": "SMS",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:03:35+00:00",
+                      "kind": "ATTEMPT_CLOSED",
+                      "attemptId": "att_nora_oct16_tasha",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "detail": "DECLINED",
+                      "__typename": "TimelineEntry"
+                    }
+                  ]
+                }
+              },
+              "attempts": {
+                "ok": true,
+                "data": {
+                  "attempts": [
+                    {
+                      "id": "att_nora_oct16_gma",
+                      "channel": "CALL",
+                      "at": "2026-10-16T15:02:00+00:00",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "destinationMode": "TEST_RESPONDER",
+                      "closedAt": "2026-10-16T15:02:40+00:00",
+                      "closedReason": "ACCEPTED",
+                      "__typename": "Attempt"
+                    },
+                    {
+                      "id": "att_nora_oct16_tasha",
+                      "channel": "SMS",
+                      "at": "2026-10-16T15:03:00+00:00",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "destinationMode": "TEST_RESPONDER",
+                      "closedAt": "2026-10-16T15:03:35+00:00",
+                      "closedReason": "DECLINED",
+                      "__typename": "Attempt"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "rosina": {
+          "question": "Who is authorized to pick up Nora today? Please distinguish authorization from availability; do not include contact details.",
+          "reply": "Authorized to pick up Nora today: Loretta Brooks, Bryan Brooks, Tasha Ellison, Monique Davis.\nAuthorization is confirmed, availability is unknown for all four per the pickup records.",
+          "result": "live answer"
+        },
+        "timelineCount": 5
+      },
+      {
+        "persona": "andre",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": true,
+            "data": {
+              "householdMembers": [
+                {
+                  "person": {
+                    "id": "p_dad",
+                    "displayName": "Andre Ellison",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_b",
+                    "__typename": "Household"
+                  },
+                  "role": "parent",
+                  "__typename": "HouseholdMember"
+                },
+                {
+                  "person": {
+                    "id": "p_nora",
+                    "displayName": "Nora Ellison",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_b",
+                    "__typename": "Household"
+                  },
+                  "role": "child",
+                  "__typename": "HouseholdMember"
+                }
+              ]
+            }
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": true,
+            "data": {
+              "pickupCandidates": [
+                {
+                  "person": {
+                    "id": "p_gma",
+                    "displayName": "Loretta Brooks",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_bryan",
+                    "displayName": "Bryan Brooks",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_tasha",
+                    "displayName": "Tasha Ellison",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_monique",
+                    "displayName": "Monique Davis",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                }
+              ]
+            }
+          },
+          "foreignPickup": {
+            "ok": false,
+            "refused": true
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_nora",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "goals": {
+            "ok": true,
+            "data": {
+              "goals": [
+                {
+                  "id": "goal_reading",
+                  "status": "APPROVED",
+                  "__typename": "Goal"
+                },
+                {
+                  "id": "goal_passing",
+                  "status": "PROPOSED",
+                  "__typename": "Goal"
+                }
+              ]
+            }
+          },
+          "foreignSchedule": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignCare": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": [
+                {
+                  "id": "job_nora_oct16",
+                  "status": "awaiting_approval",
+                  "version": 3,
+                  "idempotencyKey": "pickup:p_nora:2026-10-16:afternoon",
+                  "overLimitCandidate": null,
+                  "candidateEvaluations": [],
+                  "confirmation": null,
+                  "__typename": "CoordinationJob"
+                }
+              ]
+            }
+          },
+          "runs": [
+            {
+              "job": {
+                "id": "job_nora_oct16",
+                "status": "awaiting_approval",
+                "version": 3,
+                "idempotencyKey": "pickup:p_nora:2026-10-16:afternoon",
+                "overLimitCandidate": null,
+                "candidateEvaluations": [],
+                "confirmation": null,
+                "__typename": "CoordinationJob"
+              },
+              "timeline": {
+                "ok": true,
+                "data": {
+                  "jobTimeline": [
+                    {
+                      "at": "2026-10-16T15:00:00+00:00",
+                      "kind": "JOB_CREATED",
+                      "attemptId": null,
+                      "candidate": null,
+                      "detail": null,
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:02:00+00:00",
+                      "kind": "ATTEMPT_OPENED",
+                      "attemptId": "att_nora_oct16_gma",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "detail": "CALL",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:02:40+00:00",
+                      "kind": "ATTEMPT_CLOSED",
+                      "attemptId": "att_nora_oct16_gma",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "detail": "ACCEPTED",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:03:00+00:00",
+                      "kind": "ATTEMPT_OPENED",
+                      "attemptId": "att_nora_oct16_tasha",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "detail": "SMS",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:03:35+00:00",
+                      "kind": "ATTEMPT_CLOSED",
+                      "attemptId": "att_nora_oct16_tasha",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "detail": "DECLINED",
+                      "__typename": "TimelineEntry"
+                    }
+                  ]
+                }
+              },
+              "attempts": {
+                "ok": true,
+                "data": {
+                  "attempts": [
+                    {
+                      "id": "att_nora_oct16_gma",
+                      "channel": "CALL",
+                      "at": "2026-10-16T15:02:00+00:00",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "destinationMode": "TEST_RESPONDER",
+                      "closedAt": "2026-10-16T15:02:40+00:00",
+                      "closedReason": "ACCEPTED",
+                      "__typename": "Attempt"
+                    },
+                    {
+                      "id": "att_nora_oct16_tasha",
+                      "channel": "SMS",
+                      "at": "2026-10-16T15:03:00+00:00",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "destinationMode": "TEST_RESPONDER",
+                      "closedAt": "2026-10-16T15:03:35+00:00",
+                      "closedReason": "DECLINED",
+                      "__typename": "Attempt"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "rosina": {
+          "question": "Who is authorized to pick up Nora today? Please distinguish authorization from availability; do not include contact details.",
+          "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today — availability is unknown for all four.\n\nPer the pickup records.",
+          "result": "live answer"
+        },
+        "timelineCount": 5
+      },
+      {
+        "persona": "loretta",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignPickup": {
+            "ok": false,
+            "refused": true
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": false,
+            "refused": true
+          },
+          "goals": {
+            "ok": true,
+            "data": {
+              "goals": [
+                {
+                  "id": "goal_reading",
+                  "status": "APPROVED",
+                  "__typename": "Goal"
+                }
+              ]
+            }
+          },
+          "foreignSchedule": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignCare": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": []
+            }
+          },
+          "runs": []
+        },
+        "rosina": {
+          "question": "Can Nora have a peanut-butter snack?",
+          "reply": "I can't confirm that yet.",
+          "result": "correct refusal"
+        },
+        "timelineCount": 0
+      },
+      {
+        "persona": "priya",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignPickup": {
+            "ok": false,
+            "refused": true
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_nora",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "goals": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignSchedule": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignCare": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": []
+            }
+          },
+          "runs": []
+        },
+        "rosina": {
+          "question": "Can Nora have a peanut-butter snack?",
+          "reply": "I can't confirm that yet.",
+          "result": "correct refusal"
+        },
+        "timelineCount": 0
+      },
+      {
+        "persona": "dana",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": true,
+            "data": {
+              "householdMembers": [
+                {
+                  "person": {
+                    "id": "p_dana",
+                    "displayName": "Dana Coleman",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_c",
+                    "__typename": "Household"
+                  },
+                  "role": "parent",
+                  "__typename": "HouseholdMember"
+                },
+                {
+                  "person": {
+                    "id": "p_jax",
+                    "displayName": "Jax Coleman",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_c",
+                    "__typename": "Household"
+                  },
+                  "role": "child",
+                  "__typename": "HouseholdMember"
+                }
+              ]
+            }
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": true,
+            "data": {
+              "pickupCandidates": [
+                {
+                  "person": {
+                    "id": "p_evelyn",
+                    "displayName": "Evelyn Carter",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                }
+              ]
+            }
+          },
+          "foreignPickup": {
+            "ok": false,
+            "refused": true
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_jax",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "goals": {
+            "ok": true,
+            "data": {
+              "goals": []
+            }
+          },
+          "foreignSchedule": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignCare": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": []
+            }
+          },
+          "runs": []
+        },
+        "rosina": {
+          "question": "Who is authorized to pick up Jax today? Please distinguish authorization from availability; do not include contact details.",
+          "reply": "Evelyn Carter is authorized to pick up Jax today, but her availability is unknown.\n\nPer the pickup records, she's listed as grandmother with a grant valid 2026-10-31.",
+          "result": "live answer"
+        },
+        "timelineCount": 0
+      },
+      {
+        "persona": "jax-family",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": true,
+            "data": {
+              "householdMembers": [
+                {
+                  "person": {
+                    "id": "p_jax",
+                    "displayName": "Jax Coleman",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_d",
+                    "__typename": "Household"
+                  },
+                  "role": "child",
+                  "__typename": "HouseholdMember"
+                },
+                {
+                  "person": {
+                    "id": "p_ray",
+                    "displayName": "Ray Coleman",
+                    "__typename": "Person"
+                  },
+                  "household": {
+                    "id": "h_d",
+                    "__typename": "Household"
+                  },
+                  "role": "parent",
+                  "__typename": "HouseholdMember"
+                }
+              ]
+            }
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": true,
+            "data": {
+              "pickupCandidates": [
+                {
+                  "person": {
+                    "id": "p_evelyn",
+                    "displayName": "Evelyn Carter",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                }
+              ]
+            }
+          },
+          "foreignPickup": {
+            "ok": false,
+            "refused": true
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_jax",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "goals": {
+            "ok": true,
+            "data": {
+              "goals": []
+            }
+          },
+          "foreignSchedule": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignCare": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": []
+            }
+          },
+          "runs": []
+        },
+        "rosina": {
+          "question": "Who is authorized to pick up Jax today? Please distinguish authorization from availability; do not include contact details.",
+          "reply": "Evelyn Carter is authorized to pick up Jax — authorization is authorized, availability is unknown.\n\nPer the pickup records, she is listed as grandmother.",
+          "result": "live answer"
+        },
+        "timelineCount": 0
+      },
+      {
+        "persona": "demo-guide",
+        "picker": "READY",
+        "liveReads": {
+          "own": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_nora",
+                  "displayName": "Nora Ellison",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "foreign": {
+            "ok": true,
+            "data": {
+              "child": {
+                "person": {
+                  "id": "p_jax",
+                  "displayName": "Jax Coleman",
+                  "__typename": "Person"
+                },
+                "__typename": "Child"
+              }
+            }
+          },
+          "household": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignHousehold": {
+            "ok": false,
+            "refused": true
+          },
+          "pickup": {
+            "ok": true,
+            "data": {
+              "pickupCandidates": [
+                {
+                  "person": {
+                    "id": "p_gma",
+                    "displayName": "Loretta Brooks",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_bryan",
+                    "displayName": "Bryan Brooks",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_tasha",
+                    "displayName": "Tasha Ellison",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                },
+                {
+                  "person": {
+                    "id": "p_monique",
+                    "displayName": "Monique Davis",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                }
+              ]
+            }
+          },
+          "foreignPickup": {
+            "ok": true,
+            "data": {
+              "pickupCandidates": [
+                {
+                  "person": {
+                    "id": "p_evelyn",
+                    "displayName": "Evelyn Carter",
+                    "__typename": "Person"
+                  },
+                  "authorization": "AUTHORIZED",
+                  "availability": "UNKNOWN",
+                  "__typename": "Candidate"
+                }
+              ]
+            }
+          },
+          "schedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "care": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_nora",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "goals": {
+            "ok": false,
+            "refused": true
+          },
+          "foreignSchedule": {
+            "ok": true,
+            "data": {
+              "events": []
+            }
+          },
+          "foreignCare": {
+            "ok": true,
+            "data": {
+              "carePlan": {
+                "child": {
+                  "id": "p_jax",
+                  "__typename": "Child"
+                },
+                "__typename": "CarePlan"
+              }
+            }
+          },
+          "foreignGoals": {
+            "ok": false,
+            "refused": true
+          },
+          "jobs": {
+            "ok": true,
+            "data": {
+              "coordinationJobs": [
+                {
+                  "id": "job_nora_oct16",
+                  "status": "awaiting_approval",
+                  "version": 3,
+                  "idempotencyKey": "pickup:p_nora:2026-10-16:afternoon",
+                  "overLimitCandidate": null,
+                  "candidateEvaluations": [],
+                  "confirmation": null,
+                  "__typename": "CoordinationJob"
+                }
+              ]
+            }
+          },
+          "runs": [
+            {
+              "job": {
+                "id": "job_nora_oct16",
+                "status": "awaiting_approval",
+                "version": 3,
+                "idempotencyKey": "pickup:p_nora:2026-10-16:afternoon",
+                "overLimitCandidate": null,
+                "candidateEvaluations": [],
+                "confirmation": null,
+                "__typename": "CoordinationJob"
+              },
+              "timeline": {
+                "ok": true,
+                "data": {
+                  "jobTimeline": [
+                    {
+                      "at": "2026-10-16T15:00:00+00:00",
+                      "kind": "JOB_CREATED",
+                      "attemptId": null,
+                      "candidate": null,
+                      "detail": null,
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:02:00+00:00",
+                      "kind": "ATTEMPT_OPENED",
+                      "attemptId": "att_nora_oct16_gma",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "detail": "CALL",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:02:40+00:00",
+                      "kind": "ATTEMPT_CLOSED",
+                      "attemptId": "att_nora_oct16_gma",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "detail": "ACCEPTED",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:03:00+00:00",
+                      "kind": "ATTEMPT_OPENED",
+                      "attemptId": "att_nora_oct16_tasha",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "detail": "SMS",
+                      "__typename": "TimelineEntry"
+                    },
+                    {
+                      "at": "2026-10-16T15:03:35+00:00",
+                      "kind": "ATTEMPT_CLOSED",
+                      "attemptId": "att_nora_oct16_tasha",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "detail": "DECLINED",
+                      "__typename": "TimelineEntry"
+                    }
+                  ]
+                }
+              },
+              "attempts": {
+                "ok": true,
+                "data": {
+                  "attempts": [
+                    {
+                      "id": "att_nora_oct16_gma",
+                      "channel": "CALL",
+                      "at": "2026-10-16T15:02:00+00:00",
+                      "candidate": {
+                        "id": "p_gma",
+                        "displayName": "Loretta Brooks",
+                        "__typename": "Person"
+                      },
+                      "destinationMode": "TEST_RESPONDER",
+                      "closedAt": "2026-10-16T15:02:40+00:00",
+                      "closedReason": "ACCEPTED",
+                      "__typename": "Attempt"
+                    },
+                    {
+                      "id": "att_nora_oct16_tasha",
+                      "channel": "SMS",
+                      "at": "2026-10-16T15:03:00+00:00",
+                      "candidate": {
+                        "id": "p_tasha",
+                        "displayName": "Tasha Ellison",
+                        "__typename": "Person"
+                      },
+                      "destinationMode": "TEST_RESPONDER",
+                      "closedAt": "2026-10-16T15:03:35+00:00",
+                      "closedReason": "DECLINED",
+                      "__typename": "Attempt"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "rosina": {
+          "question": "Who is authorized to pick up Nora today? Please distinguish authorization from availability; do not include contact details.",
+          "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today — availability is unknown for all four.\nPer the pickup records, each shows authorized pickup with unknown availability for today.",
+          "result": "live answer"
+        },
+        "timelineCount": 5
+      }
+    ],
+    "boundary": "Which child do you mean?\nI can't share another family's details — that isn't connected yet. For the care plan, I can't confirm that yet.",
+    "rosa": "Coming soon, disabled after terminal response; not chosen",
+    "recording": "No trace, HAR, video, storage state or request-header logging"
+  },
+  "lastStage": "Choose Kendra",
+  "scan": {
+    "pass": true,
+    "scanned": 566,
+    "heldSessions": 10,
+    "tokenFindings": [],
+    "genericFilesToInspect": [
+      "docs/evidence/01-kendra-full-view.md",
+      "docs/evidence/01b-query-plan.md",
+      "docs/evidence/01c-query-plan-full.md",
+      "docs/evidence/02-approver-thursday.md",
+      "docs/evidence/03-supervision-age-boundary.md",
+      "docs/evidence/04-loretta-goals-careplan-contact.md",
+      "docs/evidence/05a-walter-no-pickup.md",
+      "docs/evidence/05c-dana-supervision-jax-empty.md",
+      "docs/evidence/06a-daniel-careplan-today.md",
+      "docs/evidence/06b-chris-careplan-expired.md",
+      "docs/evidence/06c-daniel-goals-denied.md",
+      "docs/evidence/07a-gary-busroster-allowed.md",
+      "docs/evidence/07b-gary-schedule-denied.md",
+      "docs/evidence/07c-gary-careplan-denied.md",
+      "docs/evidence/08-angela-pickup-verify-vehicles.md",
+      "docs/evidence/09a-ray-jax-careplan.md",
+      "docs/evidence/09b-evelyn-jax-careplan.md",
+      "docs/evidence/10a-dana-nora-schedule-denied.md",
+      "docs/evidence/10b-dana-nora-goals-denied.md",
+      "docs/evidence/10c-dana-nora-careplan-denied.md",
+      "docs/evidence/10d-loretta-jax-denied.md",
+      "docs/evidence/11a-dana-absent-before.md",
+      "docs/evidence/11b-loretta-cannot-approve.md",
+      "docs/evidence/11c-kendra-approves.md",
+      "docs/evidence/11c2-kendra-grants.md",
+      "docs/evidence/11c3-approvals-exist.md",
+      "docs/evidence/11d-dana-now-candidate.md",
+      "docs/evidence/11e-dana-careplan-still-denied.md",
+      "docs/evidence/11f2-dana-absent-after-reset.md",
+      "docs/evidence/12-mcp-spike.md",
+      "docs/evidence/16-edge-auth-and-mcp.md",
+      "docs/evidence/16b-b5-mcp-reproof.md",
+      "docs/evidence/25-dana-onboarding-walter.md",
+      "ops/test-router-graphos.mjs",
+      "scripts/check-secrets.mjs",
+      "web/evidence/task-w/w2-copy-mobile.png",
+      "web/package-lock.json"
+    ],
+    "newGenericFiles": [],
+    "coverage": "working tree including web/evidence, test-results and .playwright-cli; skips protected credentials, data, dependencies, symlinks and .git"
+  }
+}

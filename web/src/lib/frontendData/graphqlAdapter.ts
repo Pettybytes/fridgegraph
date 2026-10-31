@@ -37,15 +37,17 @@ export function deriveMissionControl(jobs: JobRead[], attempts: Map<string, Atte
   // The review panel is explicitly scoped to the first returned job, never a mix of candidates from jobs.
   return { provenance: 'derived', currentFacts, candidates: (jobs[0]?.candidateEvaluations ?? []).map(e => ({ id: e.candidate.id, name: e.candidate.displayName, channel: '—', reasonCode: e.reasonCode, distanceMiles: e.distanceMiles, estimatedRideCostUsd: e.estimatedRideCostUsd, costBasis: e.costBasis })), events: events.sort((a, b) => Date.parse(a.at) - Date.parse(b.at)), coordinationJobs: jobs, confirmations: jobs.flatMap(job => job.confirmation ? [job.confirmation] : []) }
 }
-export function createGraphClient(getAccessToken: () => Promise<string | null>, link: ApolloLink = new HttpLink({ uri: '/graphql' })) {
+export function createGraphClient(getAccessToken: () => Promise<string | null>, link: ApolloLink = new HttpLink({ uri: '/graphql' }), getGeneration:()=>number=()=>0) {
   const auth = new ApolloLink((operation, forward) => new Observable(observer => {
     let active = true
+    const generation=getGeneration()
     let subscription: { unsubscribe(): void } | undefined
     getAccessToken().then(token => {
       if (!active) return
+      if(generation!==getGeneration()){observer.error(new Error('SESSION_CHANGED'));return}
       if (!token) { observer.error(new Error('UNAUTHENTICATED')); return }
       operation.setContext(({ headers = {} }) => ({ headers: { ...headers, authorization: `Bearer ${token}` } }))
-      subscription = forward(operation).subscribe(observer)
+      subscription = forward(operation).subscribe({next:value=>{if(active && generation===getGeneration())observer.next(value);else observer.error(new Error('SESSION_CHANGED'))},error:error=>{if(active)observer.error(generation===getGeneration()?error:new Error('SESSION_CHANGED'))},complete:()=>observer.complete()})
     }, error => { if (active) observer.error(error) })
     return () => { active = false; subscription?.unsubscribe() }
   }))

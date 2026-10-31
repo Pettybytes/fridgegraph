@@ -59,3 +59,17 @@ describe('read-only graphql adapter', () => {
     expect(validate(buildSchema(village), VILLAGE)).toEqual([])
   })
 })
+it('rejects a late response before it can enter the Apollo cache after a perspective switch',async()=>{
+ let generation=1,deliver=()=>{}
+ const client=createGraphClient(async()=> 'test-only-bearer',new ApolloLink(()=>new Observable(observer=>{deliver=()=>{observer.next({data:{coordinationJobs:[]}});observer.complete()}})),()=>generation)
+ const pending=client.query({query:JOBS,variables:{childId:'p_nora'}})
+ await new Promise(resolve=>setTimeout(resolve,0));generation++;deliver()
+ await expect(pending).rejects.toThrow('SESSION_CHANGED');expect(client.cache.extract()).toEqual({});client.stop()
+})
+it('does not forward a bearer lookup that resolves after leaving the perspective',async()=>{
+ let generation=1,resolve!:(value:string|null)=>void,forwarded=false
+ const client=createGraphClient(()=>new Promise(r=>{resolve=r}),new ApolloLink(()=>new Observable(observer=>{forwarded=true;observer.complete()})),()=>generation)
+ const pending=client.query({query:JOBS,variables:{childId:'p_nora'}})
+ generation++;resolve('test-only-bearer')
+ await expect(pending).rejects.toThrow('SESSION_CHANGED');expect(forwarded).toBe(false);client.stop()
+})

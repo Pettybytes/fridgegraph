@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState, useSyncExternalStore } from 'react'
 import { createMockCalendarAdapter } from './mockAdapter'
+import {LiveCalendarContext} from './runtime'
 const empty = { calendarChildIds: new Set<string>(), calendarEventIds: new Set<string>() }
-// Explicit MOCK catalog scope. Live integration must derive this from authenticated server reads.
+// Live scope comes from authenticated session grants and actual calendar reads; mock scope is dev/test only.
 export function useCalendarActionScope(personId: string | undefined) {
+  const live=useContext(LiveCalendarContext)
+  const liveScope=useSyncExternalStore(live?.subscribe??(()=>()=>{}),live?.getActionScope??(()=>empty))
   const [state, setState] = useState<{ personId: string; scope: typeof empty } | null>(null)
   useEffect(() => {
     let active = true
-    if (!personId) return
+    if (!personId||live) return
     const adapter = createMockCalendarAdapter(personId)
     void (async () => {
       try {
@@ -16,6 +19,7 @@ export function useCalendarActionScope(personId: string | undefined) {
       } catch { if (active) setState({ personId, scope: empty }) }
     })()
     return () => { active = false }
-  }, [personId])
+  }, [personId,live])
+  if(live)return liveScope
   return state && state.personId === personId ? state.scope : empty
 }
