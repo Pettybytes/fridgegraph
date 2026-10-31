@@ -67,7 +67,7 @@ async page=>{
   const launch=page.getByRole('button',{name:'Ask Rosina',exact:true});if(await launch.isVisible())await launch.click()
   const question=['loretta','priya'].includes(id)?'Can Nora have a peanut-butter snack?':`Who is authorized to pick up ${held.persona.childId==='p_jax'?'Jax':'Nora'} today? Distinguish authorization from availability. Do not include contact details.`
   await page.getByLabel('Message Rosina').fill(question);await page.getByRole('button',{name:'Send',exact:true}).click();const replyNode=page.locator('.rosina-message:not(.from-person)>p').last();await replyNode.waitFor({timeout:45000});const reply=await replyNode.innerText()
-  const live=!/couldn't check|give me a moment|sign in again/i.test(reply);if(id==='kendra')demand(live,'Kendra live Rosina answer unavailable')
+  const candidates=legacy.pickup.data?.pickupCandidates??[];const words=new Set([...new Intl.Segmenter('en',{granularity:'word'}).segment(reply)].map(x=>x.segment.toLowerCase()));const grounded=candidates.length===0||candidates.every(c=>words.has(c.person.displayName.split(' ')[0].toLowerCase()));const live=!/couldn't check|give me a moment|sign in again|empty with an error/i.test(reply)&&(['loretta','priya'].includes(id)||grounded);if(id==='kendra')demand(live,'Kendra live Rosina answer unavailable')
   if(['loretta','priya'].includes(id))demand(/can't confirm|cannot confirm|not connected/i.test(reply),id+': unsupported care answer')
   const forbidden=held.persona.childId==='p_jax'?['Nora','Loretta','Tasha']:guide?[]:['Jax','Evelyn'];demand(!forbidden.some(n=>new RegExp('\\b'+n+'\\b','i').test(reply)),id+': Rosina introduced a foreign identity')
   await pair(page,id+'-rosina')

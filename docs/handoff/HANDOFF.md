@@ -2038,7 +2038,7 @@ Replacement W4b resolution and actual state:
 | Persona | Latest picker | Live reads | Rosina |
 | --- | --- | --- | --- |
 | Kendra | failed; earlier READY | Calendar/timeline observed; full rerun pending | earlier live answer; rerun pending |
-| Andre | failed; earlier READY | same family/job/calendar observed; full rerun pending | earlier live answer; rerun pending |
+| Andre | failed; earlier READY | same family/job/calendar observed; full rerun pending | interrupted-tool response; pending rerun |
 | Loretta | failed; earlier READY | pending; calendar check incomplete | pending |
 | Priya | failed | pending | pending |
 | Dana | failed | pending | pending |
@@ -2086,3 +2086,8 @@ run classifications remain environment interruptions with unverified cause, not 
 Final reservation-guard verification: **3/3 offline Node tests PASS**; final staged secret scan
 **477 files / 0 findings**. Web suite remains **206/206 PASS**, web typecheck/build and root
 checks PASS on final integration base 27fb5a4. Live checks remain paused, not failed product claims.
+
+Evidence review correction: Andre’s saved replacement response was an interrupted-tool fallback,
+not a grounded live answer or proven authorization refusal. Its unsupported family-protection
+explanation is preserved verbatim in current/README.md. Rerun after restoration before classifying
+a product issue. Kendra’s grounded candidate answer is observed; no reply was rewritten by the UI.

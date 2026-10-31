@@ -11,8 +11,8 @@ integrated + tested: **partial, NOT DONE**.
 
 ## Actual live observations
 
-The first run reached real Kendra and Andre sessions, the stored sample pickup timeline, live
-Rosina replies, and both live Thanksgiving calendars through router **4012**. Desktop/mobile
+The first run reached real Kendra and Andre sessions, the stored sample pickup timeline, a grounded
+Kendra Rosina answer, Andre's interrupted-tool response, and both live Thanksgiving calendars through router **4012**. Desktop/mobile
 captures show Andre on Nov 25–27 through an approved arrangement; Nov 28 returns to WEEKLY (Andre
 in the actual stored weekly answer). The Nov 26–27 overlap is surfaced rather than resolved.
 The cancelled recital is hidden by default and shown after the explicit cancelled toggle. A
@@ -32,7 +32,7 @@ whitelisted status metadata. Do not assign Kendra's observed code to an unobserv
 | Persona | Latest picker attempt | Live reads in replacement run | Rosina in replacement run |
 | --- | --- | --- | --- |
 | Kendra | failed; earlier READY | Calendar/timeline observed; full matrix pending | Earlier live answer; repeat pending |
-| Andre | failed; earlier READY | Same family/job/calendar observed; full matrix pending | Earlier live answer; repeat pending |
+| Andre | failed; earlier READY | Same family/job/calendar observed; full matrix pending | Tool-error response; pending rerun |
 | Loretta | failed; earlier READY | Calendar check incomplete; pending | Pending |
 | Priya | failed | Pending | Pending |
 | Dana | failed | Pending | Pending |
@@ -122,3 +122,14 @@ HANDOFF operations table before any browser/login/API request. An active/unknown
 defers the run. On 503 or unexpected empty fixture data, check that HANDOFF first and retry only
 once Bentley marks restoration complete. The last check found Group 4's 21:40 window in progress;
 no further live run was started. These interruptions are not classified as product bugs.
+
+Andre's interrupted-tool response is NOT counted as a correct permission refusal or a grounded
+answer. The screenshot records, verbatim:
+
+> I can't confirm who is authorized to pick up Nora today.
+> The pickup records came back empty with an error — that's the graph protecting the family, not a bug. Authorization is who may be allowed, which is separate from availability for today, and I can't confirm either from that empty result.
+
+The family-protection explanation was not established by the interrupted tool result. Rerun after
+the shared stack is restored before drawing a product or authorization conclusion. Kendra's saved
+response did name the actual four candidates and preserve UNKNOWN availability. No frontend text
+rewrite concealed either response.
