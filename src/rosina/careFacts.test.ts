@@ -1,15 +1,18 @@
 /**
- * Unit tests for TASK R-CARE (CareFacts added to the Rosina allowlist, the CareFacts-only roster
- * supplement for a real multi-child grant, and the CONFIRMED/PROVISIONAL/empty prompt wording).
- * No network call. Run with:
+ * Unit tests for TASK R-CARE (CareFacts added to the Rosina allowlist, the CONFIRMED/
+ * PROVISIONAL/empty prompt wording) plus its TASK R-MYCHILDREN follow-up: the old,
+ * CareFacts-only `careOnlyChildren` roster supplement is gone — Priya's real grant on Malik is
+ * now expressed purely as a `careplan.read`-scoped entry MyChildren reports fresh each turn (see
+ * `src/rosina/model.test.ts` for the generic per-child scope-gating tests this file no longer
+ * duplicates). No network call. Run with:
  *   npm run test:rosina
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
+import type { ChildAccess } from './childAccess';
 import { runRosinaTurn, type McpClientLike } from './model';
-import { careOnlyChildren, scopedRoster } from './roster';
 import { buildSystemPrompt } from './systemPrompt';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
@@ -32,7 +35,13 @@ function toolCall(id: string, name: string, args: Record<string, unknown>): Chat
 
 const CARE_TOOLS: McpTool[] = [{ name: 'CareFacts', description: 'read', inputSchema: {} }];
 
-function stubMcp(byChild: Record<string, McpToolCall>): McpClientLike & { calls: Array<{ name: string; args: Record<string, unknown> }> } {
+function myChildren(entries: Array<{ id: string; scopes: string[] }>): McpToolCall {
+  return { data: { myChildren: entries.map((e) => ({ child: { id: e.id }, scopes: e.scopes })) }, errors: [], isError: false, raw: null };
+}
+
+/** `myChildrenResult` answers the eager MyChildren call every turn makes; `byChild` answers
+ * CareFacts by exact childId. */
+function stubMcp(myChildrenResult: McpToolCall, byChild: Record<string, McpToolCall> = {}): McpClientLike & { calls: Array<{ name: string; args: Record<string, unknown> }> } {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   return {
     calls,
@@ -42,6 +51,7 @@ function stubMcp(byChild: Record<string, McpToolCall>): McpClientLike & { calls:
     },
     async callTool(name: string, args: Record<string, unknown>) {
       calls.push({ name, args });
+      if (name === 'MyChildren') return myChildrenResult;
       const childId = String(args.childId ?? '');
       return byChild[childId] ?? { data: null, errors: [{ message: 'NO_SUCH_FIXTURE' }], isError: true, raw: null };
     },
@@ -49,6 +59,9 @@ function stubMcp(byChild: Record<string, McpToolCall>): McpClientLike & { calls:
 }
 
 const baseOptions = { message: 'test', currentRoute: '#/mission-control', history: [], bearer: 'unused-test-token', personId: 'p_mom', isGuide: false, provider: 'meta' as const, mcpUrl: 'http://unused/mcp', providerConfig: FAKE_CONFIG };
+
+const KENDRA_HAS_NORA = myChildren([{ id: 'p_nora', scopes: ['schedule.read', 'careplan.read', 'pickup.request', 'pickup.verify'] }]);
+const PRIYA_HAS_MALIK_AND_NORA = myChildren([{ id: 'p_malik', scopes: ['careplan.read'] }, { id: 'p_nora', scopes: ['careplan.read', 'schedule.read'] }]);
 
 const NORA_FACTS: McpToolCall = {
   data: {
@@ -74,35 +87,23 @@ const MALIK_FACTS: McpToolCall = {
 
 const EMPTY_FACTS: McpToolCall = { data: { careFacts: [] }, errors: [], isError: false, raw: null };
 
-// --- roster.ts#careOnlyChildren ---
+// --- allowlist + pre-call id/scope authorization (TASK R-MYCHILDREN) ---
 
-test('careOnlyChildren: Priya has exactly one extra care-only child, Malik', () => {
-  assert.deepEqual(careOnlyChildren('p_priya', false), [{ id: 'p_malik', name: 'Malik' }]);
-});
-
-test('careOnlyChildren: everyone else gets none, including the Demo guide (she already sees every sandbox child)', () => {
-  assert.deepEqual(careOnlyChildren('p_mom', false), []);
-  assert.deepEqual(careOnlyChildren('p_dana', false), []);
-  assert.deepEqual(careOnlyChildren('p_priya', true), []);
-});
-
-// --- allowlist + pre-call id authorization ---
-
-test('a known own-child CareFacts call reaches MCP (allowlisted, in roster)', async () => {
-  const mcp = stubMcp({ p_nora: NORA_FACTS });
+test('a known own-child CareFacts call reaches MCP (careplan.read reported by MyChildren)', async () => {
+  const mcp = stubMcp(KENDRA_HAS_NORA, { p_nora: NORA_FACTS });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_nora' })] }),
-    chatResult({ content: "Nora's recorded snack rule: peanut-free, confirmed by Kendra." }),
+    chatResult({ content: 'The recorded snack rule is peanut-free, confirmed by Kendra.' }),
   ]);
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 1);
+  assert.equal(mcp.calls.length, 2, 'MyChildren, then CareFacts');
   assert.match(result.reply, /peanut-free/i);
 });
 
 test('an out-of-scope child id is refused BEFORE MCP is ever called (ID authorization is a code rule)', async () => {
-  const mcp = stubMcp({});
+  const mcp = stubMcp(KENDRA_HAS_NORA);
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_emma' })] }),
     chatResult({ content: "I can't see a recorded rule for that." }),
@@ -110,26 +111,27 @@ test('an out-of-scope child id is refused BEFORE MCP is ever called (ID authoriz
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 0, 'p_emma is not p_mom\'s own child and was never handed back by any tool this turn');
-  assert.deepEqual(result.toolCalls[0], { round: 1, kind: 'refused', name: 'CareFacts', argsPreview: { childId: 'p_emma' }, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
+  assert.equal(mcp.calls.length, 1, 'only MyChildren — p_emma is not p_mom\'s and was never handed back by any tool this turn');
+  const refused = result.toolCalls.find((t) => t.name === 'CareFacts');
+  assert.deepEqual(refused, { round: 1, kind: 'refused', name: 'CareFacts', argsPreview: { childId: 'p_emma' }, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
 });
 
-test('Priya\'s care-only grant lets a CareFacts(p_malik) call actually reach MCP, even though Malik is not her documented child', async () => {
-  const mcp = stubMcp({ p_malik: MALIK_FACTS });
+test('Priya\'s real careplan.read grant on Malik (reported fresh by MyChildren) lets CareFacts(p_malik) reach MCP, even though he is not her documented child', async () => {
+  const mcp = stubMcp(PRIYA_HAS_MALIK_AND_NORA, { p_malik: MALIK_FACTS });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_malik' })] }),
-    chatResult({ content: "Malik's recorded snack rule: no peanut butter, confirmed by Dwayne." }),
+    chatResult({ content: 'The recorded snack rule: no peanut butter, confirmed by Dwayne.' }),
   ]);
 
   const result = await runRosinaTurn({ ...baseOptions, personId: 'p_priya', chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 1, 'p_malik is in Priya\'s care-only roster, so the pre-call gate lets it through');
+  assert.equal(mcp.calls.length, 2, 'MyChildren, then CareFacts');
   assert.match(result.reply, /no peanut butter/i);
-  assert.equal(result.outputGuardTriggered, false, 'Malik is grounded via the care-only roster the guard was given, not flagged as a leak');
+  assert.equal(result.outputGuardTriggered, false, 'Malik is grounded via this turn\'s own CareFacts result text, not flagged as a leak');
 });
 
-test('the SAME p_malik id is still refused pre-call for a caller with no care-only grant for him', async () => {
-  const mcp = stubMcp({ p_malik: MALIK_FACTS });
+test('the SAME p_malik id is refused pre-call for a caller MyChildren reports no grant for', async () => {
+  const mcp = stubMcp(KENDRA_HAS_NORA, { p_malik: MALIK_FACTS });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_malik' })] }),
     chatResult({ content: "I can't see a recorded rule for that." }),
@@ -137,12 +139,13 @@ test('the SAME p_malik id is still refused pre-call for a caller with no care-on
 
   const result = await runRosinaTurn({ ...baseOptions, personId: 'p_mom', chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 0, 'Kendra has no care-only grant for Malik, unlike Priya');
-  assert.deepEqual(result.toolCalls[0].errorCodes, ['OUT_OF_SCOPE_ID']);
+  assert.equal(mcp.calls.length, 1, 'Kendra\'s own fresh MyChildren has no entry for Malik, unlike Priya\'s');
+  const refused = result.toolCalls.find((t) => t.name === 'CareFacts');
+  assert.deepEqual(refused?.errorCodes, ['OUT_OF_SCOPE_ID']);
 });
 
 test('an authorized-but-empty CareFacts result is answered plainly, no false claim', async () => {
-  const mcp = stubMcp({ p_nora: EMPTY_FACTS });
+  const mcp = stubMcp(KENDRA_HAS_NORA, { p_nora: EMPTY_FACTS });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_nora' })] }),
     chatResult({ content: "I can't see a recorded rule for that." }),
@@ -154,28 +157,53 @@ test('an authorized-but-empty CareFacts result is answered plainly, no false cla
   assert.equal(result.outputGuardTriggered, false);
 });
 
-// --- output guard: Malik is grounded by the care-only roster union, not a leak ---
+// --- output guard: CareFacts never returns the CHILD's own name (only the verifier's), so
+// "Malik" is ungrounded for EVERYONE unless MyChildren itself supplies a displayName — even for
+// Priya, who genuinely has the grant and whose call genuinely succeeds. ---
 
-test('output guard: a reply naming Malik is NOT flagged for Priya (care-only roster), but WOULD be for someone with no such grant', async () => {
-  const priyaMcp = stubMcp({ p_malik: MALIK_FACTS });
+test('output guard: "Malik" is flagged even for Priya\'s own successful CareFacts(p_malik) call — the tool result never names the child, only the verifier', async () => {
+  const priyaMcp = stubMcp(PRIYA_HAS_MALIK_AND_NORA, { p_malik: MALIK_FACTS });
   const priyaChat = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_malik' })] }),
     chatResult({ content: "Malik's recorded snack rule is no peanut butter." }),
   ]);
   const priyaResult = await runRosinaTurn({ ...baseOptions, personId: 'p_priya', chatFn: priyaChat, mcpClientFactory: () => priyaMcp });
-  assert.equal(priyaResult.outputGuardTriggered, false);
-  assert.match(priyaResult.reply, /Malik/);
+  assert.equal(priyaResult.outputGuardTriggered, true, 'the real call succeeded, but nothing this turn ever supplied the string "Malik"');
 
-  const danaMcp = stubMcp({});
+  const danaMcp = stubMcp(myChildren([{ id: 'p_jax', scopes: ['schedule.read', 'careplan.read'] }]));
   const danaChat = scriptedChat([chatResult({ content: 'Malik has a peanut allergy, I recall.' })]);
   const danaResult = await runRosinaTurn({ ...baseOptions, personId: 'p_dana', chatFn: danaChat, mcpClientFactory: () => danaMcp });
-  assert.equal(danaResult.outputGuardTriggered, true, 'Dana has no care-only grant for Malik and no tool result mentioning him — naming him is a leak');
+  assert.equal(danaResult.outputGuardTriggered, true, 'Dana never called CareFacts for Malik this turn either — same outcome, same reason');
+});
+
+test('output guard: a MyChildren displayName (future-correct contract) grounds "Malik" where the CareFacts result alone cannot', async () => {
+  const mcp: McpClientLike & { calls: unknown[] } = {
+    calls: [],
+    async initialize() {},
+    async listTools() {
+      return CARE_TOOLS;
+    },
+    async callTool(name: string, args: Record<string, unknown>) {
+      if (name === 'MyChildren') return { data: { myChildren: [{ child: { id: 'p_malik', person: { displayName: 'Malik Ferris' } }, scopes: ['careplan.read'] }] }, errors: [], isError: false, raw: null };
+      if (name === 'CareFacts' && args.childId === 'p_malik') return MALIK_FACTS;
+      return { data: null, errors: [{ message: 'NO_SUCH_FIXTURE' }], isError: true, raw: null };
+    },
+  };
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'CareFacts', { childId: 'p_malik' })] }),
+    chatResult({ content: "Malik Ferris's recorded snack rule is no peanut butter." }),
+  ]);
+
+  const result = await runRosinaTurn({ ...baseOptions, personId: 'p_priya', chatFn, mcpClientFactory: () => mcp });
+
+  assert.equal(result.outputGuardTriggered, false, 'MyChildren\'s own displayName this turn grounds "Malik Ferris"');
 });
 
 // --- system prompt wording ---
 
 test('the system prompt states the exact CONFIRMED / PROVISIONAL / empty-result CareFacts wording', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const children: ChildAccess[] = [{ id: 'p_nora', scopes: new Set(['careplan.read']), displayName: null }];
+  const prompt = buildSystemPrompt(children, false, 'p_mom');
   assert.match(prompt, /CONFIRMED: say so plainly and cite who confirmed it/);
   assert.match(prompt, /PROVISIONAL: say plainly it is recorded but not yet confirmed/);
   assert.match(prompt, /I can't see a recorded rule for that/);
@@ -183,25 +211,25 @@ test('the system prompt states the exact CONFIRMED / PROVISIONAL / empty-result 
 });
 
 test('the system prompt forbids inventing severity, medical conclusions or TV titles', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const children: ChildAccess[] = [{ id: 'p_nora', scopes: new Set(['careplan.read']), displayName: null }];
+  const prompt = buildSystemPrompt(children, false, 'p_mom');
   assert.match(prompt, /never invent an allergy's severity, a medical\s*\n?\s*conclusion, an approved TV show\/title/);
 });
 
 test('care is no longer in the NOT-connected list; school and directory still are', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const children: ChildAccess[] = [{ id: 'p_nora', scopes: new Set(['careplan.read']), displayName: null }];
+  const prompt = buildSystemPrompt(children, false, 'p_mom');
   assert.doesNotMatch(prompt, /no care-plan read exists yet/);
   assert.match(prompt, /School reports, messages from the school/);
   assert.match(prompt, /village-directory details/);
 });
 
-test('Priya\'s system prompt lists Malik as a care-only exception, framed narrowly', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_priya', false), false, 'p_priya', careOnlyChildren('p_priya', false));
-  assert.match(prompt, /FOR CARE QUESTIONS ONLY/);
-  assert.match(prompt, /\bMalik\b/);
-  assert.match(prompt, /NO other knowledge about them/);
-});
-
-test('a caller with no care-only grant gets no such paragraph at all', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom', careOnlyChildren('p_mom', false));
-  assert.doesNotMatch(prompt, /FOR CARE QUESTIONS ONLY/);
+test('a careplan.read-only entry is shown with its own narrow scope, not the full set', () => {
+  const children: ChildAccess[] = [
+    { id: 'p_malik', scopes: new Set(['careplan.read']), displayName: null },
+    { id: 'p_nora', scopes: new Set(['careplan.read', 'schedule.read']), displayName: null },
+  ];
+  const prompt = buildSystemPrompt(children, false, 'p_priya');
+  assert.match(prompt, /p_malik.*scopes = careplan\.read(?!,)/);
+  assert.match(prompt, /never infer a broader scope from a narrower one/);
 });
