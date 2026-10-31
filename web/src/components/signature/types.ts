@@ -5,6 +5,7 @@ export type VillagePerson = {
  portraitSrc?: string
  relationship: string
  relationshipStatus?: string
+ relationshipDetails?: {type:string;status:string}[]
  group: string
  /** Only when an authority read explicitly supplied it. Never derived from relationship. */
  authorityLabel?: string

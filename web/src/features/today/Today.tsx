@@ -15,6 +15,7 @@ import type { MissionControlData, VillageData } from '@/lib/frontendData/types'
 import { recordedSummary } from '@/lib/frontendData/displayCopy'
 import { scopeLabel, type ChildAccess, type MyChildrenState } from '@/features/personas/myChildren'
 import { useChildAccess } from '@/features/personas/childContext'
+import { ConnectedVillagePreview } from '@/components/signature'
 import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon } from '@/components/fg/primitives'
 import { RosinaAvatar } from '@/components/fg/RosinaAvatar'
 import './today.css'
@@ -41,16 +42,18 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
   const { session, authMode } = useSession()
   const access = useChildAccess()
   const mission = useSurfaceData<MissionControlData>('mission-control')
-  const village = useSurfaceData<VillageData>('village')
   const myChildren: MyChildrenState = access?.authorized ?? { status: 'loading' }
   const at = now()
 
   if (!session) return null
   const { scope } = session
   const live = authMode === 'live'
+  // The focused child (current context), kept separate from the session home child
+  // and from the authorized list. Falls back to the session scope before context loads.
+  const childId = access?.selectedChildId ?? scope.childId
+  const childName = access?.selectedChildName ?? scope.childName
 
   const events = (mission.data?.frontendSnapshot.events ?? []).slice().sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 4)
-  const villageNodes = village.data?.frontendSnapshot.nodes ?? []
 
   return (
     <section className="fg-today" aria-label={`Today for ${scope.parentName}`}>
@@ -59,7 +62,7 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
         <header className="fg-today-greet">
           <p className="fg-today-date">{longDate(at)}</p>
           <h2 className="fg-today-hi">{greeting(at)}, {scope.parentName}.</h2>
-          <StatusChip tone="brand" className="fg-today-context">Viewing {scope.childName}</StatusChip>
+          <StatusChip tone="brand" className="fg-today-context">Viewing {childName}</StatusChip>
         </header>
 
         {/* Ask Rosina entry */}
@@ -71,7 +74,7 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
               <p>Ask about what’s shared with you. Every change needs your confirmation.</p>
             </div>
           </div>
-          <Composer placeholder={`What’s on ${scope.childName}’s calendar today?`} onSend={() => go('ask-rosina')} sendLabel="Ask Rosina" />
+          <Composer placeholder={`What’s on ${childName}’s calendar today?`} onSend={() => go('ask-rosina')} sendLabel="Ask Rosina" />
         </Surface>
 
         {/* Next attention — the real Orbit check-in, self-managing its relevance */}
@@ -110,9 +113,10 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
 
       {/* ── Supporting rail ────────────────────────────────────────── */}
       <aside className="fg-today-aside">
-        {/* Your children — fresh MyChildren; selected context marked, never unioned */}
+        {/* Children shared with you — fresh MyChildren; a read scope, not parenthood;
+            selected context marked, scopes never unioned. */}
         <Surface className="fg-today-children" aria-label="Children shared with you">
-          <div className="fg-today-section-head"><h3>Your children</h3></div>
+          <div className="fg-today-section-head"><h3>Children shared with you</h3></div>
           {!live ? (
             <ChildRow child={{ id: scope.childId, displayName: scope.childName, scopes: [] }} current sample />
           ) : myChildren.status === 'loading' ? (
@@ -124,38 +128,47 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           ) : (
             <ul className="fg-today-childlist">
               {myChildren.children.map((c) => (
-                <li key={c.id}><ChildRow child={c} current={c.id === scope.childId} /></li>
+                <li key={c.id}><ChildRow child={c} current={c.id === childId} /></li>
               ))}
             </ul>
           )}
         </Surface>
 
-        {/* Village preview */}
+        {/* Village preview — the real compact signature rings, read from the
+            authorized MyChildren context (loading/refused/error handled inside). */}
         <Surface className="fg-today-village" aria-label="Village preview">
           <div className="fg-today-section-head">
-            <h3>{scope.childName}’s village</h3>
+            <h3>{childName}’s village</h3>
             <a className="fg-today-link" href="#/village">Open <Icon.chevron /></a>
           </div>
-          {village.loading && !village.data ? (
-            <div className="fg-skel-cluster" aria-hidden><span /><span /><span /><span /></div>
-          ) : village.error ? (
-            <p className="fg-today-empty">No records are available to this view.</p>
-          ) : villageNodes.length === 0 ? (
-            <p className="fg-today-empty">The people around {scope.childName} will gather here.</p>
-          ) : (
-            <>
-              <div className="fg-today-cluster">
-                {villageNodes.slice(0, 6).map((n) => (
-                  <Avatar key={n.person.id} name={n.person.displayName} personId={n.person.id} kind={n.role === 'child' ? 'child' : 'adult'} size={40} title={n.person.displayName} />
-                ))}
-                {villageNodes.length > 6 ? <span className="fg-today-cluster-more">+{villageNodes.length - 6}</span> : null}
-              </div>
-              <p className="fg-today-village-count">{villageNodes.length} {villageNodes.length === 1 ? 'person' : 'people'} shared with you{live ? '' : ' · sample'}</p>
-            </>
-          )}
+          {live
+            ? <ConnectedVillagePreview client={access?.client ?? null} />
+            : <MockVillagePreview childName={childName} />}
         </Surface>
       </aside>
     </section>
+  )
+}
+
+/** Demo-only village cluster. Isolated so its `village` surface query runs ONLY in
+ *  mock mode — live Today reads the authorized village through ConnectedVillagePreview
+ *  (selected child), never this home-child background poll. */
+function MockVillagePreview({ childName }: { childName: string }) {
+  const village = useSurfaceData<VillageData>('village')
+  const nodes = village.data?.frontendSnapshot.nodes ?? []
+  if (village.loading && !village.data) return <div className="fg-skel-cluster" aria-hidden><span /><span /><span /><span /></div>
+  if (village.error) return <p className="fg-today-empty">No records are available to this view.</p>
+  if (nodes.length === 0) return <p className="fg-today-empty">The people around {childName} will gather here.</p>
+  return (
+    <>
+      <div className="fg-today-cluster">
+        {nodes.slice(0, 6).map((n) => (
+          <Avatar key={n.person.id} name={n.person.displayName} personId={n.person.id} kind={n.role === 'child' ? 'child' : 'adult'} size={40} title={n.person.displayName} />
+        ))}
+        {nodes.length > 6 ? <span className="fg-today-cluster-more">+{nodes.length - 6}</span> : null}
+      </div>
+      <p className="fg-today-village-count">{nodes.length} {nodes.length === 1 ? 'person' : 'people'} shared with you · sample</p>
+    </>
   )
 }
 

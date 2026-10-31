@@ -5,3 +5,4 @@
 body:has(.orbit-page):has(.rosina-launcher.is-reopen) #root{height:calc(100dvh - 5rem - env(safe-area-inset-bottom,0px));overflow-y:auto}
 .orbit-subject{display:flex;align-items:center;gap:24px;margin:24px 0 32px}.orbit-subject .sg-portrait{--sg-face:104px}.orbit-subject figcaption span{display:block;font-size:14px;color:var(--fg-muted);margin-bottom:6px}.orbit-subject strong{font-size:32px;font-weight:550;letter-spacing:-.035em;line-height:1.2;overflow-wrap:anywhere}.orbit-subject figcaption{max-width:36ch}.orbit-page .orbit-primary:hover:not(:disabled){background:var(--fg-primary-hover)}
 @media(max-width:600px){.orbit-subject{gap:20px}.orbit-subject .sg-portrait{--sg-face:88px}.orbit-subject strong{font-size:28px}.orbit-context{flex-wrap:wrap}}
+.orbit-response-portrait .sg-portrait{--sg-face:40px;box-shadow:none}

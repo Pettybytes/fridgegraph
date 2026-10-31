@@ -122,6 +122,6 @@ export class OrbitController{
  }
  photo(id:string,signal:AbortSignal){if(!this.current())return Promise.reject(Error('SESSION_CHANGED'));return this.adapter.photo(id,signal)}
  dispose=()=>{
-  this.mediaAbort.abort();this.state={...this.state,values:{},photoId:undefined,preview:null,alert:null,status:null,check:null,authority:false,guidance:'',phase:'idle',busy:null,error:'',closeConfirm:false,started:false};for(const notify of this.listeners)notify();this.alive=false;this.listeners.clear()
+  this.responseActivity.clear();this.mediaAbort.abort();this.state={...this.state,values:{},photoId:undefined,preview:null,alert:null,status:null,check:null,authority:false,guidance:'',phase:'idle',busy:null,error:'',closeConfirm:false,started:false};for(const notify of this.listeners)notify();this.alive=false;this.listeners.clear()
  }
 }
