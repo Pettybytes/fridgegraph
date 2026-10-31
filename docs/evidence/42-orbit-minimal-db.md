@@ -1,0 +1,91 @@
+# Evidence 42 — Orbit Alert, minimal slice (data + actions layer)
+
+_Task O. Branch `feat/o-orbit` off `main` `0d80f00` (includes #29 + #31). Migrations **0031**
+(coordination types) and **0032** (Orbit) applied. GraphQL reads/actions wiring, the authenticated
+photo endpoint and the MCP tools are the next increment of this PR and are **PENDING**._
+
+## 0031 — coordination type widening
+
+`coordination_jobs.type` now accepts `PICKUP, INVITATION, ONBOARDING, CONSENT, ORBIT_ALERT,
+SUPERVISION` (constraint located by definition, not by an assumed name). Pure widening: no behaviour
+changes until a table/function behind a type exists. **CONSENT and SUPERVISION stay unbuilt.**
+
+## 0032 — Orbit, minimal slice
+
+| Table | Shape |
+|---|---|
+| `orbit_alerts` | id, job_id, child_id, created_by/at, activated_by/at, status (`PENDING_ACTIVATION`/`ACTIVE`/`CLOSED`), closed_by/at, `minimal_message`, `message_hash`, `draft_version`, share fields (`wearing` ≤80, `hair` ≤40, `carrying` ≤60, `distinctive` ≤80), `photo_id` (identity, never a URL), sandbox, fixture |
+| `orbit_audience_members` | alert, person, `notify_order`, `notified_at`, `notification_outcome`, eligible, `eligibility_source` — **frozen at activation** |
+| `orbit_responses` | append-only history: alert, person, `responded_at`, `response` (`WITH_ME`/`ON_WAY`/`CANNOT_HELP`); current = latest row per person |
+
+**There is no location column anywhere**, verified by scanning `information_schema` for
+location-shaped names (result: none). No coordinates, no place, no "last seen" field.
+
+### Actions (SECURITY DEFINER; zero INSERT/UPDATE/DELETE grants to `authenticated`)
+
+`draft_orbit_share(child, wearing, hair, carrying, distinctive, photo)` → a
+`PENDING_ACTIVATION` draft, bumps `draft_version`, sends nothing; parent/guardian only.
+`preview_orbit_share(draft)` → `message`, `draft_version`, `message_hash` (md5 over share fields +
+photo identity + the frozen audience), `audience_size`.
+`activate_orbit_alert(draft, version, hash)` → atomic job + audience freeze + ACTIVE; refuses a stale
+version, a mismatched hash, empty audience, or location content; a unique partial index gives exactly
+one ACTIVE alert per child.
+`respond_to_orbit_alert(alert, response)` → audience members only, ACTIVE only, append.
+`close_orbit_alert(alert)` → parent/guardian only; no response closes it.
+
+### Location refusal
+
+`_orbit_has_location()` is a conservative keyword detector (streets, roads, schools and school types,
+parks, landmarks, transit, shops, hospitals, "near", "usually near", "last seen", "across from"…).
+It runs at draft **and** at activation, so it does not depend on what the model produced, and a parent
+confirmation cannot override it. **Honest limit:** a keyword detector cannot catch every place name;
+it blocks the named classes and is backed by the structural rule that no location field exists.
+
+### RLS
+
+Parent/guardian full view of alerts, audience and the response history; an audience member sees only
+their own audience row (while ACTIVE), their own responses, and the alert's message; the Demo guide
+reads sandbox alerts read-only; nobody else sees anything. **Two defects found by the dry run:**
+mutual policy references between `orbit_alerts` and `orbit_audience_members` caused **42P17**
+(infinite recursion) and were replaced by SECURITY DEFINER helpers; those helpers must also be
+**granted** to `authenticated`, because a policy is evaluated with the caller's privileges (without
+the grant every row failed with **42501** instead of filtering).
+
+## Dry run — `node ops/0032-dry-run.mjs` — 30/30 PASS, rolled back
+
+| # | Proven |
+|---|---|
+| 1 | Dana (out-of-network) cannot draft; a parent's draft is `PENDING_ACTIVATION`; no audience rows and no job exist, so a draft sends nothing |
+| 2 | preview names the child + "check-in not recorded", carries version/hash/audience size, contains no place words; stale version → `ORBIT_DRAFT_STALE`; mismatched hash → `ORBIT_PREVIEW_MISMATCH`; an edit after preview bumps the version and kills the old binding; the activated message equals the confirmed preview |
+| 3 | location-bearing text refused at draft (`ORBIT_SHARE_HAS_LOCATION`), including "usually near…"; the detector flags a school name and leaves ordinary description alone |
+| 4 | activation → ACTIVE + an `ORBIT_ALERT` job; audience exactly the policy list `p_dad,p_gma,p_bryan` in flat order (no ranking) with `notification_outcome = SIMULATED`; a second activation for the same child → `ORBIT_ALREADY_ACTIVE` |
+| 5 | a lone `WITH_ME` does **not** close; a non-audience adult cannot respond (42501); a changed response appends a second row with the earlier one intact; UPDATE/DELETE refused by trigger (`ORBIT_RESPONSES_APPEND_ONLY`) |
+| 6 | closure refused to an out-of-network adult and to an audience member; a parent closes it and `closed_by` is recorded |
+| 7 | no orbit table has a location-shaped column |
+
+## Applied shape (verified by `ops/0032-apply.mjs`)
+
+RLS on all three tables (3 / 2 / 2 policies); `authenticated` has EXECUTE on all five actions;
+no location-shaped columns.
+
+## PENDING in this PR (not claimed)
+
+- GraphQL: `orbitDraft`/`orbitPreview` mutations + `orbitAlert`, `orbitStatus` reads; catalog
+  `changesData` confirm action; `checkInStatus` parent view + the 911 guidance text on every
+  parent-facing read.
+- **Authenticated media endpoint**: private bucket, EXIF/GPS stripped server-side, authority checked
+  on EVERY request (parent/guardian, or frozen audience while ACTIVE), `Cache-Control: no-store`, no
+  reusable signed URL, refused after closure.
+- MCP `OrbitStatus` + `CheckInStatus` (read-only, no-oracle, no photo, no activate/close).
+- Expected check-in fixture ("Nora home by 4:00", none recorded) under the additive fixture rule.
+- Proofs against the live stack: audience-facing payload leakage, audience isolation, demo-session
+  `DEMO_OUTREACH_REFUSED`, and the pickup suite unchanged (ORBIT_ALERT never entering ranking).
+
+## Honest limits carried forward
+
+- Keyword detection cannot see every place name; the structural guarantee is that no location field
+  exists and that audience-facing payloads have no location source to read from.
+- Previously downloaded photos cannot be recalled after closure; the endpoint only stops serving.
+- Metadata stripping does not prove an arbitrary image contains no visual location clues — the demo
+  photo will be a curated fictional illustration, and that is stated in the UI copy.
+- `notification_outcome = SIMULATED` is bookkeeping, not delivery proof.

@@ -4,6 +4,38 @@ _Last updated: Oct 30, 2026. Merged origin/main `cccbbd2` (E0 #23) into this bra
 
 ---
 
+## Task O — Orbit Alert (2026-10-30, priority change)
+
+Branch `feat/o-orbit` off `main` **`0d80f00`**. Step 0 of the previous plan (guide-seam audit +
+cancelled event) was already done in #31 — evidence 41.
+
+| Sub-task | State |
+|---|---|
+| 1 Coordination types (0031) | **DONE — applied** |
+| 2 Orbit tables + actions (0032) | **DONE — applied, dry run 30/30** |
+| 3 Policy seed (`orbit_notify_eligible`) | PENDING (dry run seeds it in-transaction only) |
+| 4 GraphQL draft/preview/activate/respond/close + reads | PENDING |
+| 5 Authenticated photo endpoint + private bucket | PENDING |
+| 6 MCP `OrbitStatus` / `CheckInStatus` | PENDING |
+| 7 Check-in fixture + live proofs + evidence/PR | PENDING |
+
+**Data layer as built:** `orbit_alerts` (draft/ACTIVE/CLOSED, `message_hash`, `draft_version`, share
+fields, `photo_id` identity only), `orbit_audience_members` (frozen at activation, `notification_outcome
+= SIMULATED`), `orbit_responses` (append-only; current = latest row). Actions are SECURITY DEFINER with
+**no write grants** to `authenticated`: `draft_orbit_share`, `preview_orbit_share`,
+`activate_orbit_alert`, `respond_to_orbit_alert`, `close_orbit_alert`. **No location column exists**;
+`_orbit_has_location()` refuses place-like text at draft and activation, and confirmation cannot
+override it.
+
+Two defects the dry run caught and fixed: **42P17** policy recursion between `orbit_alerts` and
+`orbit_audience_members` (replaced with SECURITY DEFINER helpers) and **42501** because a policy is
+evaluated with the caller's privileges, so those helpers must be granted to `authenticated`.
+
+**Next:** wire GraphQL + the media endpoint + MCP tools, seed the check-in fixture under the additive
+rule, then run the live proofs (audience leakage, isolation, demo refusal, pickup suite unchanged).
+
+---
+
 ## Task E-NEXT progress — personas, Rosina tools, Groups 3–5 (2026-10-30)
 
 Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none merged.
