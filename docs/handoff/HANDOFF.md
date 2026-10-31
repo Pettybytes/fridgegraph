@@ -3476,3 +3476,22 @@ separate protections rather than one conflated one).
 Still outstanding before PR: the **API-origin proof** (`orbitActivate` → `orbitRespond` → reset with
 seeded consumer reads restored) and the **contract documentation** of the append-only exception.
 No merge.
+
+## Group 5 Piece 1 — API-origin proof: root cause found (2026-10-31 04:10)
+
+**`orbitPreview` is a MUTATION, not a Query.** That single fact explains both earlier symptoms: a
+`query` document naming a Mutation field discards its argument, so the router reported
+`Variable "$d" is never used` — the document was fine, the operation type was wrong. Fixed.
+
+Now passing through the real mutations: **orbitDraft → orbitPreview (v4, audience=3) → orbitActivate
+(ACTIVE alert)**. Reset then removed the API-origin alert and its response, and the seeded reads
+answered (`myChildren` 3, `careFacts` 3, `orbitVocabulary` 55, `checkInStatus` ok).
+
+Remaining failures are all in my probe documents, not the product:
+- `orbitRespond` returns `NON_NULL OrbitResponseResult` — need its real field names (my `{ ok }` is not
+  producing a valid selection).
+- `effectiveScheduleFor` takes **`date`**, not `day`.
+- `jobTimeline` is `NON_NULL` of a list type — need the element type's fields instead of `{ type }`.
+
+Next: introspect `OrbitResponseResult` and the `jobTimeline` element type, fix the three documents,
+re-run, then open the PR.
