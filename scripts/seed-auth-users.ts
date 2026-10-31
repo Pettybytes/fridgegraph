@@ -39,6 +39,7 @@ const PEOPLE: DemoPerson[] = [
   { personId: 'p_mom', first: 'Kendra', last: 'Ellison' },
   // Cast v2 personas — additive; reuses any existing user and never overwrites a stored password.
   { personId: 'p_rosa', first: 'Rosa', last: 'Castellano' },
+  { personId: 'p_tomas', first: 'Tomas', last: 'Castellano' },
   { personId: 'p_felicia', first: 'Felicia', last: 'Reyes' },
   { personId: 'p_simone', first: 'Simone', last: 'Lee' },
   { personId: 'p_dwayne', first: 'Dwayne', last: 'Ferris' },

@@ -56,6 +56,17 @@ export function createSimulatedCoordination(): SimulatedCoordination {
     label: SIMULATED_LABEL,
     coordination_jobs: [
       {
+        id: 'job_emma_nov05',
+        idempotency_key: 'pickup:p_emma:2026-11-05:afternoon',
+        type: 'PICKUP',
+        child_id: 'p_emma',
+        status: 'awaiting_approval',
+        version: 1,
+        as_of: '2026-11-05',
+        created_at: '2026-11-05T15:00:00Z',
+        fixture: true,
+      },
+      {
         id: 'job_nora_oct16',
         idempotency_key: 'pickup:p_nora:2026-10-16:afternoon',
         type: 'PICKUP',
@@ -68,6 +79,17 @@ export function createSimulatedCoordination(): SimulatedCoordination {
       },
     ],
     attempts: [
+      {
+        id: 'att_emma_nov05_rosa',
+        job_id: 'job_emma_nov05',
+        channel: 'CALL',
+        at: '2026-11-05T15:02:00Z',
+        candidate_id: 'p_rosa',
+        destination_mode: 'TEST_RESPONDER',
+        closed_at: '2026-11-05T15:02:30Z',
+        closed_reason: 'ACCEPTED',
+        fixture: true,
+      },
       {
         id: 'att_nora_oct16_gma',
         job_id: 'job_nora_oct16',
@@ -307,6 +329,27 @@ export function createSimulatedCareFacts(): SimulatedCareFacts {
       { id: 'fx_cf_nora_tv', child_id: 'p_nora', key: 'tv',
         value: '30 minutes after homework; screens off by 8pm', ...source, ...verified,
         sandbox: true, fixture: true },
+      {
+        id: 'fx_cf_emma_snack', child_id: 'p_emma', key: 'snack',
+        value: 'Nut-free classroom; fruit or cheese for snack',
+        source_kind: 'PARENT_CONVERSATION', source_ref: 'Rosa, care conversation 2026-10-22',
+        verified_by: 'p_rosa', verified_at: '2026-10-22T16:00:00Z', confidence: 'CONFIRMED',
+        sandbox: true, fixture: true,
+      },
+      {
+        id: 'fx_cf_emma_tv', child_id: 'p_emma', key: 'tv',
+        value: 'One 20-minute programme after homework only',
+        source_kind: 'PARENT_CONVERSATION', source_ref: 'Rosa, care conversation 2026-10-22',
+        verified_by: 'p_rosa', verified_at: '2026-10-22T16:00:00Z', confidence: 'CONFIRMED',
+        sandbox: true, fixture: true,
+      },
+      {
+        id: 'fx_cf_emma_bedtime', child_id: 'p_emma', key: 'bedtime',
+        value: 'Story at 7:30pm, lights out 8:00pm',
+        source_kind: 'PARENT_CONVERSATION', source_ref: 'Rosa, care conversation 2026-10-22',
+        verified_by: 'p_rosa', verified_at: '2026-10-22T16:00:00Z', confidence: 'CONFIRMED',
+        sandbox: true, fixture: true,
+      },
       { id: 'fx_cf_nora_bedtime', child_id: 'p_nora', key: 'bedtime',
         value: 'Lights out 8:30pm on school nights', ...source, ...verified,
         sandbox: true, fixture: true },
