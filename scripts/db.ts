@@ -352,6 +352,27 @@ export async function resetDatabase() {
   return deleted;
 }
 
+/**
+ * Restore the COMPLETE demo-ready fixture set from the SAME single source `db:seed` uses.
+ *
+ * Why this exists: `resetDatabase()` is the v1 baseline reset, and its "keep" set is the v1 baseline
+ * ids. Cast v2 is seeded by `seedDatabase()` and then deleted again by that same reset for every
+ * table in RESET_SCOPED — so the demo cast (Priya's grants, the nanny relationship, approval
+ * policies, care facts, Orbit vocabulary, the simulated calendar) silently disappears after the
+ * evidence suite runs.
+ *
+ * This does NOT redefine the v1 contract: `baseline()`, `resetDatabase()` and `checksumDatabase()`
+ * are unchanged, so the baseline reset/checksum semantics stay exactly as published. This is an
+ * ADDITIVE restore that runs after a suite (and in its `finally`, so a failed suite restores too).
+ *
+ * Idempotent: both halves upsert by fixed id / natural key.
+ */
+export async function restoreDemoCast() {
+  const cast = await seedDatabase();      // v1 baseline + ALL of Cast v2 (one merged source)
+  const simulated = await seedSimulated(); // simulated coordination + calendar + orbit policy + care facts
+  return { cast, simulated };
+}
+
 export async function checksumDatabase() {
   const out: Record<string, { rows: number; sha: string }> = {};
   for (const t of TABLES) {
@@ -380,13 +401,16 @@ if (executedDirectly) {
   } else if (cmd === 'checksum:simulated') {
     console.log(JSON.stringify(await checksumSimulated()));
     process.exit(0);
+  } else if (cmd === 'restore:demo') {
+    const out = await restoreDemoCast();
+    console.log(`restored demo cast: ${JSON.stringify({ castRows: out.cast, simulated: out.simulated })}`);
   } else if (cmd === 'reset') {
     const deleted = await resetDatabase();
     console.log(`reset complete; deleted non-baseline rows: ${JSON.stringify(deleted)}`);
   } else if (cmd === 'checksum') {
     console.log(JSON.stringify(await checksumDatabase(), null, 2));
   } else {
-    console.error('usage: tsx scripts/db.ts seed|seed:simulated|cleanup:simulated|reset|checksum|checksum:simulated');
+    console.error('usage: tsx scripts/db.ts seed|seed:simulated|cleanup:simulated|restore:demo|reset|checksum|checksum:simulated');
     process.exit(2);
   }
 }
