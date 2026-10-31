@@ -10,6 +10,7 @@
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { validateActions, type CatalogAction } from './catalog';
+import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
 import { scopedRoster } from './roster';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
@@ -67,8 +68,11 @@ export type RosinaTurnResult = {
 };
 
 /** Defense in depth, independent of .apollo/mcp*.yaml: even if MCP ever exposed a mutation, this
- * service refuses to call anything by a name it does not already know is a read. */
-const ALLOWED_MCP_TOOL_NAMES = new Set(['PickupCandidates']);
+ * service refuses to call anything by a name it does not already know is a read. Grown one tool
+ * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
+ * available" — a new read ships in the same PR as its own persona-boundary tests). `Attempts`
+ * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40, PR #29's own tool contract). */
+const ALLOWED_MCP_TOOL_NAMES = new Set(['PickupCandidates', 'Attempts', 'JobTimeline']);
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
   return tools
@@ -168,12 +172,16 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       if (call.name === 'PickupCandidates' && !callResult.isError && typeof args.childId === 'string') {
         verifiedChildIds.add(args.childId);
       }
-      if (!callResult.isError && callResult.data) toolResultTexts.push(JSON.stringify(callResult.data));
+      // Deterministic, not a hope the model converts UTC correctly: any `at`/`closedAt` in a
+      // JobTimeline/Attempts result is rewritten to the family's own local time before the
+      // model ever sees it. A no-op for PickupCandidates, which has neither field.
+      const localizedData = callResult.isError ? callResult.data : localizeTimestamps(callResult.data);
+      if (!callResult.isError && localizedData) toolResultTexts.push(JSON.stringify(localizedData));
       toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: callResult.isError, errorCodes });
       messages.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: callResult.data } : callResult.data),
+        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: localizedData } : localizedData),
       });
     }
 

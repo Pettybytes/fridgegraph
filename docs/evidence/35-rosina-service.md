@@ -472,3 +472,117 @@ never another person's identity-map entry. No mutation tool added or changed. Th
 previously-BLOCKED scenarios (care plan, calendar/events, Mission Control recommendation,
 village directory) remain BLOCKED — unchanged by this fix, still waiting on Bentley's MCP
 operations per "Rosina tools available" in `docs/handoff/HANDOFF.md`. Not merged.
+
+## 11. TASK R-TOOLS-1 (2026-10-30) — Attempts + JobTimeline added to the allowlist
+
+Branch `feat/rosina-tools-1`, worktree `../fridgegraph-rosina-tools-1`, from `origin/main`
+(includes `#29`'s `Attempts`/`JobTimeline` MCP tools and `#31`'s Group 3 work), merged with
+`fix/rosina-scoped-roster` (`#30`, R-LEAK — not yet merged to `main` at the time this task
+started; its roster/output-guard code is a hard prerequisite here, so it was brought in by
+merge rather than reimplemented. Flagged, not silently assumed.).
+
+### What shipped
+
+- **`src/rosina/model.ts`**: `ALLOWED_MCP_TOOL_NAMES` now also accepts `Attempts` and
+  `JobTimeline` (previously `PickupCandidates` only). An unlisted tool name — tested with a
+  fabricated `SomeFutureMutation` entry in a stubbed `tools/list` — still never reaches
+  `mcp.callTool`, regardless of what the model asks for.
+- **`src/rosina/localTime.ts`** (new): `localizeTimestamps()` rewrites every `at`/`closedAt`
+  field in a tool result to the family's own local time (`America/Detroit`) BEFORE it is put in
+  the tool-result message the model sees — a deterministic server-side transform, not an
+  instruction hoping the model converts a raw UTC string correctly. No-op on `PickupCandidates`
+  (neither field exists there).
+- **`src/rosina/systemPrompt.ts`**: new `JOB_TOOLS` section replaces the old "Mission Control's
+  current pickup status... isn't connected yet" bullet. Explains the `Attempts()` → discover
+  visible jobs → `JobTimeline(jobId)` → full chronological story pattern; states that `[]` means
+  "I can't see that pickup" (never "nothing happened," and never which of "not visible / doesn't
+  exist / malformed id" applies — the tools answer all three identically on purpose, per evidence
+  40's "no existence oracle" reconciliation); tells the model times already arrive localized, so
+  it should relay them as given; and instructs it to describe `kind`/`destinationMode`/
+  `closedReason` enum codes in plain language, never read aloud. New rule 10: never claim a job
+  status or caregiver choice the tools didn't return, and never suggest an action ("you could
+  approve this") the catalog/permissions don't allow — the Priya rule (8), applied to jobs. Care/
+  calendar/events/directory remain explicitly blocked, unchanged.
+- The output guard (R-LEAK) needed NO code change for candidate `displayName`s from these two
+  tools: it already allows any name present in this turn's own tool-result JSON, tool-name-
+  agnostic. Verified by a dedicated test (below) rather than assumed.
+
+### Tests — `npm run test:rosina`, 24/24 PASS (16 existing regressions + 8 new in `jobTools.test.ts`)
+
+```
+ok  - the allowlist accepts PickupCandidates, Attempts and JobTimeline, and rejects an unknown
+      tool without ever calling it
+ok  - an empty Attempts/JobTimeline result never implies "nothing happened" in the prompt text
+ok  - the system prompt tells the model times already arrive in the family's own local time
+ok  - output guard: an empty Attempts result for a hidden job, with the model correctly naming
+      no one, passes through
+ok  - output guard: if the model volunteers a foreign child's name alongside an empty job
+      result anyway, it is still caught
+ok  - output guard: candidate displayNames from a real Attempts result are grounded, not a leak
+ok  - localizeTimestamps rewrites at/closedAt to America/Detroit local time and leaves other
+      fields untouched
+ok  - toFamilyLocalTime is a no-op on a non-ISO string and on non-string values
+```
+Zero network calls, zero Meta API cost — model and MCP client both stubbed, same pattern as
+Task R-FIX/R-LEAK. `npm run check:rosina-catalog` PASS (7 action ids). `npm run check` PASS (416
+files, 0 findings). `npm --prefix web test` **168 PASS** (unchanged — no `web/` file touched).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Confirmed before these runs: `tools/list` on the live alt-stack MCP returns `Attempts` and
+`JobTimeline` (plus `PickupCandidates` and three Group-3 tools this task does not touch); a
+direct `Attempts({})` call as Kendra returns the exact seeded job from evidence 40
+(`job_nora_oct16`, Loretta/`p_gma` accepted, Tasha/`p_tasha` declined, status
+`awaiting_approval`).
+
+```
+Kendra (p_mom), "What happened with Nora's pickup today, and what's the current status?":
+  reply: "Loretta Brooks accepted and Tasha Ellison declined, and Nora's pickup is now waiting
+  for approval. The pickup records show the request at 11:00 AM EDT Oct 16, I reached Loretta
+  by call at 11:02 AM EDT and she accepted, then reached Tasha by text at 11:03 AM EDT and she
+  declined." actions: []
+  (raw tool timestamps were 2026-10-16T15:0X:00+00:00 UTC — correctly rendered as 11:0X AM EDT,
+  Detroit's actual Oct-16 offset)
+
+Andre (p_dad), "What happened with Nora's pickup?" (same job, co-parent):
+  reply: "Loretta Brooks accepted by call at Oct 16, 11:02 AM EDT, and Tasha Ellison declined by
+  text at Oct 16, 11:03 AM EDT. That's from the pickup records for the pickup created Oct 16,
+  11:00 AM EDT." actions: []
+
+Dana (p_dana), "What happened with Nora's pickup?" (not Nora's family):
+  status: 200 (never 401/UNAUTHENTICATED)
+  reply: "I can only help with children shared with you." actions: []
+
+Demo guide (p_demo_guide), "What happened with Nora's pickup?" (real seeded login, sandbox job):
+  reply: "Loretta Brooks said yes for Nora's pickup and Tasha Ellison said no — it's now waiting
+  for approval. From the pickup records: created Oct 16, 11:00 AM EDT, Rosina reached out to
+  Loretta by call at 11:02 AM EDT and she accepted, then reached out to Tasha by text at 11:03
+  AM EDT and she declined." actions: [] (no approve/decline action suggested or offered — reads
+  only, as documented)
+
+Kendra (p_mom), "Give me the full timeline of what happened with Nora's pickup, step by step.":
+  reply: "Here's Nora's pickup, step by step: - Oct 16, 11:00 AM EDT — the pickup started -
+  Oct 16, 11:02 AM EDT — Rosina reached out to Loretta Brooks by call, she accepted - Oct 16,
+  11:03 AM EDT — Rosina reached out to Tasha Ellison by text, she declined. That's the full
+  story in the pickup records." actions: []
+  (server log confirms both Attempts AND JobTimeline were called this turn — the two-step
+  discovery pattern worked as designed; enum kinds like ATTEMPT_OPENED/ATTEMPT_CLOSED never
+  appear verbatim in the reply)
+```
+
+Server-side tool-call log for the five runs above (non-content metadata only, per this task's
+hard stop): `tools=mcp:Attempts,mcp:JobTimeline` for Kendra/Andre/guide; `tools=none` for Dana
+(she never needed to call anything — recognized out of scope immediately); `outputGuardTriggered
+=false` on every one of the five. No phone digit, token, or out-of-scope name appeared in any
+reply this round — nothing required redaction before saving this file.
+
+### Scope discipline
+
+No schema/auth/DB change. No service-role read. No mutation tool added — `Attempts`/`JobTimeline`
+are both reads; the MCP config's `mutation_mode: explicit` and zero mutation operation files are
+unchanged by this task. The three Group-3 tools now also present in `tools/list`
+(`ChildEvents`, `AdultAvailability`, `EffectiveSchedule`) were deliberately NOT added to the
+allowlist — out of this task's scope — so care/calendar/events/directory stay BLOCKED exactly as
+before, per the task's own instruction to "keep everything else blocked... until their tools
+ship" (meaning: until a dedicated task adds them, each with its own persona-boundary tests, same
+pattern as this one). Not merged.
