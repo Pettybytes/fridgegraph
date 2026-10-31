@@ -2840,3 +2840,46 @@ and affected live acceptance are complete; broader W4 dependencies remain separa
 This documentation follow-up is pushed normally; final-head CI/status are reported in the user
 response and the PR. No PR merge. W-ORBIT begins only after Bryan merges #32; do not start it on
 this worktree/branch or infer that READY means merged.
+
+## W-ORBIT — browser flow (in progress)
+
+BASE: fetched origin/main **2e6e869cd22e369249b121ff9988451488a9bc7e**; includes #32, #33, #36,
+#37, #38, #39, #42. BRANCH feat/web-orbit; WORKTREE ../fridgegraph-web-orbit (fresh sibling).
+Read Orbit contract/evidence 43, vocabulary evidence 44 and R-ORBIT #38. Baseline ran locally:
+206 web tests PASS, root typecheck/check (511 files, zero findings), web build and catalog PASS.
+UI: in progress · backend: documented APIs delivered · integrated + tested: pending; NOT DONE.
+Scope web + docs + both catalog metadata definitions only. No backend/schema/auth edits, real sends,
+automatic mutation replay, credentials/photo URLs in artifacts, or merge.
+
+Design: existing Geist and violet identity; ink #26344c, muted #62708a, violet #7559a1, pale violet
+#f0ebf6, white #ffffff. A single generous message stage, one primary action, a quiet recorded-response
+ledger, and compact guidance visible from entry through closure. Desktop keeps preview beside
+editable descriptors; mobile stacks them. No alarm color or decorative incident signals.
+State transitions use CSS only, with reduced motion; rows enter only for new persisted response ids.
+Photo content stays in authenticated fetch + ephemeral object URLs, revoked on replacement/switch/
+unmount; photo URLs never become route/history/storage/evidence values. Activation is never replayed.
+
+CheckInStatus has recorded/dueAt, not an overdue SDL field. The browser labels overdue as DERIVED
+from valid dueAt < current instant AND recorded:false, matching R-ORBIT's isCheckInOverdue; never
+from recorded:false alone. Parent authority is checked by the actual CheckInStatus read, not labels.
+The optional photo can be replaced with a new photoId; the current contract does not clear an
+existing photo binding when omitted, so no unsupported removal control is promised.
+Bryan explicitly authorized the catalog-focused server test update: retain controlled disabled
+coverage and add enabled coverage alongside the two metadata flips. No other server behavior edit.
+
+Offline verification: 227/227 web tests PASS; root typecheck, web typecheck/build, and catalog
+parity (8 ids) PASS. Desktop/mobile visual fixture reviewed (explicit UI fixture label; no live
+proof claimed). An older poll cannot overwrite a newer preview; leaving revokes photo handles.
+
+SERVER DEPENDENCY (Bryan's ownership decision): src/rosina/model.ts unconditionally refuses
+prepareOrbitAlert even when catalog metadata is enabled. The added controlled enabled-case
+probe failed (66/67 server tests; actions:[] rather than the valid card), establishing the gap;
+no server logic was changed. Bryan assigned that fix and its server test coverage to Claude Code's
+current PR. Server test edits were withdrawn as instructed; only the two explicitly requested
+catalog metadata flips remain in scope. Browser tests stub the service response, then prove card
+receipt performs no mutation, clicking calls draft/preview once, and activation requires a separate
+confirm. Live integration remains PENDING until Claude Code's handler fix is delivered and serving.
+After returning server test ownership to Claude Code, the unchanged 66/66 Rosina baseline tests
+pass; this does NOT prove enabled-card delivery (the hardcoded refusal still exists on this base).
+First browser commit includes both requested catalog metadata flags and the wired client handler.
+Ready for offline review; live acceptance/Task DONE remain pending the server correction and window.

@@ -100,7 +100,7 @@ export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
   'start-pickup': { id: 'start-pickup', argsSchema: { parse: pickupArgs }, routeOrHandler: 'pickup', changesData: true, implemented: true },
   'explain-screen': { id: 'explain-screen', argsSchema: { parse: (value) => screenArgs(value) ?? (record(value, ['screen']) && value.screen === 'calendar' ? { screen: 'calendar' } : null) }, routeOrHandler: 'explain', changesData: false, implemented: true },
   'explain-recommendation': { id: 'explain-recommendation', argsSchema: { parse: (value) => (record(value, []) ? {} : null) }, routeOrHandler: 'explain', changesData: false, implemented: true },
-  'prepareOrbitAlert': { id: 'prepareOrbitAlert', argsSchema: { parse: orbitAlertArgs }, routeOrHandler: 'orbit', changesData: true, implemented: false },
+  'prepareOrbitAlert': { id: 'prepareOrbitAlert', argsSchema: { parse: orbitAlertArgs }, routeOrHandler: 'orbit', changesData: true, implemented: true },
 };
 
 /** Diffed against the real web catalog by ops/rosina-catalog-drift.mjs. Keep in id order. */

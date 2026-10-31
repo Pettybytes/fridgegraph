@@ -15,6 +15,10 @@ import { createPersonaDataAdapter } from '@/features/personas/personaData'
 import '@/app/village-route.css'
 import { CatalogCards } from '@/features/rosina/CatalogCards'
 import { RosinaPanel } from '@/features/rosina/RosinaPanel'
+import {Orbit,OrbitCheckInCard} from '@/features/orbit/Orbit'
+import {OrbitProvider} from '@/features/orbit/runtime'
+import {OrbitController} from '@/features/orbit/controller'
+import {createOrbitAdapter} from '@/features/orbit/adapter'
 import { localDay } from '@/features/calendar/time'
 import {LiveFamilyCalendar} from '@/features/calendar/LiveFamilyCalendar'
 import {createLiveCalendarAdapter} from '@/features/calendar/liveAdapter'
@@ -40,28 +44,30 @@ function SignedInVillage() {
     if(session.accessToken&&authMode==='live'){
       const client=createGraphClient(async()=>getCurrentSession()?.accessToken??null,undefined,getSessionGeneration)
       const calendar=createLiveCalendarAdapter(client,{generation:session.generation,persona:session.persona,scope:session.scope,marks:session.marks},runRead,getSessionGeneration)
+      const orbit=new OrbitController(createOrbitAdapter(client,runRead,()=>getCurrentSession()?.accessToken),{childId:session.scope.childId,personId:session.persona.personId,parent:session.persona.parent||session.persona.guardian===true,readOnly:session.marks?.demoGuide===true,generation:session.generation},getSessionGeneration)
       const adapter=createDeliveredAdapter(client,runRead),clear=adapter.clearStore
-      adapter.clearStore=async()=>{calendar.clear();await clear?.()}
-      return {adapter,calendar,mockCalendar:null}
+      adapter.clearStore=async()=>{orbit.dispose();calendar.clear();await clear?.()}
+      return {adapter,calendar,mockCalendar:null,orbit}
     }
-    return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId)}
+    return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId),orbit:null}
   },[session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead])
   const adapter=connection?.adapter
   if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
   if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <SessionChip />
-    <LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
+    <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
-        'mission-control': session.accessToken&&authMode==='live'?<LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
+        'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
+        orbit:<Orbit/>,
         'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
         'care-information': <><p className="persona-mock">Sample data</p><CareInformation /></>,
         calendar: connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null,
         village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} />
-    </DataProvider></LiveCalendarContext.Provider>
+    </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
   </div>
 }
 export default function App({authAdapter}:{authAdapter?:AuthAdapter}={}) {
