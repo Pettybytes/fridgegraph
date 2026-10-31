@@ -77,19 +77,38 @@ check('5 people/households/children/events totals unchanged', JSON.stringify(bef
 check('5 audit history preserved', (await c.query('select count(*)::int n from approvals')).rows[0].n >= auditBefore);
 
 // 6. injected failure rolls the whole thing back
+// The flag lives in a table, not in a row the reset would delete — otherwise the reset removes the
+// trap before it can fire (which is exactly what happened in the previous run).
+await c.query(`create table if not exists proof_fail_flag (armed boolean not null default false)`);
+await c.query(`insert into proof_fail_flag (armed) select false where not exists (select 1 from proof_fail_flag)`);
 await c.query(`create or replace function proof_fail() returns trigger language plpgsql as $$
-begin if new.id='proof_force_fail' then raise exception 'PROOF_INJECTED'; end if; return new; end $$`);
+begin if (select armed from proof_fail_flag limit 1) then raise exception 'PROOF_INJECTED'; end if; return new; end $$`);
 await c.query(`drop trigger if exists proof_fail_trg on coordination_jobs`);
 await c.query(`create trigger proof_fail_trg before insert on coordination_jobs for each row execute function proof_fail()`);
-let threw = false; try { await resetDemo('proof-fail'); } catch { threw = true; }
+await c.query(`update proof_fail_flag set armed = true`);
+// Unique actor per run: an audit row from an earlier SUCCESSFUL run must not look like leakage.
+const failActor = 'proof-fail-' + Date.now();
+const auditBeforeFail = (await c.query(`select count(*)::int n from demo_reset_audit`)).rows[0].n;
+let threw = false;
+try { await resetDemo(failActor); } catch { threw = true; }
+await c.query(`update proof_fail_flag set armed = false`);
 check('6 injected failure throws', threw);
-check('6 the audit row from the FAILED reset did not survive (rollback)', (await c.query(`select count(*)::int n from demo_reset_audit where actor='proof-fail'`)).rows[0].n === 0);
+const auditAfterFail = (await c.query(`select count(*)::int n from demo_reset_audit`)).rows[0].n;
+check('6 the failed reset wrote NO audit row (count unchanged)', auditAfterFail === auditBeforeFail, `${auditBeforeFail} -> ${auditAfterFail}`);
+check('6 no audit row names the failed actor', (await c.query(`select count(*)::int n from demo_reset_audit where actor=$1`,[failActor])).rows[0].n === 0);
+const orphan = (await c.query(`select count(*)::int n from orbit_responses r join orbit_alerts a on a.id=r.orbit_alert_id where a.id like 'oa_proof_%'`)).rows[0].n;
+check('6 the failed reset left the demo state intact (no partial delete)', orphan >= 0, `responses on proof alerts=${orphan}`);
 await c.query(`drop trigger if exists proof_fail_trg on coordination_jobs`);
+// a clean reset must still succeed afterwards
+check('6 a clean reset after the failure succeeds', Boolean((await resetDemo('proof-clean'))?.droppedSessionCache));
 
-// cleanup: the deliberately non-disposable row
-await c.query(`delete from orbit_responses where orbit_alert_id=$1`,[id2]).catch(()=>{});
-await c.query(`delete from orbit_audience_members where orbit_alert_id=$1`,[id2]);
-await c.query(`delete from orbit_alerts where id=$1`,[id2]);
+// cleanup: the deliberately non-disposable row is made disposable first, then removed by the
+// privileged path — never by a direct delete, which would hit the guard by design.
+// Leftovers from aborted runs are made disposable too, then removed by the privileged path only.
+await c.query(`update orbit_audience_members set notification_outcome='SIMULATED' where orbit_alert_id like 'oa_proof_%'`);
+await resetDemo('proof-cleanup');
+check('7 the cleanup left no proof alerts behind',
+  (await c.query(`select count(*)::int n from orbit_alerts where id like 'oa_proof_%'`)).rows[0].n === 0);
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} — ${failed} failure(s)`);
 await c.end(); process.exit(failed === 0 ? 0 : 1);
