@@ -19,7 +19,7 @@ import express, { type Request, type Response } from 'express';
 import { DEMO_PERSONAS, personaById, type DemoLoginResponse } from './personas';
 import { isReady } from './personas';
 import { MintError } from './session';
-import { getPersonaSession, publicPersonaSession } from './persona-sessions';
+import { getPersonaSession, publicPersonaSession, dropPersonaSessionCache } from './persona-sessions';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -114,6 +114,9 @@ function originAllowed(origin: string | undefined): boolean {
 
 export function createDemoLoginApp() {
   const app = express();
+  // One reset at a time per person: a reset is expensive and destructive.
+  const lastResetAt = new Map<string, number>();
+  const RESET_COOLDOWN_MS = 30_000;
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2kb' }));
 
@@ -319,6 +322,45 @@ export function createDemoLoginApp() {
       }
     },
   );
+
+
+  /**
+   * POST /api/demo/reset — restore the demo state.
+   *
+   * Lives HERE, not on Rosina, because the persona session cache is process-local to this server:
+   * resetting elsewhere would restore the DB while leaving this process serving stale persona
+   * sessions. Same guards as before: loopback only (until Task H), demo sessions only, the Demo guide
+   * is refused, and one reset per person per 30 s.
+   */
+  app.post('/api/demo/reset', async (req: Request, res: Response) => {
+    const addr = req.socket.remoteAddress ?? '';
+    if (!(addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) {
+      res.status(403).json({ error: 'LOOPBACK_ONLY' }); return;
+    }
+    const authorization = req.header('authorization');
+    const identity = await verifyBearer(authorization);
+    if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    if (!identity.demo) { res.status(403).json({ error: 'DEMO_SESSION_REQUIRED' }); return; }
+    if (identity.demoGuide) { res.status(403).json({ error: 'DEMO_GUIDE_READ_ONLY' }); return; }
+
+    const now = Date.now();
+    const last = lastResetAt.get(identity.personId) ?? 0;
+    if (now - last < RESET_COOLDOWN_MS) {
+      res.status(429).json({ error: 'RESET_RATE_LIMITED', retryAfterMs: RESET_COOLDOWN_MS - (now - last) }); return;
+    }
+    lastResetAt.set(identity.personId, now);
+
+    try {
+      const { resetDemo } = await import('./reset');
+      const report = await resetDemo(identity.personId);
+      // Order matters: restore first, then drop the cache this process actually owns.
+      dropPersonaSessionCache();
+      res.status(200).json({ ok: true, ...report });
+    } catch (error) {
+      console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
+      res.status(500).json({ error: 'RESET_FAILED' });
+    }
+  });
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: 'NOT_FOUND' });
