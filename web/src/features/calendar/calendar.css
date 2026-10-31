@@ -69,3 +69,4 @@
 
 .cal-authority { font-size: .7rem; color: #62708a; }
 @media(max-width: 440px) { .cal-child { flex-wrap: wrap; } }
+.cal-live-key {display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:1rem 0;color:#56667e;font-size:.8rem;line-height:1.6}.cal-live-key label {display:flex;gap:.5rem;align-items:center}.cal-schedule-source {display:block;font-size:.68rem;color:#386c5a;margin:-.4rem 0 .9rem}.cal-unavailable {font-size:.68rem;line-height:1.5;color:#62708a;margin:.7rem 0}.cal-conflicts {margin:1.2rem 0;padding:1rem;border-left:3px solid #9777b5;background:#fff;font-size:.8rem;line-height:1.6}.cal-conflicts h3 {font-weight:650}.cal-busy.is-free {background:#e1eee7;color:#386c5a}

@@ -45,3 +45,19 @@ export async function inspectStoredJob(token:string,jobId:string|null){
   return {ids,timelineCount:timeline.data?.jobTimeline.length??0,attemptCount:attempts.data?.attempts.length??0}
  }finally{client.stop()}
 }
+import {CHILD_EVENTS,EFFECTIVE_SCHEDULE,SCHEDULE_CONFLICTS,ADULT_AVAILABILITY} from '../src/features/calendar/liveAdapter'
+export async function inspectGroup3(token:string,childId:string,otherId:string,personId:string){
+ const client=createGraphClient(async()=>token)
+ const read=async(query:ReturnType<typeof gql>,variables:Record<string,string|boolean>)=>{try{const result=await client.query({query,variables,fetchPolicy:'no-cache'});return {outcome:'ready',data:result.data}}catch(error){const e=error as {message?:string;errors?:{extensions?:{code?:string}}[]};return {outcome:/UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?'refused':'failed'}}}
+ const from='2026-11-23',to='2026-11-29'
+ try{
+  const own=await read(CHILD_EVENTS,{childId,from,to,includeCancelled:false})
+  const daily=[];for(const date of ['2026-11-24','2026-11-25','2026-11-26','2026-11-27','2026-11-28'])daily.push({date,...await read(EFFECTIVE_SCHEDULE,{childId,date})})
+  const conflicts=await read(SCHEDULE_CONFLICTS,{childId,from,to})
+  const adults=await read(ADULT_AVAILABILITY,{personId,from,to})
+  const defaults=await read(CHILD_EVENTS,{childId,from:'2026-11-16',to:'2026-11-22',includeCancelled:false}),cancelled=await read(CHILD_EVENTS,{childId,from:'2026-11-16',to:'2026-11-22',includeCancelled:true})
+  const boundaries=[];for(const id of [otherId,'not-a-child','!malformed'])boundaries.push({events:await read(CHILD_EVENTS,{childId:id,from,to,includeCancelled:false}),care:await read(EFFECTIVE_SCHEDULE,{childId:id,date:'2026-11-26'}),conflicts:await read(SCHEDULE_CONFLICTS,{childId:id,from,to})})
+  const unavailableAdults=[];for(const id of ['fx_audit_parent','not-a-person','!malformed'])unavailableAdults.push(await read(ADULT_AVAILABILITY,{personId:id,from,to}))
+  return {own,daily,conflicts,adults,defaults,cancelled,boundaries,unavailableAdults}
+ }finally{client.stop()}
+}

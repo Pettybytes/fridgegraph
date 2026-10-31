@@ -1,5 +1,9 @@
 # FridgeGraph — HANDOFF
 
+**Current W4b:** see “W4b replacement brief — live calendar and persona sessions” below. Base #31
+`0d80f003c722e009897b1790c461952cd0de6f66`; directory access follows evidence 37 (Bryan confirmed).
+Remaining live checks are pending the demo-login outage, per Bryan. Earlier W4b failure packets are historical.
+
 _Last updated: Oct 30, 2026. Merged origin/main `cccbbd2` (E0 #23) into this branch; read §9 before trusting any state._
 
 ---
@@ -152,7 +156,7 @@ Group 3's `includeCancelled` item.
 `can_approve_swap()` currently assumes "the other parent/guardian in the household" — it must read the
 per-household policy and count guardians as approvers where the household has no parents.
 
-### 3 Group 3 — PARTIAL (data layer done)
+### 3 Group 3 — DONE (data and read layers; evidence 41)
 
 `0028_holiday_arrangements.sql` (applied) is the correction: a **SCHOOL_CLOSURE** (`holidays` +
 `day_kind` → `SCHOOL_CLOSURE`) is not a **HolidayArrangement**; closures suppress `SCHOOL_DAY`
@@ -1984,3 +1988,82 @@ job ID, then query that SAME ID under every perspective. Kendra/Andre/guide retu
 results, with no existence disclosure. In-process token scan PASS. Receipt:
 web/evidence/demo-login/job-boundary-results.json. This does not override the six directory-name
 failures. No model call or mutation was used by this supplemental probe.
+
+## W4b replacement brief — live calendar and persona sessions
+
+This packet supersedes the earlier W4b implementation notes above. Branch feat/web-demo-login in
+../fridgegraph-web-demo-login; fetched origin/main base **0d80f003c722e009897b1790c461952cd0de6f66**
+(#31), includes #27/#28/#29. Existing draft #32 rebased locally onto that base. No backend/schema/
+auth/database changes; no merge. UI in progress · backend documented Group 3 reads delivered ·
+integrated + tested pending this replacement run.
+
+Evidence 39 and HANDOFF govern nested session/real expiry; E2A's earlier refresh-token example is
+historical. Evidence 40/41 govern each read's own empty/refusal contract: no array emptiness is
+promoted to UNAUTHORIZED. Native calendar adapter reads childEvents, daily effectiveScheduleFor,
+scheduleConflicts and Busy/Free-only adultAvailability through Apollo/current bearer. The calendar
+never substitutes fixture data for an empty/refused/failed live response. Mock calendar is dev/test
+only. Native events have no category, confirmer, participants or linked records fields; effective
+schedule has parent/source/arrangementId, not holiday metadata. No such fields were invented.
+
+Bentley field gaps: school-closure/day-kind read is NOT exposed by the four delivered GraphQL
+operations (day_kind exists only behind the server); event category/confirmer/links and raw proposed
+holiday arrangements are not exposed. The UI explicitly leaves those unavailable. Daily approved
+arrangement answers can be shown accurately without fabricating a HolidayArrangement object or
+inferring a school closure from its title. Busy/Free names/IDs come only from the signed-in caller
+and the returned daily caregivers; no mock adult roster. Child enumeration beyond the session's
+scope needs its own delivered read before the guide's broader calendar can be offered.
+
+Runtime reconciliation: router 4010 does not expose the four Group 3 fields; 4012 does. The normal
+W1 proxy default remains 4010. The local replacement smoke uses an explicit 4012 proxy override,
+as evidence 41 does; there is no automatic endpoint or mock fallback. Bentley must reload the
+normal stack's schema before its default calendar endpoint can serve these operations.
+
+Replacement W4b resolution and actual state:
+- Bryan confirmed **follow documented directory access; still test private-record refusals**.
+  The earlier identity-hiding assertions were wrong for the directory contract; old failed receipts
+  are preserved, not relabeled as passes. No backend identity-isolation change is requested by this
+  replacement. Private household/candidate/calendar/non-sandbox boundaries remain strict.
+- First replacement smoke entered Kendra and Andre and captured their real calendars/timeline/
+  Rosina; Thanksgiving Nov 25–27 uses ARRANGEMENT/Andre, Nov 28 returns to WEEKLY (Andre in the
+  actual weekly schedule). Conflicts Nov 26–27 remain visible; cancelled toggle uses real records.
+  It stopped at Loretta's calendar check, so a full private-boundary battery is not claimed.
+- Later login attempts failed for all seven seeded personas. Sanitized Kendra endpoint diagnostic:
+  HTTP 503 DEMO_LOGIN_UNAVAILABLE. No per-persona backend reason is invented for other failures.
+  UI Busy is retryable, no Coming soon or identity substitution. Bryan explicitly said **finish
+  with remaining live checks pending**. No credential file or alternate token mint path used.
+- Latest per-persona table and desktop/mobile evidence: web/evidence/demo-login/current/README.md;
+  current/results.json is a partial integration outcome, not an all-green run. Prior parent-folder
+  evidence remains historical. Token scans PASS; later failed-login run issued no credentials.
+
+| Persona | Latest picker | Live reads | Rosina |
+| --- | --- | --- | --- |
+| Kendra | failed; earlier READY | Calendar/timeline observed; full rerun pending | earlier live answer; rerun pending |
+| Andre | failed; earlier READY | same family/job/calendar observed; full rerun pending | earlier live answer; rerun pending |
+| Loretta | failed; earlier READY | pending; calendar check incomplete | pending |
+| Priya | failed | pending | pending |
+| Dana | failed | pending | pending |
+| Jax's family | failed | pending | pending |
+| Demo guide | failed | pending | pending |
+| Rosa | Coming soon; disabled | pending seed | pending |
+
+UI: **live-capable for delivered fields** · backend: **session/Group 3 reads delivered, field gaps
+remain** · integrated + tested: **partial — NOT DONE**. School-closure day kind is not exposed by
+these reads; category/participants/confirmer/links/full holiday metadata are absent. No title
+inference or mock data fills these gaps. Start-based date-range reads also need an overlap/civil-
+date contract before arbitrary carry-in events are claimed live-tested. Native schedule source
+answers are rendered directly; no fabricated weekly or holiday objects. Adult Busy/Free queries
+never select a reason; Free says free time recorded, not available/willing.
+
+Remaining: restore login runtime and rerun seven READY personas + Rosa/contexts/guide write check;
+normal 4010 schema reload (local proof is explicitly 4012); missing fields/child enumeration;
+Cast v2 seed for Rosa/Felicia/Simone/Dwayne + six-family Guide breadth; Village v2 live reads;
+**Orbit screens after Bentley's Task O**; Task H public judge access + Try FridgeGraph landing
+button; Group 5 reset/demo-family services. Keep draft #32; no merge.
+
+Replacement offline verification: **206/206 web tests PASS**, web typecheck/build PASS (existing
+chunk-size advisory), root typecheck PASS, shared Rosina catalog PASS (7 ids). Browser smoke ran;
+full completion remains pending as recorded above. Publishing the rebased draft requires explicit
+force-with-lease permission under AGENTS.md §1.2; no force push has been performed.
+Staged secret scan: **446 files, 0 findings**. Task-layer diff against the recorded base is web/docs
+only. A two-dot comparison to the concurrently advanced origin/main included upstream-only files;
+that was an incorrect layer-check comparison, corrected against the actual task base.

@@ -16,6 +16,9 @@ import '@/app/village-route.css'
 import { CatalogCards } from '@/features/rosina/CatalogCards'
 import { RosinaPanel } from '@/features/rosina/RosinaPanel'
 import { localDay } from '@/features/calendar/time'
+import {LiveFamilyCalendar} from '@/features/calendar/LiveFamilyCalendar'
+import {createLiveCalendarAdapter} from '@/features/calendar/liveAdapter'
+import {LiveCalendarContext} from '@/features/calendar/runtime'
 import { FamilyCalendar } from '@/features/calendar/FamilyCalendar'
 import { createMockCalendarAdapter } from '@/features/calendar/mockAdapter'
 import { CareInformation } from '@/features/personas/careInformation'
@@ -32,23 +35,33 @@ function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
 }
 function SignedInVillage() {
   const { session, switching, getCurrentSession, getSessionGeneration, runRead, authMode } = useSession()
-  const adapter = useMemo(() => session ? session.accessToken && authMode==='live' ? createDeliveredAdapter(createGraphClient(async()=>getCurrentSession()?.accessToken??null,undefined,getSessionGeneration),runRead) : createPersonaDataAdapter(session) : null, [session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead])
-  const calendar = useMemo(() => session ? createMockCalendarAdapter(session.persona.personId) : null, [session?.generation])
+  const connection = useMemo(() => {
+    if(!session)return null
+    if(session.accessToken&&authMode==='live'){
+      const client=createGraphClient(async()=>getCurrentSession()?.accessToken??null,undefined,getSessionGeneration)
+      const calendar=createLiveCalendarAdapter(client,{generation:session.generation,persona:session.persona,scope:session.scope,marks:session.marks},runRead,getSessionGeneration)
+      const adapter=createDeliveredAdapter(client,runRead),clear=adapter.clearStore
+      adapter.clearStore=async()=>{calendar.clear();await clear?.()}
+      return {adapter,calendar,mockCalendar:null}
+    }
+    return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId)}
+  },[session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead])
+  const adapter=connection?.adapter
   if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
   if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <SessionChip />
-    <DataProvider adapter={adapter} scope={session.scope}>
+    <LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
         'mission-control': session.accessToken&&authMode==='live'?<LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
         'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
         'care-information': <><p className="persona-mock">Sample data</p><CareInformation /></>,
-        calendar: calendar ? <><p className="persona-mock">Sample data</p><FamilyCalendar adapter={calendar} /></> : null,
+        calendar: connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null,
         village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} />
-    </DataProvider>
+    </DataProvider></LiveCalendarContext.Provider>
   </div>
 }
 export default function App({authAdapter}:{authAdapter?:AuthAdapter}={}) {

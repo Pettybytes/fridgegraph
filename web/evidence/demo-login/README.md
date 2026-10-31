@@ -1,4 +1,10 @@
-# W4b local browser evidence
+# W4b local browser evidence (historical)
+
+**Superseded by the [replacement brief evidence](current/README.md).** Bryan confirmed the documented
+directory contract; the old identity-hiding expectations below were incorrect for that contract.
+These past failed receipts remain historical, not passing tests. The default smoke harness now
+runs the replacement brief.
+
 
 UI complete · backend sessions and recorded pickup reads delivered, v2 reads partial · integrated +
 tested partial. **NOT DONE: full live isolation smoke FAILS six directory-name checks.**
