@@ -27,6 +27,11 @@ export type ChildAccessValue = {
   /** Focus a child. No-ops for an id not in `authorized` (no arbitrary scoping). */
   selectChild: (id: string) => void
   authorized: MyChildrenState
+  /** The live authed Apollo client + read wrapper, so a consumer can render a
+   * connected reader (e.g. AuthorizedVillagePreview) without prop-drilling. Null
+   * client outside a live session. */
+  client: ApolloClient | null
+  runRead: <T>(read: () => Promise<T>) => Promise<T>
 }
 
 const ChildAccessContext = createContext<ChildAccessValue | null>(null)
@@ -59,8 +64,8 @@ export function ChildAccessProvider({
       focusedId === sessionChildId
         ? sessionChildName
         : (authorized.status === 'ready' && authorized.children.find((c) => c.id === focusedId)?.displayName) || sessionChildName
-    return { sessionChildId, sessionChildName, selectedChildId: focusedId, selectedChildName: focusedName, selectChild, authorized }
-  }, [sessionChildId, sessionChildName, focusedId, selectChild, authorized])
+    return { sessionChildId, sessionChildName, selectedChildId: focusedId, selectedChildName: focusedName, selectChild, authorized, client, runRead }
+  }, [sessionChildId, sessionChildName, focusedId, selectChild, authorized, client, runRead])
 
   return <ChildAccessContext.Provider value={value}>{children}</ChildAccessContext.Provider>
 }
