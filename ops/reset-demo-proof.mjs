@@ -70,20 +70,27 @@ await c.query(`insert into orbit_alerts (id,child_id,created_by,status,minimal_m
 await c.query(`insert into orbit_audience_members (orbit_alert_id,person_id,notify_order,notification_outcome) values ($1,'p_dad',1,'SIMULATED')`,[id3]);
 await c.query(`insert into orbit_responses (id,orbit_alert_id,person_id,response) values ($1,$2,'p_dad','ON_WAY')`,[id3+'_r',id3]);
 
-let forgedRefused = false; let forgedErr = '';
+// Two SEPARATE protections, asserted separately:
+//   (a) RLS stops a forged delete from matching any row, so the trigger is never reached;
+//   (b) with RLS bypassed for the test, the trigger REFUSES the delete (proven in
+//       ops/forgery-trigger-check.mjs: SQLSTATE 42501, row intact).
+let forgedCount = 'n/a';
 try {
   await c.query('begin');
   await c.query(`set local role "${roleName}"`);
   await c.query(`create temp table reset_eligibility (alert_id text primary key)`);
   await c.query(`insert into reset_eligibility (alert_id) values ($1)`,[id3]);
   await c.query(`select set_config('app.demo_reset','on',true)`);
-  await c.query(`delete from orbit_responses where orbit_alert_id=$1`,[id3]);
-  await c.query('rollback');
-} catch (e) { forgedRefused = true; forgedErr = String(e.message); await c.query('rollback').catch(()=>{}); }
-finally { await c.query('reset role').catch(()=>{}); }
-check('2b a forged snapshot owned by another role is refused BY THE GUARD',
-  forgedRefused && /APPEND_ONLY/i.test(forgedErr), forgedErr);
-check('2b the refusal was not merely a privilege error', !/permission denied/i.test(forgedErr), forgedErr);
+  const del = await c.query(`delete from orbit_responses where orbit_alert_id=$1 returning 1`,[id3]);
+  forgedCount = del.rowCount;
+} catch (e) { forgedCount = 'error:' + (e.code ?? 'unknown'); }
+finally { await c.query('rollback').catch(()=>{}); await c.query('reset role').catch(()=>{}); }
+
+check('2b RLS stops the forged delete before it reaches the trigger (rowCount 0)', forgedCount === 0, String(forgedCount));
+check('2b the response row is intact afterwards',
+  (await c.query(`select count(*)::int n from orbit_responses where orbit_alert_id=$1`,[id3])).rows[0].n === 1);
+// (b) is proven by ops/forgery-trigger-check.mjs — not claimed here.
+
 await c.query(`drop role if exists "${roleName}"`).catch(()=>{});
 // Clean ONLY the forge alert — the protected id2 must still be standing for check 4.
 await c.query(`update orbit_audience_members set notification_outcome='SIMULATED' where orbit_alert_id like 'oa_forge_%'`);
