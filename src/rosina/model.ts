@@ -9,9 +9,10 @@
  */
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
-import { validateActions, type CatalogAction } from './catalog';
+import { catalog, validateActions, type CatalogAction } from './catalog';
 import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
+import { checkInStatusFrom, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
 import { scopedRoster } from './roster';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 
@@ -72,7 +73,9 @@ export type RosinaTurnResult = {
  * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
  * available" — a new read ships in the same PR as its own persona-boundary tests). `Attempts`
  * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40). `ChildEvents`, `EffectiveSchedule`
- * and `AdultAvailability` added in TASK R-TOOLS-2 (evidence 41). */
+ * and `AdultAvailability` added in TASK R-TOOLS-2 (evidence 41). `CheckInStatus`, `OrbitStatus`
+ * and `OrbitVocabulary` added in TASK R-ORBIT (evidence 42/43/44) — still no activate/draft/
+ * preview tool exists or ever will; Orbit's mutations are never exposed here. */
 const ALLOWED_MCP_TOOL_NAMES = new Set([
   'PickupCandidates',
   'Attempts',
@@ -80,6 +83,9 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'ChildEvents',
   'EffectiveSchedule',
   'AdultAvailability',
+  'CheckInStatus',
+  'OrbitStatus',
+  'OrbitVocabulary',
 ]);
 
 /**
@@ -94,6 +100,9 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   ChildEvents: 'childId',
   EffectiveSchedule: 'childId',
   AdultAvailability: 'personId',
+  CheckInStatus: 'childId',
+  OrbitStatus: 'childId',
+  // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
 };
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
@@ -164,6 +173,13 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // authorized tool results hand back ids this turn. Gates ChildEvents/EffectiveSchedule/
   // AdultAvailability's child/person-id arguments — see ID_ARG_BY_TOOL.
   const permittedIds = new Set<string>([...roster.map((c) => c.id), options.personId]);
+  // Orbit-specific gates (src/rosina/orbit.ts): CheckInStatus throws UNAUTHORIZED for anyone who
+  // is not the child's parent, so a SUCCESSFUL call is proof of parent authority — never an
+  // assumption. vocabularyByKind accumulates every value THIS turn's own OrbitVocabulary call(s)
+  // actually returned; a descriptor value not in it is refused regardless of how plausible it
+  // looks, so the model can never silently substitute a near match.
+  const verifiedParentOf = new Set<string>();
+  const vocabularyByKind = new Map<string, Set<string>>();
 
   let finalContent = '';
 
@@ -232,21 +248,55 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       // candidate, a parent, a child) — never from the call's own arguments, so a rejected or
       // out-of-scope call (isError) contributes nothing.
       if (!callResult.isError) harvestIds(callResult.data, permittedIds);
+      if (call.name === 'CheckInStatus' && !callResult.isError && typeof args.childId === 'string') {
+        verifiedParentOf.add(args.childId);
+      }
+      if (call.name === 'OrbitVocabulary' && !callResult.isError) {
+        for (const [kind, values] of vocabularyMapFrom(callResult.data)) {
+          const existing = vocabularyByKind.get(kind) ?? new Set<string>();
+          for (const v of values) existing.add(v);
+          vocabularyByKind.set(kind, existing);
+        }
+      }
+      // "Overdue" is real-time arithmetic, not something to trust the model to compute from a
+      // dueAt string — the server decides it here, against the real clock, before the result
+      // ever reaches a message. Never derived from recorded=false alone (src/rosina/orbit.ts).
+      let overdueFlag: boolean | null = null;
+      if (call.name === 'CheckInStatus' && !callResult.isError) {
+        const status = checkInStatusFrom(callResult.data);
+        if (status) overdueFlag = isCheckInOverdue(status);
+      }
       // Deterministic, not a hope the model converts UTC correctly: any `at`/`closedAt` in a
       // JobTimeline/Attempts result is rewritten to the family's own local time before the
       // model ever sees it. A no-op for PickupCandidates, which has neither field.
       const localizedData = callResult.isError ? callResult.data : localizeTimestamps(callResult.data);
-      if (!callResult.isError && localizedData) toolResultTexts.push(JSON.stringify(localizedData));
+      const finalData = overdueFlag !== null ? injectOverdueFlag(localizedData, overdueFlag) : localizedData;
+      if (!callResult.isError && finalData) toolResultTexts.push(JSON.stringify(finalData));
       toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: callResult.isError, errorCodes });
       messages.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: localizedData } : localizedData),
+        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: finalData } : finalData),
       });
     }
 
     for (const { call, args } of actionCalls) {
       const id = call.name.slice(ACTION_TOOL_PREFIX.length);
+
+      if (id === 'prepareOrbitAlert') {
+        // ALWAYS refused, never included in `actions` — the shared catalog marks this
+        // UNIMPLEMENTED until Codex's app handler (orbitDraft + orbitPreview + the confirm UI)
+        // exists, regardless of how cleanly it validates. The gate itself (parent authority +
+        // vocabulary membership) still runs in full, so it is already correct, and already
+        // tested, for the moment that flag flips — see src/rosina/orbit.ts.
+        const shapeArgs = catalog.prepareOrbitAlert.argsSchema.parse(args);
+        const semantic = shapeArgs ? validatePrepareOrbitAlert(shapeArgs as OrbitAlertArgs, verifiedParentOf, vocabularyByKind) : null;
+        const errorCode = !shapeArgs ? 'INVALID_ACTION' : !semantic!.ok ? semantic!.reason : 'UNIMPLEMENTED';
+        toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: true, errorCodes: [errorCode] });
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: false, error: 'Orbit alerts are not available through this app yet.' }) });
+        continue;
+      }
+
       let validated = validateActions([{ id, args }]);
       let refusalReason: string | null = null;
       // Catalog presence never implies permission: start-pickup additionally requires a

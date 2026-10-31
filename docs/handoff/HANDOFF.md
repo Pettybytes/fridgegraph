@@ -1628,7 +1628,7 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 | `ChildEvents` / `EffectiveSchedule` / `AdultAvailability` (schedule subgraph, Group 3 `#31`) | **AVAILABLE** — wired into the allowlist by TASK R-TOOLS-2 (evidence 35 §12): a child's calendar, who has the child on a date (WEEKLY vs an APPROVED holiday ARRANGEMENT — PROPOSED never changes it), and recorded Busy/Free (never a reason, never "can pick up") are now answerable live. Child/person-id arguments are gated by a new pre-call `permittedIds` check in `src/rosina/model.ts` — never trust a browser route, history, or a model argument; an id must come from the caller's own roster/self or a tool result already returned this turn. |
 | CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
 | Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person`; also needed for a proper `MyChildren`/`myVillages` caller-scoped read (R-LEAK's fallback, evidence 35 §10, uses `src/demo/personas.ts` in the meantime) |
-| `CheckInStatus` / `OrbitStatus` / `OrbitVocabulary` | present in the live `tools/list` (from a concurrent, further-ahead worktree not yet on `main`) but **deliberately NOT added to the allowlist** — Orbit stays explicitly blocked per contract (coordination-v2 Area F: Rosina may at most "suggest," never call, and no suggest action exists yet either); needs its own task when/if it lands on `main`, with its own persona-boundary tests |
+| `CheckInStatus` / `OrbitStatus` / `OrbitVocabulary` | **AVAILABLE** — wired into the allowlist by TASK R-ORBIT (evidence 35 §13): notice (server-computed `overdue`, never inferred from `recorded` alone), suggest (only when asked or genuinely overdue), gather (vocabulary-only, never free text/place), and a `prepareOrbitAlert` preparation card are all live. `prepareOrbitAlert` is gated and tested but `implemented: false` in the catalog — pending Codex's app-side draft/preview/confirm handler; no activate tool exists or is exposed. |
 
 **Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
 new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
@@ -2393,3 +2393,110 @@ catalog **7 identical ids**; final staged secret scan **499 files / 0 findings**
 acceptance, receipt audit, frame audit and in-process token scans PASS as recorded above. Own diff
 against main is web/docs only; both CI checks passed on merge commit 17259ec. Final evidence commit
 will be pushed normally and checked in CI before marking #32 ready, as Bryan authorized.
+## Task R-ORBIT — Rosina's side of Orbit: notice -> suggest -> gather -> preparation card, never activate (2026-10-31)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §13.
+
+BRANCH: feat/rosina-orbit; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-orbit
+BASE: origin/main `593e794` (#33 Orbit Alert minimal slice and #37 R-TOOLS-2 both merged —
+confirmed via `gh pr view 33,37 --json state,mergedAt` before branching).
+
+**Premise mismatch found and reported (not hidden):** the task listed PR **#35** ("Orbit
+vocabulary through the API") as a merged prereq. `gh pr view 35` shows it is still `OPEN`.
+Diffed its branch against `origin/main` at the fork point: its unique content
+(`ops/OrbitVocabulary.graphql`, migration `0038_orbit_vocabulary_read.sql`, the `orbitVocabulary`
+resolver) is already present on `main` — it landed folded into #33 or #37's merge, not through
+#35 itself. The actual dependency (OrbitVocabulary live and callable) is functionally satisfied,
+confirmed directly against the live alt-stack MCP before proceeding. #35 is likely safe to close
+as superseded, but that is Bentley's call, not this task's — flagged here, not closed.
+
+**Shipped:**
+- `src/rosina/orbit.ts` (new): `validatePrepareOrbitAlert` (parent authority via a same-turn
+  successful `CheckInStatus` call — it throws `UNAUTHORIZED` for non-parents, so success is proof;
+  vocabulary membership checked per descriptor KIND, not just presence anywhere in the list; never
+  invents an unsupplied field) and `isCheckInOverdue`/`checkInStatusFrom`/`injectOverdueFlag`
+  (server-computed `overdue` against the real clock, injected before the model ever sees the
+  result; never inferred from `recorded: false` alone).
+- `src/rosina/model.ts`: `CheckInStatus`/`OrbitStatus`/`OrbitVocabulary` added to
+  `ALLOWED_MCP_TOOL_NAMES` (nine tools total); `verifiedParentOf`/`vocabularyByKind` turn-scoped
+  sets; `prepareOrbitAlert` action calls run the full semantic gate regardless of the catalog's
+  `implemented: false` flag (so the gate is already correct and tested for when that flag flips)
+  but are NEVER added to the response's `actions` — `implemented: false` is unconditional.
+- `src/rosina/systemPrompt.ts`: new `proposeAction_prepareOrbitAlert` tool + `ORBIT (CHECK-IN /
+  FIND-MY-KID)` prompt section covering notice/suggest/gather/card/photo/while-active wording, all
+  exactly as specified (notice: "hasn't been recorded," never "missing"/"in danger"; suggest:
+  exact sentence, only when asked or genuinely overdue; gather: vocabulary-only, a place or
+  unlisted value gets a clarifying question). One field-shape correction made against the real
+  schema (see evidence §13): `OrbitStatus` (the type Rosina's tool actually returns) has no
+  per-member `outcome`/`SIMULATED` field — that lives on a different type (`OrbitAlert.audience`)
+  Rosina's tool doesn't query. Wrote the "never claim delivery" rule around the field that
+  actually reaches the model instead (`notifiedCount`, a count — simulated bookkeeping, not proof
+  of delivery). Removed the stale `BLOCKED_TOPICS` "never suggest activating Orbit" bullet — Orbit
+  is no longer blocked outright, only activation is (and that remains structurally impossible: no
+  activate tool exists or is exposed anywhere).
+- Catalog (`web/src/features/rosina/catalog.ts` + `src/rosina/catalog.ts`, kept in sync): new
+  `prepareOrbitAlert` entry, `implemented: false`, no location-shaped field. `ops/rosina-catalog-
+  drift.mjs`'s id regex widened to accept camelCase (the task's own literal id breaks this repo's
+  kebab-case convention on purpose).
+
+**Tests:** `npm run test:rosina` **53/53 PASS** (33 existing regressions, still green, + 20 new in
+`src/rosina/orbit.test.ts`). `npm run check:rosina-catalog` PASS (8 ids, up from 7). `npm run
+check` PASS (453 files, 0 findings). `npm --prefix web run build` PASS; `npm --prefix web test`
+**168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls:** Kendra proven end-to-end up to the
+preparation card — a routine question triggers no Orbit tool; an overdue check-in (one additive,
+announced, cleaned-up-after test fixture row was needed, since the permanent fixture's due time
+had not yet passed in real time) produces the exact notice/911/suggest wording in one turn; a
+valid vocabulary-mapped gather reaches `prepareOrbitAlert`, passes its own gate cleanly, and is
+still correctly and honestly refused as not-yet-available; an unmapped place/color gets a
+clarifying question with nothing in any card. Loretta (non-parent, in-scope) gets a real
+backend-`UNAUTHORIZED` refusal for `CheckInStatus` (attempted, not leaked) and her own empty
+`OrbitStatus` view. Dana (out-of-scope child entirely) gets the scope refusal with zero tool
+calls for both check-in and Orbit questions. One model-variance timeout recorded plainly (Loretta
+attempting to trigger a card): no leak, no card, in either of two runs — not chased further.
+
+BRANCH/WORKTREE as above.
+TASK: enable CheckInStatus/OrbitStatus/OrbitVocabulary; add a correctly-gated but
+  catalog-disabled `prepareOrbitAlert` preparation card; notice/suggest/gather prompt behavior;
+  never activate.
+LAYER: server (src/rosina/ + shared catalog mirror in web/src/features/rosina/catalog.ts + the
+  drift-check regex; no schema/auth/DB change).
+TOUCHED: src/rosina/orbit.ts (new), src/rosina/orbit.test.ts (new), src/rosina/model.ts,
+  src/rosina/systemPrompt.ts, src/rosina/catalog.ts, web/src/features/rosina/catalog.ts,
+  ops/rosina-catalog-drift.mjs, docs/evidence/35-rosina-service.md (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (53/53); npm --prefix web run build; npm --prefix web test (168); live notice/suggest/gather/
+  card + Loretta/Dana boundary probes against the alt stack (not GraphOS) — all actually run
+  above, not just described.
+NOT DOING: schema/auth/DB changes (the one fixture row used for the live overdue test was
+  additive, announced, and deleted by its exact id when done), any mutation tool, enabling or
+  implementing `prepareOrbitAlert` beyond the gate (Codex's app handler is a separate
+  dependency), closing PR #35, merging.
+BLOCKERS: `prepareOrbitAlert` needs Codex's app-side draft/preview/confirm handler before it can
+  ever actually render to a user — tracked here, not solved here. PR #35 should probably be
+  closed as superseded by Bentley, not by this task.
+
+**Final state (2026-10-31):** PR #38 head `59c8bf1`. `gh pr ready 38` run; `gh pr view 38` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (21s), `web build` (21s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 9 files only. Not merged — Bryan merges.
+
+### W4b — concurrent main advance (#38)
+
+Main advanced during verification to **a88d613** (Task R-ORBIT #38). Bryan's current-main merge
+instruction is applied again with a merge commit and normal push. Only HANDOFF conflicts; both
+workstreams are retained. Catalog auto-merge inspected: the new prepareOrbitAlert entry remains
+**implemented:false**, changesData:true and is dropped before rendering; W4b calendar validation,
+read-only checks and session/cache protections remain intact. No Orbit UI or backend edits by
+this task. Offline and affected live verification will be rerun before readiness.
+
+#38 merge verification: **206/206 web tests, 53/53 Rosina tests PASS**; root typecheck, web
+build/typecheck, catalog **8 identical ids**, secret scan **501 files / 0 findings** PASS. New
+Orbit action stays unimplemented and is dropped before rendering; no Orbit handler added here.
+The shared Group 4 pieces 1–3 reservation is currently IN PROGRESS, so no further live requests
+are made until explicit restoration. The #38 affected live check is limited to existing seven
+persona Rosina flows, current tool grounding, calendar/boundary follow-ups and catalog gating;
+GraphQL schema/session/cache code did not change in #38. Existing full graph/isolation proof is
+retained. Newly seeded Cast v2 identities, if any, are a separately pending broader-W4 integration,
+not forced into the earlier Coming-soon fixture expectation.

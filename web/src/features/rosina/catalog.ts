@@ -9,11 +9,12 @@ export type ActionArgs = {
   'start-pickup': { childId: string; date: string; window: 'morning' | 'afternoon' | 'evening' }
   'explain-screen': { screen: ExplainableScreen }
   'explain-recommendation': Record<string, never>
+  'prepareOrbitAlert': { childId: string; wearColor?: string; wearGarment?: string; hair?: string; carryColor?: string; carryItem?: string }
 }
 export type ActionId = keyof ActionArgs
 export type CatalogAction = { [Id in ActionId]: { id: Id; args: ActionArgs[Id] } }[ActionId]
 type ArgsSchema<T> = { parse(value: unknown): T | null }
-type CatalogEntry<Id extends ActionId> = { id: Id; label: string; argsSchema: ArgsSchema<ActionArgs[Id]>; routeOrHandler: 'route' | 'person-card' | 'pickup' | 'explain'; changesData: boolean; implemented: boolean }
+type CatalogEntry<Id extends ActionId> = { id: Id; label: string; argsSchema: ArgsSchema<ActionArgs[Id]>; routeOrHandler: 'route' | 'person-card' | 'pickup' | 'explain' | 'orbit'; changesData: boolean; implemented: boolean }
 function record(value: unknown, keys: string[]): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key))
 }
@@ -27,6 +28,27 @@ function pickupArgs(value: unknown): ActionArgs['start-pickup'] | null {
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value.date || !['morning', 'afternoon', 'evening'].includes(String(value.window))) return null
   return { childId: value.childId, date: value.date, window: value.window as ActionArgs['start-pickup']['window'] }
 }
+// Vocabulary membership (the actual safety guarantee) is checked server-side against the live,
+// versioned OrbitVocabulary list — this static schema only enforces shape: a real childId, no
+// unknown keys, and short non-empty strings for whichever descriptors were actually supplied.
+// Never add a location-shaped field here (coordination-v2 Area F / the Orbit contract: no
+// location of any kind anywhere in this slice).
+const ORBIT_DESCRIPTOR_KEYS = ['wearColor', 'wearGarment', 'hair', 'carryColor', 'carryItem'] as const
+function orbitAlertArgs(value: unknown): ActionArgs['prepareOrbitAlert'] | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const obj = value as Record<string, unknown>
+  if (!personId(obj.childId)) return null
+  const allowed = new Set<string>(['childId', ...ORBIT_DESCRIPTOR_KEYS])
+  if (!Object.keys(obj).every(key => allowed.has(key))) return null
+  const out: ActionArgs['prepareOrbitAlert'] = { childId: obj.childId }
+  for (const key of ORBIT_DESCRIPTOR_KEYS) {
+    if (!(key in obj)) continue
+    const v = obj[key]
+    if (typeof v !== 'string' || v.length < 1 || v.length > 40) return null
+    out[key] = v
+  }
+  return out
+}
 // This is the authority. Responses can supply only an id and args, never a route or confirm policy.
 export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
   'open-calendar': { id: 'open-calendar', label: 'Open calendar', argsSchema: { parse: value => record(value, ['day', 'childId']) && validDay(value.day) && personId(value.childId) ? { day: value.day, childId: value.childId } : null }, routeOrHandler: 'route', changesData: false, implemented: true },
@@ -36,6 +58,12 @@ export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
   'start-pickup': { id: 'start-pickup', label: 'Review pickup request', argsSchema: { parse: pickupArgs }, routeOrHandler: 'pickup', changesData: true, implemented: true },
   'explain-screen': { id: 'explain-screen', label: 'Explain this screen', argsSchema: { parse: value => screenArgs(value) ?? (record(value, ['screen']) && value.screen === 'calendar' ? { screen: 'calendar' } : null) }, routeOrHandler: 'explain', changesData: false, implemented: true },
   'explain-recommendation': { id: 'explain-recommendation', label: 'Explain the recommendation', argsSchema: { parse: value => record(value, []) ? {} : null }, routeOrHandler: 'explain', changesData: false, implemented: true },
+  // UNIMPLEMENTED: no app handler exists yet. "Prepare" means the app calls orbitDraft +
+  // orbitPreview and shows the exact preview; only the parent's confirmation of THAT preview
+  // (orbitActivate with draftVersion + messageHash) activates anything. Returning this card,
+  // even once implemented, performs nothing by itself — same rule as start-pickup. Dependency:
+  // Codex's app handler (draft/preview/activate wiring + the confirm-dialog detail view).
+  'prepareOrbitAlert': { id: 'prepareOrbitAlert', label: 'Prepare Orbit alert', argsSchema: { parse: orbitAlertArgs }, routeOrHandler: 'orbit', changesData: true, implemented: false },
 }
 export function validateActions(input: unknown): CatalogAction[] {
   if (!Array.isArray(input)) return []
