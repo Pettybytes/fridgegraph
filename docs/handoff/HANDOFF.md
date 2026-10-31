@@ -3714,6 +3714,106 @@ router **4012** (alt stack, generated from `router.yaml`, no edge JWT — refusa
 public, reset needs a real gate: (1) a server-side check of the demo/sandbox session, (2) a rate limit
 per IP from a **trusted forwarded header**, and (3) the existing guide refusal. The loopback check may
 stay as defence in depth, but it must not be the only gate.
+## Group 5 Piece 2 — createDemoFamily implemented and proven (2026-10-31 15:12)
+
+Branch `feat/create-demo-family` from `origin/main` (`f6aafcc`, #52). A created family is a sandbox
+village + household + parent + child + memberships + ONE persona with a real Supabase Auth user.
+
+### API — `POST /api/demo/family` (4008 demo server)
+
+Body is `{parentName, childName}` only — no personId, no email, no ids, no role. Guards are the same
+as reset: **loopback only** (until Task H), a **verified demo session**, the **Demo guide refused**
+(`DEMO_GUIDE_READ_ONLY`), one creation per person per 5 s, max 8 created families. Names are trimmed,
+bounded at 80 characters and rejected if they contain control characters. Response is
+`{id, childId, parentName, childName}` — `id` is the personaId the picker signs in with.
+
+### 0049 — `demo_families` registry (applied)
+
+The only list of created personas: health (`picker entries`) and login resolve through it, and reset
+deletes exactly these rows. RLS **enabled and forced with no policies**, so no browser JWT can read
+the registry even if it learns the name; the demo server reaches it over the owner connection reset
+already uses.
+
+### Two identity mappings, both required — the defect the first proof run found
+
+`verifyBearer()` resolves `sub → personId` from the **JSON file**, but every RLS policy's
+`current_person()` resolves it from the **`identity_map` TABLE**. The first implementation wrote only
+the file, so the new persona signed in and then saw nothing (`authorizeChild` → `UNAUTHORIZED`). Both
+are now written inside the same transaction, and reset removes **both**:
+
+| Removed by reset | Evidence |
+|---|---|
+| family rows (members, child, household, people, village) | `createdFamiliesRemoved` = 1; row counts 0 |
+| registry row (picker entry) | `demo_families` count 0; login → `UNAVAILABLE / UNKNOWN_PERSONA` |
+| DB mapping (`identity_map`) | 0 rows for the auth user |
+| file mapping (`data/identity-map.json`) | entry absent |
+| cached persona session | `dropPersonaSessionCache()`; `__cachedAccessToken` undefined |
+
+**The old token exposes nothing afterwards**: it still verifies as a JWT, but resolves to no person —
+the created child read returns `UNAUTHENTICATED` (not a denial), and no row it could reach exists.
+
+### Proof — `ops/create-demo-family-proof.mjs`, evidence `docs/evidence/53-create-demo-family.md`
+
+Demo-login app on spare port 4316, school subgraph on 4317; the demo stack was not restarted.
+**25/25 PASS**: no token → 401, guide → 403, invalid names → 400 with no registry row, parent creates →
+201 with rows + registry + both mappings, picker entry READY, new persona signs in (demo, not guide),
+reads its own child, an existing persona **cannot** read the created child, then `resetDemo()` removes
+data + picker entry + both mappings + the cached session, the old token is `UNAUTHENTICATED` and the
+persona no longer resolves.
+
+### ⚠️ Data repair performed during this piece — resetDatabase's baseline is incomplete
+
+The graph suite's final step (`POST /__reset` → `resetDatabase()`, scripts/db.ts) deleted 4 grants /
+14 relationships as "non-baseline" and re-seeded a baseline that **does not contain the Cast v2
+additions**. Observed after that run, then restored by hand from `src/fixtures-cast-v2.ts`:
+
+| Row | Why it matters |
+|---|---|
+| `g_priya_malik` (careplan.read on Malik) | Priya's second child; `my-children` proof assertion 1–3 |
+| `r_priya_malik` (nanny) | her relationship to Malik |
+| `fx_cf_malik_snack` / `_tv` / `_bedtime` | Malik's care facts; assertion 3 |
+
+After restoring them, `ops/my-children-proof.mjs` is **PASS — 0 failures** (18 assertions, router 4012
++ MCP 5051). **Open defect, not fixed here:** `resetDatabase()` is not a faithful restore of the Cast v2
+fixture set; it will drop these rows again on every run. It needs its own fix + proof.
+
+### STANDING NOTE for Task H (also recorded on `piece3-consent`)
+
+The 4008 reset route's `LOOPBACK_ONLY` guard checks `req.socket.remoteAddress`; behind cloudflared or
+the Vite proxy every request arrives from 127.0.0.1, so it cannot tell public traffic from local.
+Before demo login or reset goes public, reset needs a real gate: a server-side check of the
+demo/sandbox session, a rate limit per IP from a trusted forwarded header, and the existing guide
+refusal. **Not built now.**
+| 2026-10-31 15:58 | **RESERVED: W-P2 window (~30 min)** — persona-sessions proof case h calls `resetDemo()` (created family deleted mid-mint), then restore + verify. No db:reset, no seeds, no restarts planned; the suite will run later in its own window. Restore check: consumer reads (jobTimeline, effectiveScheduleFor, orbitVocabulary, checkInStatus, careFacts, myChildren) + one authenticated MCP call + `my-children-proof` PASS. | `feat/create-demo-family` @ `911433d` | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
+
+### createDemoFamily — exact ordering and every compensation path (2026-10-31 16:02)
+
+The JSON identity file cannot join the Postgres transaction, so the order is fixed and every boundary is
+compensated. `compensate()` is idempotent: each step is safe when its row is absent.
+
+| # | Step | Failure here ⇒ |
+|---|---|---|
+| 0 | count check (`< 8` registered families) | `FAMILY_LIMIT` (429), nothing written |
+| 1 | **auth user create** (admin API, service role, `app_metadata.demo=true`) | `FAMILY_CREATE_FAILED`; nothing exists to undo |
+| 2 | **Postgres transaction**: village → people(parent,child) → children → household(sandbox) → memberships → `identity_map` → `demo_families`; `pg_advisory_xact_lock` | rollback; the step-1 auth user is deleted; no mapping on either path |
+| 3 | **commit** | as step 2 |
+| 4 | **JSON identity file** (`data/identity-map.json`, temp file + rename) | undo the committed rows, `identity_map`, registry; delete the auth user; remove any file entry |
+| 5 | return | same undo as step 4 — **nothing after the write may leave a usable trace** |
+
+**Rule:** a family is usable only when **both** mappings exist (DB `identity_map` for RLS
+`current_person()`, JSON for `verifyBearer()`). A half-created family is never merely "unusable": it is
+removed from `demo_families` (so it can never be a picker entry or log in), from `identity_map`, from the
+JSON map, and its auth user is deleted.
+
+**Reset reconciliation.** A crash can also leave exactly one mapping behind. Created-family ids are
+namespaced (`p_family_*`), so reset sweeps both directions: a DB mapping with no registry row (and its
+household, child, people and village) and a file entry whose persona the registry does not have (and its
+auth user). No seeded persona can match this sweep.
+
+Proof: `ops/create-demo-family-faults-proof.mjs` — **31/31 PASS**, evidence 53. Orphan audit: **2**
+`family.*` auth accounts left by earlier crashed runs, both unmapped on both paths (they resolve to
+nobody; counts only, no ids or emails recorded).
+| 2026-10-31 16:08 | **W-P2 RELEASED — restored and verified.** Runs inside the window: persona-sessions proof (3 `resetDemo` calls: two race scenarios + the deleted-persona case), fault proof (4 `resetDemo` calls), create-family proof, and the graph suite (114 checks / 32 cases PASS via router **4012**, alt stack `4101–4107`; its `/__reset` ran as its final step). Post-run: Cast v2 rows the suite dropped were restored from `src/fixtures-cast-v2.ts` (`g_priya_malik`, `r_priya_malik`, Malik's three care facts) — root cause fixes in the separate `fix/suite-reset-cast-v2` PR. Consumer reads all PASS via 4012 (`myChildren`, `careFacts`, `checkInStatus`, `orbitVocabulary`, `effectiveScheduleFor` Thanksgiving, `jobTimeline`); authenticated MCP `MyChildren` = 2 children, matches GraphQL exactly; `my-children-proof` **PASS — 0 failures**. No db:reset, no seeds, no restarts. | `feat/create-demo-family` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |
 | 2026-10-31 16:20 | **RESERVED: W-SUITE window (~45 min)** — `ops/suite-reset-proof.mjs` runs the evidence suite TWICE through `ops/run-suite.mjs` (one passing, one forced failure), each ending in the suite's own `/__reset`, followed by `resetDemo()` for the sandbox-unaffected check. Restore = the new `restoreDemoCast()` trap (v1 baseline + ALL of Cast v2 + simulated), then consumer reads (jobTimeline, Thanksgiving effectiveScheduleFor, orbitVocabulary, checkInStatus, careFacts, myChildren) + one authenticated MCP call + `my-children-proof` PASS + full-table checksum equality. `resetDatabase()` itself is unchanged. | `fix/suite-reset-cast-v2` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
 | 2026-10-31 16:12 | **W-SUITE RELEASED — restored and verified.** Two suite runs through `ops/run-suite.mjs` (one passing **114 checks / 32 cases** via router **4012**; one forced failure, exit 1) then `resetDemo()`. Restore trap fired in BOTH cases. Full-table checksum byte-identical to the re-established baseline after each run; named cast present (Priya's grant + relationship, Malik's facts, Rosa's guardian row, 9 policies, 55 vocabulary rows); all six consumer reads PASS; authenticated MCP PASS; `my-children-proof` PASS after both runs; restoring again returns the exact baseline checksum. `resetDatabase()` unchanged; evidence 54. **Observed, not fixed:** `resetDemo()` clears Cast v2 *sandbox* care facts (Malik 3 → 0) because it restores only its own simulated set — separate defect, own PR. | `fix/suite-reset-cast-v2` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |
 | 2026-10-31 16:52 | **RESERVED: W-CAST window (~40 min)** — `ops/reset-demo-cast-proof.mjs` seeds via `restoreDemoCast()`, then calls `resetDemo()` **4 times** (clean baseline, after Orbit+consent mutations, and twice back-to-back). Each reset is the judges' button. Restore/verify: seed checksum equality, Malik 3 care facts, Priya care-plan read, Dwayne views, six consumer reads, authenticated MCP, `my-children-proof` PASS. No db:reset, no restart. | `fix/reset-demo-cast-v2` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
@@ -3722,3 +3822,5 @@ stay as defence in depth, but it must not be the only gate.
 | 2026-10-31 17:26 | **W-REMOVE RELEASED — restored and verified.** Extended reset proof **32/32 PASS**. Created through product mutations, then reset: pickup job (`requestPickup` → 4 attempts, 17 evaluations), Orbit alert + response, consent approval. After reset: job/attempts/evaluations gone (cascade), alert + response gone (`reset_demo_orbit`), **approval kept by documented contract** (audit ledger, named in the assertion). `acceptPickup` is refused for a candidate (`attempts_read` parent-only) — flow stops there by design, recorded not skipped. Seed checksum identical, audit +1 per reset (5 resets), Malik 3 facts, Priya/Dwayne reads, six consumers, MCP, my-children-proof PASS. No reset.ts change was needed: every row that should go already goes. Evidence 55 appended. | `fix/reset-demo-cast-v2` @ 8a182e7 | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |
 | 2026-10-31 17:33 | **RESERVED: W-DECISIONS window (~25 min)** — `ops/reset-demo-decisions-proof.mjs` approves a sandbox slip twice (proving the 0047 lock), resets, and asserts the demo decision is cleared, the slip returns to unsigned, and a second approval succeeds; two controls must survive (non-sandbox subject; sandbox subject by a non-demo caller). Also seed checksum, audit +1 with `removed.approvals`, Malik 3 facts, six consumers, MCP, my-children-proof. Migration 0050 already applied (marker column + trigger, sandbox-subject helper, `reset_demo_decisions()`, `reset_demo_orbit(text, jsonb)`). | `fix/reset-demo-decisions` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
 | 2026-10-31 17:40 | **W-DECISIONS RELEASED — restored and verified.** 0050 applied (approvals.demo_caller + trigger, `is_sandbox_approval_subject`, `reset_demo_decisions`, `reset_demo_orbit(text, jsonb)`); `resetDemo` now clears demo decisions and reports `demoDecisionsCleared`. Proof **15/15 PASS**: the 0047 lock reproduces (2nd approval → same decision, 1 row); reset clears the demo decision, returns the slip to unsigned, keeps both controls (non-sandbox subject; non-demo caller on a sandbox subject), records `removed.approvals: 1` in the single audit row, and a **second approval succeeds afterwards**. Seed/consumer checks: Malik 3 facts, six consumer reads, MCP, my-children-proof PASS. Evidence 55 appended. | `fix/reset-demo-decisions` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |
+| 2026-10-31 17:48 | **RESERVED: W-FAMILY window (~25 min)** — #54 merged with main (reset.ts resolved both-sided: #57's Cast v2 restore + #54's created-family cleanup). Running the new integration proof (`createDemoFamily` → reset → full-table checksum equals the pre-family baseline → every trace gone) plus create-family 25/25, faults 31/31 and persona-sessions. Restore/verify: checksum equality, Malik 3 facts, registry/mappings/session gone, audit +1. | `feat/create-demo-family` @ ae6295a | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
+| 2026-10-31 17:52 | **W-FAMILY RELEASED — restored and verified.** New integration proof `ops/create-demo-family-reset-proof.mjs` **12/12 PASS**: seed restored → full-table checksum baseline → create family → reset → checksum **byte-identical to the pre-family baseline**; registry empty, family rows gone, DB + JSON mappings removed, persona unresolvable, session cache dropped, Malik 3 care facts, audit +1. Also green on this head: create-family **25/25**, faults **31/31**, persona-sessions **0 failures**. Orphan audit now **4** `family.*` accounts — one leaked per fault-injection run; that is the leak STEP 5 fixes. | `feat/create-demo-family` @ ae6295a | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |

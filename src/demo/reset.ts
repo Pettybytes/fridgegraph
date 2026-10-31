@@ -15,6 +15,7 @@ import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
 import { createCastV2 } from '../fixtures-cast-v2';
 import { dropPersonaSessionCache } from './persona-sessions';
+import { deleteCreatedFamilies, purgeFamilyArtifacts, type FamilyRow } from './family';
 
 const LOCK_KEY = 918_273_645; // arbitrary but stable: one reset at a time, cluster-wide
 
@@ -112,6 +113,8 @@ export type ResetReport = {
   cleared: Record<string, number>;
   /** Demo decisions cleared (0050). Real decisions are never counted here, because none are cleared. */
   demoDecisionsCleared: number;
+  /** Created (sandbox) families removed; they are not fixture rows. */
+  createdFamiliesRemoved: number;
   droppedSessionCache: true;
 };
 
@@ -122,6 +125,7 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   const cleared: Record<string, number> = {};
   const restored: Record<string, number> = {};
   let demoDecisionsCleared = 0;
+  let familyRows: FamilyRow[] = [];
 
   try {
     await c.query('begin');
@@ -178,14 +182,22 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
 
     // Disposable Orbit records go through the privileged, database-authorised path (0042).
     // Deleting them here directly would hit the append-only guard, which is the point of the split.
-    // Demo decisions are reset; real decisions are never touched (0050). The count rides in the
-    // SINGLE audit row this reset writes, as a number with no ids or names.
+    // Created families are not fixture rows, so the id-scoped loops above never touch them. Their
+    // data goes in the SAME transaction; the identity mapping and auth users are purged after commit
+    // (a mapping that never lands is safer than a mapping to deleted rows).
+    familyRows = await deleteCreatedFamilies(c);
+
+    // Demo decisions are reset; real decisions are never touched (0050). Both counts ride in the
+    // SINGLE audit row this reset writes, as numbers with no ids or names.
     const decisions = await c.query('select reset_demo_decisions() as n');
     demoDecisionsCleared = Number(decisions.rows[0]?.n ?? 0);
 
     const orbit = await c.query('select reset_demo_orbit($1, $2::jsonb) as r', [
       actor,
-      JSON.stringify({ approvals: demoDecisionsCleared }),
+      JSON.stringify({
+        approvals: demoDecisionsCleared,
+        createdFamiliesRemoved: familyRows.length,
+      }),
     ]);
     const removed = orbit.rows[0]?.r ?? {};
     for (const [k, v] of Object.entries(removed)) if (Number(v) > 0) cleared[k] = Number(v);
@@ -198,7 +210,17 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     await c.end();
   }
 
+  // After the commit: a created family's persona must stop resolving, so the identity mapping is
+  // removed before anything can mint or verify it again.
+  await purgeFamilyArtifacts(familyRows);
+
   // Only after a committed restore: a stale session cache would otherwise serve pre-reset reads.
   dropPersonaSessionCache();
-  return { restored, cleared, demoDecisionsCleared, droppedSessionCache: true };
+  return {
+    restored,
+    cleared,
+    demoDecisionsCleared,
+    createdFamiliesRemoved: familyRows.length,
+    droppedSessionCache: true,
+  };
 }
