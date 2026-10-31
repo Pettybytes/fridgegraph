@@ -3016,3 +3016,14 @@ than treating recorded:false alone as overdue or changing authentication's clock
 CI currently cannot start from the pull-request event because main's appended HANDOFF conflicts
 with this branch's packet even after text reconciliation. Asked Bryan for a feature-branch-only
 merge commit (AGENTS §1.2 explicit permission); #44 remains draft and will never be merged by us.
+
+W-ORBIT review checkpoint: **UI: complete against controlled service responses · backend: Orbit
+APIs delivered; Rosina card-delivery fix owned by Claude Code, serving verification pending ·
+integrated + tested: PENDING (not DONE)**. Draft PR #44. Head 970f001 passed head-specific CI
+run 41166592452 (typecheck + secret scan; web build). Ordered local checks also pass: root
+typecheck → secret scan 524 files/0 → 229 web tests → web typecheck/build → catalog 8 ids.
+Only src/rosina/catalog.ts metadata changed in the server layer; no handler/server-test edit.
+Live sequence, actual token/media-handle scan and live screenshots have NOT run: no window has
+been reserved/opened, no backend process was restarted and no live mutation was made by web.
+Desktop/mobile evidence currently remains explicitly UI-fixture-only. Feature-branch main
+reconciliation awaits Bryan's permission; no history rewrite or PR merge.
