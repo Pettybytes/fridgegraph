@@ -3077,3 +3077,222 @@ fix — `src/rosina/catalog.ts` / `web/src/features/rosina/catalog.ts` carry zer
 `gh pr ready 48` run; `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`,
 `mergeStateStatus: CLEAN`. Both CI checks pass: `typecheck + secret scan` (27s), `web build`
 (21s). Not merged — Bryan merges.
+
+## W-ORBIT — browser flow (in progress)
+
+BASE: fetched origin/main **2e6e869cd22e369249b121ff9988451488a9bc7e**; includes #32, #33, #36,
+#37, #38, #39, #42. BRANCH feat/web-orbit; WORKTREE ../fridgegraph-web-orbit (fresh sibling).
+Read Orbit contract/evidence 43, vocabulary evidence 44 and R-ORBIT #38. Baseline ran locally:
+206 web tests PASS, root typecheck/check (511 files, zero findings), web build and catalog PASS.
+UI: in progress · backend: documented APIs delivered · integrated + tested: pending; NOT DONE.
+Scope web + docs + both catalog metadata definitions only. No backend/schema/auth edits, real sends,
+automatic mutation replay, credentials/photo URLs in artifacts, or merge.
+
+Design: existing Geist and violet identity; ink #26344c, muted #62708a, violet #7559a1, pale violet
+#f0ebf6, white #ffffff. A single generous message stage, one primary action, a quiet recorded-response
+ledger, and compact guidance visible from entry through closure. Desktop keeps preview beside
+editable descriptors; mobile stacks them. No alarm color or decorative incident signals.
+State transitions use CSS only, with reduced motion; rows enter only for new persisted response ids.
+Photo content stays in authenticated fetch + ephemeral object URLs, revoked on replacement/switch/
+unmount; photo URLs never become route/history/storage/evidence values. Activation is never replayed.
+
+CheckInStatus has recorded/dueAt, not an overdue SDL field. The browser labels overdue as DERIVED
+from valid dueAt < current instant AND recorded:false, matching R-ORBIT's isCheckInOverdue; never
+from recorded:false alone. Parent authority is checked by the actual CheckInStatus read, not labels.
+The optional photo can be replaced with a new photoId; the current contract does not clear an
+existing photo binding when omitted, so no unsupported removal control is promised.
+Bryan explicitly authorized the catalog-focused server test update: retain controlled disabled
+coverage and add enabled coverage alongside the two metadata flips. No other server behavior edit.
+
+Offline verification: 227/227 web tests PASS; root typecheck, web typecheck/build, and catalog
+parity (8 ids) PASS. Desktop/mobile visual fixture reviewed (explicit UI fixture label; no live
+proof claimed). An older poll cannot overwrite a newer preview; leaving revokes photo handles.
+
+SERVER DEPENDENCY (Bryan's ownership decision): src/rosina/model.ts unconditionally refuses
+prepareOrbitAlert even when catalog metadata is enabled. The added controlled enabled-case
+probe failed (66/67 server tests; actions:[] rather than the valid card), establishing the gap;
+no server logic was changed. Bryan assigned that fix and its server test coverage to Claude Code's
+current PR. Server test edits were withdrawn as instructed; only the two explicitly requested
+catalog metadata flips remain in scope. Browser tests stub the service response, then prove card
+receipt performs no mutation, clicking calls draft/preview once, and activation requires a separate
+confirm. Live integration remains PENDING until Claude Code's handler fix is delivered and serving.
+After returning server test ownership to Claude Code, the unchanged 66/66 Rosina baseline tests
+pass; this does NOT prove enabled-card delivery (the hardcoded refusal still exists on this base).
+First browser commit includes both requested catalog metadata flags and the wired client handler.
+Ready for offline review; live acceptance/Task DONE remain pending the server correction and window.
+
+Review: draft PR #44 opened at c5e2bf7. Current-main HANDOFF additions from #40/#41 are preserved
+verbatim alongside this packet; no backend file/commit was copied. A read-only merge-tree check
+identified HANDOFF as the only conflict, so the document is reconciled by a normal frontend commit.
+Further frontend checks: 229/229 web tests PASS. A full run exposed a cache-cleanup registration
+race (the existing assertion observed clearCalls:0 at the next login). Registering Apollo cleanup
+in the layout phase closes that interaction gap; the assertion is unchanged and the suite passes.
+Media GET uses the existing eligible-read renewal-once path; upload/preview/activation never do.
+A successful check-in read retains its returned emergency guidance if the vocabulary read fails;
+preparation stays disabled until all required reads succeed. Catalog delivery still awaits Claude.
+The live harness uses an independent, unrecorded browser context; the CLI-owned page remains
+anonymous. It holds token values/prefixes and actual authenticated photo/object handles in memory
+and scans the working tree, evidence, test-results and Playwright output; only filenames/pass-fail
+can reach receipts. No live requests have been made yet. The seed check-in timestamp is still in
+the future on the current real clock; scenario-clock setup is being clarified with Bentley rather
+than treating recorded:false alone as overdue or changing authentication's clock.
+
+CI currently cannot start from the pull-request event because main's appended HANDOFF conflicts
+with this branch's packet even after text reconciliation. Asked Bryan for a feature-branch-only
+merge commit (AGENTS §1.2 explicit permission); #44 remains draft and will never be merged by us.
+
+W-ORBIT review checkpoint: **UI: complete against controlled service responses · backend: Orbit
+APIs delivered; Rosina card-delivery fix owned by Claude Code, serving verification pending ·
+integrated + tested: PENDING (not DONE)**. Draft PR #44. Head 970f001 passed head-specific CI
+run 41166592452 (typecheck + secret scan; web build). Ordered local checks also pass: root
+typecheck → secret scan 524 files/0 → 229 web tests → web typecheck/build → catalog 8 ids.
+Only src/rosina/catalog.ts metadata changed in the server layer; no handler/server-test edit.
+Live sequence, actual token/media-handle scan and live screenshots have NOT run: no window has
+been reserved/opened, no backend process was restarted and no live mutation was made by web.
+Desktop/mobile evidence currently remains explicitly UI-fixture-only. Feature-branch main
+reconciliation awaits Bryan's permission; no history rewrite or PR merge.
+
+
+### W-ORBIT — authorized current-main reconciliation
+
+Bryan explicitly authorized merging origin/main into feat/web-orbit with a merge commit.
+Fetched main: **d738616** (#40 Rosa guardian access and #41 approval policies). HANDOFF was the
+only conflict: retained the current-main text verbatim and the full W-ORBIT packet. Backend
+changes are inherited from main, not new web-owned backend edits. No history rewrite or force push.
+The prior permission-pending checkpoint above is superseded by this authorization and reconciliation.
+
+Keep PR #44 DRAFT. **UI: complete against controlled service responses · backend: documented Orbit
+APIs delivered, Claude Code #47 serving integration pending · integrated + tested: PENDING**.
+No live acceptance until #47 merges, then coordinate the shared-stack window with Bentley before
+any live run. No live request, reset, seed, restart or PR merge performed in this reconciliation.
+Reconciled-tree checks run below before normal publication; results are reported on the final head.
+Reconciled-tree verification: root typecheck PASS; secret scan zero findings; **229/229 web tests**
+PASS; web typecheck/build PASS; catalog parity **8 ids** PASS; unchanged **66/66 Rosina tests** PASS;
+`git diff --check` clean. #47 remains OPEN at the time of this check; no live acceptance claimed.
+
+
+### W-ORBIT — #47 reconciliation and live acceptance
+
+Bryan authorized a second merge commit from fetched origin/main **cb3dd68** (#47).
+Retained the full upstream MyChildren/Orbit-handler handoff and the W-ORBIT browser packet.
+Server handler changes are inherited from #47; only catalog metadata is web-owned.
+Live acceptance requested from Bentley; wait for a reserved, restored window before any calls.
+UI: complete on controlled responses · backend: #47 merged, serving verification pending ·
+integrated + tested: PENDING. Keep #44 draft until the actual browser sequence, boundaries,
+mid-activation switch, token/media-handle scan and live desktop/mobile captures pass.
+Reconciled #47 tree: root typecheck PASS; secret scan zero findings; 229/229 web tests PASS;
+web typecheck/build PASS; catalog parity 8 ids PASS; 75/75 Rosina tests PASS. Both handoff
+workstreams retained. Live window/restoration coordination in progress; no live call yet.
+CORRECTION to the immediately preceding Rosina count: **74/75 PASS, 1 FAIL**, not 75/75.
+The original output in /tmp/orbit-main47-checks.txt shows the merged enabled handler correctly
+returns prepareOrbitAlert, while src/rosina/orbit.test.ts still asserts actions:[] with the
+message "the catalog marks it implemented: false". The prior checkpoint was recorded before
+reading that result and is incorrect. Original assertion is unchanged; server-test correction
+requested from Claude Code under Bryan's ownership instruction. #44 stays draft; readiness is
+blocked until this test is corrected in the owning layer and all required checks actually pass.
+Local live-entry preparation: only the Orbit overdue predicate receives scenario instant
+2026-10-31T20:05:00Z; SessionProvider/auth/renewal remain on real Date.now. The entry mounts the
+real App and actual picker; no injected session, fixture data or intercepted service reply.
+The local proxy sends explicit scenario headers. 24 Orbit tests / 230 total web tests and build
+PASS after adding the clock injection; backend scenario support still requires owner confirmation.
+Live acceptance coordination: Bentley reserved a 45-minute window, but restoration has NOT been
+confirmed. Serving metadata/handler commit 3313ef7 supplied; backend #46 scenario support and
+MyChildren displayName selection explicitly requested. Bentley's agent then reported network
+errors; no live request was made against the old runtime. Window starts only on restoration.
+Claude Code's server-test correction is PR #48 (owned fix; no src/rosina test edit by web).
+The live harness saves each run's screenshots and receipt under a distinct run name so failures
+remain append-only. Any held mid-activation response is released in cleanup without replaying it.
+
+
+### W-ORBIT — #48 reconciliation during the reserved window
+
+Bryan authorized merging current origin/main **d8e7b63** (#48) into this branch with a merge
+commit. Both HANDOFF workstreams retained. The original 74/75 failed receipt remains preserved;
+Claude Code's owned test correction is inherited from main, not reimplemented by web.
+Window confirmed OPEN on composed runtime 8504f4d until 02:05 EDT (06:05 UTC).
+Live receipts are append-only: live-01 stopped at missing guidance note semantics on Mission
+Control (role added, original assertion retained); live-02 reached exact server preview and
+stopped at the descriptor control. Actual held-token/media-handle scans on both receipts pass.
+Live-03 is diagnosing the descriptor control without raw errors, headers or photo URLs.
+After inheriting #48: **75/75 Rosina tests PASS**, **230/230 web tests PASS**, root typecheck and
+secret scan PASS, web typecheck/build PASS, catalog 8 ids PASS, reservation guard 6/6 PASS.
+Live-03 preserved the failed descriptor interaction: browser labels included the entire options
+list. Added explicit accessible labels to the real selects; the live assertion is unchanged.
+No server test assertion changed by web; #48's owned correction arrived through the main merge.
+
+### W-ORBIT — full live proof and capture refinement
+
+On coordinated runtime **8504f4d** (web metadata + #47 handler + Bentley's #46 scenario support;
+MyChildren selection includes actual display names), **live-08 PASSED 52/52 checks**. Actual
+picker sessions: Kendra full draft/preview/approve/respond/explicit close; Loretta own history and
+decoded active photo; Dana's forced foreign-alert status yields no shared record or private detail;
+Demo guide has sandbox reads and zero mutation controls. During a second activation the server
+committed exactly once before the perspective changed: Dana rendered no old alert, the photo
+visible during activation was revoked, and returning Kendra refetched the actual committed alert
+without another activation. Leaving revoked every remaining parent photo handle.
+
+In-process scan PASS for held session bearers/prefixes and actual authenticated media/object
+handles across the working tree, evidence, test-results and Playwright output. Receipts report
+filenames/pass-fail only; existing generic encoded-token markers stayed at baseline. No tokens,
+photo URLs, traces, HAR, video, storage-state or request-header logs were produced. Twenty actual
+screenshots saved under web/evidence/orbit/live-08/; these are real App/picker/services, not the
+labeled earlier design fixture. Scenario instant affects Orbit's overdue derivation only; auth and
+persisted response timestamps remain real-clock, formatted in Detroit time.
+
+The original failed receipts live-01 through live-07 and read-only diagnoses are preserved unchanged.
+They exposed missing select names/note semantics, slow-poll starvation and a corrupt tiny test-image
+fixture; the live fixture now has correct PNG CRCs and image.decode()/naturalWidth are required.
+Navigation checks now await the rendered destination. A later capture failure remains a failed
+receipt; it was not relabeled as expected. The fresh full live-08 run passed stronger assertions,
+including a decoded photo visible during the switch and revocation on leaving.
+
+Window released at 05:43 UTC, completion explicitly sent to Bentley. Visual review found mobile
+captures framed only the tops of inner-scroll pages. Bentley explicitly REOPENED the same unchanged
+runtime at 05:44 until the SAME 02:05 EDT deadline for one final sequence with focused mobile
+captures. No live request after release until that confirmation. No reset, seed, restart, checkout
+switch or real send by web. Final capture receipt and final-head CI follow below.
+
+Rosina wording follow-up (Task R; no web text substitution): live-08 said verbatim, "I've prepared
+the preview for Nora — nothing sent." At that moment it had proposed only a catalog card: the
+browser assertions prove orbitDraft/orbitPreview had not run until the parent clicked. Prefer
+wording that offers a card to prepare a preview. It correctly left unsupported hair-color input
+unspecified and asked for a vocabulary-supported hairstyle; no descriptor was invented. Actual
+replies and action ids are preserved in the live receipts. Broader W4 exploration remains PENDING.
+
+### W-ORBIT — final focused live acceptance PASS
+
+**live-10: process exit 0 · 52/52 checks PASS · held-token/media-handle scan PASS · 21 real
+screenshots reviewed.** `web/evidence/orbit/live-manifest.json` indexes the evidence. Focused
+mobile frames show the actual exact preview/confirm, Loretta's own controls/history, and closed
+response details. Earlier capture-only failures remain unchanged (including live-09); the helper
+now brings the actual tab to the foreground for dialog actions and scrolls real elements into
+view. No screenshot-only CSS override, intercepted read response or fixture adapter was used.
+
+| Persona | Picker | Live Orbit acceptance |
+|---|---|---|
+| Kendra | READY | PASS: check-in → real Rosina card → exact preview → explicit activation → persisted responses → confirmed closure; second activation committed once across switch, then refetched correctly |
+| Loretta | READY | PASS: generated message, decoded active photo, own controls/history only; WITH_ME stays ACTIVE |
+| Dana | READY | PASS: actual forced foreign-alert status read returns no shared record, no Nora/descriptor/responder details render |
+| Demo guide | READY | PASS: sandbox read-only state; zero change/response/confirm controls |
+
+Photo visible during the delayed activation was revoked on switching; returning Kendra fetched
+actual committed state without replay; leaving revoked all remaining parent rendering handles.
+The final source stays TEXT ONLY and catalog-validated. prepareOrbitAlert enabled in both catalogs;
+card receipt causes zero mutations, card click drafts/previews once, activation uses the returned
+binding exactly once. No real sends, locations, backend/auth/schema edits by web or PR merge.
+
+Final continuation completion and RELEASE explicitly sent to Bentley at **05:50 UTC**, before
+**02:05 EDT / 06:05 UTC**. No further live calls. Runtime was the coordinated composed **8504f4d**
+(#47 handler + web metadata + #46 scenario support), with MyChildren names corrected on MCP 5051;
+this is a serving-runtime proof, not a claim that every runtime dependency is merged or deployed.
+
+Three states for this browser slice: **UI complete · backend delivered and serving verified on the
+coordinated runtime · integrated + tested PASS**. Broader W4's cross-surface/independent exploration,
+remaining service rollout, public judge access/Task H and other queued work remain separately
+PENDING. No untested backend delivery is marked DONE. Final offline checks and CI gate PR readiness.
+Final offline verification on the exact reviewed tree: **231/231 web tests**, **75/75 Rosina
+tests**, **6/6 reservation guards**, root typecheck, web typecheck/build, catalog parity **8 ids**,
+and diff check all PASS. Staged secret scan: **548 text files / 0 findings**. Final state for
+W-ORBIT browser acceptance: **DONE — UI complete · backend serving verified · integrated + tested
+PASS** on the recorded runtime. Final-head CI must pass before #44 is marked ready; Bryan alone
+merges. Broad W4 and runtime rollout dependencies above are not included in this DONE state.
