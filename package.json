@@ -22,12 +22,14 @@
     "@supabase/supabase-js": "^2.118.0",
     "express": "^4.21.2",
     "graphql": "^16.9.0",
-    "jose": "^6.2.13"
+    "jose": "^6.2.13",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "@types/pg": "^8.11.0"
   }
 }
