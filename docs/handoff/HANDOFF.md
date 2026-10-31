@@ -1626,9 +1626,10 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 |---|---|
 | `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), wired into the live service |
 | `Attempts` / `JobTimeline` (coordination subgraph) | **AVAILABLE** — shipped by `#29` (evidence 40), wired into the allowlist by TASK R-TOOLS-1 (evidence 35 §11): Mission Control's job status, "what happened with this pickup," and the full chronological story are now answerable live |
-| CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
+| `ChildEvents` / `EffectiveSchedule` / `AdultAvailability` (schedule subgraph, Group 3 `#31`) | **AVAILABLE** — wired into the allowlist by TASK R-TOOLS-2 (evidence 35 §12): a child's calendar, who has the child on a date (WEEKLY vs an APPROVED holiday ARRANGEMENT — PROPOSED never changes it), and recorded Busy/Free (never a reason, never "can pick up") are now answerable live. Child/person-id arguments are gated by a new pre-call `permittedIds` check in `src/rosina/model.ts` — never trust a browser route, history, or a model argument; an id must come from the caller's own roster/self or a tool result already returned this turn. |
+| `CareFacts` (coordination subgraph, Group 4 `#36`) | **AVAILABLE** — wired into the allowlist by TASK R-CARE (evidence 35 §14): snack, TV, bedtime, allergy and routine-care questions are answerable live, citing `source.ref` and distinguishing CONFIRMED/PROVISIONAL. An empty result (no access, no such child, or genuinely no facts — identical by design) always gets "I can't see a recorded rule for that," never the harsher generic scope refusal, for care questions specifically. `src/rosina/roster.ts#careOnlyChildren` is a narrow, CareFacts-only supplement for a real grant outside a caller's one documented child (today: Priya on Malik) — never used by any other tool, and never a substitute for the `MyChildren`/grants-by-caller read that would still replace both it and `scopedRoster`. |
 | Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person`; also needed for a proper `MyChildren`/`myVillages` caller-scoped read (R-LEAK's fallback, evidence 35 §10, uses `src/demo/personas.ts` in the meantime) |
-| `ChildEvents` / `AdultAvailability` / `EffectiveSchedule` (Group 3, `#31`) | shipped and present in `tools/list`, but **deliberately NOT added to the allowlist yet** — out of TASK R-TOOLS-1's scope; needs its own task with its own persona-boundary tests, same pattern as this one |
+| `CheckInStatus` / `OrbitStatus` / `OrbitVocabulary` | **AVAILABLE** — wired into the allowlist by TASK R-ORBIT (evidence 35 §13): notice (server-computed `overdue`, never inferred from `recorded` alone), suggest (only when asked or genuinely overdue), gather (vocabulary-only, never free text/place), and a `prepareOrbitAlert` preparation card are all live. `prepareOrbitAlert` is gated and tested but `implemented: false` in the catalog — pending Codex's app-side draft/preview/confirm handler; no activate tool exists or is exposed. |
 
 **Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
 new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
@@ -2111,3 +2112,251 @@ by date coverage through the caller's own RLS client — no service-role read, n
 - Sequence: migration → subgraph schema/resolver → MCP ops → proof → evidence → HANDOFF.
 
 Queue owner: next available task. No frontend inference in the meantime.
+## Task R-TOOLS-2 — ChildEvents, EffectiveSchedule, AdultAvailability ENABLED + TESTED (2026-10-30)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §12.
+
+BRANCH: feat/rosina-tools-2; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-tools-2
+BASE: origin/main `2898043` (#30 R-LEAK and #34 R-TOOLS-1 both already merged — confirmed via
+`gh api .../pulls/30,34 -q .merged` before branching; no premise contradiction this time).
+
+**Premise mismatches found and adapted (reported, not forced):** the task described the fixture
+Busy window as belonging to "Andre" on "the exact Tuesday." The real fixture
+(`src/fixtures-simulated.ts`) has exactly one Busy window, and it is Kendra's (`p_mom`), on a
+Wednesday (Nov 25). Adapted the live tests to use the real data directly (Kendra's own busy
+window) and additionally proved the Andre/AdultAvailability case the task actually wanted via the
+realistic discovery-chain path ("who has the child, and are they free" — `EffectiveSchedule` then
+`AdultAvailability(p_dad)`, the id harvested from the first call).
+
+**Shipped:**
+- `src/rosina/model.ts`: `ChildEvents`, `EffectiveSchedule`, `AdultAvailability` added to
+  `ALLOWED_MCP_TOOL_NAMES` (six tools total). New `permittedIds` set — seeded with the caller's
+  own roster child(ren) plus their own verified `personId` — gates these three tools' child/
+  person-id argument BEFORE the tool is ever called (`ID_ARG_BY_TOOL`). Grows via `harvestIds()`,
+  which recursively collects every string under a key named `id` in any successful tool result,
+  so a discovered id (e.g. `EffectiveSchedule`'s `parent.id`) becomes usable for a later call in
+  the same turn. **Known limitation:** this does not re-order calls WITHIN one round, only across
+  rounds — a cold, one-shot dependent question gets refused and the model must retry after a
+  discovery call; proven directly by a dedicated test and observed once live (the Demo guide
+  asking about Andre's availability cold, with no leak, just an imperfect refusal wording — see
+  evidence for the exact transcript).
+- `src/rosina/localTime.ts`: `TIMESTAMP_KEYS` extended to include `start`/`end` (ChildEvents/
+  AdultAvailability's own time fields), same deterministic America/Detroit conversion.
+- `src/rosina/systemPrompt.ts`: new CALENDAR/SCHEDULE section; `buildSystemPrompt` now also takes
+  `selfPersonId` so "am I free" questions have an id to use at all (the caller's own, already
+  verified by their own token — not a new disclosure). FREE/BUSY wording restriction, PROPOSED-
+  vs-APPROVED distinction, and the three distinct required outcomes (refusal / authorized-empty /
+  upstream-failure) are all explicit. New rule 11: id authorization is a hard boundary. Care/
+  school/directory/Orbit bullets updated; Orbit explicitly named as permanently blocked (no
+  suggest action exists either).
+
+**Tests:** `npm run test:rosina` **33/33 PASS** (24 existing regressions, still green, + 9 new in
+`src/rosina/calendarTools.test.ts`). `npm run check:rosina-catalog` PASS. `npm run check` PASS
+(417 files, 0 findings). `npm --prefix web test` **168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls:** Kendra's Thanksgiving question, the
+discovery-chain availability question, her own-id "am I free," and a calendar-window question all
+answered correctly and grounded; Dana refused on Nora's child/calendar questions (zero names,
+HTTP 200) but correctly got a genuinely-empty (not refused) answer for her OWN availability — the
+third outcome, distinct from both; the Demo guide got the sandbox answer with no action
+suggested. One environment anomaly recorded plainly: a cancelled-event fixture row, confirmed
+present and RLS-readable via direct PostgREST, did not appear through `ChildEvents` on the
+currently-shared alt-stack (which belongs to a different, further-ahead concurrent worktree) —
+not a defect in this task's own code; the cancelled-exclusion behavior is still proven by the
+unit test and by evidence 41's own existing proof.
+
+BRANCH/WORKTREE as above.
+TASK: enable ChildEvents/EffectiveSchedule/AdultAvailability in Rosina's allowlist with a
+  pre-call id-authorization gate; distinct refusal/empty/failure wording; PROPOSED vs APPROVED;
+  FREE/BUSY wording restriction.
+LAYER: server (src/rosina/ only; no web/, schema, auth or DB change).
+TOUCHED: src/rosina/model.ts, src/rosina/systemPrompt.ts, src/rosina/localTime.ts,
+  src/rosina/calendarTools.test.ts (new), src/rosina/model.test.ts, src/rosina/jobTools.test.ts
+  (buildSystemPrompt call-site signature change only), docs/evidence/35-rosina-service.md
+  (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (33/33); npm --prefix web test (168); live persona-boundary probes against the alt stack (not
+  GraphOS) — all actually run above, not just described.
+NOT DOING: schema/auth/DB changes, service-role reads (`seed:simulated` uses the project's own
+  existing script and service-role key, not a new Rosina code path), mutation tools, enabling
+  CheckInStatus/OrbitStatus/OrbitVocabulary (not on main yet, Orbit stays blocked regardless),
+  merging.
+BLOCKERS: none for this task. CarePlan, village-directory, and the three Orbit/check-in tools
+  (once they land on main) remain the open follow-ups under "Rosina tools available" above.
+
+**Final state (2026-10-30):** PR #37 head `703b7f5`. `gh pr ready 37` run; `gh pr view 37` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (15s), `web build` (20s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 8 files only. Not merged — Bryan merges.
+
+## Task R-ORBIT — Rosina's side of Orbit: notice -> suggest -> gather -> preparation card, never activate (2026-10-31)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §13.
+
+BRANCH: feat/rosina-orbit; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-orbit
+BASE: origin/main `593e794` (#33 Orbit Alert minimal slice and #37 R-TOOLS-2 both merged —
+confirmed via `gh pr view 33,37 --json state,mergedAt` before branching).
+
+**Premise mismatch found and reported (not hidden):** the task listed PR **#35** ("Orbit
+vocabulary through the API") as a merged prereq. `gh pr view 35` shows it is still `OPEN`.
+Diffed its branch against `origin/main` at the fork point: its unique content
+(`ops/OrbitVocabulary.graphql`, migration `0038_orbit_vocabulary_read.sql`, the `orbitVocabulary`
+resolver) is already present on `main` — it landed folded into #33 or #37's merge, not through
+#35 itself. The actual dependency (OrbitVocabulary live and callable) is functionally satisfied,
+confirmed directly against the live alt-stack MCP before proceeding. #35 is likely safe to close
+as superseded, but that is Bentley's call, not this task's — flagged here, not closed.
+
+**Shipped:**
+- `src/rosina/orbit.ts` (new): `validatePrepareOrbitAlert` (parent authority via a same-turn
+  successful `CheckInStatus` call — it throws `UNAUTHORIZED` for non-parents, so success is proof;
+  vocabulary membership checked per descriptor KIND, not just presence anywhere in the list; never
+  invents an unsupplied field) and `isCheckInOverdue`/`checkInStatusFrom`/`injectOverdueFlag`
+  (server-computed `overdue` against the real clock, injected before the model ever sees the
+  result; never inferred from `recorded: false` alone).
+- `src/rosina/model.ts`: `CheckInStatus`/`OrbitStatus`/`OrbitVocabulary` added to
+  `ALLOWED_MCP_TOOL_NAMES` (nine tools total); `verifiedParentOf`/`vocabularyByKind` turn-scoped
+  sets; `prepareOrbitAlert` action calls run the full semantic gate regardless of the catalog's
+  `implemented: false` flag (so the gate is already correct and tested for when that flag flips)
+  but are NEVER added to the response's `actions` — `implemented: false` is unconditional.
+- `src/rosina/systemPrompt.ts`: new `proposeAction_prepareOrbitAlert` tool + `ORBIT (CHECK-IN /
+  FIND-MY-KID)` prompt section covering notice/suggest/gather/card/photo/while-active wording, all
+  exactly as specified (notice: "hasn't been recorded," never "missing"/"in danger"; suggest:
+  exact sentence, only when asked or genuinely overdue; gather: vocabulary-only, a place or
+  unlisted value gets a clarifying question). One field-shape correction made against the real
+  schema (see evidence §13): `OrbitStatus` (the type Rosina's tool actually returns) has no
+  per-member `outcome`/`SIMULATED` field — that lives on a different type (`OrbitAlert.audience`)
+  Rosina's tool doesn't query. Wrote the "never claim delivery" rule around the field that
+  actually reaches the model instead (`notifiedCount`, a count — simulated bookkeeping, not proof
+  of delivery). Removed the stale `BLOCKED_TOPICS` "never suggest activating Orbit" bullet — Orbit
+  is no longer blocked outright, only activation is (and that remains structurally impossible: no
+  activate tool exists or is exposed anywhere).
+- Catalog (`web/src/features/rosina/catalog.ts` + `src/rosina/catalog.ts`, kept in sync): new
+  `prepareOrbitAlert` entry, `implemented: false`, no location-shaped field. `ops/rosina-catalog-
+  drift.mjs`'s id regex widened to accept camelCase (the task's own literal id breaks this repo's
+  kebab-case convention on purpose).
+
+**Tests:** `npm run test:rosina` **53/53 PASS** (33 existing regressions, still green, + 20 new in
+`src/rosina/orbit.test.ts`). `npm run check:rosina-catalog` PASS (8 ids, up from 7). `npm run
+check` PASS (453 files, 0 findings). `npm --prefix web run build` PASS; `npm --prefix web test`
+**168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls:** Kendra proven end-to-end up to the
+preparation card — a routine question triggers no Orbit tool; an overdue check-in (one additive,
+announced, cleaned-up-after test fixture row was needed, since the permanent fixture's due time
+had not yet passed in real time) produces the exact notice/911/suggest wording in one turn; a
+valid vocabulary-mapped gather reaches `prepareOrbitAlert`, passes its own gate cleanly, and is
+still correctly and honestly refused as not-yet-available; an unmapped place/color gets a
+clarifying question with nothing in any card. Loretta (non-parent, in-scope) gets a real
+backend-`UNAUTHORIZED` refusal for `CheckInStatus` (attempted, not leaked) and her own empty
+`OrbitStatus` view. Dana (out-of-scope child entirely) gets the scope refusal with zero tool
+calls for both check-in and Orbit questions. One model-variance timeout recorded plainly (Loretta
+attempting to trigger a card): no leak, no card, in either of two runs — not chased further.
+
+BRANCH/WORKTREE as above.
+TASK: enable CheckInStatus/OrbitStatus/OrbitVocabulary; add a correctly-gated but
+  catalog-disabled `prepareOrbitAlert` preparation card; notice/suggest/gather prompt behavior;
+  never activate.
+LAYER: server (src/rosina/ + shared catalog mirror in web/src/features/rosina/catalog.ts + the
+  drift-check regex; no schema/auth/DB change).
+TOUCHED: src/rosina/orbit.ts (new), src/rosina/orbit.test.ts (new), src/rosina/model.ts,
+  src/rosina/systemPrompt.ts, src/rosina/catalog.ts, web/src/features/rosina/catalog.ts,
+  ops/rosina-catalog-drift.mjs, docs/evidence/35-rosina-service.md (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (53/53); npm --prefix web run build; npm --prefix web test (168); live notice/suggest/gather/
+  card + Loretta/Dana boundary probes against the alt stack (not GraphOS) — all actually run
+  above, not just described.
+NOT DOING: schema/auth/DB changes (the one fixture row used for the live overdue test was
+  additive, announced, and deleted by its exact id when done), any mutation tool, enabling or
+  implementing `prepareOrbitAlert` beyond the gate (Codex's app handler is a separate
+  dependency), closing PR #35, merging.
+BLOCKERS: `prepareOrbitAlert` needs Codex's app-side draft/preview/confirm handler before it can
+  ever actually render to a user — tracked here, not solved here. PR #35 should probably be
+  closed as superseded by Bentley, not by this task.
+
+**Final state (2026-10-31):** PR #38 head `59c8bf1`. `gh pr ready 38` run; `gh pr view 38` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (21s), `web build` (21s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 9 files only. Not merged — Bryan merges.
+
+## Task R-CARE — CareFacts ENABLED + TESTED (2026-10-31)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §14.
+
+BRANCH: feat/rosina-care; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-care
+BASE: origin/main `a88d613` (#36 Group 4 CareFact and #38 R-ORBIT both merged — confirmed via
+`gh pr view 36,38 --json state,mergedAt` before branching).
+
+**Live premise verified before building on it (not assumed):** the task's own CONTEXT line said
+Priya now holds `careplan.read` on both Nora and Malik. Confirmed directly against the shared
+alt-stack MCP (read-only) before writing any code: real, non-empty `CareFacts` results for both,
+`[]` for Emma. This became load-bearing — see the roster gap below.
+
+**A real gap this premise exposed:** `src/rosina/roster.ts#scopedRoster` maps each caller to
+exactly ONE child (from `src/demo/personas.ts`, which also backs the web demo-login response and
+was deliberately left untouched). Left alone, this would have silently broken the task's own
+required Priya/Malik scenario twice: the pre-call id gate would refuse `CareFacts(p_malik)`
+before it ever reached MCP, and — even if it had reached MCP — the output guard would have
+replaced the whole reply the moment the model said "Malik," since `CareFacts`'s own response
+shape carries no human name anywhere (`verifiedBy` is a bare id) and "Malik" is in neither
+Priya's roster nor any tool-result text this turn. Fixed with a new, narrow, CareFacts-ONLY
+supplement: `src/rosina/roster.ts#careOnlyChildren` — one explicit entry (`p_priya -> Malik`)
+unioned into `permittedIds` and the output guard's roster argument, never into the general
+roster used by any other tool (Priya's real grant is care-plan only; she still has no standing
+for Malik's schedule, pickups, or anything else).
+
+**A second design question CareFacts' own "no oracle" shape raised:** the task's Priya/Emma
+example wants the SAME graceful "I can't see a recorded rule for that" (not the generic scope
+refusal) for a care question about a child she has no grant for. Since Priya has no known id for
+Emma at all, the model can't call the tool for her without inventing an id (forbidden). Solved as
+a prompt-only rule: for CARE questions specifically, an out-of-roster child gets the graceful
+empty-result sentence instead of rule 9's refusal — narrowly scoped to care topics only, verified
+live that the same out-of-scope child still gets the ordinary harsh refusal for any other kind of
+question.
+
+**Shipped:**
+- `src/rosina/roster.ts`: new `careOnlyChildren(personId, isGuide)` (see above).
+- `src/rosina/model.ts`: `CareFacts` added to `ALLOWED_MCP_TOOL_NAMES` (ten tools total);
+  `ID_ARG_BY_TOOL.CareFacts = 'childId'`; `permittedIds` and the output guard's roster both union
+  in `careOnlyChildren(...)`. No new verified-id set needed — RLS alone decides visibility.
+- `src/rosina/systemPrompt.ts`: new `CARE FACTS` section (answer only from `value`; cite
+  `source.ref` directly, never `source.kind`'s code or a bare `verifiedBy.id`; CONFIRMED vs
+  PROVISIONAL are distinct sentences; the empty-result sentence doubles as the narrow care-
+  specific non-answer described above). Removed care/snack/allergy from the `still NOT
+  connected` list; school and village-directory remain blocked. `buildSystemPrompt` gained an
+  optional fourth `careRoster` parameter, default `[]` (every existing call site/test unchanged).
+
+**Tests:** `npm run test:rosina` **66/66 PASS** (53 existing regressions, still green, + 13 new
+in `src/rosina/careFacts.test.ts`). `npm run check:rosina-catalog` PASS (8 ids, unchanged — no
+catalog/action touched). `npm run check` PASS (455 files, 0 findings). `npm --prefix web run
+build` PASS; `npm --prefix web test` **168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls, inside Bentley's read-only window (no
+reset/seed/restart/checkout-switch; told explicitly when done):** Kendra and Dwayne each get
+their own child's cited, confirmed snack rule; Priya gets BOTH Nora's and Malik's correctly
+(Malik's name reaching the reply without tripping the output guard — the actual proof the roster
+fix worked); Priya asking about Emma (no grant) gets the graceful care-specific sentence, no
+names, no tool call attempted; Dana's own child (genuinely empty) gets the identical wording by
+design; Dana asking about Nora gets the same graceful sentence for a care question but the
+ordinary harsh refusal for a non-care question about the same child; the Demo guide sees sandbox
+facts read-only.
+
+BRANCH/WORKTREE as above.
+TASK: enable CareFacts; answer snack/TV/bedtime/allergy/routine questions with source citation
+  and CONFIRMED/PROVISIONAL distinction; fix a real roster gap a live multi-child grant exposed.
+LAYER: server (src/rosina/ only; no schema/auth/DB change, no web/ file touched).
+TOUCHED: src/rosina/roster.ts, src/rosina/model.ts, src/rosina/systemPrompt.ts,
+  src/rosina/careFacts.test.ts (new), docs/evidence/35-rosina-service.md (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (66/66); npm --prefix web run build; npm --prefix web test (168); live CareFacts probes for
+  Kendra/Dwayne/Priya/Dana/Demo-guide against the alt stack, inside Bentley's window — all
+  actually run above, not just described.
+NOT DOING: schema/auth/DB changes, any db:reset/seed/restart/checkout-switch (read-only window),
+  any mutation tool, any new catalog action/card, broadening Priya's general roster (care-plan-
+  only grant stays care-plan-only), touching src/demo/personas.ts, merging.
+BLOCKERS: none for this task. The `MyChildren`/grants-by-caller MCP read that would replace
+  `scopedRoster` would also replace `careOnlyChildren` — still not shipped.
+
+**Final state (2026-10-31):** PR #42 head `3bf8fb0`. `gh pr ready 42` run; `gh pr view 42` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (19s), `web build` (27s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 6 files only. Not merged — Bryan merges.
