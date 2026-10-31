@@ -211,3 +211,39 @@ background — never a real child — and the UI copy says so.
 2. **Audience-facing payloads tested for location leakage** (GraphQL, MCP, media endpoint, free-text
    fields, error responses) — **PENDING, and this is the acceptance result.** #33 must not go ready
    until it passes.
+
+---
+
+## Audience question: why the list changed from `p_dad,p_gma,p_bryan` to `p_gma,p_bryan`
+
+**It was a test-fixture difference, not a regression — and it exposed a real gap.**
+
+| Where | Policy value inserted |
+|---|---|
+| `ops/0032-dry-run.mjs` | `p_dad,p_gma,p_bryan` — the "earlier" list |
+| `ops/0034-dry-run.mjs` | `p_gma,p_bryan` — the pair seen later |
+| `ops/orbit-concurrency.mjs` | `p_dad,p_gma`, then **deleted the row in cleanup** |
+
+The live database had **zero** `orbit_notify_eligible` rows, so there was nothing to resolve outside a
+test. `orbit_audience_for()` contains **no co-parent exclusion**: it filters only `person_id <> child`.
+The co-parent is not notified separately; he is an ordinary audience member.
+
+**Fix (fixture rule):** the Ellison policy `h_a → p_dad,p_gma,p_bryan` is now part of the additive
+SIMULATED fixture (`createSimulatedOrbit()`), seeded by `seed:simulated`, removed by
+`cleanup:simulated` (the rule name is the handle — `household_policies` has no marker column), and
+checksummed separately. Group 4 takes ownership of the canonical seed later.
+
+### Proof — `node ops/orbit-audience-proof.mjs` — 12/12 PASS
+
+| # | Check |
+|---|---|
+| 1 | the Ellison policy is seeded on `h_a` and names the co-parent |
+| 2 | Kendra resolves `p_dad,p_gma,p_bryan` (Andre **first**, `notify_order = 1`) |
+| 3 | activation freezes exactly those three; **Andre has a row with `notification_outcome = SIMULATED` and a `notified_at` timestamp**; every member is recorded the same way |
+| 4 | Andre — who is both parent and audience member — sees the whole frozen audience, including his own row (parents get the full view; that is the rule, not a leak) |
+| 5 | Loretta, an audience member who is nobody's parent, sees **only her own row** and **cannot resolve the list** |
+| 6 | Dana gets no rows, byte-identical to a nonexistent child (no oracle) |
+| 7 | cleanup restores the baseline checksum **byte-for-byte** (`identical`); the demo policy is then re-seeded |
+
+The earlier failing assertion was mine: I asserted Andre should see only his own audience row, but a
+parent legitimately sees the full audience. The audience-member-only path is proven with Loretta.

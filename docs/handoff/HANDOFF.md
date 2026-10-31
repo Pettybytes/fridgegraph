@@ -53,6 +53,15 @@ Two defects the dry run caught and fixed: **42P17** policy recursion between `or
 `orbit_audience_members` (replaced with SECURITY DEFINER helpers) and **42501** because a policy is
 evaluated with the caller's privileges, so those helpers must be granted to `authenticated`.
 
+**Audience regression check (2026-10-30).** The `p_dad` "disappearance" was a test fixture
+difference (`0032` dry run seeded `p_dad,p_gma,p_bryan`, `0034` seeded `p_gma,p_bryan`, the concurrency
+script seeded `p_dad,p_gma` then deleted it), not a code path — the live DB had **no** policy row at
+all. `orbit_audience_for()` has no co-parent exclusion. Fixed under the fixture rule:
+`createSimulatedOrbit()` seeds the Ellison policy `h_a → p_dad,p_gma,p_bryan`; cleanup removes exactly
+that rule and the baseline is byte-identical. `ops/orbit-audience-proof.mjs` **12/12** — Andre is a
+frozen audience member with `SIMULATED` + timestamp on activation, Loretta (non-parent) sees only her
+own row, Dana gets the no-oracle empty result.
+
 **Next:** wire GraphQL + the media endpoint + MCP tools, seed the check-in fixture under the additive
 rule, then run the live proofs (audience leakage, isolation, demo refusal, pickup suite unchanged).
 

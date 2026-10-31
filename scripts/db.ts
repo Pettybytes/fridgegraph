@@ -18,6 +18,7 @@ import { createSeed } from '../src/fixtures';
 import {
   createSimulatedCalendar,
   createSimulatedCoordination,
+  createSimulatedOrbit,
   createSimulatedPrivate,
   SIMULATED_LABEL,
 } from '../src/fixtures-simulated';
@@ -200,6 +201,9 @@ export async function seedSimulated(): Promise<Record<string, number | string>> 
   counts.household_members = await upsert('household_members', priv.household_members, 'person_id,household_id');
   // Events LAST: the audit event references the audit child, which must exist first.
   counts.events = await upsert('events', c.events, 'id');
+  // The Ellison orbit audience policy (Scenario 8: Andre included). Fixture-owned until Group 4.
+  const o = createSimulatedOrbit();
+  counts.household_policies = await upsert('household_policies', o.household_policies, 'household_id,rule');
   return counts;
 }
 
@@ -226,6 +230,8 @@ export async function cleanupSimulated(): Promise<Record<string, number>> {
     ['children', 'person_id=like.fx_*'],
     ['households', 'id=like.fx_*'],
     ['people', 'id=like.fx_*'],
+    // Fixture-owned orbit policy: the rule name is the handle (table has no marker column).
+    ['household_policies', 'rule=eq.orbit_notify_eligible'],
   ] as const) {
     const n = await countRows(table, filter);
     if (n > 0) await del(table, filter);
@@ -245,11 +251,14 @@ export async function checksumSimulated() {
     routines: c.routines.map((r) => String(r.id)),
     adult_availability: c.adult_availability.map((r) => String(r.id)),
     holiday_arrangements: c.holiday_arrangements.map((r) => String(r.id)),
+    household_policies: ['orbit_notify_eligible'],
   };
   for (const t of Object.keys(ids)) {
     const all = await fetchAll(t);
     const wanted = new Set(ids[t]);
-    const rows = all.filter((r) => wanted.has(String(r.id)));
+    const rows = t === 'household_policies'
+      ? all.filter((r) => wanted.has(String(r.rule)))
+      : all.filter((r) => wanted.has(String(r.id)));
     const norm = rows.map((r) => JSON.stringify(r, Object.keys(r).sort())).sort().join('\n');
     out[t] = { rows: rows.length, sha: createHash('sha256').update(norm).digest('hex').slice(0, 16) };
   }
