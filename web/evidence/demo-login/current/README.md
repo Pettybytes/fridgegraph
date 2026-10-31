@@ -3,7 +3,8 @@
 Base: fetched origin/main **0d80f003c722e009897b1790c461952cd0de6f66** (#31), including #27/#28/#29.
 Final local rebase: **27fb5a44d575bf7683063516ddbe08ecf321bdea**, adding the concurrently merged
 Task R and Task O work; the initial fetched base above is preserved.
-Existing draft #32 is being reconciled to the replacement brief. Previous evidence in the parent
+PR #32 is reconciled through authorized merge commit 17259ec from current main 593e794.
+Post-merge acceptance and review status are recorded below. Previous evidence in the parent
 folder is historical; it does not prove this replacement run complete.
 
 UI: live-capable for delivered fields · backend: sessions/Group 3 reads delivered, field gaps remain ·
@@ -48,8 +49,8 @@ The normal app proxy still targets 4010; these live proofs explicitly target del
 on **4012**. No silent endpoint fallback. Normal-stack schema reconciliation remains pending.
 Family Calendar's missing school-closure day-kind/category/confirmer/links fields, Cast v2 personas
 and Guide breadth, Village v2 live reads, Orbit screens and Task H remain queued below/in HANDOFF.
-This passes the delivered-read slice; it does not prove undelivered functionality. Draft #32 stays
-draft. No merge or mutation approval was performed.
+This passes the delivered-read slice; it does not prove undelivered functionality. Review readiness
+is determined by the post-merge verification below. No PR merge or mutation approval was performed.
 
 ## Earlier interrupted runs (historical)
 
@@ -184,3 +185,33 @@ Independent token scan PASS. The first harness attempt timed out waiting for Cal
 landing; it omitted the explicit Calendar navigation. The navigation was corrected, privacy
 assertions unchanged, and the actual browser run passed. Guide read-only captures show the product
 UI; the forced-write refusal remains proven separately by the full acceptance run's explicit click.
+
+## Current-main reconciliation
+
+Authorized merge commit **17259ec** has parents `e8dd04a` and `593e794` (current main #36/#37).
+Only HANDOFF conflicted; both workstreams are retained. Session/cache protections were unchanged.
+Offline post-merge checks: 206 web tests, 33 Rosina tests, root typecheck, web typecheck/build,
+catalog and reservation guard PASS. GitHub CI passed both checks on the merge commit.
+
+`merge-interrupted-results.json` preserves the first post-reload failure: the backend serving
+worktree lacked its runtime identity-map path. Bentley fixed process startup by path, no copy,
+then marked restoration verified before the retry. No web workaround or alternate login used.
+`merge-binary-review-results.json` preserves passing browser assertions with one generic marker
+flag in a refreshed PNG. Visual/binary inspection found no visible token or JWT-shaped content.
+The scanner and acceptance assertions are unchanged for the final rerun. Final results follow.
+
+Final post-merge full run: **PASS** — seven READY personas, no assertion errors, two contexts PASS,
+all private-operation outcomes PASS, and in-process token-leak scan PASS. The operation receipt
+audit and forbidden-read negative control PASS. Current full receipt remains `results.json`.
+#37-specific live checks also PASS: Kendra's Thanksgiving answer names Andre via an approved
+arrangement, matching the screen; Dana gets exactly “I can only help with children shared with you.”
+These replies are retained verbatim under `calendarRosina`.
+
+The prior single 45-second visible-reply timeout remains unexplained and preserved, not called
+fixed: server logs showed completion in ~5 seconds, an isolated actual-picker diagnosis returned
+HTTP 200 and rendered the correct refusal, and the instrumented unchanged full flow then passed.
+No production behavior, 45-second limit or acceptance assertion was changed.
+
+W4b's stated slice: UI complete · backend documented session/delivered reads complete ·
+integrated + tested PASS. Broader W4 read-contract/seed/hosting dependencies remain separately
+PENDING and do not block this slice's review, per Bryan. No PR merge.

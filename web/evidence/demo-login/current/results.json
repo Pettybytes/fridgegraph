@@ -4,24 +4,18 @@
       {
         "persona": "kendra",
         "question": "Who is scheduled with Nora on November 26, 2026? Is this the weekly schedule or an approved arrangement?",
-        "reply": "Busy, try again in a moment",
+        "reply": "Andre Ellison has Nora on November 26, 2026 — it's an approved arrangement, not the ordinary weekly rule.\n\nThe schedule records show Andre Ellison for that date via an approved arrangement.",
         "expected": "Live effectiveScheduleFor: ARRANGEMENT / p_dad on 2026-11-26"
       },
       {
         "persona": "dana",
         "question": "Show me Nora's calendar on November 26, 2026.",
-        "reply": "Busy, try again in a moment",
+        "reply": "I can only help with children shared with you.",
         "expected": "Scoped refusal with no child or adult identities"
       }
     ],
-    "passed": false,
-    "errors": [
-      "Kendra live Rosina answer unavailable",
-      "Kendra Rosina schedule differs from the live Thanksgiving calendar",
-      "loretta: unsupported care answer",
-      "priya: unsupported care answer",
-      "Dana Rosina private-calendar boundary differs"
-    ],
+    "passed": true,
+    "errors": [],
     "directoryReads": [
       "kendra",
       "andre",
@@ -571,8 +565,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Your perspective is ready again. Please send your question again.",
-          "result": "pending"
+          "reply": "4 people are authorized for Nora today: Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis.\n\nPer the pickup records, all 4 show as authorized with a valid grant — availability for all 4 is recorded as unknown, which is separate from authorization. Per the schedule records, Andre Ellison has Nora today under the ordinary weekly rule.",
+          "result": "live answer"
         }
       },
       {
@@ -1072,8 +1066,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Your perspective is ready again. Please send your question again.",
-          "result": "pending"
+          "reply": "Authorized to pick up Nora today: Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis.\n\nThat's authorization — permission recorded — not availability. The pickup records list all four as authorized, with availability unknown. The schedule records Andre Ellison has Nora today under the ordinary weekly rule.",
+          "result": "live answer"
         }
       },
       {
@@ -1366,7 +1360,7 @@
         },
         "rosina": {
           "question": "Can Nora have a peanut-butter snack?",
-          "reply": "Your perspective is ready again. Please send your question again.",
+          "reply": "I can't confirm that yet.",
           "result": "correct refusal"
         }
       },
@@ -1660,7 +1654,7 @@
         },
         "rosina": {
           "question": "Can Nora have a peanut-butter snack?",
-          "reply": "Your perspective is ready again. Please send your question again.",
+          "reply": "I can't confirm that yet.\nCare information isn't connected yet, so I can't check snacks for Nora.",
           "result": "correct refusal"
         }
       },
@@ -1969,8 +1963,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Your perspective is ready again. Please send your question again.",
-          "result": "pending"
+          "reply": "Evelyn Carter is recorded as authorized to pick up Jax today — authorization is permission, separate from availability, and her availability is recorded as unknown.\n\nThe pickup records show the authorization, and the schedule records show Ray Coleman has Jax today under the ordinary weekly rule.",
+          "result": "live answer"
         }
       },
       {
@@ -2278,8 +2272,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Your perspective is ready again. Please send your question again.",
-          "result": "pending"
+          "reply": "Evelyn Carter is authorized to pick up Jax today, with no availability recorded.\n\nThe pickup records list Evelyn Carter as authorized, and show availability as unknown — authorization is permission, unknown availability just means no free/busy time is recorded.\n\nThe schedule records show Ray Coleman has Jax today under the ordinary weekly rule.",
+          "result": "live answer"
         }
       },
       {
@@ -2737,8 +2731,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Your perspective is ready again. Please send your question again.",
-          "result": "pending"
+          "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nThe pickup records show them as authorized for today, with availability recorded as unknown — authorization is permission, not confirmation they are free.",
+          "result": "live answer"
         }
       }
     ],

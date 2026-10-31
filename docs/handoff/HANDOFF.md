@@ -2339,3 +2339,57 @@ is NOT a passing post-merge run. Shared HANDOFF still says restored; reported im
 for serving runtime/identity-mapping diagnosis. No credential/map file read or fallback login.
 The receipt's overall `passed:false` and explicit errors govern; a care-row classifier was also
 corrected so a session-resend message cannot be labeled a correct care refusal on future runs.
+
+Bentley diagnosed and fixed the post-reload refusal in the owning runtime: the new serving worktree
+had no identity map at its default cwd-relative path. He configured the existing map by runtime
+path (no copy) and verified HTTP 200; MCP remains 5051. Shared HANDOFF's 22:20 row is explicitly
+**restored, verified** before the new actual-picker acceptance run. No auth/backend code change,
+map read, ops-login substitution, reset or seed by this task. Authorized merge commit **17259ec**
+was pushed normally; GitHub now reports MERGEABLE. The interrupted run remains separately recorded;
+it is an environment interruption, not relabeled as a pass. Final rerun results follow.
+
+Restored post-merge browser assertions PASS (seven personas, context isolation, calendar/Rosina
+consistency and exact Dana refusal). Its scanner flagged one *generic* marker in the refreshed
+`jax-family-rosina-mobile.png`. Visual inspection shows no token; binary inspection confirms a PNG
+with no JWT-shaped content. The flagged receipt is preserved as `merge-binary-review-results.json`;
+it is not silently changed to green. A fresh full seven-session run follows against the inspected
+baseline, retaining the same scanner and assertions. No token values/fragments were emitted.
+
+An unchanged full retry stopped waiting 45 seconds for Loretta's visible Rosina reply; its leak scan
+was clean and its partial receipt is retained as `merge-timeout-results.json`. A single actual-picker
+Loretta diagnosis then returned **HTTP 200 / OK**, the correct care refusal, rendered in the UI,
+with checking state cleared and a clean leak scan (`rosina-diagnosis.json`). Backend owner was asked
+for safe outcome/latency evidence before classifying the isolated timeout. No timeout assertion was
+weakened and no service failure is relabeled as a product pass.
+
+Final post-merge full acceptance **PASS**: seven READY personas, Rosa Coming soon, zero assertion
+errors; cross-context isolation PASS; exact per-operation boundaries and authorized-empty results
+PASS; token-leak scan PASS. Receipt audit with forbidden-read negative control PASS. New #37
+checks PASS: Rosina's Nov 26 answer matches Andre / approved arrangement, and Dana's Nora-calendar
+request gets the exact no-name scoped refusal. Full replies retained verbatim in current/results.json.
+
+The isolated 45-second wait timeout remains explicitly recorded, not claimed fixed: backend
+completion ~5 s; isolated actual-picker HTTP 200/refusal/render PASS; instrumented unchanged full
+flow PASS with no dropped-reply observation. No timeout increase, assertion removal, or production
+workaround. The PNG generic finding was inspected; the unchanged full seven-session scanner now
+passes against the inspected baseline. No actual token/prefix hits or new generic matches in this
+final run. Desktop/mobile captures refreshed for all personas, calendar, timeline and live replies.
+
+**W4b slice: UI complete · backend documented contracts complete · integrated + tested PASS.**
+Broader W4 remains PENDING: Cast v2 personas/Guide breadth; Village live reads; read-contract
+extensions (day kind/category/confirmer/links/holiday metadata/overlap semantics); normal 4010
+schema reconciliation; Orbit UI; Task H/public judge access; reset/create-family services. These
+do not block this completed slice's review, per Bryan's latest instruction. Final CI/readiness
+publication follows; no PR merge is authorized or performed.
+
+Final post-merge live switch audit: **PASS — 120 frames, zero private-content leaks**, independent
+in-process token scan PASS. Stable window released to Bentley after all browser runs completed.
+All browser runs used the actual picker and existing runtime services; no reset, seed, auth/schema
+change, token copy, traces/HAR/video or automatic message/mutation replay by this task.
+
+Verification for current-main reconciliation: **206/206 web tests, 33/33 Rosina tests PASS**;
+root typecheck and web typecheck/build PASS (existing bundle advisory); reservation guard **3/3**;
+catalog **7 identical ids**; final staged secret scan **499 files / 0 findings**. Final full live
+acceptance, receipt audit, frame audit and in-process token scans PASS as recorded above. Own diff
+against main is web/docs only; both CI checks passed on merge commit 17259ec. Final evidence commit
+will be pushed normally and checked in CI before marking #32 ready, as Bryan authorized.
