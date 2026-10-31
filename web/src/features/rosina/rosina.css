@@ -28,6 +28,10 @@
 .rosina-error { padding: .5rem 1rem; color: #8d3d50; font-size: .8rem; }
 /* Launcher is the resting state on every size: a quiet pill, bottom-right. */
 .rosina-launcher { position: fixed; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); right: calc(1.25rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; color: var(--fg-on-primary); background: var(--fg-primary); border: 0; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
+/* While the panel is open the launcher must not float over it (z26 > panel z25) —
+   it would intercept clicks on the panel's Send button. Close restores it; focus
+   return is handled in RosinaPanel (launcherRef). */
+.rosina-launcher[aria-expanded="true"] { display: none; }
 .rosina-confirm-overlay { position: fixed; inset: 0; background: #26344c88; z-index: 80; }
 .rosina-confirm { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 1rem; padding: 1.5rem; max-width: 440px; width: calc(100% - 2rem); z-index: 81; color: #26344c; }
 .rosina-confirm h2 { font-size: 1.4rem; font-weight: 650; }
@@ -57,3 +61,5 @@
 @media(min-width: 1200px) and (max-width: 1700px) { body:has(.rosina-panel.is-open) .mc-layout { grid-template-columns: minmax(0, 1fr); } body:has(.rosina-panel.is-open) .mc-trace { grid-row: auto; grid-column: auto; } }
 
 .rosina-panel[hidden]{display:none}.rosina-launcher.is-reopen{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:.5rem;background:#7559a1;color:white;padding:.8rem 1.2rem;border-radius:2rem;z-index:26}.rosina-source{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.rosina-mode{font-size:.68rem;font-weight:600;padding:.2rem .45rem;border-radius:.3rem}.mode-live{color:#276b48;background:#e5f2eb;border:1px solid #9ac3ad}.mode-mock{color:#7559a1;background:#eee8f4;border:1px dashed #b8a3d0}
+
+.rosina-action{min-height:64px}.rosina-action-status{display:block;font-size:.8rem;line-height:1.5;margin-top:.4rem;color:var(--fg-muted)}

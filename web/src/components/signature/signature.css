@@ -31,3 +31,11 @@
 /* Impeccable cream-palette finding is intentional: Bryan explicitly chose warm paper.
    This component inherits --fg-canvas and does not define or fork that shared palette. */
 .sg-fixture-label{padding:6px 16px;font-size:13px;color:var(--fg-ink);background:var(--fg-selection);text-align:center}
+
+/* The shell already names the screen. Give its visual space to the child, not a repeated title. */
+.sg-workspace .sg-accessible-heading{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.sg-workspace-heading{align-items:center;margin-bottom:20px}.sg-workspace-heading p{margin:0}
+@media(max-width:600px){.sg-workspace-heading{align-items:stretch;gap:12px;margin-bottom:12px}.sg-workspace label{gap:6px}}
+/* Keep the floating person detail on the opposite side from the persistent Rosina launcher. */
+.sg-detail{left:12px;right:auto}
+@container(max-width:540px){.sg-detail{left:auto}}

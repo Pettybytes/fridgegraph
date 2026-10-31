@@ -84,6 +84,7 @@ export class OrbitController{
    this.patch({guidance:draft.guidance})
    const preview=await this.adapter.preview(draft.draftId)
    if(!this.current()||revision!==this.state.revision)return
+   if(preview.draftId!==draft.draftId||preview.draftVersion!==draft.draftVersion||!preview.messageHash)throw Error('ORBIT_PREVIEW_MISMATCH')
    this.patch({preview,previewRevision:revision,guidance:preview.guidance,phase:'preview'})
   }catch(error){if(revision===this.state.revision)this.patch({phase:'editing',preview:null,error:orbitError(error)})}
   finally{if(this.current()){this.patch({busy:null});if(this.state.phase==='preparing')this.patch({phase:'editing'})}}

@@ -34,9 +34,10 @@ try{
  const run=async args=>{const r=await exec('playwright-cli',['-s=signature-live',...args],{cwd:repo,maxBuffer:2*1024*1024});browserOutput+=r.stdout+r.stderr;if(unsafe(browserOutput))throw Error('Private output detected');return r.stdout}
  // The CLI-owned page stays anonymous. Only the independent viewport is recorded by explicit request.
  await run(['open','http://127.0.0.1:5187/?harnessPort='+bridge.address().port+'&run='+runName])
- const out=await run(['run-code','--filename=web/scripts/'+'signature-live.js'])
+ const browserScript=process.env.SIGNATURE_SCOPE_ONLY==='1'?'signature-role-live.js':'signature-live.js'
+ const out=await run(['run-code','--filename=web/scripts/'+browserScript])
  if(out.includes('### Error'))throw Error('Browser assertion failed')
- if(proof?.passed&&Array.isArray(proof.captures)){
+ if(Array.isArray(proof?.captures)){
   for(const capture of proof.captures){
    const source=capture.file,dest=join(web,'evidence/signature',runName,capture.name+'.mp4')
    if(typeof source!=='string'||!source.startsWith('/tmp/fridgegraph-signature-')||!Number.isFinite(capture.from)||!Number.isFinite(capture.to)||capture.to<=capture.from||!/^[a-z-]+$/.test(capture.name))throw Error('Invalid capture range')

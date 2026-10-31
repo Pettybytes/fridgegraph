@@ -76,7 +76,10 @@ function RosinaConversation({dataAdapter,service,orbit}:PanelProps&{orbit?:Orbit
     setMessages(items => [...items, message])
   }
   function accept(response: RosinaResponse) {
-    append('ROSINA', response.reply, validateActions(response.actions).filter(action => actionAllowed(action, context)))
+    const actions=validateActions(response.actions)
+    // Keep validated cards until their live dependencies settle; execution still rechecks permission.
+    const orbitOffer=actions.some(action=>action.id==='prepareOrbitAlert')
+    append('ROSINA', orbitOffer&&orbit ? 'I can prepare an Orbit message for you to review. Nothing has been activated.' : response.reply, actions)
   }
   function closePanel() {
     ++requestId.current; abort.current?.abort(); abort.current=null; sent.current=false
@@ -136,7 +139,7 @@ function RosinaConversation({dataAdapter,service,orbit}:PanelProps&{orbit?:Orbit
       <p className="rosina-source"><strong className={`rosina-mode mode-${adapter.mode}`}>{adapter.mode==='live'?'Live':'Sample answers'}</strong><span>Conversation clears when you switch person</span></p>
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
-        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{message.actions.filter(action => catalog[action.id].implemented && actionAllowed(action, context)).map((action, index) => <button type="button" className="rosina-action" key={index} disabled={executed.current.has(`${message.id}:${index}`)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}</button>)}</article>)}
+        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
         {busy && <p role="status">{adapter.mode==='live'?'Rosina is checking…':'Rosina is preparing a reply…'}</p>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
