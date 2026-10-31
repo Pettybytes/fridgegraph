@@ -140,3 +140,49 @@ row now carries `removed.approvals` as a number (no ids, no names).
 
 Controls were deliberately made to need their own slip: a second approval on the *same* slip is a
 `23505` against 0047's one-decision index, which is exactly the invariant the lock assertion relies on.
+
+## 2026-10-31 18:08 — one reset, three behaviours (merge of #57 + #54 + #59)
+
+`src/demo/reset.ts` was resolved **both-sided**, never by taking one side wholesale. A single
+`resetDemo()` now does all three inside the **same** transaction and advisory lock:
+
+1. **Cast v2 restore** (#57) — sandbox-marked Cast content (Malik's care facts, the 32 Cast routines)
+   is upserted back from the canonical fixture source;
+2. **created-family cleanup** (#54) — sandbox families are deleted, with their rows, registry entry and
+   identity mapping; auth users and JSON mappings are purged after commit;
+3. **demo-decision cleanup** (#59) — `reset_demo_decisions()` clears only approvals that are BOTH
+   demo-made AND on a sandbox subject, and returns those slips to unsigned.
+
+One audit row per reset carries **both** counts. Observed on a run with no created family:
+`{"approvals":1,"createdFamiliesRemoved":0,"orbit_alerts":0,"orbit_responses":0,"orbit_audience_members":0,"alerts":[]}`.
+
+### New assertion — row and subject state must agree
+
+| # | Assertion | Result |
+|---|---|---|
+| 9b | a **protected** approval (non-demo caller on a sandbox subject) survives **and its slip stays SIGNED** | PASS (`signed=true`) |
+| 7 | a **cleared** demo decision returns its slip to unsigned | PASS |
+
+Neither half may move alone: clearing deletes the row *and* unsets the slip, while a surviving row
+leaves the slip decided.
+
+### Contract change — the #57 assertion was superseded, not deleted
+
+`ops/reset-demo-cast-proof.mjs` f8 previously asserted the consent approval was **kept** ("audit ledger,
+documented in reset.ts"). That contract is superseded by 0050: a demo decision on a sandbox subject is
+now **cleared**. The assertion was rewritten to the current contract and a companion added:
+
+| # | Assertion | Result |
+|---|---|---|
+| f8 | the DEMO consent approval is cleared by reset (0050) | PASS (`created=1 left=0`) |
+| f9 | its slip returns to unsigned | PASS (`signed=false`) |
+
+### Results at this head
+
+| Proof | Result |
+|---|---|
+| `reset-demo-decisions-proof` | **16/16 PASS** |
+| `create-demo-family-reset-proof` (integration) | **12/12 PASS** |
+| `reset-demo-cast-proof` | **33/33 PASS** |
+| `create-demo-family-proof` | **25/25 PASS** |
+| `create-demo-family-faults-proof` | **not re-run** — it leaks one auth account per run (4 orphans observed). Last result **31/31**, cited rather than repeated. |

@@ -101,6 +101,8 @@ await db.query(`insert into approvals (id, approver_id, subject_type, subject_id
   values ($1,'p_mom','Relationship','r_audit_control','APPROVED',current_date) on conflict (id) do nothing`, [CONTROL_NON_SANDBOX]);
 await db.query(`insert into approvals (id, approver_id, subject_type, subject_id, decision, at)
   values ($1,'p_dad','permission_slip',$2,'APPROVED',current_date) on conflict (id) do nothing`, [CONTROL_NON_DEMO, CONTROL_SLIP]);
+// A surviving decision means the slip is still decided: mark it signed so the pair can be checked.
+await db.query(`update permission_slips set signed=true where id=$1`, [CONTROL_SLIP]);
 const controlsBefore = Number((await db.query(`select count(*)::int n from approvals where id in ($1,$2)`, [CONTROL_NON_SANDBOX, CONTROL_NON_DEMO])).rows[0].n);
 check('4 control approvals exist before the reset (non-sandbox subject, and non-demo caller)', controlsBefore === 2, `rows=${controlsBefore}`);
 
@@ -112,6 +114,11 @@ check('7 the slip is back to its seed state (unsigned)', (await db.query(`select
 check('8 the non-sandbox control survives', Number((await db.query(`select count(*)::int n from approvals where id=$1`, [CONTROL_NON_SANDBOX])).rows[0].n) === 1);
 check('9 the non-demo approval on a sandbox subject survives (its own slip)',
   Number((await db.query(`select count(*)::int n from approvals where id=$1`, [CONTROL_NON_DEMO])).rows[0].n) === 1);
+// ROW AND SUBJECT STATE MUST AGREE: a surviving decision keeps its slip SIGNED, while a cleared demo
+// decision (7) returned its slip to unsigned. Neither half may move alone.
+const protectedSigned = (await db.query(`select signed from permission_slips where id=$1`, [CONTROL_SLIP])).rows[0]?.signed;
+check('9b the protected approval keeps its slip SIGNED — row and slip state agree',
+  protectedSigned === true, `signed=${protectedSigned}`);
 const audit = (await db.query(`select removed from demo_reset_audit order by id desc limit 1`)).rows[0]?.removed;
 check('10 the single audit row carries the cleared count, counts only',
   audit?.approvals === 1 && !JSON.stringify(audit).includes(SLIP), JSON.stringify(audit).slice(0, 120));
