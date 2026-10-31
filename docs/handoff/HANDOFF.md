@@ -2108,5 +2108,7 @@ BLOCKERS: `prepareOrbitAlert` needs Codex's app-side draft/preview/confirm handl
   ever actually render to a user — tracked here, not solved here. PR #35 should probably be
   closed as superseded by Bentley, not by this task.
 
-**Final state:** draft PR opened against `main`, CI run, marked ready once green — see the PR
-itself for the exact number/head SHA/check results at close-out. Not merged — Bryan merges.
+**Final state (2026-10-31):** PR #38 head `59c8bf1`. `gh pr ready 38` run; `gh pr view 38` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (21s), `web build` (21s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 9 files only. Not merged — Bryan merges.
