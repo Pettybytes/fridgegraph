@@ -85,13 +85,13 @@ test('the allowlist accepts PickupCandidates, Attempts and JobTimeline, and reje
 });
 
 test('an empty Attempts/JobTimeline result never implies "nothing happened" in the prompt text', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false);
+  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
   assert.match(prompt, /I can't see that pickup/);
   assert.match(prompt, /Never read \[\] as "nothing\s+happened/);
 });
 
 test('the system prompt tells the model times already arrive in the family\'s own local time', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false);
+  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
   assert.match(prompt, /America\/Detroit/);
   assert.match(prompt, /ALREADY converted/);
 });
