@@ -13,6 +13,7 @@
 import express, { type Request, type Response } from 'express';
 import { loadEnv } from '../env';
 import { verifyBearer } from '../auth/verify';
+import { scenarioNowFrom } from '../context';
 import { runRosinaTurn, type HistoryMessage } from './model';
 import { createRateLimiter } from './rateLimit';
 import { MuseConfigError, type ProviderId } from '../muse/providers';
@@ -22,6 +23,7 @@ loadEnv();
 const PORT = Number(process.env.ROSINA_PORT ?? 4200);
 const PROVIDER = (process.env.ROSINA_PROVIDER ?? 'meta') as ProviderId;
 const MCP_URL = process.env.ROSINA_MCP_URL ?? 'http://127.0.0.1:5050/mcp';
+const DEMO_CLOCK = process.env.DEMO_CLOCK === '1';
 const TIMEOUT_MS = Number(process.env.ROSINA_TIMEOUT_MS ?? 30_000);
 const RATE_LIMIT_PER_MIN = Number(process.env.ROSINA_RATE_LIMIT_PER_MIN ?? 20);
 
@@ -88,6 +90,7 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
       isGuide: identity.demoGuide,
       provider: PROVIDER,
       mcpUrl: MCP_URL,
+      scenarioNow: scenarioNowFrom(req.headers as Record<string, string | string[] | undefined>, DEMO_CLOCK),
     }).catch((error: unknown) => {
       console.error(`[rosina] turn failed person=${identity.personId} error=${error instanceof Error ? error.constructor.name : typeof error}: ${error instanceof Error ? error.message : 'unknown'}`);
       return null;
