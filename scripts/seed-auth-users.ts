@@ -43,6 +43,7 @@ const PEOPLE: DemoPerson[] = [
   { personId: 'p_felicia', first: 'Felicia', last: 'Reyes' },
   { personId: 'p_simone', first: 'Simone', last: 'Lee' },
   { personId: 'p_denise', first: 'Denise', last: 'Lee' },
+  { personId: 'p_marcus', first: 'Marcus', last: 'Reyes' },
   { personId: 'p_dwayne', first: 'Dwayne', last: 'Ferris' },
   { personId: 'p_cassandra', first: 'Cassandra', last: 'Ferris' },
   { personId: 'p_oscar', first: 'Oscar', last: 'Alvarez' },

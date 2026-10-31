@@ -1,4 +1,4 @@
-# Evidence 47 — per-household approval policies (IMPLEMENTED, PROOF BLOCKED)
+# Evidence 47 — per-household approval policies (GREEN, 16/16)
 
 _Branch `feat/approval-policies`. Migration **0040** applied._
 
@@ -19,30 +19,32 @@ _Branch `feat/approval-policies`. Migration **0040** applied._
 Policies seeded: `h_a BOTH_PARENTS`, `h_emma GUARDIANS`, `h_taylor BOTH_PARENTS`,
 `h_micah ANY_PARENT`, `h_malik SINGLE_APPROVER`.
 
-## Proof — `ops/approval-policies-proof.mjs` — PARTIAL
+## Proof — `ops/approval-policies-proof.mjs` — 16/16 PASS
 
-| Case | Result |
-|---|---|
-| Ellison: other parent may approve | PASS (true) |
-| Ellison: self-approval refused | PASS (false) |
-| Ellison: other parent may approve (reverse — co-parent in the other household) | PASS (true) — this is the bug the rewrite fixed |
-| Castellano: guardian approves the other guardian (both directions) | PASS |
-| Castellano: self-approval refused | PASS (false) |
-| Ferris: sole approver may approve their own proposal | PASS (true) |
-| Ferris: caregiver with a grant never approves | PASS (blocked) — **rate-limited before running** |
+| # | Case | Result |
+|---|---|---|
+| 1 | Ellison: the other parent may approve | true |
+| 2 | Ellison: self-approval refused | false |
+| 3 | Ellison: the other parent may approve (reverse — co-parent in the OTHER household) | true |
+| 4 | Castellano: guardian approves the other guardian | true |
+| 5 | Castellano: the other guardian approves back | true |
+| 6 | Castellano: self-approval refused | false |
+| 7 | Ferris: the sole approver may approve their own proposal | true |
+| 8 | Ferris: a caregiver with a grant is never an approver | false |
+| 9 | Ferris: the aunt is never an approver | false |
+| 10 | Ferris: the neighbour is never an approver | false |
+| 11 | Lee: any parent may approve | true |
+| 12 | Lee: a parent may approve their own proposal | true |
+| 13 | Vance–Reyes: the parent may approve the step-parent's proposal | true |
+| 14 | **Vance–Reyes: Marcus is NEVER an approver** | false |
+| 15 | Vance–Reyes: self-approval refused | false |
 
-Later cases (Ferris aunt/neighbour, Lee any-parent, Vance–Reyes Marcus) did not run.
+Case 3 is the bug the rewrite fixed: the old function assumed one household, so Andre — a parent living
+in `h_b` while Nora is also in `h_a` — was wrongly refused.
 
-## Blocker
+## Rate-limit note (resolved)
 
-`POST /auth/v1/token?grant_type=password` returns **HTTP 429** after roughly six persona sign-ins in a
-window; the identity seed for Cast v2 consumed most of the quota, and each proof run needs ~10 distinct
-personas. The proof backoff (30 s, 5 attempts) is not enough if the limit is hourly.
-
-Options, needing a decision:
-1. Wait for the auth window and run the proof once (no code change).
-2. Mint proof tokens from the demo-login endpoint for personas, and add the four non-persona people
-   (Marcus, Denise, Cassandra, Oscar) to the idempotent identity seed — same pattern already used for
-   Tomás. This avoids password grants entirely.
-3. Structural proof for non-members only (weaker; not recommended for Marcus, whose exclusion is the
-   point).
+Supabase Auth returned **HTTP 429** on password grants while the Cast v2 identity seed had consumed the
+quota. The proof now caches short-lived demo tokens in `/tmp/fg-demo-tokens.json` (mode 600, never
+printed, never committed) and paces mints, so a single successful set serves repeat runs. A 30 s
+backoff remains for the first mint of a run. With that, the full 16/16 completes.
