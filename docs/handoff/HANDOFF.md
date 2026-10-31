@@ -3422,3 +3422,25 @@ during the run. Next step: log the alert id and `_orbit_response_disposable()`'s
 confirm whether the GUC is visible to the trigger inside the SECURITY DEFINER call, and whether an
 audience row with a NULL `notification_outcome` is making a genuinely disposable alert ineligible.
 No PR; no merge.
+
+## Group 5 Piece 1 — forgery guard NOT yet proven (2026-10-31 03:50)
+
+`0045` now requires the snapshot's `pg_class.relowner` to equal `reset_demo_orbit`'s `proowner`, resolved
+through a dynamic query. Applied.
+
+**But the forgery test does not pass, and it fails in the dangerous direction:** the delete performed by
+the attacker role did **not raise** (assertion 2b reports no error at all), while the "not merely a
+privilege error" check passes. Either the attacker's delete really succeeded, or the exception never
+reached my catch because the transaction ended differently.
+
+**Next step, exactly:**
+1. Inside `_reset_eligible`, log `v_owner`, the function's `proowner`, and `session_user` vs `current_user`
+   during the forged attempt (shape only — no ids or values).
+2. Confirm the temp table was actually created by the attacker role (owner oid ≠ postgres) and that
+   `set local role` took effect before `create temp table`.
+3. If ownership is correct and the delete still succeeds, the trigger is not firing on that path —
+   check `tg_op`, that the trigger exists on `orbit_responses`, and that `current_setting` inside the
+   trigger is the same transaction.
+
+Do not treat 2b as passed. The guard matrix is 16/16 apart from this, and the API-origin proof,
+the contract doc and the PR all remain outstanding. No merge.
