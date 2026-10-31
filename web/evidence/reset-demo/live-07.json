@@ -1,0 +1,325 @@
+{
+  "proof": {
+    "passed": true,
+    "checks": [
+      {
+        "check": "Initial state has no active alert",
+        "pass": true
+      },
+      {
+        "check": "Seeded child records are nonempty",
+        "pass": true
+      },
+      {
+        "check": "Orbit activated through explicit browser confirmation",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot active-before-reset desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot active-before-reset mobile",
+        "pass": true
+      },
+      {
+        "check": "Second tab obtained its own picker session",
+        "pass": true
+      },
+      {
+        "check": "Both tabs see same persisted alert",
+        "pass": true
+      },
+      {
+        "check": "Opening confirmation never resets",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot shared-confirmation desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot shared-confirmation mobile",
+        "pass": true
+      },
+      {
+        "check": "Exactly one reset request",
+        "pass": true
+      },
+      {
+        "check": "Seeded reads verified after reset before picker",
+        "pass": true
+      },
+      {
+        "check": "Resetting tab clears private UI and conversation",
+        "pass": true
+      },
+      {
+        "check": "Reset revokes every displayed photo handle",
+        "pass": true
+      },
+      {
+        "check": "No session persisted in browser storage",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot reset-picker desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot reset-picker mobile",
+        "pass": true
+      },
+      {
+        "check": "Other tab explicit refetch sees seeded no-alert state",
+        "pass": true
+      },
+      {
+        "check": "Other tab keeps valid token with no forced logout or re-mint",
+        "pass": true
+      },
+      {
+        "check": "Other tab stays in its perspective",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot other-tab-seeded desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot other-tab-seeded mobile",
+        "pass": true
+      },
+      {
+        "check": "Returning Kendra sees no alert",
+        "pass": true
+      },
+      {
+        "check": "Returning picker session sees original seeded children",
+        "pass": true
+      },
+      {
+        "check": "Returning persona has no prior Rosina thread",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot returned-seeded desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot returned-seeded mobile",
+        "pass": true
+      },
+      {
+        "check": "Guide has no reset button",
+        "pass": true
+      },
+      {
+        "check": "Guide read-only state remains visible",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot guide-read-only desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot guide-read-only mobile",
+        "pass": true
+      },
+      {
+        "check": "Reset never automatically replayed",
+        "pass": true
+      }
+    ],
+    "stage": "Complete",
+    "resets": 1,
+    "order": [
+      "reset-request",
+      "reset-success",
+      "verify-request",
+      "verify-success"
+    ],
+    "failure": null,
+    "graphErrors": [
+      {
+        "operation": "WebVillage",
+        "http": 200,
+        "codes": [
+          "UNAUTHORIZED"
+        ]
+      }
+    ],
+    "photoReads": [
+      {
+        "operation": "upload",
+        "http": 200,
+        "code": null
+      },
+      {
+        "operation": "read",
+        "http": 200,
+        "code": null
+      },
+      {
+        "operation": "read",
+        "http": 200,
+        "code": null
+      }
+    ],
+    "recording": "Independent context; no traces, HAR, video, storage state, request-header logging or image URLs in artifacts"
+  },
+  "lastStage": "Complete",
+  "scan": {
+    "pass": true,
+    "files": [
+      {
+        "file": "docs/evidence/01-kendra-full-view.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/01b-query-plan.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/01c-query-plan-full.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/02-approver-thursday.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/03-supervision-age-boundary.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/04-loretta-goals-careplan-contact.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/05a-walter-no-pickup.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/05c-dana-supervision-jax-empty.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/06a-daniel-careplan-today.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/06b-chris-careplan-expired.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/06c-daniel-goals-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/07a-gary-busroster-allowed.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/07b-gary-schedule-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/07c-gary-careplan-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/08-angela-pickup-verify-vehicles.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/09a-ray-jax-careplan.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/09b-evelyn-jax-careplan.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10a-dana-nora-schedule-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10b-dana-nora-goals-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10c-dana-nora-careplan-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10d-loretta-jax-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11a-dana-absent-before.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11b-loretta-cannot-approve.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11c-kendra-approves.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11c2-kendra-grants.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11c3-approvals-exist.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11d-dana-now-candidate.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11e-dana-careplan-still-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11f2-dana-absent-after-reset.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/12-mcp-spike.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/16-edge-auth-and-mcp.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/16b-b5-mcp-reproof.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/25-dana-onboarding-walter.md",
+        "pass": true
+      },
+      {
+        "file": "ops/test-router-graphos.mjs",
+        "pass": true
+      },
+      {
+        "file": "scripts/check-secrets.mjs",
+        "pass": true
+      },
+      {
+        "file": "web/evidence/task-w/w2-copy-mobile.png",
+        "pass": true
+      },
+      {
+        "file": "web/package-lock.json",
+        "pass": true
+      }
+    ]
+  }
+}

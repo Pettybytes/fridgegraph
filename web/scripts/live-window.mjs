@@ -33,5 +33,5 @@ export function resetWindowOpen(text,{runtime,until,now=Date.now()}){
  const row=section.split('\n').filter(line=>line.startsWith('| ')).at(-1)
  if(!row)return false
  const cells=row.split('|').slice(1,-1).map(cell=>cell.replace(/\*/g,'').trim())
- return cells.length>=5&&/W-RESET window (?:OPEN|REOPENED)\b/.test(cells[1])&&cells[2].includes('`'+runtime+'`')&&/^(?:OPEN|REOPENED) to W-RESET until /.test(cells.at(-1))
+ return cells.length>=5&&/W-RESET (?:window )?(?:OPEN|REOPENED)\b/.test(cells[1])&&cells[2].includes('`'+runtime+'`')&&/^(?:OPEN|REOPENED) to W-RESET until /.test(cells.at(-1))
 }
