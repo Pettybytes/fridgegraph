@@ -55,6 +55,40 @@ try { await c.query('begin'); await c.query(`select set_config('app.demo_reset',
 catch { flagAlone = true; await c.query('rollback').catch(()=>{}); }
 check('2 app.demo_reset alone does NOT unlock a non-disposable record', flagAlone);
 
+// 2b. an ordinary role cannot forge its own snapshot: same table name, same GUC, DELETE granted.
+const roleName = 'proof_attacker_' + Date.now();
+await c.query(`create role "${roleName}" nosuperuser nocreatedb nocreaterole`);
+await c.query(`grant delete, select on orbit_responses to "${roleName}"`);
+await c.query(`grant select on orbit_alerts, orbit_audience_members to "${roleName}"`);
+const dbName = (await c.query('select current_database() d')).rows[0].d;
+const me = (await c.query('select current_user u')).rows[0].u;
+await c.query(`grant temp on database "${dbName}" to "${roleName}"`);
+await c.query(`grant "${roleName}" to "${me}"`);
+const id3 = 'oa_forge_' + Date.now();
+await c.query(`insert into orbit_alerts (id,child_id,created_by,status,minimal_message,message_hash,draft_version,sandbox)
+               values ($1,'p_nora','p_mom','PENDING_ACTIVATION','proof','deadbeef',1,true)`,[id3]);
+await c.query(`insert into orbit_audience_members (orbit_alert_id,person_id,notify_order,notification_outcome) values ($1,'p_dad',1,'SIMULATED')`,[id3]);
+await c.query(`insert into orbit_responses (id,orbit_alert_id,person_id,response) values ($1,$2,'p_dad','ON_WAY')`,[id3+'_r',id3]);
+
+let forgedRefused = false; let forgedErr = '';
+try {
+  await c.query('begin');
+  await c.query(`set local role "${roleName}"`);
+  await c.query(`create temp table reset_eligibility (alert_id text primary key)`);
+  await c.query(`insert into reset_eligibility (alert_id) values ($1)`,[id3]);
+  await c.query(`select set_config('app.demo_reset','on',true)`);
+  await c.query(`delete from orbit_responses where orbit_alert_id=$1`,[id3]);
+  await c.query('rollback');
+} catch (e) { forgedRefused = true; forgedErr = String(e.message); await c.query('rollback').catch(()=>{}); }
+finally { await c.query('reset role').catch(()=>{}); }
+check('2b a forged snapshot owned by another role is refused BY THE GUARD',
+  forgedRefused && /APPEND_ONLY/i.test(forgedErr), forgedErr);
+check('2b the refusal was not merely a privilege error', !/permission denied/i.test(forgedErr), forgedErr);
+await c.query(`drop role if exists "${roleName}"`).catch(()=>{});
+// Clean ONLY the forge alert — the protected id2 must still be standing for check 4.
+await c.query(`update orbit_audience_members set notification_outcome='SIMULATED' where orbit_alert_id like 'oa_forge_%'`);
+await resetDemo('proof-forge-cleanup');
+
 // 3. browser/RPC callers cannot execute the privileged function
 const mod = await import('/Users/user/Desktop/bentley/fridgegraph/ops/auth.mjs');
 const tok = await mod.tokenForPersonId('p_mom');
