@@ -5,6 +5,14 @@ type Query {
   permissionSlips(childId: ID!): [PermissionSlip!]!
 }
 
+type Mutation {
+  approveConsent(slipId: ID!): SlipDecision!
+}
+
+type Person @key(fields: "id") {
+  id: ID!
+}
+
 type Child @key(fields: "id") {
   id: ID!
 }
@@ -22,6 +30,14 @@ type PermissionSlip {
   child: Child!
   title: String!
   signed: Boolean!
+  history: [SlipDecision!]!
+}
+
+type SlipDecision {
+  slip: PermissionSlip!
+  approver: Person!
+  decision: String!
+  at: String!
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA

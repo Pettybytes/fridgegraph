@@ -3618,3 +3618,99 @@ Actual picker/Rosina card → draft/preview/photo → explicit activation → sh
 Offline: **255/255 web tests**, web typecheck/build, root typecheck, secret scan **0 findings**, guard test PASS. Failed receipts 01–06 remain unchanged (zero resets): harness baseline-read, initial-state and preview-readiness assumptions were corrected; a reservation interruption blocked requests. None counts as a pass. A separate `WebVillage` authorization refusal was observed; its live integration remains outside this slice.
 
 | 2026-10-31 04:33 | **W-RESET RELEASED — live COMPLETE (PASS), before the 04:54 deadline.** Actual picker/Rosina card → preview/photo → explicit Orbit activate → **one** reset on 4008 → seeded reads → local picker. Second tab kept an **identical token and login count** and an explicit Orbit refetch saw the seeded no-alert state — **no logout, no re-mint**. Kendra re-picked seeded / no alert / no old thread. Guide reset hidden. Live07 receipt + safe screenshots saved; token/media scan PASS. No db:reset, seeds, restarts or real sends by web. Failed receipts 01–06 preserved; no reset occurred before 07. **Dependency: #52 (route move, CI green observed) must ship with UI #51.** Serving `dd84886` unchanged. | serving `dd84886` (docs HEAD `dd9d03b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **RELEASED — restored/available** |
+
+## Group 5 Piece 3 — consent decisions implemented and proven (2026-10-31 14:58)
+
+Branch `piece3-consent`, merged with `origin/main` (`f6aafcc`, #52) — one merge commit, no rebase, no
+force-push. `HANDOFF.md` was the only conflict (the #52 side added the 04:33 W-RESET RELEASED row);
+both sides kept, chronological, no rows dropped. `src/demo/server.ts` and `src/rosina/server.ts` were
+byte-identical to main after the merge; the only edit to the latter is deleting the orphaned
+"One reset per demo session per 30s…" doc comment that #52 left above `createRosinaApp`.
+
+### 0047 — one decision per permission slip (applied)
+
+0046's index was unique per **(slip, approver)**, so two different approvers could each record an
+approval for the same slip. Stage 1 records the decision once per slip, so 0047:
+
+1. widens `approvals.subject_type` to include `permission_slip`. **Required and missing from 0046**:
+   0028 restricted the check to `('Relationship','Grant','HolidayArrangement')`, and a `NOT VALID`
+   constraint is still enforced on new rows — without this, a permission-slip approval could not be
+   inserted at all;
+2. adds the partial unique index `approvals_permission_slip_decision` on
+   `(subject_type, subject_id) WHERE subject_type='permission_slip'`;
+3. drops `approvals_permission_slip_once`, which the new index strictly supersedes.
+
+**Pre-flight before applying (live project):** `approvals` had **0 rows total, 0 permission_slip rows**,
+so no existing data could violate the new index — nothing to stop and report.
+
+**Verification after applying:**
+
+| Query | Result |
+|---|---|
+| `pg_indexes` on `approvals` | only `approvals_pkey` + `approvals_permission_slip_decision (subject_type,subject_id) WHERE subject_type='permission_slip'`; the 0046 index is **gone** |
+| `pg_constraint` on `approvals` | `subject_type in ('Relationship','Grant','HolidayArrangement','permission_slip')` |
+| rolled-back probe: approver A then **approver B**, same slip | first insert OK, second **rejected 23505 `approvals_permission_slip_decision`**; `approvals` rows back to 0 after rollback |
+
+### 0048 — decision visibility + demo sandbox (applied, needed by the resolver)
+
+0047 alone leaves the second half of idempotency unreadable: `approvals_read` (0003) exposes a row only
+to its own approver, or when the subject is a Grant/Relationship of the caller's child. A permission-slip
+row would be visible to the approver alone, so "return the existing decision **with who made it**" and
+"the decision appears in the slip's history" would both return nothing. 0048 adds exactly:
+
+- `approvals_permission_slip_read` (permissive SELECT): `subject_type='permission_slip'` and the caller
+  is a parent/guardian of the slip's child;
+- `approvals_permission_slip_demo_insert` (**restrictive** INSERT): a demo caller may write a
+  permission-slip approval only for a **sandbox** child. Scoped to `subject_type='permission_slip'`, so
+  grant/relationship approvals keep their existing behaviour. Guide writes stay refused by 0025's
+  restrictive policies.
+
+### `approveConsent(slipId: ID!)` — `src/subgraphs/school.ts`
+
+Authority is **CONSENT**, resolved from the child's household `consent_approval` policy:
+
+| Policy value | Who may decide |
+|---|---|
+| `parent` | any parent or guardian of the child (the authority fact, 0024) |
+| a person id | **ONLY** that person. Not "parent OR the named approver": naming someone takes the decision away from every other parent |
+| **no `consent_approval` rule** | **parent or guardian of the child — this is the explicit default, not a rejection** |
+| more than one *different* named approver across the child's households | ambiguous configuration: refuses everyone |
+
+Never derived from parenting time, `schedule_swap_approval`, a `resident_adult` membership or a
+care-plan grant. The Demo guide is refused (`DEMO_GUIDE_READ_ONLY`) and again in the database.
+
+Idempotency trusts the **database**, not a pre-check: insert, and on `23505` read the existing row and
+return it. Same approver gets the same decision; a different eligible approver gets the existing
+decision **with who made it** and changes nothing.
+
+No existence oracle: the slip is read through the caller's own RLS client, so a hidden slip, a
+nonexistent id and a malformed id all produce the same `UNAUTHORIZED` as an unauthorized-but-visible
+slip.
+
+`PermissionSlip.history` returns the recorded decision(s) for that slip.
+
+### Proof — `ops/consent-approval-proof.mjs`, evidence `docs/evidence/52-consent-approval.md`
+
+Runs only the **school subgraph on spare port 4315**; the demo stack was not restarted. Real JWTs per
+caller; the owner DB connection is used for proof fixtures only (four fictional slips + one
+`consent_approval` row, removed afterwards — verified back to `permission_slips=0, approvals=0,
+consent_approval rows=0`).
+
+**20/20 PASS**: default-rule parent approves (1 row); same approver repeats (1 row, same decision);
+second eligible parent after the decision (1 row, existing decision with `p_mom`, `approver`/`at`
+unchanged); Marcus `resident_adult` refused; Priya `careplan.read` grant refused; Demo guide refused;
+named-approver household refuses the other parent and accepts the named one; hidden / nonexistent /
+malformed ids give an **identical** refusal; the decision appears in the slip history for both parents.
+
+Also run on this branch: `npm run typecheck` clean; graph suite **114 checks across 32 cases PASS** via
+router **4012** (alt stack, generated from `router.yaml`, no edge JWT — refusals surface downstream as
+`UNAUTHENTICATED`, which is why this is 114 and not 115); `npm run test:rosina` **86/86 pass**.
+
+### STANDING NOTE for Task H — the 4008 reset route's LOOPBACK_ONLY guard is not a real gate
+
+**Do not build now; recorded so it is not forgotten.** The reset route checks
+`req.socket.remoteAddress`, but behind cloudflared or the Vite proxy **every request arrives from
+127.0.0.1**, so the guard cannot distinguish public traffic from local. Before demo login or reset goes
+public, reset needs a real gate: (1) a server-side check of the demo/sandbox session, (2) a rate limit
+per IP from a **trusted forwarded header**, and (3) the existing guide refusal. The loopback check may
+stay as defence in depth, but it must not be the only gate.
