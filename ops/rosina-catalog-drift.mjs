@@ -11,7 +11,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-const ENTRY = /'([a-z-]+)':\s*\{\s*id:\s*'\1',[\s\S]*?routeOrHandler:\s*'([a-z-]+)',\s*changesData:\s*(true|false),\s*implemented:\s*(true|false)\s*\}/g;
+const ENTRY = /'([a-zA-Z-]+)':\s*\{\s*id:\s*'\1',[\s\S]*?routeOrHandler:\s*'([a-z-]+)',\s*changesData:\s*(true|false),\s*implemented:\s*(true|false)\s*\}/g;
 
 function parseCatalog(path) {
   const text = readFileSync(path, 'utf8');

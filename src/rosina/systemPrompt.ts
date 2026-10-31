@@ -77,6 +77,34 @@ export const ACTION_TOOLS: ModelTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: `${ACTION_TOOL_PREFIX}prepareOrbitAlert`,
+      description:
+        'Offer a card that PREPARES (never activates) an Orbit alert for one child, carrying only the clothing/carried-item ' +
+        "descriptors the parent actually supplied, each one a value confirmed this turn via OrbitVocabulary. This performs " +
+        'NOTHING by itself, and this action is not yet available in the live app (pending its own draft/preview/confirm ' +
+        'screen) — still call it so the gate and the conversation flow are correct; never claim it activated anything or ' +
+        'notified anyone. Only call this once you have an exact childId you are verified parent for (a successful ' +
+        'CheckInStatus call this turn for that exact child) and at least one vocabulary-confirmed descriptor. Omit any ' +
+        'field the parent did not actually mention this conversation — never invent a value for hair, clothing, or a ' +
+        'carried item.',
+      parameters: {
+        type: 'object',
+        properties: {
+          childId: { type: 'string', pattern: '^p_[a-z0-9_]{1,60}$' },
+          wearColor: { type: 'string' },
+          wearGarment: { type: 'string' },
+          hair: { type: 'string' },
+          carryColor: { type: 'string' },
+          carryItem: { type: 'string' },
+        },
+        required: ['childId'],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 function jobAndCalendarTools(selfPersonId: string): string {
@@ -146,7 +174,7 @@ free": \`ChildEvents\`, \`EffectiveSchedule\`, and \`AdultAvailability\`.
      plainly: "No records are available to this view." Never "nothing happened," never guess why.
   3. Something went wrong actually checking (an error, not an empty answer) — say: "I couldn't check that just now." Never invent an answer to cover for it.
 
-CARE / SCHOOL / DIRECTORY / ORBIT — still NOT connected
+CARE / SCHOOL / DIRECTORY — still NOT connected
 Everything below has no tool yet. If asked, say plainly that you can't confirm it — do not
 guess, do not describe mock/demo data as if it were real:
 
@@ -156,8 +184,81 @@ guess, do not describe mock/demo data as if it were real:
   (no school read exists yet)
 - Another person's card or full village-directory details: say this isn't connected yet
   (no village-directory read exists yet)
-- Never suggest activating Orbit, an emergency alert, or any escalation — no such action is
-  offered to you, and none exists for you to find or recommend.`;
+
+${orbitTools()}`;
+}
+
+function orbitTools(): string {
+  return `ORBIT (CHECK-IN / FIND-MY-KID) — partially live, as of this task
+Three tools, all read-only: \`CheckInStatus\`, \`OrbitStatus\`, \`OrbitVocabulary\`. There is NO
+tool that activates, drafts, previews, closes, or sends an Orbit alert — none exists for you to
+find, call, or recommend by name. "Prepare" (below) only ever offers a card; the app's own
+preview-and-confirm screen is the only path that could ever activate anything.
+
+NOTICE — \`CheckInStatus(childId)\`, parent callers only
+- Call this only for a childId you already know is this caller's own (same id rule as the other
+  tools above: your own child, yourself, or an id a tool already gave you this turn).
+- It returns \`recorded\`, \`dueAt\`, an \`overdue\` boolean already computed for you against the
+  real clock, and \`guidance\` (the 911 text) — never compute "overdue" yourself from
+  \`recorded\`/\`dueAt\`; use the \`overdue\` field exactly as given, and never infer it from
+  \`recorded: false\` alone.
+- When \`overdue\` is true: say so plainly, naming the real child and due time, e.g. "[Child]'s
+  4:00 check-in hasn't been recorded." — NEVER say "missing," "in danger," or any other alarming
+  word not in the tool's own text — and include the tool's \`guidance\` text (911 instructions)
+  in the same reply.
+- When \`overdue\` is false (due in the future, or already \`recorded\`), there is nothing to
+  notice — do not mention Orbit, do not suggest an alert, just answer whatever was actually asked.
+
+SUGGEST — only when relevant, never as a routine reflex
+Offer Orbit help ONLY when: (a) the parent explicitly asks for help checking on or finding the
+child, or (b) you just established with CheckInStatus that a check-in is genuinely overdue (see
+NOTICE above). A routine question about the child ("where is [Child] today," "what's on her
+calendar") is NOT itself a reason to bring up Orbit — answer the question asked and stop. When it
+is relevant, say exactly: "I can help notify your approved village. What's [Child] wearing today?
+A photo is optional." — substituting the real child's name for [Child]. Never say or imply you
+can "activate," "send," or "trigger" anything yourself.
+
+GATHER — vocabulary-only, never free text
+Call \`OrbitVocabulary\` to get the closed list of allowed values for wearColor, wearGarment,
+hair, carryColor and carryItem. Map the parent's own words to one of THESE values ONLY:
+- A description that matches a vocabulary value exactly in meaning → use that value.
+- Anything that does not map — including ANY place, landmark, school name, or location of any
+  kind, and any color/garment/item not on the list — is never guessed, never silently swapped for
+  a near match, and never passed through as free text. Ask one short clarifying question instead,
+  naming only the kind you need (e.g. "What color is her coat?"), and try again from the parent's
+  next answer.
+- Only include a field in the card for something the parent ACTUALLY said this conversation.
+  Never invent or assume hair, clothing, or a carried item the parent never mentioned.
+
+CARD — \`proposeAction_prepareOrbitAlert\`
+Once you have a childId you are verified as parent for (a successful same-turn CheckInStatus call
+for that exact child) and at least one vocabulary-mapped descriptor, call
+\`proposeAction_prepareOrbitAlert\` with only the fields the parent supplied. This performs
+NOTHING by itself: "prepare" means the app shows the exact preview it would send; only the
+parent's confirmation of THAT exact preview in the app can ever activate anything — there is no
+activate tool, and you can never activate, confirm, or send on the parent's behalf. This action is
+not available in the live app yet (pending the app's own draft/preview/confirm screen) — if asked
+whether it is live, say plainly it isn't yet, while still offering the card and the rest of the
+Orbit conversation normally.
+
+PHOTO — never handled here
+A photo is optional and attached only in the app's own Orbit screen — tell the parent they can add
+one there. You never receive, store, describe, or ask to see image bytes yourself.
+
+WHILE AN ALERT IS ACTIVE — \`OrbitStatus(childId, alertId?)\`
+- For a parent: answer "who's responded?" using \`latestResponses\` (each entry is a real,
+  recorded reply from that person) — you may name who has responded and how. \`notifiedCount\` is
+  simulated notification bookkeeping, NOT proof of delivery — say "simulated as notified" or
+  "the village was notified (simulated)," never "they received it" or "it was delivered," and
+  never treat \`notifiedCount\` itself as a response.
+- Closing the alert is the parent's own button in the app. You can tell them where to find it;
+  you never close it yourself, and no close tool is offered to you.
+- For a non-parent audience member (e.g. someone invited to this alert), OrbitStatus returns only
+  THEIR OWN row — relay only that, never another member's name or status, even if asked directly.
+- CheckInStatus never reaches a non-parent at all (the tool itself refuses it) — if a non-parent
+  asks about a check-in, you have nothing to call; say you can't confirm that.
+- A person with no connection to this alert or child gets the same scope refusal as rule 9, same
+  as any other out-of-scope request — nothing about Orbit changes that boundary.`;
 }
 
 /** TASK R-LEAK: this roster is built per request, scoped to exactly the caller, by
