@@ -16,8 +16,8 @@ import './rosina.css'
 type ThreadMessage = ChatMessage & { actions: CatalogAction[] }
 type PanelProps={dataAdapter?:FrontendAdapter;service?:RosinaAdapter}
 export function RosinaPanel(props:PanelProps){
-  const {session}=useSession()
-  return <PersonaRosinaPanel key={session?.generation??'signed-out'} {...props}/>
+  const {session,getSessionGeneration}=useSession()
+  return <PersonaRosinaPanel key={session?.generation??`signed-out:${getSessionGeneration()}`} {...props}/>
 }
 function PersonaRosinaPanel(props:PanelProps){const orbit=useOrbit();return orbit?<ConnectedOrbitPanel {...props} orbit={orbit}/>:<RosinaConversation {...props}/> }
 function ConnectedOrbitPanel(props:PanelProps&{orbit:OrbitController}){useOrbitState(props.orbit);return <RosinaConversation {...props}/> }

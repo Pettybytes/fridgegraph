@@ -1,3 +1,4 @@
+import {ResetSeededReads} from '@/features/personas/ResetSeededReads'
 import { lazy, Suspense, useMemo } from 'react'
 import { Shell } from '@/app/Shell'
 import { DataProvider } from '@/lib/frontendData/provider'
@@ -47,15 +48,16 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
       const orbit=new OrbitController(createOrbitAdapter(client,runRead,()=>getCurrentSession()?.accessToken),{childId:session.scope.childId,personId:session.persona.personId,parent:session.persona.parent||session.persona.guardian===true,readOnly:session.marks?.demoGuide===true,generation:session.generation},getSessionGeneration,orbitNow)
       const adapter=createDeliveredAdapter(client,runRead),clear=adapter.clearStore
       adapter.clearStore=async()=>{orbit.dispose();calendar.clear();await clear?.()}
-      return {adapter,calendar,mockCalendar:null,orbit}
+      return {adapter,calendar,mockCalendar:null,orbit,client}
     }
-    return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId),orbit:null}
+    return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId),orbit:null,client:null}
   },[session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead,orbitNow])
   const adapter=connection?.adapter
   if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
   if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <SessionChip />
+    {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{

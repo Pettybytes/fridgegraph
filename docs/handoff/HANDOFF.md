@@ -3511,3 +3511,17 @@ Remaining failures are all in my probe documents, not the product:
 
 Next: introspect `OrbitResponseResult` and the `jobTimeline` element type, fix the three documents,
 re-run, then open the PR.
+
+## Task W-RESET — browser reset (in progress)
+
+Branch `feat/web-demo-reset`, base `origin/main` **c499e217a1455e8053646beb0d554d11b76e0f1c** (#50). Web and docs only. Evidence 51's completed API-origin proof supersedes the earlier unfinished Group 5 checkpoint above; its original failed receipt is preserved.
+
+**UI: implemented, offline tested · backend: #50 complete; moving route to demo server · integrated + tested: PENDING.** Not DONE. Bentley owns the serving move and restoration. The existing `/api/demo` proxy targets 4008; no reset-specific proxy is added. Before live calls, inspect the shared checkout's reservation and require explicit restoration plus an OPEN W-RESET window. At this checkpoint the window is reserved but CLOSED: Bentley's authenticated Kendra MyChildren preflight returned an empty array. No browser live requests or resets have been made by this workstream.
+
+Reset confirms its shared scope, then sends exactly one POST. Confirmed success is followed by caller-scoped, no-cache `myChildren` and `orbitVocabulary` reads before this tab discards its session, generation, private caches, Rosina conversation, Orbit/controller state, photo rendering handles and private route selections. Read verification neither renews nor replays the reset. The picker says “Demo reset. Choose a perspective.” The second tab is deliberately untouched: it keeps its valid token and sees seeded state on its next explicit refetch, with no forced logout, cache broadcast or re-mint.
+
+An explicit server failure retains “Couldn't reset just now; nothing was changed.” Bryan approved distinct uncertainty copy for a lost connection, timeout, malformed response or failed post-reset verification: “Couldn't confirm the reset. Choose a perspective again.” This path clears local state without retrying. Cooldown permits only a later manual click; guide reset controls are hidden and the handler also refuses them.
+
+Visual direction follows the existing family demo: Geist type, white #ffffff, ink #26344c, muted #62708a, violet #7559a1 and pale #f0ebf6. A focused shared-state confirmation has one primary action and a separate cancel; mobile stacks the actions with generous touch targets. Reviewed real component screenshots in `web/evidence/reset-demo/design/` are explicitly labeled offline sample fixtures, not live evidence.
+
+Offline checkpoint: **253/253 web tests**, web typecheck/build, root typecheck and `npm run check` (**0 findings**) passed. New cases cover confirm/cancel, one request, verification ordering, cleanup/generation/token disposal, explicit failure, cooldown, uncertainty, stale completion, guide protection, independent tabs, transport timeout/cancellation and no read retry. Existing privacy/image lifecycle tests remain green. Baseline before changes: 231/231. The initial new test red receipt is retained outside tracked evidence in the local check log; no historical result was rewritten. Live acceptance, token/media scan and live desktop/mobile screenshots remain PENDING. No PR yet; no merge.

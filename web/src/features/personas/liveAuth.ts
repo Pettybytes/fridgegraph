@@ -1,3 +1,4 @@
+import {createDemoReset} from './demoReset'
 import {personas} from './auth'
 import type {AuthAdapter,AuthSession,PersonaId,Persona} from './auth'
 export const BUSY='Busy, try again in a moment'
@@ -42,6 +43,6 @@ export function createLiveAuthAdapter(request:typeof fetch=fetch):AuthAdapter {
     return missing
    }catch{return []}
   },
-  async resetDemo(){throw new PerspectiveError()},async createDemoFamily(){throw new PerspectiveError()},
+  resetDemo:createDemoReset(request),async createDemoFamily(){throw new PerspectiveError()},
  }
 }
