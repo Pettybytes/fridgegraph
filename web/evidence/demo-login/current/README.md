@@ -7,9 +7,51 @@ Existing draft #32 is being reconciled to the replacement brief. Previous eviden
 folder is historical; it does not prove this replacement run complete.
 
 UI: live-capable for delivered fields · backend: sessions/Group 3 reads delivered, field gaps remain ·
-integrated + tested: **partial, NOT DONE**.
+integrated + tested: **delivered-read acceptance PASS; full W4 still NOT DONE**.
 
-## Actual live observations
+## Restored run — current results
+
+The actual picker path passed for all seven READY personas after Bentley restored the login
+process on port 4008 from `/Users/user/Desktop/bentley/fridgegraph`. The earlier 503 came from
+missing runtime configuration in the old serving process, before an upstream mint call. Bentley
+reproduced it and corrected process startup; his sanitized confirmation is in the shared HANDOFF.
+The single-picker diagnosis is retained in `picker-diagnosis.json`; no ops login was substituted.
+
+`results.json`: **PASS**, no assertion errors; two simultaneous browser contexts **PASS**.
+`verify-demo-login-results.mjs`: **PASS** for every recorded private operation and its grant-specific
+outcome; a forged successful private read is rejected as a negative control. Directory identity
+reads follow evidence 37. Private household, candidate, schedule, care and goal reads retain their
+own refusals; authorized empty jobs/availability remain empty successes. Hidden, nonexistent and
+malformed calendar IDs are indistinguishable within each operation.
+
+| Persona | Picker | Live reads | Rosina |
+| --- | --- | --- | --- |
+| Kendra | READY | PASS — stored job, five timeline facts, arrangement Nov 25–27; WEEKLY Nov 28; private-record refusals | Live answer grounded in actual candidates; availability unknown |
+| Andre | READY | PASS — same family, job, timeline and calendar; private-record refusals | Live answer grounded in actual candidates; availability unknown |
+| Loretta | READY | PASS — schedule/goals allowed; care, household and pickup-candidate reads correctly refused; no stored jobs | Correct refusal: “I can't confirm that yet.” |
+| Priya | READY | PASS — schedule/care allowed; goals, household and pickup-candidate reads correctly refused; no stored jobs | Correct refusal: “I can't confirm that yet.” |
+| Dana | READY | PASS — bounded Jax reads; Nora private records refused, including after Kendra | Live answer: Evelyn authorized for Jax, availability unknown |
+| Jax's family | READY | PASS — Jax records; Nora private records refused | Live answer: Evelyn authorized for Jax, availability unknown |
+| Demo guide | READY | PASS — sandbox calendar/job; non-sandbox calendar refused; confirmed forced write refused read-only | Live answer grounded in sandbox candidates |
+| Rosa Castellano | Coming soon, disabled | Pending Cast v2 seed; no identity substituted | Pending |
+
+All seven live replies from the acceptance run are preserved verbatim in `results.json`.
+No unsupported availability claim or foreign private identity was observed in these replies.
+The supplemental desktop/mobile refresh is recorded separately in `rosina-captures.json`;
+mobile captures explicitly open the Rosina sheet. Each authenticated run uses the actual picker,
+no traces/HAR/video/storage state/header logging, real auth time and fixed Detroit data dates.
+Each receipt's in-process token-leak scan **PASS**: zero current-token/prefix hits and zero new
+generic matches. Generic baseline files are recorded as filenames plus pass/fail only; their
+previously reviewed redacted/pattern/integrity/binary matches remain unchanged.
+
+The normal app proxy still targets 4010; these live proofs explicitly target delivered schema
+on **4012**. No silent endpoint fallback. Normal-stack schema reconciliation remains pending.
+Family Calendar's missing school-closure day-kind/category/confirmer/links fields, Cast v2 personas
+and Guide breadth, Village v2 live reads, Orbit screens and Task H remain queued below/in HANDOFF.
+This passes the delivered-read slice; it does not prove undelivered functionality. Draft #32 stays
+draft. No merge or mutation approval was performed.
+
+## Earlier interrupted runs (historical)
 
 The first run reached real Kendra and Andre sessions, the stored sample pickup timeline, a grounded
 Kendra Rosina answer, Andre's interrupted-tool response, and both live Thanksgiving calendars through router **4012**. Desktop/mobile
@@ -29,7 +71,7 @@ Rosa stays disabled as Coming soon after a terminal unavailable response. Per-pe
 was not captured in that retry receipt; the harness was subsequently corrected to retain only
 whitelisted status metadata. Do not assign Kendra's observed code to an unobserved persona response.
 
-| Persona | Latest picker attempt | Live reads in replacement run | Rosina in replacement run |
+| Persona | Earlier picker attempt | Earlier interrupted reads | Earlier Rosina result |
 | --- | --- | --- | --- |
 | Kendra | failed; earlier READY | Calendar/timeline observed; full matrix pending | Earlier live answer; repeat pending |
 | Andre | failed; earlier READY | Same family/job/calendar observed; full matrix pending | Tool-error response; pending rerun |
@@ -133,3 +175,12 @@ The family-protection explanation was not established by the interrupted tool re
 the shared stack is restored before drawing a product or authorization conclusion. Kendra's saved
 response did name the actual four candidates and preserve UNKNOWN availability. No frontend text
 rewrite concealed either response.
+
+## Supplemental perspective switch
+
+`isolation.json`: **PASS — 120 observed frames, zero private-content leaks**, actual Kendra → Dana
+picker path; Calendar and Rosina cleared, Mission Control empty for Dana, bounded sample Village.
+Independent token scan PASS. The first harness attempt timed out waiting for Calendar after Dana's
+landing; it omitted the explicit Calendar navigation. The navigation was corrected, privacy
+assertions unchanged, and the actual browser run passed. Guide read-only captures show the product
+UI; the forced-write refusal remains proven separately by the full acceptance run's explicit click.

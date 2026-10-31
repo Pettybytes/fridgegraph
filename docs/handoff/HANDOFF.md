@@ -2091,3 +2091,83 @@ Evidence review correction: Andre’s saved replacement response was an interrup
 not a grounded live answer or proven authorization refusal. Its unsupported family-protection
 explanation is preserved verbatim in current/README.md. Rerun after restoration before classifying
 a product issue. Kendra’s grounded candidate answer is observed; no reply was rewritten by the UI.
+
+### W4b — authorized publication and picker diagnosis (2026-10-30)
+
+Bryan explicitly authorized publishing reviewed head **729e82475ddb32cb74613fe052e57f40f45c31b1**
+against the inspected published head **65d03cf980c39eebdf46e09fe56b09659e8119c8**. The remote
+still matched that exact head; the explicit `--force-with-lease` update succeeded. Draft #32
+remains draft; no merge. This supersedes the earlier pending-publication wording above.
+
+The shared Group 4 reservation is now explicitly **restored**, with consumer-read restoration
+recorded by Bentley. Before rerunning all personas, the actual picker made one Kendra request:
+**HTTP 200 / READY**, served by `/Users/user/Desktop/bentley/fridgegraph`, port **4008**.
+The diagnostic's in-process token-leak scan passed (filenames/pass-fail receipt only in
+`web/evidence/demo-login/current/picker-diagnosis.json`). No alternate login/token mint used.
+Earlier failing port 4008 served the `fridgegraph-level-b` checkout. Root cause confirmation was
+requested from Bentley through the existing terminal; full persona rerun waits for that answer.
+
+Bentley's owning-layer confirmation (shared HANDOFF: “W4b coordination — 503
+DEMO_LOGIN_UNAVAILABLE”): the old serving process had not loaded its runtime environment. The
+missing-value gate is the only producer of that code and runs before the upstream mint call.
+Bentley reproduced the failure and fixed process startup; main checkout port 4008 now returns
+READY. The old process no longer exists, so its exact former environment was not inspected;
+this cause is supported by the unique code path and Bentley's reproduction, not a retained
+process dump. No credential values were requested or output. Full browser acceptance restarted
+only after this diagnosis and the recorded Group 4 restoration. Rosina port 4200 is task-started
+from the restored checkout, explicitly using the shared MCP on 5051; no shared stack restart.
+
+### W4b — restored acceptance run (supersedes pending-login table above)
+
+Actual public picker path, no ops mint or identity substitution: **seven READY personas passed**;
+Rosa is terminal Coming soon and disabled. Full receipt: `web/evidence/demo-login/current/results.json`.
+Two simultaneous contexts **PASS**: Dana/Andre switches in context B did not change Kendra in A.
+Per-operation receipt audit **PASS**, including a negative control that rejects a forged successful
+private-care read. Public directory identities follow evidence 37; private records remain gated.
+
+| Persona | Picker | Live reads | Rosina |
+| --- | --- | --- | --- |
+| Kendra | READY | PASS: persisted job, five timeline facts; Nov 25–27 ARRANGEMENT, Nov 28 WEEKLY; private refusals | Live candidate answer, availability unknown |
+| Andre | READY | PASS: same family/job/calendar; private refusals | Live candidate answer, availability unknown |
+| Loretta | READY | PASS: schedule/goals; care/household/candidates correct refusals; authorized empty jobs | Correct refusal: “I can't confirm that yet.” |
+| Priya | READY | PASS: schedule/care; goals/household/candidates correct refusals; authorized empty jobs | Correct refusal: “I can't confirm that yet.” |
+| Dana | READY | PASS: bounded Jax world; Nora private reads refused after Kendra | Live Jax candidate answer, availability unknown |
+| Jax's family | READY | PASS: Jax world; Nora private reads refused | Live Jax candidate answer, availability unknown |
+| Demo guide | READY | PASS: sandbox job/calendar; non-sandbox calendar refused; explicitly confirmed forced write refused | Live sandbox candidate answer |
+| Rosa Castellano | Coming soon | Pending Cast v2 identity/seed | Pending |
+
+The cancelled toggle is proven against real records; adult reads contain Busy/Free state only,
+never reasons. Hidden/nonexistent/malformed IDs have identical outcomes within each documented
+operation. Empty reads, authorization refusals and upstream failures retain distinct wording.
+Kendra/Andre/Guide timeline is labeled **Sample activity**, not verified dispatch or Recorded run.
+Screenshots refreshed desktop/mobile for picker, seven landings/calendars/Rosina replies, timeline,
+Thanksgiving arrangement, cancelled events and Guide read-only. Mobile Rosina screenshots now
+explicitly open the sheet (the first capture pass only resized a docked desktop panel).
+All seven acceptance replies and the supplemental capture replies are preserved verbatim in
+separate receipts; no unsupported availability or private cross-family disclosure observed.
+
+Token-leak scan **PASS** for diagnosis, full acceptance and capture refresh: no current-token or
+prefix matches, no new generic matches. Receipts list baseline filenames with pass/fail only.
+No traces/HAR/video/storage state/request-header logging. Tokens stayed in browser/process memory.
+Live proof explicitly uses router **4012**; the normal 4010 proxy still needs the delivered schema.
+
+UI: **live-capable for delivered fields** · backend: **delivered reads available; field gaps remain** ·
+integrated + tested: **delivered-read acceptance PASS; full W4 NOT DONE**. Pending: school-closure
+day kind and event category/confirmer/links/holiday metadata read contracts; range overlap semantics;
+Cast v2 four personas and Guide breadth; Village v2 live reads; Orbit screens after Task O; Task H
+public judge access and Try FridgeGraph button; Group 5 reset/create-family. Read-contract gaps were
+sent to Bentley; no field was invented. Draft #32 remains draft. GitHub currently reports conflicts
+with concurrently newer main; no additional rebase/force push has been performed.
+
+Supplemental live perspective switch: **PASS, 120 frames, zero private-content leaks** for actual
+picker Kendra → Dana, with Calendar/Rosina/MC cleanup and bounded sample Village checked.
+`current/isolation.json` retains its independent clean token scan. The first supplemental harness
+attempt timed out because it waited for Calendar immediately after Dana's initial landing; the
+navigation step was corrected, with privacy assertions unchanged, then rerun successfully.
+Guide read-only screenshots were refreshed from the product UI without the test-only probe button.
+
+Final local verification after the restored run: **206/206 web tests PASS**, web typecheck/build
+PASS (existing chunk-size advisory only), root typecheck PASS; reservation-guard tests **3/3 PASS**;
+seven-persona receipt audit and negative control PASS; shared catalog **7 identical ids PASS**;
+staged secret scan **484 files / 0 findings**. All new browser scripts pass syntax checks. Changes
+remain web/docs only. Publication after 729e824 uses a normal fast-forward push, not another force.
