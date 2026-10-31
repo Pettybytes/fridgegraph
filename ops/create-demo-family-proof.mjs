@@ -12,7 +12,7 @@
  *
  * Run: node --import tsx ops/create-demo-family-proof.mjs
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import pg from 'pg';
 
 const env = Object.fromEntries(
@@ -155,7 +155,10 @@ check('picker entry no longer resolves', r.body?.status === 'UNAVAILABLE' && r.b
 const failed = results.filter((x) => !x.ok).length;
 console.log(`\nRESULT: ${results.length - failed}/${results.length} PASS`);
 
-writeFileSync('docs/evidence/53-create-demo-family.md', [
+// Generated output goes to a run directory, never into the append-only evidence tree.
+const OUT_DIR = process.env.PROOF_OUT_DIR ?? 'docs/evidence';
+mkdirSync(OUT_DIR, { recursive: true });
+writeFileSync(`${OUT_DIR}/53-create-demo-family.md`, [
   '# 53 — Group 5 Piece 2: createDemoFamily, and reset removes every trace',
   '',
   `- endpoints: \`${DEMO}\` (demo-login app, spare port) + \`${SCHOOL}\` (school subgraph, spare port)`,
