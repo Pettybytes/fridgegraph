@@ -30,7 +30,7 @@ const SANDBOX_TABLES = [
   // Only tables that actually carry a `sandbox` column in `public`. `approvals` is audit history and
   // is never deleted here; `events` has no sandbox column and is restored by fixture upsert instead.
   'coordination_jobs', 'attempts', 'holidays', 'routines', 'adult_availability',
-  'holiday_arrangements', 'expected_checkins', 'care_facts', 'orbit_alerts',
+  'holiday_arrangements', 'expected_checkins', 'care_facts',
 ] as const;
 
 /** Tables whose fixture rows are identified by their own primary key, not by a sandbox flag. */
@@ -68,7 +68,7 @@ function fixtures(): Record<string, Row[]> {
 
 export type ResetReport = { restored: Record<string, number>; cleared: Record<string, number>; droppedSessionCache: true };
 
-export async function resetDemo(): Promise<ResetReport> {
+export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   const data = fixtures();
   const c = client();
   await c.connect();
@@ -125,6 +125,12 @@ export async function resetDemo(): Promise<ResetReport> {
       }
       restored[table] = n;
     }
+
+    // Disposable Orbit records go through the privileged, database-authorised path (0042).
+    // Deleting them here directly would hit the append-only guard, which is the point of the split.
+    const orbit = await c.query('select reset_demo_orbit($1) as r', [actor]);
+    const removed = orbit.rows[0]?.r ?? {};
+    for (const [k, v] of Object.entries(removed)) if (Number(v) > 0) cleared[k] = Number(v);
 
     await c.query('commit');
   } catch (error) {
