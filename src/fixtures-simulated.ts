@@ -283,3 +283,33 @@ export function createSimulatedCheckIn(): SimulatedCheckIn {
     ],
   };
 }
+
+// ---------------------------------------------------------------- care facts (Group 4)
+
+/**
+ * Priya's three questions, each answered by a fact WITH a source and a verifier: PB-safe snack,
+ * TV limit, bedtime. A fact without a source is not a fact, so nothing here is bare.
+ */
+export type SimulatedCareFacts = {
+  label: typeof SIMULATED_LABEL;
+  care_facts: Record<string, unknown>[];
+};
+
+export function createSimulatedCareFacts(): SimulatedCareFacts {
+  const source = { source_kind: 'PARENT_CONVERSATION', source_ref: 'Kendra, care conversation 2026-10-12' };
+  const verified = { verified_by: 'p_mom', verified_at: '2026-10-12T18:00:00Z', confidence: 'CONFIRMED' };
+  return {
+    label: SIMULATED_LABEL,
+    care_facts: [
+      { id: 'fx_cf_nora_snack', child_id: 'p_nora', key: 'snack',
+        value: 'Peanut-free snack only — no nuts, no shared utensils', ...source, ...verified,
+        sandbox: true, fixture: true },
+      { id: 'fx_cf_nora_tv', child_id: 'p_nora', key: 'tv',
+        value: '30 minutes after homework; screens off by 8pm', ...source, ...verified,
+        sandbox: true, fixture: true },
+      { id: 'fx_cf_nora_bedtime', child_id: 'p_nora', key: 'bedtime',
+        value: 'Lights out 8:30pm on school nights', ...source, ...verified,
+        sandbox: true, fixture: true },
+    ],
+  };
+}

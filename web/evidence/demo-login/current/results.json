@@ -1,7 +1,27 @@
 {
   "proof": {
-    "passed": true,
-    "errors": [],
+    "calendarRosina": [
+      {
+        "persona": "kendra",
+        "question": "Who is scheduled with Nora on November 26, 2026? Is this the weekly schedule or an approved arrangement?",
+        "reply": "Busy, try again in a moment",
+        "expected": "Live effectiveScheduleFor: ARRANGEMENT / p_dad on 2026-11-26"
+      },
+      {
+        "persona": "dana",
+        "question": "Show me Nora's calendar on November 26, 2026.",
+        "reply": "Busy, try again in a moment",
+        "expected": "Scoped refusal with no child or adult identities"
+      }
+    ],
+    "passed": false,
+    "errors": [
+      "Kendra live Rosina answer unavailable",
+      "Kendra Rosina schedule differs from the live Thanksgiving calendar",
+      "loretta: unsupported care answer",
+      "priya: unsupported care answer",
+      "Dana Rosina private-calendar boundary differs"
+    ],
     "directoryReads": [
       "kendra",
       "andre",
@@ -551,8 +571,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora.\n\nPer the pickup records, all four are authorized, but availability is unknown — authorized means allowed, not confirmed available today.",
-          "result": "live answer"
+          "reply": "Your perspective is ready again. Please send your question again.",
+          "result": "pending"
         }
       },
       {
@@ -1052,8 +1072,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nAvailability for all four is unknown, per the pickup records — authorized is not the same as available.",
-          "result": "live answer"
+          "reply": "Your perspective is ready again. Please send your question again.",
+          "result": "pending"
         }
       },
       {
@@ -1346,7 +1366,7 @@
         },
         "rosina": {
           "question": "Can Nora have a peanut-butter snack?",
-          "reply": "I can't confirm that yet.",
+          "reply": "Your perspective is ready again. Please send your question again.",
           "result": "correct refusal"
         }
       },
@@ -1640,7 +1660,7 @@
         },
         "rosina": {
           "question": "Can Nora have a peanut-butter snack?",
-          "reply": "I can't confirm that yet.",
+          "reply": "Your perspective is ready again. Please send your question again.",
           "result": "correct refusal"
         }
       },
@@ -1949,8 +1969,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nPer the pickup records, she has permission, but her availability is unknown — so I can't confirm if she's free today.",
-          "result": "live answer"
+          "reply": "Your perspective is ready again. Please send your question again.",
+          "result": "pending"
         }
       },
       {
@@ -2258,8 +2278,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Evelyn Carter is authorized for Jax, availability unknown.\n\nThe pickup records list her as grandmother with authorization valid 2026-10-30.",
-          "result": "live answer"
+          "reply": "Your perspective is ready again. Please send your question again.",
+          "result": "pending"
         }
       },
       {
@@ -2717,8 +2737,8 @@
         },
         "rosina": {
           "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-          "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nPer the pickup records, all four are authorized for today with availability unknown — that means they have permission, not that they've confirmed they can do it.",
-          "result": "live answer"
+          "reply": "Your perspective is ready again. Please send your question again.",
+          "result": "pending"
         }
       }
     ],

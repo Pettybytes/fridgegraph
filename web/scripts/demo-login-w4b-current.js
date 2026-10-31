@@ -1,6 +1,6 @@
 async page=>{
  const origin='http://127.0.0.1:'+new URL(page.url()).searchParams.get('harnessPort'),base='http://127.0.0.1:5185/',root='web/evidence/demo-login/current/'
- const rows=[],sessions=new Map(),loginOutcomes=new Map(),errors=[],directoryReads=[]
+ const calendarRosina=[],rows=[],sessions=new Map(),loginOutcomes=new Map(),errors=[],directoryReads=[]
  const demand=(ok,label)=>{if(!ok)errors.push(label)}
  const progress=async stage=>page.evaluate(async({origin,stage})=>{await fetch(origin+'/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stage})})},{origin,stage})
  function watch(p){p.on('response',async response=>{if(new URL(response.url()).pathname!=='/api/demo/login')return;try{const body=await response.json(),id=body.personaId;const reasons=['MINT_LINK_FAILED','MINT_VERIFY_FAILED','MINT_IDENTITY_MISMATCH','MINT_MARKER_MISSING','MINT_REFRESH_FAILED','DEMO_LOGIN_UNAVAILABLE','UNKNOWN_PERSONA','NO_SEEDED_IDENTITY'];loginOutcomes.set(id,{http:response.status(),status:body.status==='READY'?'READY':'UNAVAILABLE',reason:reasons.includes(body.reason)?body.reason:response.status()===429?'RATE_LIMITED':'unknown'});if(body.status==='READY'){sessions.set(p,{persona:body.persona,token:body.session.access_token});await p.evaluate(async({origin,value})=>{await fetch(origin+'/hold',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})})},{origin,value:body.session.access_token})}}catch{}})}watch(page)
@@ -67,13 +67,26 @@ async page=>{
   const launch=page.getByRole('button',{name:'Ask Rosina',exact:true});if(await launch.isVisible())await launch.click()
   const question=['loretta','priya'].includes(id)?'Can Nora have a peanut-butter snack?':`Who is authorized to pick up ${held.persona.childId==='p_jax'?'Jax':'Nora'} today? Distinguish authorization from availability. Do not include contact details.`
   await page.getByLabel('Message Rosina').fill(question);await page.getByRole('button',{name:'Send',exact:true}).click();const replyNode=page.locator('.rosina-message:not(.from-person)>p').last();await replyNode.waitFor({timeout:45000});const reply=await replyNode.innerText()
-  const candidates=legacy.pickup.data?.pickupCandidates??[];const words=new Set([...new Intl.Segmenter('en',{granularity:'word'}).segment(reply)].map(x=>x.segment.toLowerCase()));const grounded=candidates.length===0||candidates.every(c=>words.has(c.person.displayName.split(' ')[0].toLowerCase()));const live=!/couldn't check|give me a moment|sign in again|empty with an error/i.test(reply)&&(['loretta','priya'].includes(id)||grounded);if(id==='kendra')demand(live,'Kendra live Rosina answer unavailable')
+  const candidates=legacy.pickup.data?.pickupCandidates??[];const words=new Set([...new Intl.Segmenter('en',{granularity:'word'}).segment(reply)].map(x=>x.segment.toLowerCase()));const grounded=candidates.length===0||candidates.every(c=>words.has(c.person.displayName.split(' ')[0].toLowerCase()));const live=!/couldn't check|give me a moment|sign in again|empty with an error|send your question again|busy, try again|session ended/i.test(reply)&&(['loretta','priya'].includes(id)||grounded);if(id==='kendra')demand(live,'Kendra live Rosina answer unavailable')
   if(['loretta','priya'].includes(id))demand(/can't confirm|cannot confirm|not connected/i.test(reply),id+': unsupported care answer')
   const forbidden=held.persona.childId==='p_jax'?['Nora','Loretta','Tasha']:guide?[]:['Jax','Evelyn'];demand(!forbidden.some(n=>new RegExp('\\b'+n+'\\b','i').test(reply)),id+': Rosina introduced a foreign identity')
   await pair(page,id+'-rosina')
   rows.push({persona:id,picker:'READY',liveReads:{legacy,calendar},rosina:{question,reply,result:live?(['loretta','priya'].includes(id)?'correct refusal':'live answer'):'pending'}})
+  // #37 adds these live tools; check the merged service against the same recorded schedule.
+  async function followup(message){const reopen=page.getByRole('button',{name:'Ask Rosina',exact:true});if(await reopen.isVisible())await reopen.click();const count=await page.locator('.rosina-message:not(.from-person)>p').count();await page.getByLabel('Message Rosina').fill(message);await page.getByRole('button',{name:'Send',exact:true}).click();const response=page.locator('.rosina-message:not(.from-person)>p').nth(count);await response.waitFor({timeout:45000});return await response.innerText()}
+  if(id==='kendra'){
+   const message='Who is scheduled with Nora on November 26, 2026? Is this the weekly schedule or an approved arrangement?',answer=await followup(message)
+   demand(/Andre/.test(answer)&&/arrangement/i.test(answer),'Kendra Rosina schedule differs from the live Thanksgiving calendar')
+   calendarRosina.push({persona:id,question:message,reply:answer,expected:'Live effectiveScheduleFor: ARRANGEMENT / p_dad on 2026-11-26'})
+  }
+  if(id==='dana'){
+   const message="Show me Nora's calendar on November 26, 2026.",answer=await followup(message)
+   demand(answer==="I can only help with children shared with you.",'Dana Rosina private-calendar boundary differs')
+   calendarRosina.push({persona:id,question:message,reply:answer,expected:'Scoped refusal with no child or adult identities'})
+  }
+
  }
- const proof={passed:errors.length===0&&rows.every(row=>row.picker==='READY'),errors,directoryReads,directoryPolicy:'Bryan confirmed evidence 37: directory identities are readable; private records remain permission-gated',graphEndpoint:'4012, explicit local smoke override; default app proxy remains 4010',contexts:contextResult,rosa:'Coming soon, disabled; no substitute',rows,recording:'No trace/HAR/video/storage-state/header logging'}
+ const proof={calendarRosina,passed:errors.length===0&&rows.every(row=>row.picker==='READY'),errors,directoryReads,directoryPolicy:'Bryan confirmed evidence 37: directory identities are readable; private records remain permission-gated',graphEndpoint:'4012, explicit local smoke override; default app proxy remains 4010',contexts:contextResult,rosa:'Coming soon, disabled; no substitute',rows,recording:'No trace/HAR/video/storage-state/header logging'}
  await page.evaluate(async({origin,proof})=>{const response=await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(proof)});if(!response.ok)throw Error('Unsafe proof rejected')},{origin,proof})
  return {passed:proof.passed,personas:rows.length,errors}
 }

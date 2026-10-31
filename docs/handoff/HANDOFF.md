@@ -2,7 +2,8 @@
 
 **Current W4b:** see “W4b replacement brief — live calendar and persona sessions” below. Base #31
 `0d80f003c722e009897b1790c461952cd0de6f66`; directory access follows evidence 37 (Bryan confirmed).
-Remaining live checks are pending the demo-login outage, per Bryan. Earlier W4b failure packets are historical.
+Restored W4b delivered-read acceptance passed. The current-main merge and its verification are
+recorded in “W4b — current-main merge” below; earlier outage/failure packets are historical.
 
 _Last updated: Oct 30, 2026. Merged origin/main `cccbbd2` (E0 #23) into this branch; read §9 before trusting any state._
 
@@ -356,6 +357,65 @@ be probed. `ops/e3-proof.mjs` **21/21**: parent 4 attempts (`p_bryan, p_gma, p_m
 router restarted — a stale supergraph had made the new fields fail validation. Guardian authority is
 inherited from 0024 but **no guardian persona is seeded, so it is not exercised** and not claimed.
 
+## 🤝 SHARED STACK — RESERVE THE WINDOW (standing rule, 2026-10-30)
+
+The alt stack (subgraphs 4101–4107, router 4012, MCP 5051) and the database are SHARED with the other
+active agent. Before changing either:
+
+1. Note the reservation here (what, which checkout, ports, expected duration) and check the other
+   agent is not mid live run — active exec sessions / subagents / recent task list.
+2. If a live run is underway: wait, or use a fully isolated environment (separate ports + separate
+   database). Never improvise a checkout switch under someone else's run.
+3. Afterward restore: expected checkout, ports, **baseline reference data** (seed) and **additive demo
+   fixtures** (simulated coordination job, calendar fixtures, Orbit policy + check-in fixture), then
+   verify the affected consumer reads — Kendra's `jobTimeline`, Nora's Thanksgiving
+   `effectiveScheduleFor`, `orbitVocabulary`, `checkInStatus` — before declaring restoration complete.
+
+## ⚠️ Stack/database operations — ANNOUNCE BEFORE RUNNING (2026-10-30)
+
+Codex's live tests share the alt stack (subgraphs 4101–4107, router 4012) **and the same database**.
+During the #33 pickup diagnosis I killed those subgraphs, pointed them at a different checkout
+(`/tmp/fg-main`) and ran `db:reset` + `seed` without announcing it — Codex's runs broke. That was my
+error, not theirs.
+
+**Rule from now on:** before ANY `db:reset`, `db:seed`, alt-stack restart or checkout switch, append a
+line to this section saying what will run, against which checkout and ports, and roughly for how long.
+Then run it, then say it is restored. Never leave the stack pointed at a different checkout.
+
+| when | what | checkout | ports | restored |
+|---|---|---|---|---|
+| 2026-10-30 ~21:2x | killed subgraphs, ran `db:reset` + `seed`, tests | `/tmp/fg-main` (origin/main) | 4101–4107 / 4012 | yes — back on `feat/o-orbit` |
+| 2026-10-30 21:35 | alt-stack restart (NO reset, NO seed) + supergraph recompose + MCP restart, for the vocabulary API | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored** |
+| 2026-10-30 21:40 | `db:reset` + `seed` + `seed:simulated` to restore the baseline vocabulary (0034's insert is wiped by reset) | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored, 55 values** |
+| 2026-10-30 21:40 | **Group 4 window** — 0039 (CareFact) applied; stack + MCP restarted; `seed:simulated` re-applied. Codex: no live run at reservation. | `feat/group4-care-facts` | 4101–4107 / 4012 / 5051 | **restored** |
+
+## Group 4 — CareFact (2026-10-30)
+
+**0039** adds `care_facts(child_id, key, value, source_kind, source_ref, verified_by, verified_at,
+confidence, sandbox, fixture)` with a shape constraint: a CONFIRMED fact must name who verified it and
+when; PROVISIONAL carries no such claim. Visibility: parent/guardian, a caregiver whose grant holds
+`careplan.read` (date-bounded), or the Demo guide on sandbox rows. RLS on, one SELECT policy.
+
+Seeded (additive fixture, `fixture=true`): snack (peanut-free only), TV (30 min after homework, screens
+off by 8pm), bedtime (8:30pm school nights) — each with `source_kind=PARENT_CONVERSATION`,
+`source_ref='Kendra, care conversation 2026-10-12'`, verified by `p_mom`.
+
+API: GraphQL `careFacts(childId)` → `{id,key,value,source{kind,ref},verifiedBy{id},verifiedAt,confidence}`;
+MCP `CareFacts` (read-only). Both listed under **Rosina tools available**.
+
+`ops/care-facts-proof.mjs` **13/13**: three facts with sources and a named verifier; co-parent 3;
+caregiver with `careplan.read` 3; Dana 0; nonexistent child the same `[]`; no phone digits in a source
+ref; MCP parity; rows marked `fixture=true`.
+
+**Restoration verified** after the window: Kendra `jobTimeline` 5 entries · Nora
+`effectiveScheduleFor(2026-11-26)` → `p_dad` / `ARRANGEMENT` / `ha_nora_thanksgiving` ·
+`orbitVocabulary` 55 · `checkInStatus` "check-in not recorded".
+
+**Remaining Group 4 pieces (not started):** Cast v2 seed across six networks with idempotent demo auth
+users so rosa/felicia/simone/dwayne become READY; guardian timeline access via Rosa; per-household
+approval policies (`BOTH_PARENTS`, guardians-approve-each-other, single approver, `ANY_PARENT`, Marcus
+never an approver) with proofs.
+
 ### Rosina tools available
 
 No new MCP tool was added, so Rosina's toolset is unchanged and this task adds no tool grant. The two
@@ -365,6 +425,11 @@ new app reads are GraphQL operations on the coordination subgraph:
 |---|---|---|---|---|
 | `jobTimeline` | `jobId: ID!` | `[TimelineEntry!]!` — `at`, `kind` (JOB_CREATED / ATTEMPT_OPENED / ATTEMPT_CLOSED / COST_CALCULATED / CONFIRMATION), `attemptId`, `candidate { id }`, `detail` | parents + guardians of the job's child (RLS `is_parent_of`); Demo guide on sandbox jobs; **nobody else** | e3-proof 2,3,4,5,6 — parent 5 entries, co-parent 5, unrelated adult `[]`, guide 5 read-only, missing id `[]` |
 | `Attempt.candidate` | via `attempts(jobId)`; no new argument | `Person` (nullable) + `destinationMode`, `closedAt`, `closedReason` | same as the Attempt row's own visibility | e3-proof 1 — 4 attempts, 4 distinct recorded candidates, all `TEST_RESPONDER` |
+| `orbitStatus` | `childId: ID!`, `alertId: ID` | `OrbitStatus` — status, audience/notified counts, response counts, latest responses, guidance | parent/guardian full view; an audience member only their own row; nobody else an empty status (no oracle) | `ops/orbit-leakage-proof.mjs` 19/19 — parent 4, audience member 1, Dana `alertId: null` |
+| `checkInStatus` | `childId: ID!` | `CheckInStatus` — `recorded`, `label`, `dueAt`, `text` ("check-in not recorded"), `guidance` | parent/guardian only; a stranger and a nonexistent child receive the same refusal | `orbit-leakage-proof` 3 — parent text, Dana UNAUTHORIZED |
+| `orbitVocabulary` | `version: Int` (optional) | `[OrbitVocabularyEntry!]!` — `kind`, `value`, `version` | authenticated read; it is public vocabulary, no oracle concern | `orbit-vocabulary-proof` — 55 values, **five** kinds, version filter |
+| MCP `OrbitStatus` / `CheckInStatus` | `childId`, `alertId?` / `childId` | same projections as the GraphQL reads | read-only; no photo, no activate/close; audience row set is RLS-limited | `orbit-leakage-proof` 3 |
+| MCP `OrbitVocabulary` | `version: Int` (optional) | `[{kind, value, version}]` | read-only | `orbit-vocabulary-proof` |
 
 Both are refused to the guide for writes (`DEMO_GUIDE_READ_ONLY`) and to a demo session for outreach
 (`DEMO_OUTREACH_REFUSED`, E2b). Nothing here dials, sends, approves or spends.
@@ -1560,9 +1625,10 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 |---|---|
 | `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), wired into the live service |
 | `Attempts` / `JobTimeline` (coordination subgraph) | **AVAILABLE** — shipped by `#29` (evidence 40), wired into the allowlist by TASK R-TOOLS-1 (evidence 35 §11): Mission Control's job status, "what happened with this pickup," and the full chronological story are now answerable live |
+| `ChildEvents` / `EffectiveSchedule` / `AdultAvailability` (schedule subgraph, Group 3 `#31`) | **AVAILABLE** — wired into the allowlist by TASK R-TOOLS-2 (evidence 35 §12): a child's calendar, who has the child on a date (WEEKLY vs an APPROVED holiday ARRANGEMENT — PROPOSED never changes it), and recorded Busy/Free (never a reason, never "can pick up") are now answerable live. Child/person-id arguments are gated by a new pre-call `permittedIds` check in `src/rosina/model.ts` — never trust a browser route, history, or a model argument; an id must come from the caller's own roster/self or a tool result already returned this turn. |
 | CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
 | Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person`; also needed for a proper `MyChildren`/`myVillages` caller-scoped read (R-LEAK's fallback, evidence 35 §10, uses `src/demo/personas.ts` in the meantime) |
-| `ChildEvents` / `AdultAvailability` / `EffectiveSchedule` (Group 3, `#31`) | shipped and present in `tools/list`, but **deliberately NOT added to the allowlist yet** — out of TASK R-TOOLS-1's scope; needs its own task with its own persona-boundary tests, same pattern as this one |
+| `CheckInStatus` / `OrbitStatus` / `OrbitVocabulary` | present in the live `tools/list` (from a concurrent, further-ahead worktree not yet on `main`) but **deliberately NOT added to the allowlist** — Orbit stays explicitly blocked per contract (coordination-v2 Area F: Rosina may at most "suggest," never call, and no suggest action exists yet either); needs its own task when/if it lands on `main`, with its own persona-boundary tests |
 
 **Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
 new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
@@ -2171,3 +2237,105 @@ PASS (existing chunk-size advisory only), root typecheck PASS; reservation-guard
 seven-persona receipt audit and negative control PASS; shared catalog **7 identical ids PASS**;
 staged secret scan **484 files / 0 findings**. All new browser scripts pass syntax checks. Changes
 remain web/docs only. Publication after 729e824 uses a normal fast-forward push, not another force.
+
+## Task R-TOOLS-2 — ChildEvents, EffectiveSchedule, AdultAvailability ENABLED + TESTED (2026-10-30)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §12.
+
+BRANCH: feat/rosina-tools-2; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-tools-2
+BASE: origin/main `2898043` (#30 R-LEAK and #34 R-TOOLS-1 both already merged — confirmed via
+`gh api .../pulls/30,34 -q .merged` before branching; no premise contradiction this time).
+
+**Premise mismatches found and adapted (reported, not forced):** the task described the fixture
+Busy window as belonging to "Andre" on "the exact Tuesday." The real fixture
+(`src/fixtures-simulated.ts`) has exactly one Busy window, and it is Kendra's (`p_mom`), on a
+Wednesday (Nov 25). Adapted the live tests to use the real data directly (Kendra's own busy
+window) and additionally proved the Andre/AdultAvailability case the task actually wanted via the
+realistic discovery-chain path ("who has the child, and are they free" — `EffectiveSchedule` then
+`AdultAvailability(p_dad)`, the id harvested from the first call).
+
+**Shipped:**
+- `src/rosina/model.ts`: `ChildEvents`, `EffectiveSchedule`, `AdultAvailability` added to
+  `ALLOWED_MCP_TOOL_NAMES` (six tools total). New `permittedIds` set — seeded with the caller's
+  own roster child(ren) plus their own verified `personId` — gates these three tools' child/
+  person-id argument BEFORE the tool is ever called (`ID_ARG_BY_TOOL`). Grows via `harvestIds()`,
+  which recursively collects every string under a key named `id` in any successful tool result,
+  so a discovered id (e.g. `EffectiveSchedule`'s `parent.id`) becomes usable for a later call in
+  the same turn. **Known limitation:** this does not re-order calls WITHIN one round, only across
+  rounds — a cold, one-shot dependent question gets refused and the model must retry after a
+  discovery call; proven directly by a dedicated test and observed once live (the Demo guide
+  asking about Andre's availability cold, with no leak, just an imperfect refusal wording — see
+  evidence for the exact transcript).
+- `src/rosina/localTime.ts`: `TIMESTAMP_KEYS` extended to include `start`/`end` (ChildEvents/
+  AdultAvailability's own time fields), same deterministic America/Detroit conversion.
+- `src/rosina/systemPrompt.ts`: new CALENDAR/SCHEDULE section; `buildSystemPrompt` now also takes
+  `selfPersonId` so "am I free" questions have an id to use at all (the caller's own, already
+  verified by their own token — not a new disclosure). FREE/BUSY wording restriction, PROPOSED-
+  vs-APPROVED distinction, and the three distinct required outcomes (refusal / authorized-empty /
+  upstream-failure) are all explicit. New rule 11: id authorization is a hard boundary. Care/
+  school/directory/Orbit bullets updated; Orbit explicitly named as permanently blocked (no
+  suggest action exists either).
+
+**Tests:** `npm run test:rosina` **33/33 PASS** (24 existing regressions, still green, + 9 new in
+`src/rosina/calendarTools.test.ts`). `npm run check:rosina-catalog` PASS. `npm run check` PASS
+(417 files, 0 findings). `npm --prefix web test` **168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls:** Kendra's Thanksgiving question, the
+discovery-chain availability question, her own-id "am I free," and a calendar-window question all
+answered correctly and grounded; Dana refused on Nora's child/calendar questions (zero names,
+HTTP 200) but correctly got a genuinely-empty (not refused) answer for her OWN availability — the
+third outcome, distinct from both; the Demo guide got the sandbox answer with no action
+suggested. One environment anomaly recorded plainly: a cancelled-event fixture row, confirmed
+present and RLS-readable via direct PostgREST, did not appear through `ChildEvents` on the
+currently-shared alt-stack (which belongs to a different, further-ahead concurrent worktree) —
+not a defect in this task's own code; the cancelled-exclusion behavior is still proven by the
+unit test and by evidence 41's own existing proof.
+
+BRANCH/WORKTREE as above.
+TASK: enable ChildEvents/EffectiveSchedule/AdultAvailability in Rosina's allowlist with a
+  pre-call id-authorization gate; distinct refusal/empty/failure wording; PROPOSED vs APPROVED;
+  FREE/BUSY wording restriction.
+LAYER: server (src/rosina/ only; no web/, schema, auth or DB change).
+TOUCHED: src/rosina/model.ts, src/rosina/systemPrompt.ts, src/rosina/localTime.ts,
+  src/rosina/calendarTools.test.ts (new), src/rosina/model.test.ts, src/rosina/jobTools.test.ts
+  (buildSystemPrompt call-site signature change only), docs/evidence/35-rosina-service.md
+  (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (33/33); npm --prefix web test (168); live persona-boundary probes against the alt stack (not
+  GraphOS) — all actually run above, not just described.
+NOT DOING: schema/auth/DB changes, service-role reads (`seed:simulated` uses the project's own
+  existing script and service-role key, not a new Rosina code path), mutation tools, enabling
+  CheckInStatus/OrbitStatus/OrbitVocabulary (not on main yet, Orbit stays blocked regardless),
+  merging.
+BLOCKERS: none for this task. CarePlan, village-directory, and the three Orbit/check-in tools
+  (once they land on main) remain the open follow-ups under "Rosina tools available" above.
+
+**Final state (2026-10-30):** PR #37 head `703b7f5`. `gh pr ready 37` run; `gh pr view 37` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (15s), `web build` (20s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 8 files only. Not merged — Bryan merges.
+
+## W4b — current-main merge (2026-10-30)
+
+Bryan explicitly authorized merging origin/main into this feature branch with a merge commit.
+Fetched **593e7944887309851d8d30bed89da5f5df13c87b** (#36 CareFact and #37 Rosina Group 3 tools).
+Only HANDOFF conflicted: both W4b's complete session/cache/live evidence and Task R-TOOLS-2's
+backend contract/proofs are retained in full. No session/cache implementation conflict; no backend
+code was edited by this task. No history rewrite or force push. This is an authorized merge INTO
+the feature branch, not a PR merge to main. Verification follows below.
+Broader W4 dependencies stay separately PENDING and do not block this slice's review.
+
+Shared-stack coordination: Bentley reserved/released the 22:12 window, then verified Rosina
+4200 serving **593e794** from `fridgegraph-main`, MCP 5051. The prior process had loaded a
+pre-#37 checkout; its owner reloaded current code and corrected the MCP target. No reset/seed or
+subgraph/router change. The shared reservation reads **restored, verified** before this run.
+Backend confirmation is in the shared checkout's reservation row; a stable read-only window was
+confirmed by its owner. W4b runs through the real picker, never an ops login.
+
+First post-merge run: picker/GraphQL/calendar/context checks passed, token scan passed, but Rosina
+failed after the backend-owner reload. All first messages reached the UI's 401/manual-resend path;
+follow-ups showed Busy. Exact receipts retained in `current/merge-interrupted-results.json`; this
+is NOT a passing post-merge run. Shared HANDOFF still says restored; reported immediately to Bentley
+for serving runtime/identity-mapping diagnosis. No credential/map file read or fallback login.
+The receipt's overall `passed:false` and explicit errors govern; a care-row classifier was also
+corrected so a session-resend message cannot be labeled a correct care refusal on future runs.

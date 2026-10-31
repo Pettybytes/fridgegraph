@@ -1,0 +1,11 @@
+# Rosina tool: OrbitVocabulary — the closed descriptor list Orbit shares may use.
+#
+# Rosina maps what a parent says onto these values; anything that does not map is NOT sent and Rosina
+# asks a clarifying question instead. Public, versioned, read-only.
+query OrbitVocabulary($version: Int) {
+  orbitVocabulary(version: $version) {
+    kind
+    value
+    version
+  }
+}
