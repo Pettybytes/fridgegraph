@@ -5,7 +5,6 @@ import {formatTime,formatInstant} from '@/features/calendar/time'
 import {useSession} from '@/features/personas/Session'
 import {descriptorKeys,vocabularyKinds} from './adapter'
 import type {ResponseChoice} from './adapter'
-import {overdue} from './controller'
 import type {OrbitController} from './controller'
 import {useOrbit,useOrbitState,useOrbitPhoto} from './runtime'
 import './orbit.css'
@@ -15,7 +14,7 @@ const askEvent=(childName:string)=>{location.hash='#/ask-rosina';window.dispatch
 export function OrbitCheckInCard(){const controller=useOrbit();return controller?<CheckInCard controller={controller}/>:null}
 function CheckInCard({controller}:{controller:OrbitController}){
  const state=useOrbitState(controller),{session}=useSession()
- if(!state.authority||!overdue(state.check)||state.alert?.status==='ACTIVE')return null
+ if(!state.authority||!controller.checkInOverdue()||state.alert?.status==='ACTIVE')return null
  return <aside className="orbit-notice" data-state="derived"><span className="orbit-simulation">Simulated notification</span><div><span className="orbit-notice-mark" aria-hidden="true"><MessageCircle size={22}/></span><h2>{session?.scope.childName.split(' ')[0]}'s {formatTime(state.check!.dueAt!)} check-in hasn't been recorded.</h2></div><p>{state.guidance}</p><a href="#/orbit">Review Orbit <ArrowRight size={16}/></a></aside>
 }
 export function Orbit(){const controller=useOrbit();return controller?<OrbitView controller={controller}/>:<section className="orbit-empty" data-state="unavailable"><h2>Orbit isn't connected in this view.</h2><p>Choose a live perspective to see the records shared with it.</p></section>}
@@ -30,7 +29,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
   {state.phase==='loading'?<p role="status">Loading the records shared with you…</p>:<>
    {state.error&&<div className="orbit-error" role="alert"><p>{state.error}</p><button type="button" onClick={()=>{void(state.phase==='unavailable'?controller.load():controller.refresh())}}><RefreshCw size={15}/> Refresh recorded state</button></div>}
    {parent&&<ol className="orbit-steps" aria-label="Orbit progress">{['Prepare','Review','Active','Closed'].map((label,i)=>{const step=closed?3:active?2:state.preview?1:0;return <li key={label} aria-current={i===step?'step':undefined}><span>{i<step?<Check size={13}/>:i+1}</span>{label}</li>})}</ol>}
-   {parent&&!state.started&&!active&&!closed&&<div className="orbit-entry"><h2>{overdue(state.check)?`${name}'s ${formatTime(state.check!.dueAt!)} check-in hasn't been recorded.`:state.check?.text??'Your shared check-in records'}</h2><p>Rosina can help you prepare a message for your approved village. You review it before anything is activated.</p><button className="orbit-primary" onClick={()=>askEvent(name)}>Ask Rosina to prepare a message <ArrowRight size={17}/></button></div>}
+   {parent&&!state.started&&!active&&!closed&&<div className="orbit-entry"><h2>{controller.checkInOverdue()?`${name}'s ${formatTime(state.check!.dueAt!)} check-in hasn't been recorded.`:state.check?.text??'Your shared check-in records'}</h2><p>Rosina can help you prepare a message for your approved village. You review it before anything is activated.</p><button className="orbit-primary" onClick={()=>askEvent(name)}>Ask Rosina to prepare a message <ArrowRight size={17}/></button></div>}
    {parent&&state.started&&!active&&!closed&&<div className="orbit-preparation">
     <section className="orbit-details"><h2>What to share</h2><p>Choose only the details you want in this message.</p><fieldset disabled={!!state.busy}><legend className="sr-only">Message description</legend>{descriptorKeys.map(key=><label key={key}>{labels[key]}<select value={state.values[key]??''} onChange={e=>controller.edit(key,e.target.value)}><option value="">Not specified</option>{state.vocabulary.filter(v=>v.kind===vocabularyKinds[key]).map(v=><option key={v.value} value={v.value}>{v.value.replaceAll('_',' ')}</option>)}</select></label>)}<label className="orbit-upload">{state.photoId?'Replace photo':'Add a photo (optional)'}<input type="file" accept="image/jpeg,image/png" onChange={e=>{const file=e.target.files?.[0];if(file)void controller.upload(file);e.target.value=''}}/></label></fieldset>
     {state.busy==='upload'&&<p role="status">Preparing the shared photo…</p>}

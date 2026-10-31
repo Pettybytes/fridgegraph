@@ -63,4 +63,8 @@ describe('Orbit state machine',()=>{
   const {adapter,controller}=fixture();adapter.vocabulary.mockRejectedValueOnce(Error('READ_UNAVAILABLE'));await controller.load();expect(controller.getSnapshot().guidance).toBe(guidance);expect(controller.getSnapshot().phase).toBe('unavailable');expect(controller.canPrepare()).toBe(false);await controller.prepare({childId:'p_nora'});expect(adapter.draft).not.toHaveBeenCalled()
  })
 
+ it('injects a scenario instant only for Orbit overdue derivation; authentication remains on the real clock',async()=>{
+  const {adapter,controller}=fixture(),realNow=Date.now();const before=new OrbitController(adapter,controller.scope,()=>1,()=>Date.parse('2026-10-30T19:55:00Z')),after=new OrbitController(adapter,controller.scope,()=>1,()=>Date.parse('2026-10-30T20:05:00Z'));await before.load();await after.load();expect(before.checkInOverdue()).toBe(false);expect(after.checkInOverdue()).toBe(true);expect(Date.now()).toBeGreaterThanOrEqual(realNow);expect(Date.now()-realNow).toBeLessThan(1000)
+ })
+
 })

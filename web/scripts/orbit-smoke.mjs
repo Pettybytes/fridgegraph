@@ -17,7 +17,7 @@ let vite,bridge,proof,lastStage='Not started',browserOutput=''
 function unsafe(raw){return [...secrets].some(s=>raw.includes(s)||raw.includes(s.slice(0,12)))||[...handles].some(s=>raw.includes(s))}
 try{
  await mkdir(join(web,'evidence/orbit'),{recursive:true})
- vite=await viteServer({root:web,configFile:join(web,'vite.config.ts'),logLevel:'silent',server:{host:'127.0.0.1',port:5187,strictPort:true,proxy:{'/graphql':{target:'http://127.0.0.1:4012',changeOrigin:true,rewrite:()=> '/'}},fs:{allow:[web,realpathSync(join(web,'node_modules'))]}}});await vite.listen()
+ vite=await viteServer({root:web,configFile:join(web,'vite.config.ts'),logLevel:'silent',server:{host:'127.0.0.1',port:5187,strictPort:true,proxy:{'/graphql':{target:'http://127.0.0.1:4012',changeOrigin:true,rewrite:()=> '/',headers:{'x-demo-date':'2026-10-31','x-demo-now':'2026-10-31T20:05:00Z'}},'/api/rosina':{target:'http://127.0.0.1:4200',changeOrigin:true,headers:{'x-demo-date':'2026-10-31','x-demo-now':'2026-10-31T20:05:00Z'}}},fs:{allow:[web,realpathSync(join(web,'node_modules'))]}}});await vite.listen()
  bridge=httpServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('Access-Control-Allow-Origin','http://127.0.0.1:5187')
   if(req.headers.origin!=='http://127.0.0.1:5187'){res.writeHead(403).end();return}
@@ -39,7 +39,7 @@ finally{
  try{await exec('playwright-cli',['-s=orbit-live','close'],{cwd:repo,maxBuffer:1024*1024})}catch{}
  const results=[]
  for(const path of await files(repo)){const text=(await readFile(path)).toString('utf8'),count=text.split(marker).length-1;const bad=unsafe(text)||count>(baseline.get(path)??0);if(bad||count)results.push({file:relative(repo,path),pass:!bad})}
- const scan={pass:results.every(x=>x.pass)&&!unsafe(browserOutput),files:results}
+ const scan={pass:results.every(x=>x.pass)&&!unsafe(browserOutput)&&(!proof?.passed||(secrets.size>=4&&handles.size>0)),files:results}
  const receipt={proof:proof??null,lastStage,scan},safe=JSON.stringify(receipt,null,2)
  if(!scan.pass||!proof?.passed)process.exitCode=1
  if(!unsafe(safe)&&!safe.includes(marker)){const name=process.env.ORBIT_RECEIPT_NAME??'live-results';if(!/^[a-z0-9-]+$/.test(name))throw Error('Invalid receipt name');await writeFile(join(web,'evidence/orbit/'+name+'.json'),safe+'\n');console.log(safe)}

@@ -37,20 +37,20 @@ function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   ]
   return <PersonaAccessState surface={surface} actions={<CatalogCards actions={actions} />} />
 }
-function SignedInVillage() {
+function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
   const { session, switching, getCurrentSession, getSessionGeneration, runRead, authMode } = useSession()
   const connection = useMemo(() => {
     if(!session)return null
     if(session.accessToken&&authMode==='live'){
       const client=createGraphClient(async()=>getCurrentSession()?.accessToken??null,undefined,getSessionGeneration)
       const calendar=createLiveCalendarAdapter(client,{generation:session.generation,persona:session.persona,scope:session.scope,marks:session.marks},runRead,getSessionGeneration)
-      const orbit=new OrbitController(createOrbitAdapter(client,runRead,()=>getCurrentSession()?.accessToken),{childId:session.scope.childId,personId:session.persona.personId,parent:session.persona.parent||session.persona.guardian===true,readOnly:session.marks?.demoGuide===true,generation:session.generation},getSessionGeneration)
+      const orbit=new OrbitController(createOrbitAdapter(client,runRead,()=>getCurrentSession()?.accessToken),{childId:session.scope.childId,personId:session.persona.personId,parent:session.persona.parent||session.persona.guardian===true,readOnly:session.marks?.demoGuide===true,generation:session.generation},getSessionGeneration,orbitNow)
       const adapter=createDeliveredAdapter(client,runRead),clear=adapter.clearStore
       adapter.clearStore=async()=>{orbit.dispose();calendar.clear();await clear?.()}
       return {adapter,calendar,mockCalendar:null,orbit}
     }
     return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId),orbit:null}
-  },[session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead])
+  },[session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead,orbitNow])
   const adapter=connection?.adapter
   if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
   if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
@@ -70,7 +70,7 @@ function SignedInVillage() {
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
   </div>
 }
-export default function App({authAdapter}:{authAdapter?:AuthAdapter}={}) {
+export default function App({authAdapter,orbitNow=Date.now}:{authAdapter?:AuthAdapter;orbitNow?:()=>number}={}) {
   const auth = useMemo(() => authAdapter ?? (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH==='true'?createMockAuthAdapter():createLiveAuthAdapter()), [authAdapter])
-  return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage /></SessionProvider>
+  return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage orbitNow={orbitNow} /></SessionProvider>
 }

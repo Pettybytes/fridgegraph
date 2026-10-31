@@ -3170,3 +3170,8 @@ message "the catalog marks it implemented: false". The prior checkpoint was reco
 reading that result and is incorrect. Original assertion is unchanged; server-test correction
 requested from Claude Code under Bryan's ownership instruction. #44 stays draft; readiness is
 blocked until this test is corrected in the owning layer and all required checks actually pass.
+Local live-entry preparation: only the Orbit overdue predicate receives scenario instant
+2026-10-31T20:05:00Z; SessionProvider/auth/renewal remain on real Date.now. The entry mounts the
+real App and actual picker; no injected session, fixture data or intercepted service reply.
+The local proxy sends explicit scenario headers. 24 Orbit tests / 230 total web tests and build
+PASS after adding the clock injection; backend scenario support still requires owner confirmation.

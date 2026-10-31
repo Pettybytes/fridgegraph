@@ -7,8 +7,9 @@ export function overdue(check:CheckIn|null,now=Date.now()){return !!check&&!chec
 export class OrbitController{
  private state:OrbitState={phase:'loading',busy:null,check:null,vocabulary:[],values:{},preview:null,alert:null,status:null,error:'',guidance:'',authority:false,revision:0,previewRevision:-1,closeConfirm:false,started:false}
  private listeners=new Set<()=>void>();private alive=true;private operation=0;private readSequence=0;private mediaAbort=new AbortController();private loadFlight:Promise<void>|null=null
- readonly adapter:OrbitAdapter;readonly scope:OrbitScope;private generation:()=>number
- constructor(adapter:OrbitAdapter,scope:OrbitScope,generation:()=>number){this.adapter=adapter;this.scope=scope;this.generation=generation}
+ readonly adapter:OrbitAdapter;readonly scope:OrbitScope;private generation:()=>number;private now:()=>number
+ constructor(adapter:OrbitAdapter,scope:OrbitScope,generation:()=>number,now:()=>number=Date.now){this.adapter=adapter;this.scope=scope;this.generation=generation;this.now=now}
+ checkInOverdue=()=>overdue(this.state.check,this.now())
  getSnapshot=()=>this.state
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener)}}
  current=()=>this.alive&&this.generation()===this.scope.generation

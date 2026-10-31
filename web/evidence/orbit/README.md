@@ -26,3 +26,9 @@ Each live receipt records the checks actually reached. An incomplete receipt is 
 relabeled as a pass. New runs can use an explicit `ORBIT_RECEIPT_NAME` to preserve prior receipts.
 Live screenshots are recorded only by this harness; actual tokens and photo handles never appear
 in the artifact metadata or HTML dumps. Preview text is asserted against the service response.
+
+The live entry `/scripts/orbit-live.html` mounts the real App and live picker without injecting a
+session or fixture response. Only Orbit's overdue derivation receives the scenario instant
+2026-10-31T20:05:00Z; auth, expiry and renewal keep the real clock. The local Vite proxies send the
+same explicit scenario headers to GraphQL/Rosina. The serving backend's scenario support must be
+confirmed by Bentley before the run. Persisted response timestamps are displayed exactly as read.
