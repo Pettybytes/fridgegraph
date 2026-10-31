@@ -751,3 +751,248 @@ not a new credential use). No mutation tool added — all three new tools are re
 `ChildEvents`, `EffectiveSchedule`, `AdultAvailability`. Still BLOCKED: care, school, directory,
 Orbit, and the three Group-3/4 tools (`CheckInStatus`/`OrbitStatus`/`OrbitVocabulary`) present in
 `tools/list` but deliberately never allowlisted. Not merged.
+
+## 13. TASK R-ORBIT (2026-10-31) — CheckInStatus, OrbitStatus, OrbitVocabulary ENABLED + TESTED, UP TO THE PREPARATION CARD
+
+Branch `feat/rosina-orbit`, worktree `../fridgegraph-rosina-orbit`, from `origin/main` at
+`593e794` (#33 Orbit Alert minimal slice and #37 R-TOOLS-2 both merged — confirmed via
+`gh pr view 33,37 --json state,mergedAt` before branching). Contract: `docs/evidence/42-orbit-
+minimal-db.md`, `43-orbit-graphql-media.md`, `44-orbit-vocabulary-api.md`.
+
+**Acceptance claim, stated precisely:** Rosina's Orbit behavior is proven live UP TO THE
+PREPARATION CARD only. There is no activate tool, never was one exposed, and this task does not
+claim anything beyond "prepare." `prepareOrbitAlert` remains `implemented: false` in the shared
+catalog — it is correctly gated end-to-end (parent authority + vocabulary membership both proven
+live) but never actually offered to a user, pending Codex's app-side draft/preview/confirm wiring.
+
+### Premise mismatch found and reported, not hidden
+
+The task's prereq list named PR **#35** ("Orbit vocabulary through the API") as merged. It is not:
+`gh pr view 35` shows `state: OPEN`. Checked whether this blocks the task before assuming either
+way: `gh pr diff 35 --name-only` shows its unique content is `ops/OrbitVocabulary.graphql`,
+`supabase/migrations/0038_orbit_vocabulary_read.sql`, and the `orbitVocabulary` resolver in
+`src/subgraphs/coordination.ts`. All three are already present on `origin/main` at `593e794` (the
+exact commit this branch forked from) — the migration file exists in this checkout, the resolver
+is in `coordination.ts`, and the live alt-stack MCP's `tools/list` already serves `OrbitVocabulary`
+and returns real seeded vocabulary (55 values, confirmed below). The content evidently landed on
+`main` folded into #33 or #37's merge rather than through #35 itself. Conclusion: the PREMISE
+("#35 merged") is technically false, but the actual dependency (OrbitVocabulary live and callable)
+is functionally satisfied — proceeded on that basis rather than blocking. #35 itself should
+probably be closed as superseded; flagged in the handoff rather than closed by this task, since
+that is Bentley's PR to resolve.
+
+### What shipped
+
+- **`src/rosina/orbit.ts`** (new): the two code-level gates the task requires for
+  `prepareOrbitAlert`, both pure and independently unit-tested —
+  1. `validatePrepareOrbitAlert(args, verifiedParentOf, vocabularyByKind)`: refuses a child the
+     caller has no same-turn, successful `CheckInStatus` call for (`NOT_PARENT` — `CheckInStatus`
+     itself throws `UNAUTHORIZED` for a non-parent, so a successful call is proof, never an
+     assumption, mirroring the existing `verifiedChildIds`/start-pickup pattern); refuses any
+     descriptor value not confirmed by this turn's own `OrbitVocabulary` call, including a real
+     vocabulary value used under the WRONG descriptor kind (`VALUE_NOT_IN_VOCABULARY`); and never
+     carries forward a field the caller didn't supply — no hair, clothing, or carried item is ever
+     invented.
+  2. `isCheckInOverdue(status, now)` / `checkInStatusFrom` / `injectOverdueFlag`: "overdue" is
+     computed server-side against the real clock (never left for the model to infer from
+     `recorded`/`dueAt` text), and is never inferred from `recorded: false` alone — a `dueAt` in
+     the future, or a recorded check-in, is never overdue regardless of `recorded`'s value.
+- **`src/rosina/model.ts`**: `CheckInStatus`, `OrbitStatus`, `OrbitVocabulary` added to
+  `ALLOWED_MCP_TOOL_NAMES` (nine tools total). `ID_ARG_BY_TOOL` gates `CheckInStatus`/`OrbitStatus`
+  on `childId` exactly like the Group-3 tools (`OrbitVocabulary` takes no id argument — it's a
+  public, versioned, closed-vocabulary read). Two new turn-scoped sets: `verifiedParentOf` (grown
+  by a successful `CheckInStatus` call) and `vocabularyByKind` (grown by `OrbitVocabulary`
+  results). A successful `CheckInStatus` result has a server-computed `overdue: boolean` injected
+  before the model ever sees it (`injectOverdueFlag`, same principle as `localizeTimestamps`). The
+  `prepareOrbitAlert` action call is handled in its own branch, separate from the generic
+  catalog-validation path: the shape is parsed via the shared catalog's own parser, then the
+  semantic gate runs in full regardless of the catalog's `implemented: false` flag — so the gate
+  is proven correct now, and the specific reason (`INVALID_ACTION` / `NOT_PARENT` /
+  `VALUE_NOT_IN_VOCABULARY` / `UNIMPLEMENTED`) is always recorded in tool-call evidence, but the
+  action is NEVER added to `proposedActions` regardless of outcome — `implemented: false` is an
+  unconditional block, not merely an unlikely path.
+- **`src/rosina/systemPrompt.ts`**: new `proposeAction_prepareOrbitAlert` tool definition
+  (childId required, five descriptor fields optional, explicit "performs NOTHING by itself... not
+  yet available in the live app" in its own description so the model never claims it activated or
+  notified anyone). New `ORBIT (CHECK-IN / FIND-MY-KID)` prompt section: NOTICE (use the server's
+  own `overdue` field, never recompute it; exact wording "hasn't been recorded," never "missing"/
+  "in danger"; surface `guidance` verbatim), SUGGEST (only when asked for help or a verified
+  overdue check-in — a routine question is explicitly NOT a reason; the exact required sentence),
+  GATHER (vocabulary-only; a place, landmark, or unlisted value gets a clarifying question, never
+  a guess or silent substitution), CARD (how/when to call the action tool, and that it is
+  correctly disabled pending Codex's handler), PHOTO (never handled by Rosina; the app's Orbit
+  screen only), and WHILE ACTIVE (parents get `latestResponses`; `notifiedCount` is simulated
+  bookkeeping, never "they received it"; closing is the app's own button; a non-parent audience
+  member gets only their own view; `CheckInStatus` never reaches a non-parent; everyone else gets
+  the same scope refusal as rule 9). The old "Never suggest activating Orbit" `BLOCKED_TOPICS`
+  bullet was removed — Orbit is no longer blocked outright, only "activate" is (and structurally
+  impossible: no activate tool exists or is exposed).
+- **Catalog (`web/src/features/rosina/catalog.ts` + `src/rosina/catalog.ts`, kept in sync)**: new
+  `prepareOrbitAlert` entry — `childId` + five optional descriptor fields (`wearColor`,
+  `wearGarment`, `hair`, `carryColor`, `carryItem`); no location-shaped field exists or ever will.
+  `routeOrHandler: 'orbit'`, `changesData: true`, **`implemented: false`** — dropped by
+  `validateActions` regardless of how cleanly it validates, pending Codex's app-side
+  draft/preview/confirm handler. `ops/rosina-catalog-drift.mjs`'s id regex was widened from
+  lowercase-hyphen-only to also accept camelCase (the task specifies the literal id
+  `"prepareOrbitAlert"`, breaking this repo's existing kebab-case convention on purpose, per the
+  task's own wording — fixing the convention was out of scope).
+
+### Field-shape correction made against the real schema (reported, not silently fixed)
+
+The task's "SIMULATED = simulated notification, never 'they received it'" instruction assumes
+`OrbitStatus` exposes a per-member `outcome`/`SIMULATED` field. Checked the actual schema
+(`src/subgraphs/coordination.ts`): `notification_outcome = 'SIMULATED'` is a real column, but it
+lives on `OrbitAlert.audience[].outcome` (`OrbitAudienceMember`) — a DIFFERENT type that
+`ops/OrbitStatus.graphql` does not query. The `OrbitStatus` type Rosina's tool actually returns has
+only `notifiedCount: Int!` (a count, no per-row outcome) and `latestResponses` (real responses,
+with no outcome field either). Wrote the prompt to match what the tool actually returns:
+`notifiedCount` is described as simulated notification bookkeeping, never proof of delivery,
+exactly the same safety rule the task asked for — just grounded in the real field name instead of
+a field that does not reach the model.
+
+### Tests — `npm run test:rosina`, 53/53 PASS (33 existing regressions + 20 new in `src/rosina/orbit.test.ts`)
+
+```
+ok - overdue: due time passed and not recorded is overdue
+ok - overdue: due time in the future is never overdue, even unrecorded
+ok - overdue: a recorded check-in is never overdue, even past its due time
+ok - overdue: never inferred from recorded=false alone — no dueAt at all means not overdue
+ok - checkInStatusFrom/injectOverdueFlag parse and attach defensively
+ok - vocabularyMapFrom parses a real OrbitVocabulary result into kind -> values
+ok - validatePrepareOrbitAlert accepts a "yellow raincoat, purple backpack" mapping once every
+     value is vocabulary-confirmed
+ok - validatePrepareOrbitAlert refuses an unknown/unmapped color value
+ok - validatePrepareOrbitAlert refuses a wrong-kind value (real value, wrong descriptor key)
+ok - validatePrepareOrbitAlert never invents unsupplied fields
+ok - validatePrepareOrbitAlert refuses a caller with no verified parent authority
+ok - a place (or any other unlisted key) never even reaches the catalog shape check
+ok - orbit.ts DESCRIPTOR_KEYS matches the catalog's own accepted descriptor keys
+ok - card: a valid, fully-verified prepareOrbitAlert is gated correctly but never included
+ok - card: refused for a child with no verified parent authority this turn
+ok - card: refused for a descriptor value never confirmed by OrbitVocabulary this turn
+ok - no activate path exists (activate-shaped tool name refused; no activate id/tool anywhere)
+ok - 911 guidance surfaces to the model exactly as returned, with a server-computed overdue flag
+ok - a routine question triggers no Orbit tool call at all
+ok - the system prompt states a routine question is not itself a reason to bring up Orbit
+```
+Zero network calls, zero Meta API cost. `npm run typecheck` PASS. `npm run check` PASS (453 files,
+0 findings). `npm run check:rosina-catalog` PASS (8 action ids identical on both sides, up from 7).
+`npm --prefix web run build` PASS. `npm --prefix web test` **168 PASS** (unchanged — only the two
+catalog files touched in `web/`, both covered by existing suites).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Reused the shared alt-stack instance already running (`ops/alt-stack.sh --check` PASSED: router
+health OK, router graphql OK, MCP candidates 4/4 as Kendra). Confirmed via `ops/mcp-probe.mjs`
+before any model run: `tools/list` has nine tools, no mutation-shaped name among them;
+`CheckInStatus(p_nora)` as Kendra returns `recorded: false`, `dueAt: 2026-10-31T20:00:00+00:00`
+(the existing fixture, not yet due relative to real time), and the real 911 `guidance` text;
+`OrbitVocabulary` returns 55 real seeded values across five kinds; `OrbitStatus(p_nora)` as Kendra
+shows one real CLOSED alert with Andre's real `WITH_ME` response.
+
+**Overdue fixture, announced before running:** the existing fixture's `dueAt` (Oct 31, 4pm EDT) was
+still in the future relative to real wall-clock time (~10pm EDT Oct 30) when this task ran, so it
+could not demonstrate genuine overdue detection. Announced and inserted ONE additive row into
+`expected_checkins` — id `fx_chk_nora_overdue_rorbit_live`, `due_at: 2026-10-30T20:00:00Z` (today,
+already past) — via a one-off script using the project's own `SUPABASE_URL`/
+`SUPABASE_SERVICE_ROLE_KEY` and the same UPSERT-by-id approach as `scripts/db.ts#seedSimulated`;
+confirmed via direct MCP probe that `checkin_status_for` picked it up (it orders by `due_at desc`
+for the matching day); ran the live tests below against it; then deleted it by its exact id and
+re-confirmed via MCP probe that `CheckInStatus` reverted to the original fixture's values. The
+pre-existing `fx_chk_nora_home_by_four` row was never touched. Ran Rosina itself on a second,
+unused port (4201, this worktree only) against the shared alt-stack MCP (5051); did not touch the
+process already listening on 4200 (a different, concurrent task's server); stopped mine when done.
+
+```
+Kendra (p_mom), "What's on Nora's calendar today?" (routine question):
+  reply: "No records are available to this view for Nora today. I checked the calendar records
+  for Oct 31." actions: []
+  tools=mcp:ChildEvents — no Orbit tool touched by a routine question, as required.
+
+Kendra (p_mom), "Has Nora checked in yet?" (overdue fixture live):
+  reply: "Nora's 4:00 check-in hasn't been recorded, per the check-in status.
+
+  If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village;
+  it does not replace emergency services.
+
+  I can help notify your approved village. What's Nora wearing today? A photo is optional."
+  actions: []
+  tools=mcp:CheckInStatus
+  — NOTICE wording exact ("hasn't been recorded," never "missing"/"in danger" as a claim about
+  Nora — those words appear only inside the tool's own verbatim guidance text), 911 guidance
+  surfaced, SUGGEST wording byte-for-byte as specified, all in one server-computed-overdue turn.
+
+Kendra (p_mom), same history, "She's wearing a yellow raincoat and carrying a purple backpack."
+  reply: "Nora's 4:00 check-in hasn't been recorded, per the check-in status.
+  If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village;
+  it does not replace emergency services.
+  Yellow raincoat and purple backpack match the allowed descriptor list.
+  I couldn't prepare the preview just now — Orbit alerts aren't available through this app yet.
+  You can add a photo in the app's Orbit screen." actions: []
+  tools=mcp:CheckInStatus,mcp:OrbitVocabulary,action:prepareOrbitAlert!
+  — GATHER mapped both descriptors correctly; the action was called, the gate passed cleanly
+  (parent verified, both values vocabulary-confirmed), and it was STILL correctly refused and
+  reported honestly as unavailable (errorCode UNIMPLEMENTED, confirmed server-side) — this is the
+  "up to the preparation card" boundary, proven live, not merely unit-tested.
+
+Kendra (p_mom), same history, "She's near Lincoln School wearing something mauve."
+  reply: "...I can help notify your approved village. What's Nora wearing today? A photo is
+  optional.
+
+  I couldn't use "mauve" or "near Lincoln School" — what color is her top, and what garment is
+  it?" actions: []
+  tools=mcp:CheckInStatus,mcp:OrbitVocabulary — OrbitVocabulary was checked, neither "mauve" nor
+  the place matched anything, and the model asked a clarifying question instead of guessing,
+  substituting, or ever attempting the action tool. Nothing resembling a location reached any
+  tool call or the reply beyond relaying the parent's own words back as unusable.
+
+Loretta (p_gma, non-parent, in-scope for Nora), "Has Nora checked in yet?":
+  reply: "I can't confirm whether Nora has checked in yet — the check-in records aren't available
+  to this view." actions: []
+  tools=mcp:CheckInStatus! — the call was attempted (she IS scoped to ask about Nora structurally)
+  and refused by the real backend UNAUTHORIZED (coordination.ts:521, confirmed in the MCP error
+  payload directly) — CheckInStatus never actually reaches a non-parent with data, proven against
+  the real resolver, not assumed.
+
+Loretta (p_gma), "What's happening with Nora's Orbit alert — who's responded?":
+  reply: "No active Orbit alert for Nora right now, so no responses to report. The alert status
+  shows no active alert and no responses recorded." actions: []
+  tools=mcp:OrbitStatus — her own (empty) view; no other audience member's name or status was
+  available to leak in the first place (no alert currently has her on its audience) — the boundary
+  held, though the stronger "her own row among several" case could not be demonstrated live
+  without an alert this task is not permitted to create (no activate tool, by design).
+
+Dana (p_dana, Nora is outside her village entirely), "Has Nora checked in yet?" /
+"Can you tell me about Nora's Orbit alert?":
+  both: reply: "I can only help with children shared with you." actions: []
+  tools=none for both — Nora was never in Dana's roster/permittedIds at all, so no tool was ever
+  attempted for either question; the scope refusal fired before any call, same as the Group-3
+  boundary tests.
+
+Loretta (p_gma), "She's wearing a yellow raincoat, can you notify the village?": TIMEOUT (30s),
+  twice. reply: "I couldn't check that just now." actions: []. Reported as model variance, same
+  category as evidence §7/§12: the SAFETY property held in both runs (no data leaked, no card
+  returned, no action attempted) even though the model did not produce a useful answer in time —
+  plausibly because CheckInStatus/the action gate both refuse her and the model spent its rounds
+  on retries. Not chased further; does not affect the acceptance claim above.
+```
+
+Every `tools=` log line and reply above was asserted against directly from the running server's
+own log and the probe's own HTTP response (not summarized from memory); `grep -nE
+'[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}'` over every saved probe output and the server log found no
+phone digit or token.
+
+### Scope discipline
+
+No schema or auth change. No DB *schema* change — one additive, clearly-labeled, UPSERT-by-id test
+row was inserted into `expected_checkins` and deleted by its exact id when done (announced before
+running, confirmed restored after; the permanent `fx_chk_nora_home_by_four` fixture was never
+touched). No service-role read in this task's own Rosina-service code path (the one-off fixture
+script is ops tooling, same credential pattern as `scripts/db.ts`, not a new use). No mutation tool
+added or exposed — MCP's `tools/list` has zero mutation-shaped names; `prepareOrbitAlert` is
+`implemented: false` and unconditionally dropped regardless of validation outcome. No location
+field exists anywhere in the new catalog entry, the gather instructions, or the card shape. `TESTED
++ ENABLED`: `CheckInStatus`, `OrbitStatus`, `OrbitVocabulary`. `prepareOrbitAlert` is gated and
+tested but **pending Codex's app handler** before it can ever actually render. Acceptance is
+explicitly scoped to "up to the preparation card" — no activate path exists to test, by design.
+Not merged.
