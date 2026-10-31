@@ -377,6 +377,29 @@ audience_members`/`orbit_responses` row (same shape as `candidate_evaluations_re
 id = current_person()`); **zero** INSERT/UPDATE/DELETE grant to `authenticated`, matching `0013`'s
 stated posture exactly.
 
+**Exception — disposable SIMULATED Orbit records (demo reset only, 2026-10-31).**
+The append-only posture above is unchanged for ordinary callers: UPDATE and ordinary DELETE still
+raise, and INSERT through `orbitRespond` is unaffected (INSERT was never guarded). A single narrow
+exception exists for demo state restoration, and it is enforced in the database, not in application
+code:
+
+- deletion is reachable **only** through `reset_demo_orbit(p_actor)`, a `SECURITY DEFINER` function;
+  `EXECUTE` is revoked from `public, anon, authenticated`, so a browser or RPC caller cannot reach it;
+- the transaction-local `app.demo_reset` marker is **never sufficient alone** — the trigger additionally
+  requires the record to be in an eligibility snapshot;
+- eligibility is computed **once, while every row still exists** (`pg_temp.reset_eligibility`), and is
+  accepted only if that snapshot is owned by the function's own definer context; a same-named table
+  created by another role is refused;
+- an alert is eligible only if it is `sandbox`, is **not** tied to the consented real-call path
+  (`real_call_authorizations.job_id`, `attempts.real_consent_authorization_id`), and **every** audience
+  `notification_outcome` is `SIMULATED` or `TEST_RESPONDER`. **NULL is ineligible** — it is never
+  coerced to a disposable value;
+- `demo_caller = true` is **not** a real-call marker: it means "originated in a demo session, real
+  outreach refused", i.e. the disposable case;
+- each reset writes a `demo_reset_audit` row (actor, timestamp, per-table counts) **inside the same
+  transaction**, so a failed reset leaves no audit row and a successful one leaves a record that
+  survives the reset.
+
 **Migrations.** `0030_coordination_types_extended.sql`; `0031_orbit_alert_minimal.sql`;
 `0033_supervision_coordination.sql`.
 
