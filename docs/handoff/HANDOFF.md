@@ -3057,3 +3057,23 @@ BLOCKERS: Bentley follow-up — `ops/MyChildren.graphql` should select `child.pe
 `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
 checks pass: `typecheck + secret scan` (20s), `web build` (28s). `git diff origin/main...HEAD
 --stat` confirmed scoped to this task's own 13 files only. Not merged — Bryan merges.
+
+**Merged to `main` as `cb3dd68`.**
+
+## Fix: Orbit test assumed the ambient catalog flag was false (2026-10-31)
+
+Full detail: `docs/evidence/35-rosina-service.md` §17. W-ORBIT reported 74/75 after rebasing PR
+#44 (the `prepareOrbitAlert` catalog flip) onto `main` with #47 merged. Root cause: one test in
+`src/rosina/orbit.test.ts` (the DISABLED negative control) never explicitly controlled
+`catalog.prepareOrbitAlert.implemented` itself — it silently relied on the real flag happening to
+be `false`, unlike the two ENABLED-state tests beside it which already monkey-patch-and-restore.
+Reproduced the exact failure by flipping the real flag on disk, confirmed `decideOrbitAction()`
+itself is correct (honoring the flag exactly as designed — the defect was in the test, not the
+server logic), then fixed the test to explicitly set/restore `implemented = false` for its own
+duration. Re-verified 75/75 PASS both with the real flag at its current `false` and with it
+flipped to `true` on disk (standing in for #44 having landed). No catalog file touched by this
+fix — `src/rosina/catalog.ts` / `web/src/features/rosina/catalog.ts` carry zero diff. PR #48 head
+`1f2a39a`, branch `fix/orbit-test-disabled-flag`, worktree `../fridgegraph-orbit-test-fix`.
+`gh pr ready 48` run; `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`,
+`mergeStateStatus: CLEAN`. Both CI checks pass: `typecheck + secret scan` (27s), `web build`
+(21s). Not merged — Bryan merges.

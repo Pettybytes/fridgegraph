@@ -210,7 +210,7 @@ test('orbit.ts DESCRIPTOR_KEYS matches the catalog\'s own accepted descriptor ke
 
 // --- Card shape / no-activate-path / integration through runRosinaTurn ---
 
-test('card: a valid, fully-verified prepareOrbitAlert is gated correctly but never included — UNIMPLEMENTED until Codex\'s app handler exists', async () => {
+test('card: DISABLED state — a valid, fully-verified prepareOrbitAlert is gated correctly but never included while the catalog marks it unimplemented', async () => {
   const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: true }), OrbitVocabulary: VOCAB_OK });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' }), toolCall('c2', 'OrbitVocabulary', {})] }),
@@ -218,11 +218,19 @@ test('card: a valid, fully-verified prepareOrbitAlert is gated correctly but nev
     chatResult({ content: 'Here is a card to prepare an Orbit alert.' }),
   ]);
 
-  const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+  // Controlled, explicit, and restored — never assumes the ambient catalog value (W-ORBIT's own
+  // PR #44 flips the real flag to true once merged; this test must hold regardless of that).
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = false;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.deepEqual(result.actions, [], 'never returned as a real action — the catalog marks it implemented: false');
-  const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
-  assert.deepEqual(evidence?.errorCodes, ['UNIMPLEMENTED'], 'the gate itself passed cleanly; only the implemented flag blocks it');
+    assert.deepEqual(result.actions, [], 'never returned as a real action while the catalog marks it unimplemented');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.deepEqual(evidence?.errorCodes, ['UNIMPLEMENTED'], 'the gate itself passed cleanly; only the implemented flag blocks it');
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
 });
 
 // --- decideOrbitAction(): the catalog flag is honored, but only AFTER the gate, and only
