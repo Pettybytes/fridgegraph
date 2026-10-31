@@ -322,3 +322,15 @@ h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spac
 .connected-entry input { border: 1px solid var(--fg-border); padding: .8rem; border-radius: var(--radius-control); background: var(--fg-surface); }
 .connected-entry button { padding: .8rem; background: var(--fg-primary); color: var(--fg-on-primary); border-radius: var(--radius-control); }
 .mc-current { background: var(--fg-selection); border-radius: var(--radius-card); padding: 1.2rem; overflow-wrap: anywhere; }
+
+/* ── Recording focus mode (dev-only, ?focus) ──────────────────────────────────
+   A single centred, zoomed column with chrome hidden, so body text clears 16px at
+   1280×720. zoom scales px type reliably in the recording engine. */
+:root[data-focus="1"] .sidebar,
+:root[data-focus="1"] .topbar,
+:root[data-focus="1"] .sandbox-banner,
+:root[data-focus="1"] .session-chip,
+:root[data-focus="1"] .rosina-launcher { display: none; }
+:root[data-focus="1"] .app-shell { grid-template-columns: 1fr; }
+:root[data-focus="1"] .workspace main { zoom: 1.35; max-width: 760px; margin: 0 auto; padding-top: 28px; }
+:root[data-focus="1"] .fg-picker { zoom: 1.2; }
