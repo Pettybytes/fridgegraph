@@ -125,3 +125,29 @@ export function injectOverdueFlag(data: unknown, overdue: boolean): unknown {
   if (!row || typeof row !== 'object') return data;
   return { ...(data as Record<string, unknown>), checkInStatus: { ...row, overdue } };
 }
+
+/**
+ * Whether a `prepareOrbitAlert` action may be PROPOSED this turn.
+ *
+ * Order matters and is the whole point:
+ *   1. the gate (parent authority + vocabulary membership) must PASS — it is never overridden here;
+ *   2. the catalog must mark the action implemented;
+ *   3. the app handler (orbitDraft + orbitPreview + confirm UI) must be present.
+ *
+ * A metadata flip alone can never enable the action: with the handler absent the flag is ignored and
+ * the answer stays UNIMPLEMENTED. That is the fail-closed property the tests pin.
+ */
+export type OrbitActionDecision = { propose: true } | { propose: false; errorCode: 'NOT_PARENT' | 'VALUE_NOT_IN_VOCABULARY' | 'INVALID_ACTION' | 'UNIMPLEMENTED' };
+
+export function decideOrbitAction(input: {
+  shapeOk: boolean;
+  gate: 'OK' | 'NOT_PARENT' | 'VALUE_NOT_IN_VOCABULARY';
+  enabled: boolean;
+  handlerPresent: boolean;
+}): OrbitActionDecision {
+  if (!input.shapeOk) return { propose: false, errorCode: 'INVALID_ACTION' };
+  if (input.gate !== 'OK') return { propose: false, errorCode: input.gate };
+  if (!input.enabled) return { propose: false, errorCode: 'UNIMPLEMENTED' };
+  if (!input.handlerPresent) return { propose: false, errorCode: 'UNIMPLEMENTED' };
+  return { propose: true };
+}

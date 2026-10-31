@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
 import { catalog } from './catalog';
+import { decideOrbitAction } from './orbit';
 import { runRosinaTurn, type McpClientLike } from './model';
 import {
   checkInStatusFrom,
@@ -287,4 +288,71 @@ test('the system prompt explicitly instructs that a routine question is not itse
   assert.match(prompt, /NOT itself a reason to bring up Orbit/);
   assert.match(prompt, /I can help notify your approved village/);
   assert.match(prompt, /never infer it from/);
+});
+
+// --- 2026-10-31: honouring the catalog flag after the gates (handler now present) ---
+
+test('decision: gate failures are never overridden by an enabled flag or a present handler', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: false, gate: 'OK', enabled: true, handlerPresent: true }),
+    { propose: false, errorCode: 'INVALID_ACTION' });
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'NOT_PARENT', enabled: true, handlerPresent: true }),
+    { propose: false, errorCode: 'NOT_PARENT' });
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'VALUE_NOT_IN_VOCABULARY', enabled: true, handlerPresent: true }),
+    { propose: false, errorCode: 'VALUE_NOT_IN_VOCABULARY' });
+});
+
+test('decision: an enabled catalog WITHOUT a handler still refuses — metadata alone can never enable it', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: true, handlerPresent: false }),
+    { propose: false, errorCode: 'UNIMPLEMENTED' });
+});
+
+test('decision: a disabled catalog refuses even when the handler is present', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: false, handlerPresent: true }),
+    { propose: false, errorCode: 'UNIMPLEMENTED' });
+});
+
+test('decision: only gate OK + enabled + handler present proposes the action', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: true, handlerPresent: true }),
+    { propose: true });
+});
+
+test('card: with the catalog flag flipped and the gate clean, the action IS proposed', async () => {
+  const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: true }), OrbitVocabulary: VOCAB_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' }), toolCall('c2', 'OrbitVocabulary', {})] }),
+    chatResult({ toolCalls: [toolCall('c3', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora', wearColor: 'YELLOW', wearGarment: 'RAINCOAT' })] }),
+    chatResult({ content: 'Here is a card to prepare an Orbit alert.' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+    assert.equal(result.actions.length, 1, 'the action is returned once the gate and the flag agree');
+    assert.equal(result.actions[0].id, 'prepareOrbitAlert');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.equal(evidence?.isError, false, 'recorded as accepted, not refused');
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
+});
+
+test('card: flag flipped but the gate fails on authority — still refused, never proposed', async () => {
+  const mcp = stubOrbitMcp({ OrbitVocabulary: VOCAB_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'OrbitVocabulary', {})] }),
+    chatResult({ toolCalls: [toolCall('c2', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora', wearColor: 'YELLOW' })] }),
+    chatResult({ content: 'card' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+    assert.deepEqual(result.actions, [], 'authority still decides — the flag cannot override it');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.deepEqual(evidence?.errorCodes, ['NOT_PARENT']);
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
 });

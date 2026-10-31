@@ -10,6 +10,11 @@
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { catalog, validateActions, type CatalogAction } from './catalog';
+import { decideOrbitAction } from './orbit';
+
+/** The app handler (orbitDraft + orbitPreview + confirm UI) ships with this server code. Until it is
+ *  present, the catalog flag cannot enable the action — that pairing is what the tests pin. */
+export const ORBIT_HANDLER_PRESENT = true;
 import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
 import { checkInStatusFrom, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
@@ -291,15 +296,25 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       const id = call.name.slice(ACTION_TOOL_PREFIX.length);
 
       if (id === 'prepareOrbitAlert') {
-        // ALWAYS refused, never included in `actions` — the shared catalog marks this
-        // UNIMPLEMENTED until Codex's app handler (orbitDraft + orbitPreview + the confirm UI)
-        // exists, regardless of how cleanly it validates. The gate itself (parent authority +
-        // vocabulary membership) still runs in full, so it is already correct, and already
-        // tested, for the moment that flag flips — see src/rosina/orbit.ts.
+        // Gate first, then the catalog flag, then the app handler — see decideOrbitAction().
+        // Metadata alone never enables the action: with the handler absent the flag is ignored.
         const shapeArgs = catalog.prepareOrbitAlert.argsSchema.parse(args);
         const semantic = shapeArgs ? validatePrepareOrbitAlert(shapeArgs as OrbitAlertArgs, verifiedParentOf, vocabularyByKind) : null;
-        const errorCode = !shapeArgs ? 'INVALID_ACTION' : !semantic!.ok ? semantic!.reason : 'UNIMPLEMENTED';
-        toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: true, errorCodes: [errorCode] });
+        const decision = decideOrbitAction({
+          shapeOk: Boolean(shapeArgs),
+          gate: semantic ? (semantic.ok ? 'OK' : semantic.reason) : 'OK',
+          enabled: catalog.prepareOrbitAlert.implemented === true,
+          handlerPresent: ORBIT_HANDLER_PRESENT,
+        });
+
+        if (decision.propose) {
+          proposedActions.push({ id, args: shapeArgs as Record<string, unknown> });
+          toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: false, errorCodes: [] });
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: true }) });
+          continue;
+        }
+
+        toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: true, errorCodes: [decision.errorCode] });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: false, error: 'Orbit alerts are not available through this app yet.' }) });
         continue;
       }
