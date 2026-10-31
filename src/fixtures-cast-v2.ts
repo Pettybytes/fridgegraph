@@ -92,7 +92,7 @@ export function createCastV2(): CastV2 {
     { person_id: 'p_tomas', household_id: 'h_emma', role: 'parent' },
     { person_id: 'p_emma', household_id: 'h_emma', role: 'child' },
     { person_id: 'p_felicia', household_id: 'h_taylor', role: 'parent' },
-    { person_id: 'p_marcus', household_id: 'h_taylor', role: 'parent' },
+    { person_id: 'p_marcus', household_id: 'h_taylor', role: 'resident_adult' },
     { person_id: 'p_taylor', household_id: 'h_taylor', role: 'child' },
     { person_id: 'p_skye', household_id: 'h_taylor', role: 'child' },
     { person_id: 'p_simone', household_id: 'h_micah', role: 'parent' },

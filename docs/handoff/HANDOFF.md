@@ -3027,3 +3027,21 @@ Live sequence, actual token/media-handle scan and live screenshots have NOT run:
 been reserved/opened, no backend process was restarted and no live mutation was made by web.
 Desktop/mobile evidence currently remains explicitly UI-fixture-only. Feature-branch main
 reconciliation awaits Bryan's permission; no history rewrite or PR merge.
+
+
+### W-ORBIT — authorized current-main reconciliation
+
+Bryan explicitly authorized merging origin/main into feat/web-orbit with a merge commit.
+Fetched main: **d738616** (#40 Rosa guardian access and #41 approval policies). HANDOFF was the
+only conflict: retained the current-main text verbatim and the full W-ORBIT packet. Backend
+changes are inherited from main, not new web-owned backend edits. No history rewrite or force push.
+The prior permission-pending checkpoint above is superseded by this authorization and reconciliation.
+
+Keep PR #44 DRAFT. **UI: complete against controlled service responses · backend: documented Orbit
+APIs delivered, Claude Code #47 serving integration pending · integrated + tested: PENDING**.
+No live acceptance until #47 merges, then coordinate the shared-stack window with Bentley before
+any live run. No live request, reset, seed, restart or PR merge performed in this reconciliation.
+Reconciled-tree checks run below before normal publication; results are reported on the final head.
+Reconciled-tree verification: root typecheck PASS; secret scan zero findings; **229/229 web tests**
+PASS; web typecheck/build PASS; catalog parity **8 ids** PASS; unchanged **66/66 Rosina tests** PASS;
+`git diff --check` clean. #47 remains OPEN at the time of this check; no live acceptance claimed.
