@@ -3592,3 +3592,74 @@ before the window opens. No identity substitution to make the check pass.
 Bryan input: **not required** — this is a restore/config issue, not a decision.
 | 2026-10-31 04:26 | **W-RESET OPEN — 30 min, deadline 04:54 EDT.** Restoration from `f01021b` (serving code `dd84886`): alt stack 4101–4107 restarted (4102–4106 had been dead — that, not the DB, caused empty `myChildren`), 4008 serving the reset route, MCP 5051 up. **Both paths verified**: router 4012 `myChildren` = `p_leo,p_max,p_nora` named=true; MCP `MyChildren` = same. Reset route returns 401 unauthenticated (present + guarded). No db:reset. | serving `dd84886` (docs HEAD `f01021b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **OPEN to W-RESET until 04:54 EDT** |
 | 2026-10-31 04:33 | **W-RESET RELEASED — live COMPLETE (PASS), before the 04:54 deadline.** Actual picker/Rosina card → preview/photo → explicit Orbit activate → **one** reset on 4008 → seeded reads → local picker. Second tab kept an **identical token and login count** and an explicit Orbit refetch saw the seeded no-alert state — **no logout, no re-mint**. Kendra re-picked seeded / no alert / no old thread. Guide reset hidden. Live07 receipt + safe screenshots saved; token/media scan PASS. No db:reset, seeds, restarts or real sends by web. Failed receipts 01–06 preserved; no reset occurred before 07. **Dependency: #52 (route move, CI green observed) must ship with UI #51.** Serving `dd84886` unchanged. | serving `dd84886` (docs HEAD `dd9d03b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **RELEASED — restored/available** |
+
+## Group 5 Piece 2 — createDemoFamily implemented and proven (2026-10-31 15:12)
+
+Branch `feat/create-demo-family` from `origin/main` (`f6aafcc`, #52). A created family is a sandbox
+village + household + parent + child + memberships + ONE persona with a real Supabase Auth user.
+
+### API — `POST /api/demo/family` (4008 demo server)
+
+Body is `{parentName, childName}` only — no personId, no email, no ids, no role. Guards are the same
+as reset: **loopback only** (until Task H), a **verified demo session**, the **Demo guide refused**
+(`DEMO_GUIDE_READ_ONLY`), one creation per person per 5 s, max 8 created families. Names are trimmed,
+bounded at 80 characters and rejected if they contain control characters. Response is
+`{id, childId, parentName, childName}` — `id` is the personaId the picker signs in with.
+
+### 0049 — `demo_families` registry (applied)
+
+The only list of created personas: health (`picker entries`) and login resolve through it, and reset
+deletes exactly these rows. RLS **enabled and forced with no policies**, so no browser JWT can read
+the registry even if it learns the name; the demo server reaches it over the owner connection reset
+already uses.
+
+### Two identity mappings, both required — the defect the first proof run found
+
+`verifyBearer()` resolves `sub → personId` from the **JSON file**, but every RLS policy's
+`current_person()` resolves it from the **`identity_map` TABLE**. The first implementation wrote only
+the file, so the new persona signed in and then saw nothing (`authorizeChild` → `UNAUTHORIZED`). Both
+are now written inside the same transaction, and reset removes **both**:
+
+| Removed by reset | Evidence |
+|---|---|
+| family rows (members, child, household, people, village) | `createdFamiliesRemoved` = 1; row counts 0 |
+| registry row (picker entry) | `demo_families` count 0; login → `UNAVAILABLE / UNKNOWN_PERSONA` |
+| DB mapping (`identity_map`) | 0 rows for the auth user |
+| file mapping (`data/identity-map.json`) | entry absent |
+| cached persona session | `dropPersonaSessionCache()`; `__cachedAccessToken` undefined |
+
+**The old token exposes nothing afterwards**: it still verifies as a JWT, but resolves to no person —
+the created child read returns `UNAUTHENTICATED` (not a denial), and no row it could reach exists.
+
+### Proof — `ops/create-demo-family-proof.mjs`, evidence `docs/evidence/53-create-demo-family.md`
+
+Demo-login app on spare port 4316, school subgraph on 4317; the demo stack was not restarted.
+**25/25 PASS**: no token → 401, guide → 403, invalid names → 400 with no registry row, parent creates →
+201 with rows + registry + both mappings, picker entry READY, new persona signs in (demo, not guide),
+reads its own child, an existing persona **cannot** read the created child, then `resetDemo()` removes
+data + picker entry + both mappings + the cached session, the old token is `UNAUTHENTICATED` and the
+persona no longer resolves.
+
+### ⚠️ Data repair performed during this piece — resetDatabase's baseline is incomplete
+
+The graph suite's final step (`POST /__reset` → `resetDatabase()`, scripts/db.ts) deleted 4 grants /
+14 relationships as "non-baseline" and re-seeded a baseline that **does not contain the Cast v2
+additions**. Observed after that run, then restored by hand from `src/fixtures-cast-v2.ts`:
+
+| Row | Why it matters |
+|---|---|
+| `g_priya_malik` (careplan.read on Malik) | Priya's second child; `my-children` proof assertion 1–3 |
+| `r_priya_malik` (nanny) | her relationship to Malik |
+| `fx_cf_malik_snack` / `_tv` / `_bedtime` | Malik's care facts; assertion 3 |
+
+After restoring them, `ops/my-children-proof.mjs` is **PASS — 0 failures** (18 assertions, router 4012
++ MCP 5051). **Open defect, not fixed here:** `resetDatabase()` is not a faithful restore of the Cast v2
+fixture set; it will drop these rows again on every run. It needs its own fix + proof.
+
+### STANDING NOTE for Task H (also recorded on `piece3-consent`)
+
+The 4008 reset route's `LOOPBACK_ONLY` guard checks `req.socket.remoteAddress`; behind cloudflared or
+the Vite proxy every request arrives from 127.0.0.1, so it cannot tell public traffic from local.
+Before demo login or reset goes public, reset needs a real gate: a server-side check of the
+demo/sandbox session, a rate limit per IP from a trusted forwarded header, and the existing guide
+refusal. **Not built now.**

@@ -20,6 +20,7 @@ import { DEMO_PERSONAS, personaById, type DemoLoginResponse } from './personas';
 import { isReady } from './personas';
 import { MintError } from './session';
 import { getPersonaSession, publicPersonaSession, dropPersonaSessionCache } from './persona-sessions';
+import { createDemoFamily, familyPersona, listFamilyPersonas, FamilyError, cleanName } from './family';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -117,6 +118,8 @@ export function createDemoLoginApp() {
   // One reset at a time per person: a reset is expensive and destructive.
   const lastResetAt = new Map<string, number>();
   const RESET_COOLDOWN_MS = 30_000;
+  const lastFamilyAt = new Map<string, number>();
+  const FAMILY_COOLDOWN_MS = 5_000;
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2kb' }));
 
@@ -141,11 +144,13 @@ export function createDemoLoginApp() {
     next();
   });
 
-  app.get('/api/demo/health', (_req: Request, res: Response) => {
+  app.get('/api/demo/health', async (_req: Request, res: Response) => {
+    // Created families are picker entries too: the registry is the only list of them.
+    const families = await listFamilyPersonas();
     res.json({
       ok: true,
       localOnly: true,
-      personas: DEMO_PERSONAS.map((p) => ({ personaId: p.id, ready: isReady(p) })),
+      personas: [...DEMO_PERSONAS, ...families].map((p) => ({ personaId: p.id, ready: isReady(p) })),
     });
   });
 
@@ -173,7 +178,8 @@ export function createDemoLoginApp() {
     }
 
     // Allow-list first. An unknown id and a known-but-unseeded persona answer identically.
-    const persona = personaById(personaId);
+    // A created family is resolved through the server-side registry (0049), never from client input.
+    const persona = personaById(personaId) ?? (await familyPersona(personaId));
     if (!persona) {
       const unavailable: DemoLoginResponse = { status: 'UNAVAILABLE', personaId, reason: 'UNKNOWN_PERSONA' };
       console.log(`[demo-login] ${personaId} -> UNAVAILABLE (unknown)`);
@@ -359,6 +365,47 @@ export function createDemoLoginApp() {
     } catch (error) {
       console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
       res.status(500).json({ error: 'RESET_FAILED' });
+    }
+  });
+
+  /**
+   * POST /api/demo/family — create ONE sandbox family and its persona.
+   *
+   * Same guards as reset: loopback only (until Task H), a verified demo session, the Demo guide
+   * refused (it is read-only), one creation per person every 5 s. The body is {parentName, childName}
+   * only: no personId, no email, no role, no ids. Everything else is generated server-side.
+   */
+  app.post('/api/demo/family', async (req: Request, res: Response) => {
+    const addr = req.socket.remoteAddress ?? '';
+    if (!(addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) {
+      res.status(403).json({ error: 'LOOPBACK_ONLY' }); return;
+    }
+    const identity = await verifyBearer(req.header('authorization'));
+    if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    if (!identity.demo) { res.status(403).json({ error: 'DEMO_SESSION_REQUIRED' }); return; }
+    if (identity.demoGuide) { res.status(403).json({ error: 'DEMO_GUIDE_READ_ONLY' }); return; }
+
+    const now = Date.now();
+    const last = lastFamilyAt.get(identity.personId) ?? 0;
+    if (now - last < FAMILY_COOLDOWN_MS) {
+      res.status(429).json({ error: 'FAMILY_RATE_LIMITED', retryAfterMs: FAMILY_COOLDOWN_MS - (now - last) }); return;
+    }
+
+    const body = req.body as { parentName?: unknown; childName?: unknown } | undefined;
+    if (!cleanName(body?.parentName) || !cleanName(body?.childName)) {
+      res.status(400).json({ error: 'INVALID_NAME' }); return;
+    }
+    lastFamilyAt.set(identity.personId, now);
+
+    try {
+      const family = await createDemoFamily({ parentName: body?.parentName, childName: body?.childName });
+      console.log(`[demo-family] ${identity.personId} -> created ${family.id}`);
+      res.status(201).json(family);
+    } catch (error) {
+      const code = error instanceof FamilyError ? error.code : 'FAMILY_CREATE_FAILED';
+      const status = error instanceof FamilyError ? error.status : 500;
+      console.error(`[demo-family] ${identity.personId} -> ${code}`);
+      res.status(status).json({ error: code });
     }
   });
 
