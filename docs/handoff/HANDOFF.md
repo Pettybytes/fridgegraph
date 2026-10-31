@@ -2955,6 +2955,8 @@ No real sends. Pending: the branch/commit to run and the scenario-clock start da
 **Bentley pending**: #41 rebase after #40 merges (~10 min, needs no stack) and the later Rosina 4200
 reload for the catalog metadata flip (~5 min, restart, needs the reservation).
 
+| 2026-10-31 03:30 | **MyChildren DONE and restored** — `myChildren` live on router 4012 (supergraph recomposed, 1 hit), MCP `MyChildren` registered; seed re-applied with Priya→Malik `careplan.read` only. Proof 14/14. NO reset. | `feat/my-children` (stacks on #41) | 4101–4107 / 4012 / 5051 | **restored** |
+| 2026-10-31 03:49 | **W-ORBIT window ON HOLD — backend blocker.** `src/rosina/model.ts` always refuses `prepareOrbitAlert` and never adds it to `actions`, regardless of catalog metadata: the branch validates, then `continue`s with `errorCodes: [UNIMPLEMENTED]`. Catalog flips alone cannot enable it. Fix requires honouring the catalog flag **after** the existing authority + vocabulary gates — **awaiting Bryan's authorization**. Window NOT opened; **no stack change made** (no DEMO_CLOCK restart). | none | 4101–4107 / 4012 / 5051 / 4200 / 4008 | **on hold — not reserved** |
 ## Task R-MYCHILDREN — static roster replaced with MyChildren, plus the Orbit handler fix (2026-10-31)
 
 Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §15 (MyChildren) and §16

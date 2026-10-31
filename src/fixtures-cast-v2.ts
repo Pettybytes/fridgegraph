@@ -138,7 +138,7 @@ export function createCastV2(): CastV2 {
 
   // Priya's Malik grant is ADDITIVE. Her existing Nora grant is baseline and is not touched.
   const grants = [
-    { id: 'g_priya_malik', actor_id: 'p_priya', child_id: 'p_malik', scopes: ['careplan.read', 'schedule.read'], valid_from: null, valid_until: null, granted_by: 'p_dwayne' },
+    { id: 'g_priya_malik', actor_id: 'p_priya', child_id: 'p_malik', scopes: ['careplan.read'], valid_from: null, valid_until: null, granted_by: 'p_dwayne' },
     { id: 'g_rosa_emma', actor_id: 'p_rosa', child_id: 'p_emma', scopes: ['schedule.read', 'careplan.read'], valid_from: null, valid_until: null, granted_by: 'p_rosa' },
     { id: 'g_tomas_emma', actor_id: 'p_tomas', child_id: 'p_emma', scopes: ['schedule.read', 'careplan.read'], valid_from: null, valid_until: null, granted_by: 'p_rosa' },
   ];
