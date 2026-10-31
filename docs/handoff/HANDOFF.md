@@ -383,6 +383,7 @@ Then run it, then say it is restored. Never leave the stack pointed at a differe
 | 2026-10-30 21:35 | alt-stack restart (NO reset, NO seed) + supergraph recompose + MCP restart, for the vocabulary API | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored** |
 | 2026-10-30 21:40 | `db:reset` + `seed` + `seed:simulated` to restore the baseline vocabulary (0034's insert is wiped by reset) | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored, 55 values** |
 | 2026-10-30 21:40 | **Group 4 window** — 0039 (CareFact) applied; stack + MCP restarted; `seed:simulated` re-applied. Codex: no live run at reservation. | `feat/group4-care-facts` | 4101–4107 / 4012 / 5051 | **restored** |
+| 2026-10-30 22:12 | **W4b live-acceptance window (~8 min, READ-ONLY)** — Rosina 4200 reloaded from worktree `fridgegraph-main` @ **593e794** (PID 98552). PID 59207 was stale: started 21:55 **after** the 21:48 merge, but from the `feat/group4-care-facts` checkout cut before #37 (`model.ts` had **0** of the three tool names; main has **11**). Also fixed: Rosina's MCP URL defaulted to **5050** (no listener) — now `ROSINA_MCP_URL=...:5051/mcp`, which lists `ChildEvents, EffectiveSchedule, AdultAvailability`. NO reset, NO seed, no subgraph/router change. | worktree `fridgegraph-main` @ 593e794 | 4200 (stack 4101–4107 / 4012 / 5051 untouched) | **restored, verified** |
 
 ## Group 4 — CareFact (2026-10-30)
 
