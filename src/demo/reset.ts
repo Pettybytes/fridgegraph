@@ -27,9 +27,10 @@ type Row = Record<string, unknown>;
 
 /** Tables that carry a `sandbox` column: delete every sandbox row, leave everything else. */
 const SANDBOX_TABLES = [
-  'coordination_jobs', 'attempts', 'events', 'holidays', 'routines', 'adult_availability',
+  // Only tables that actually carry a `sandbox` column in `public`. `approvals` is audit history and
+  // is never deleted here; `events` has no sandbox column and is restored by fixture upsert instead.
+  'coordination_jobs', 'attempts', 'holidays', 'routines', 'adult_availability',
   'holiday_arrangements', 'expected_checkins', 'care_facts', 'orbit_alerts',
-  'information_requests', 'confirmations', 'permission_slips', 'approvals', 'conversation_state',
 ] as const;
 
 /** Tables whose fixture rows are identified by their own primary key, not by a sandbox flag. */
@@ -82,7 +83,8 @@ export async function resetDemo(): Promise<ResetReport> {
     // 1. Clear only demo rows.
     for (const table of SANDBOX_TABLES) {
       const has = await c.query(
-        `select 1 from information_schema.columns where table_name = $1 and column_name = 'sandbox'`, [table]);
+        `select 1 from information_schema.columns
+          where table_schema = 'public' and table_name = $1 and column_name = 'sandbox'`, [table]);
       if (has.rowCount) {
         const r = await c.query(`delete from ${table} where sandbox is true`);
         if (r.rowCount) cleared[table] = r.rowCount;

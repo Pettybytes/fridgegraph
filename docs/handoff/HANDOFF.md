@@ -3343,3 +3343,4 @@ Required preflight, before any visitor run:
 5. Only then open the PR and report the three lines separately: backend / button wiring / browser.
 
 Pieces 2–3 untouched. No merges.
+| 2026-10-31 07:12 | **RESERVED: resetDemo proof window (~15 min)** — destructive demo reset cycle (mutate → reset → verify) on the idle stack; loopback route calls only, no real sends. | `feat/reset-demo` | 4200/34734 · 5051/91606 · 4008/10834 | **in progress** |
