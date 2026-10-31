@@ -17,6 +17,7 @@ test('absent records cannot establish that nobody is available',()=>{
 })
 test('absent records without a candidate row still cannot mean nobody is available',()=>{
  assert.equal(availabilityConsistent('No availability recorded. Nobody is available.',[]),false)
+ assert.equal(availabilityConsistent('Nobody is available.',[]),false)
 })
 test('UNKNOWN cannot become a positive availability claim',()=>{
  assert.equal(availabilityConsistent('Availability is unknown. Evelyn Carter is available.',unknown),false)

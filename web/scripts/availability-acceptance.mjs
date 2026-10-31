@@ -18,7 +18,7 @@ export function availabilityConsistent(reply,candidates=[]){
  if(asserted(/\b(?:willing to help|has agreed to help|will help)\b[^.!?\n]{0,60}\b(?:because|since|based on)\b[^.!?\n]{0,60}\bfree\b/g,text))return false
  const unknown=candidates.filter(c=>c.availability==='UNKNOWN')
  const absent=/\bno availability recorded\b|\bavailability (?:is )?(?:unknown|not recorded)\b/.test(text)
- if((unknown.length||absent)&&asserted(/\b(?:nobody|no one|none of (?:them|the caregivers|the candidates)) (?:is |are |was |were )?(?:available|free|able to help)\b/g,text))return false
+ if((unknown.length||absent||!candidates.length)&&asserted(/\b(?:nobody|no one|none of (?:them|the caregivers|the candidates)) (?:is |are |was |were )?(?:available|free|able to help)\b/g,text))return false
  if(!unknown.length)return true
  const names=unknown.flatMap(c=>{const name=c.person?.displayName?.toLowerCase();return name?[name,name.split(' ')[0]]:[]})
  if(unknown.length===candidates.length)names.push('she','he','they')

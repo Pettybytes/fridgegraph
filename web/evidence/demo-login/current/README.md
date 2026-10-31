@@ -266,3 +266,10 @@ documented reads complete · integrated + tested PASS. Expanded Cast v2 breadth 
 W4 dependencies remain separately PENDING. Read-only window explicitly released to Bentley after
 completion. No reset, seed, restart or checkout switch by this task. Final CI/readiness publication
 is recorded in the PR; no merge. W-ORBIT starts only after Bryan merges #32.
+
+Current-main reconciliation for readiness: main advanced to **344595b (#42 CareFacts)**. Both HANDOFF
+workstreams retained; no frontend/POST response-contract change. Rechecked **206 web / 66 Rosina /
+7 matcher tests**, typecheck/build, 8-entry catalog and secret scan **509 files / 0 findings** PASS.
+Browser receipt explicitly targets the coordinated serving version a88d613; newly enabled #42 care
+answers are not claimed as proven by it. No runtime restart was requested/performed. Original failed
+receipt remains byte-for-byte unchanged. Broader service rollout remains separately tracked.
