@@ -1453,11 +1453,11 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 
 | Tool/operation | Status |
 |---|---|
-| `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), now wired into the live service |
-| CoordinationJobs + CandidateEvaluations read (Mission Control's existing recommendation/status) | not yet exposed via MCP — needed for "why was this caregiver recommended" and "show me `<child>`'s afternoon" |
+| `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), wired into the live service |
+| `Attempts` / `JobTimeline` (coordination subgraph) | **AVAILABLE** — shipped by `#29` (evidence 40), wired into the allowlist by TASK R-TOOLS-1 (evidence 35 §11): Mission Control's job status, "what happened with this pickup," and the full chronological story are now answerable live |
 | CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
-| Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person` |
-| Events/practices read (coordination-v2 Area A) | not yet exposed via MCP, and Area A itself hasn't shipped — needed for calendar/event questions |
+| Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person`; also needed for a proper `MyChildren`/`myVillages` caller-scoped read (R-LEAK's fallback, evidence 35 §10, uses `src/demo/personas.ts` in the meantime) |
+| `ChildEvents` / `AdultAvailability` / `EffectiveSchedule` (Group 3, `#31`) | shipped and present in `tools/list`, but **deliberately NOT added to the allowlist yet** — out of TASK R-TOOLS-1's scope; needs its own task with its own persona-boundary tests, same pattern as this one |
 
 **Rule for adding a tool to the allowlist (`ALLOWED_MCP_TOOL_NAMES`, `src/rosina/model.ts`):** a
 new MCP read Bentley ships is added to the allowlist ONLY in a PR that ALSO adds persona-boundary
@@ -1696,3 +1696,64 @@ BLOCKERS: none for this fix. Follow-up for Bentley: a `MyChildren`/`myVillages` 
 **Final state (2026-10-30):** PR #30 head `c9553ab`. `gh pr ready 30` run; `gh pr view 30` →
 `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
 checks pass: `typecheck + secret scan` (17s), `web build` (25s). Not merged — Bryan merges.
+
+## Task R-TOOLS-1 — Attempts + JobTimeline added to Rosina's allowlist (2026-10-30)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §11.
+
+**Premise contradiction, flagged and resolved, not silently worked around:** this task's prereq
+was "R-LEAK merged." At task start, PR #30 (R-LEAK) was still open on `origin/main` — confirmed
+via `gh api repos/Pettybytes/fridgegraph/pulls/30 -q .merged` → `false`, and `src/rosina/
+roster.ts` genuinely absent from `origin/main`. Since this task's own point 4 (the output guard
+must cover candidate displayNames) hard-depends on R-LEAK's code, and R-LEAK is this agent's own
+already-reviewed, CI-green, ready PR (not someone else's uncertain state), the branch was built
+from `origin/main` (correctly including `#29`'s tools and `#31`'s Group 3 work) and then merged
+with `fix/rosina-scoped-roster` directly, rather than blocking on the merge. Clean merge, one
+file (`docs/handoff/HANDOFF.md`), auto-resolved, no conflict markers.
+
+**Shipped:**
+- `src/rosina/model.ts`: `ALLOWED_MCP_TOOL_NAMES` now `{PickupCandidates, Attempts, JobTimeline}`.
+- `src/rosina/localTime.ts` (new): `at`/`closedAt` timestamps in a tool result are rewritten to
+  `America/Detroit` local time BEFORE the model sees them — a real server-side transform, not a
+  prompt instruction hoping the model converts UTC correctly.
+- `src/rosina/systemPrompt.ts`: new `JOB_TOOLS` section teaches the `Attempts()` → discover job →
+  `JobTimeline(jobId)` → full story pattern; `[]` always means "I can't see that pickup," never
+  "nothing happened," and the three possible reasons (not visible / doesn't exist / malformed id)
+  are indistinguishable by design (evidence 40's "no existence oracle"); enum codes (`kind`,
+  `destinationMode`, `closedReason`) must be described in plain language. New rule 10: never
+  suggest an action a job's status doesn't license — the Priya rule (8), applied to jobs.
+  Care/calendar/events/directory stay explicitly blocked.
+- The R-LEAK output guard needed no code change for these tools' candidate names — it already
+  allows any name present in this turn's own tool-result JSON regardless of which tool returned
+  it — but this is verified by a dedicated test, not assumed.
+
+**Tests:** `npm run test:rosina` **24/24 PASS** (the 16 existing Task R-FIX/R-LEAK regressions,
+still green, + 8 new in `src/rosina/jobTools.test.ts`: allowlist accept/reject, empty-result
+wording, local-time wording and the actual `localizeTimestamps`/`toFamilyLocalTime` behavior,
+and three output-guard cases including a deliberately-induced leak on an empty result).
+`npm run check:rosina-catalog` PASS. `npm run check` PASS (416 files, 0 findings).
+`npm --prefix web test` **168 PASS** (unchanged — no `web/` file touched).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls, real tokens:** Kendra and Andre (same
+job, co-parents) both get the same accurate answer — Loretta accepted, Tasha declined, status
+awaiting approval, times correctly converted from UTC to EDT; Dana (not Nora's family) gets the
+exact scoped refusal with zero names, HTTP 200 (never 401); the Demo guide reads the sandbox job
+with no approve/decline action suggested; a "give me the full timeline" question correctly
+triggers BOTH tools (`Attempts` then `JobTimeline`) and renders the chronological story in plain
+language with no enum code read aloud. All five runs: `outputGuardTriggered=false`, no phone
+digit or out-of-scope name in any reply.
+
+BRANCH: feat/rosina-tools-1; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-tools-1
+TASK: add Attempts + JobTimeline to Rosina's MCP allowlist; answer Mission Control job-status
+  questions live; keep everything else (care/calendar/events/directory) blocked.
+LAYER: server (src/rosina/ only; no web/, schema, auth or DB change).
+TOUCHED: src/rosina/model.ts, src/rosina/systemPrompt.ts, src/rosina/localTime.ts (new),
+  src/rosina/jobTools.test.ts (new), docs/evidence/35-rosina-service.md (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (24/24); npm --prefix web test (168); live persona-boundary probes against the alt stack (not
+  GraphOS) — all actually run above, not just described.
+NOT DOING: schema/auth/DB changes, service-role reads, mutation tools, adding the three Group-3
+  tools (ChildEvents/AdultAvailability/EffectiveSchedule — out of scope, needs its own task),
+  merging.
+BLOCKERS: none for this task. CarePlan, village-directory and the Group-3 trio remain the open
+  follow-ups under "Rosina tools available" above.
