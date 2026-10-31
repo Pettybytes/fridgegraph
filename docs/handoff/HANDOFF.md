@@ -62,6 +62,27 @@ that rule and the baseline is byte-identical. `ops/orbit-audience-proof.mjs` **1
 frozen audience member with `SIMULATED` + timestamp on activation, Loretta (non-parent) sees only her
 own row, Dana gets the no-oracle empty result.
 
+**GraphQL layer (built, live on the alt stack):** `orbitDraft`, `orbitPreview`, `orbitActivate`,
+`orbitRespond`, `orbitClose`; reads `orbitAlert`, `orbitStatus`, `checkInStatus`; 911 guidance on every
+parent-facing response. Smoke-tested end to end as Kendra: draft → preview (message + SHA-256 hash +
+audience 3) → activate (ACTIVE; Andre/Loretta/Bryan `SIMULATED`) → Andre responds `WITH_ME` → status
+shows `check-in not recorded` → close. **0035** adds `expected_checkins`/`check_ins`; **0036** makes the
+selector prefer today and fall back to the latest overdue expectation (a missed check-in does not stop
+being the signal at midnight); **0037** adds `orbit_photo_access` (PARENT after closure, AUDIENCE while
+ACTIVE, otherwise the same empty answer as a missing photo) and `register_orbit_photo`.
+
+**Media endpoints (built):** `GET /api/orbit/photo/:photoId` (per-request authority via
+`orbit_photo_access`, `Cache-Control: no-store`, 404 for no-access *and* no-such-photo) and
+`POST /api/orbit/photo?childId=` (raw body, re-encode via `sips` to drop EXIF/GPS, SHA-256 of stored
+bytes, refuses rather than storing unstripped metadata). One real bug found and fixed: the routes had
+been registered **after** the catch-all 404 middleware, so every request 404'd; they now sit above it
+and `no-token → 401` with `no-store`, unknown route → 404.
+
+**STILL PENDING (do not claim green):** the media proof with real personas (served while ACTIVE,
+refused after close, non-audience refused, SHA/EXIF assertions), MCP `OrbitStatus` + `CheckInStatus`,
+the audience-payload leakage acceptance test, the pickup regression run, and the final evidence file.
+#33 stays draft.
+
 **Next:** wire GraphQL + the media endpoint + MCP tools, seed the check-in fixture under the additive
 rule, then run the live proofs (audience leakage, isolation, demo refusal, pickup suite unchanged).
 

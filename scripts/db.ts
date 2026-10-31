@@ -17,6 +17,7 @@ import { pathToFileURL } from 'node:url';
 import { createSeed } from '../src/fixtures';
 import {
   createSimulatedCalendar,
+  createSimulatedCheckIn,
   createSimulatedCoordination,
   createSimulatedOrbit,
   createSimulatedPrivate,
@@ -204,6 +205,8 @@ export async function seedSimulated(): Promise<Record<string, number | string>> 
   // The Ellison orbit audience policy (Scenario 8: Andre included). Fixture-owned until Group 4.
   const o = createSimulatedOrbit();
   counts.household_policies = await upsert('household_policies', o.household_policies, 'household_id,rule');
+  const ci = createSimulatedCheckIn();
+  counts.expected_checkins = await upsert('expected_checkins', ci.expected_checkins, 'id');
   return counts;
 }
 
@@ -220,6 +223,8 @@ export async function cleanupSimulated(): Promise<Record<string, number>> {
   // Children before jobs (attempts reference jobs), then the audit household set child-first.
   for (const [table, filter] of [
     ['events', 'fixture=eq.true'],
+    ['expected_checkins', 'fixture=eq.true'],
+    ['check_ins', 'fixture=eq.true'],
     ['attempts', 'fixture=eq.true'],
     ['coordination_jobs', 'fixture=eq.true'],
     ['holiday_arrangements', 'fixture=eq.true'],
@@ -252,6 +257,8 @@ export async function checksumSimulated() {
     adult_availability: c.adult_availability.map((r) => String(r.id)),
     holiday_arrangements: c.holiday_arrangements.map((r) => String(r.id)),
     household_policies: ['orbit_notify_eligible'],
+    expected_checkins: createSimulatedCheckIn().expected_checkins.map((r) => String(r.id)),
+    check_ins: [],
   };
   for (const t of Object.keys(ids)) {
     const all = await fetchAll(t);

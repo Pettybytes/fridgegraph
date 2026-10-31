@@ -255,3 +255,31 @@ export function createSimulatedOrbit(): SimulatedOrbit {
     ],
   };
 }
+
+// ---------------------------------------------------------------- expected check-in (Orbit trigger)
+
+/**
+ * "Nora home by 4:00" with NOTHING recorded: the signal Rosina notices and offers Orbit for.
+ * The read reports "check-in not recorded" — never missing, never in danger — and only to parents.
+ */
+export type SimulatedCheckIn = {
+  label: typeof SIMULATED_LABEL;
+  expected_checkins: Record<string, unknown>[];
+};
+
+export function createSimulatedCheckIn(): SimulatedCheckIn {
+  return {
+    label: SIMULATED_LABEL,
+    expected_checkins: [
+      {
+        id: 'fx_chk_nora_home_by_four',
+        child_id: 'p_nora',
+        label: 'home by 4:00',
+        due_at: '2026-10-31T20:00:00Z',
+        active: true,
+        sandbox: true,
+        fixture: true,
+      },
+    ],
+  };
+}

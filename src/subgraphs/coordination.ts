@@ -1,6 +1,6 @@
 import { parse } from 'graphql';
 import { GraphQLError } from 'graphql';
-import { requireCaller, refuseDemoGuideWrite, type Ctx } from '../authz';
+import { requireCaller, refuseDemoGuideWrite, isParentOf, authorizeChild, SCOPE, type Ctx } from '../authz';
 import { dbFor, rows } from '../db';
 
 /**
@@ -28,6 +28,24 @@ const typeDefs = parse(`
     stranger that a job id exists.
     """
     jobTimeline(jobId: ID!): [TimelineEntry!]!
+
+    """
+    One Orbit alert. A caller who may not see it receives null — identical to a nonexistent id, so
+    the read is not an existence oracle.
+    """
+    orbitAlert(alertId: ID!): OrbitAlert
+
+    """
+    Orbit state for a child. A parent/guardian sees the full view; an audience member sees only their
+    own row; everyone else sees an empty status, never an error that would reveal the alert.
+    """
+    orbitStatus(childId: ID!, alertId: ID): OrbitStatus!
+
+    """
+    The expected-check-in signal, parent view only: reports "check-in not recorded" — never
+    "missing", never "in danger". Carries the 911 guidance text.
+    """
+    checkInStatus(childId: ID!): CheckInStatus!
   }
 
   type Mutation {
@@ -40,6 +58,118 @@ const typeDefs = parse(`
       declineReason: String
       acceptOverLimit: Boolean = false
     ): CoordinationJob!
+
+    """Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing."""
+    orbitDraft(
+      childId: ID!
+      wearColor: String
+      wearGarment: String
+      hair: String
+      carryColor: String
+      carryItem: String
+      photoId: ID
+    ): OrbitDraft!
+
+    """The exact notification the village would receive, plus the binding version and hash."""
+    orbitPreview(draftId: ID!): OrbitPreview!
+
+    """The parent's explicit confirmation. Refuses a stale version, a changed preview or a changed audience."""
+    orbitActivate(draftId: ID!, draftVersion: Int!, messageHash: String!): OrbitAlert!
+
+    """A frozen audience member responds. Appends history; never closes the alert."""
+    orbitRespond(alertId: ID!, response: String!): OrbitResponseResult!
+
+    """Parent/guardian only. No response closes the alert by itself."""
+    orbitClose(alertId: ID!): OrbitAlert!
+  }
+
+  type OrbitShare {
+    wearColor: String
+    wearGarment: String
+    hair: String
+    carryColor: String
+    carryItem: String
+    photoId: ID
+    """Generated ONLY from controlled vocabulary values."""
+    description: String!
+  }
+
+  type OrbitAudienceMember {
+    person: Person!
+    notifyOrder: Int!
+    """When the SIMULATED notification event was recorded. Not proof of delivery."""
+    notifiedAt: String
+    outcome: String
+    eligible: Boolean!
+  }
+
+  type OrbitResponseEntry {
+    person: Person!
+    respondedAt: String!
+    response: String!
+  }
+
+  type OrbitResponseCount {
+    response: String!
+    count: Int!
+  }
+
+  type OrbitAlert {
+    id: ID!
+    status: String!
+    child: Child!
+    message: String
+    share: OrbitShare!
+    activatedAt: String
+    closedAt: String
+    audience: [OrbitAudienceMember!]!
+    responses: [OrbitResponseEntry!]!
+    latestResponses: [OrbitResponseEntry!]!
+    """Emergency guidance, present on every parent-facing Orbit response."""
+    guidance: String!
+  }
+
+  type OrbitStatus {
+    child: Child!
+    alertId: ID
+    status: String
+    audienceCount: Int!
+    notifiedCount: Int!
+    responseCounts: [OrbitResponseCount!]!
+    latestResponses: [OrbitResponseEntry!]!
+    guidance: String!
+  }
+
+  type CheckInStatus {
+    child: Child!
+    recorded: Boolean!
+    label: String!
+    dueAt: String
+    """Either "check-in recorded" or "check-in not recorded"."""
+    text: String!
+    guidance: String!
+  }
+
+  type OrbitDraft {
+    draftId: ID!
+    draftVersion: Int!
+    status: String!
+    guidance: String!
+  }
+
+  type OrbitPreview {
+    draftId: ID!
+    draftVersion: Int!
+    message: String!
+    messageHash: String!
+    audienceSize: Int!
+    guidance: String!
+  }
+
+  type OrbitResponseResult {
+    alertId: ID!
+    responseId: ID!
+    guidance: String!
   }
 
   type Child @key(fields: "id") {
@@ -215,10 +345,163 @@ async function jobById(ctx: Ctx, id: string) {
   return jobFromRow(data[0] as JobRow);
 }
 
+/**
+ * Emergency guidance, included on every parent-facing Orbit response. Orbit notifies an approved
+ * village; it is not an emergency service.
+ */
+const ORBIT_GUIDANCE =
+  'If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village; it does not replace emergency services.';
+
+function orbitResponseEntry(r: Record<string, unknown>) {
+  return {
+    person: { id: String(r.person_id) },
+    respondedAt: String(r.responded_at),
+    response: String(r.response),
+  };
+}
+
+/**
+ * One payload for every alert read. RLS decides which audience rows and responses are visible, so a
+ * parent sees everything and an audience member sees only their own row — the mapping never widens it.
+ */
+async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
+  const parent = await isParentOf(ctx, String(a.child_id));
+  const audience = await rows(
+    dbFor(ctx)
+      .from('orbit_audience_members')
+      .select('person_id,notify_order,notified_at,notification_outcome,eligible')
+      .eq('orbit_alert_id', a.id)
+      .order('notify_order'),
+  );
+  const responses = await rows(
+    dbFor(ctx).from('orbit_responses').select('*').eq('orbit_alert_id', a.id).order('responded_at'),
+  );
+  const latest = new Map<string, Record<string, unknown>>();
+  for (const r of responses) latest.set(String(r.person_id), r);
+
+  return {
+    id: String(a.id),
+    status: String(a.status),
+    child: { id: String(a.child_id) },
+    message: a.minimal_message == null ? null : String(a.minimal_message),
+    share: {
+      wearColor: a.wear_color ?? null,
+      wearGarment: a.wear_garment ?? null,
+      hair: a.hair_desc ?? null,
+      carryColor: a.carry_color ?? null,
+      carryItem: a.carry_item ?? null,
+      photoId: a.photo_id ?? null,
+      description: a.minimal_message == null ? '' : String(a.minimal_message),
+    },
+    activatedAt: a.activated_at ?? null,
+    closedAt: a.closed_at ?? null,
+    audience: audience.map((m) => ({
+      person: { id: String(m.person_id) },
+      notifyOrder: Number(m.notify_order),
+      notifiedAt: m.notified_at ?? null,
+      outcome: m.notification_outcome ?? null,
+      eligible: Boolean(m.eligible),
+    })),
+    responses: responses.map(orbitResponseEntry),
+    latestResponses: [...latest.values()].map(orbitResponseEntry),
+    guidance: parent ? ORBIT_GUIDANCE : '',
+  };
+}
+
 const resolvers = {
   Query: {
     // RLS decides which rows exist for this caller, so a non-parent gets an empty list rather
     // than an error, and a stranger cannot enumerate jobs, names or history.
+
+    orbitAlert: async (_: unknown, { alertId }: { alertId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
+      if (!found.length) return null; // no existence oracle
+      return orbitAlertPayload(ctx, found[0]);
+    },
+
+    orbitStatus: async (
+      _: unknown,
+      { childId, alertId }: { childId: string; alertId?: string },
+      ctx: Ctx,
+    ) => {
+      requireCaller(ctx);
+      const parent = await isParentOf(ctx, childId);
+      const found = alertId
+        ? await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId))
+        : await rows(
+            dbFor(ctx)
+              .from('orbit_alerts')
+              .select('*')
+              .eq('child_id', childId)
+              .order('created_at', { ascending: false })
+              .limit(1),
+          );
+      const empty = {
+        child: { id: childId },
+        alertId: null,
+        status: null,
+        audienceCount: 0,
+        notifiedCount: 0,
+        responseCounts: [],
+        latestResponses: [],
+        guidance: parent ? ORBIT_GUIDANCE : '',
+      };
+      // Nothing visible: the same answer a nonexistent child gets. Parents may legitimately have no
+      // alerts yet, so their empty status still carries the emergency guidance.
+      if (!found.length) return empty;
+
+      const a = found[0];
+      const audience = await rows(
+        dbFor(ctx)
+          .from('orbit_audience_members')
+          .select('person_id,notify_order,notified_at,notification_outcome,eligible')
+          .eq('orbit_alert_id', a.id)
+          .order('notify_order'),
+      );
+      const responses = await rows(
+        dbFor(ctx).from('orbit_responses').select('*').eq('orbit_alert_id', a.id).order('responded_at'),
+      );
+      const counts = new Map<string, number>();
+      for (const r of responses) counts.set(String(r.response), (counts.get(String(r.response)) ?? 0) + 1);
+      const latest = new Map<string, Record<string, unknown>>();
+      for (const r of responses) latest.set(String(r.person_id), r);
+
+      return {
+        child: { id: childId },
+        alertId: String(a.id),
+        status: String(a.status),
+        audienceCount: audience.length,
+        notifiedCount: audience.filter((m) => m.notified_at !== null).length,
+        responseCounts: [...counts.entries()].map(([response, count]) => ({ response, count })),
+        latestResponses: [...latest.values()].map(orbitResponseEntry),
+        guidance: parent ? ORBIT_GUIDANCE : '',
+      };
+    },
+
+    checkInStatus: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      // Parent view only. A stranger (or a nonexistent child) gets the same denial.
+      const level = await authorizeChild(ctx, childId, SCOPE.schedule);
+      if (level !== 'parent') {
+        throw new GraphQLError('UNAUTHORIZED', { extensions: { code: 'UNAUTHORIZED' } });
+      }
+      const { data, error } = await dbFor(ctx).rpc('checkin_status_for', {
+        p_child: childId,
+        p_day: ctx.today,
+      });
+      if (error) throw error;
+      const row = (data as Array<{ recorded: boolean; label: string; due_at: string | null }> | null)?.[0];
+      const recorded = Boolean(row?.recorded);
+      return {
+        child: { id: childId },
+        recorded,
+        label: String(row?.label ?? 'check-in'),
+        dueAt: row?.due_at ? String(row.due_at) : null,
+        text: recorded ? 'check-in recorded' : 'check-in not recorded',
+        guidance: ORBIT_GUIDANCE,
+      };
+    },
     coordinationJobs: async (_: unknown, { childId }: { childId?: string }, ctx: Ctx) => {
       requireCaller(ctx);
       const q = dbFor(ctx)
@@ -362,6 +645,95 @@ const resolvers = {
   },
 
   Mutation: {
+    orbitDraft: async (
+      _: unknown,
+      args: {
+        childId: string;
+        wearColor?: string;
+        wearGarment?: string;
+        hair?: string;
+        carryColor?: string;
+        carryItem?: string;
+        photoId?: string;
+      },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      const { data, error } = await dbFor(ctx).rpc('draft_orbit_share', {
+        p_child: args.childId,
+        p_wear_color: args.wearColor ?? null,
+        p_wear_garment: args.wearGarment ?? null,
+        p_hair: args.hair ?? null,
+        p_carry_color: args.carryColor ?? null,
+        p_carry_item: args.carryItem ?? null,
+        p_photo: args.photoId ?? null,
+      });
+      if (error) throw error;
+      const a = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
+      return {
+        draftId: String(a.id),
+        draftVersion: Number(a.draft_version),
+        status: String(a.status),
+        guidance: ORBIT_GUIDANCE,
+      };
+    },
+
+    orbitPreview: async (_: unknown, { draftId }: { draftId: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      const { data, error } = await dbFor(ctx).rpc('preview_orbit_share', { p_draft: draftId });
+      if (error) throw error;
+      const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
+      return {
+        draftId: String(r.alert_id),
+        draftVersion: Number(r.draft_version),
+        message: String(r.message),
+        messageHash: String(r.message_hash),
+        audienceSize: Number(r.audience_size),
+        guidance: ORBIT_GUIDANCE,
+      };
+    },
+
+    orbitActivate: async (
+      _: unknown,
+      { draftId, draftVersion, messageHash }: { draftId: string; draftVersion: number; messageHash: string },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      const { data, error } = await dbFor(ctx).rpc('activate_orbit_alert', {
+        p_draft: draftId,
+        p_version: draftVersion,
+        p_hash: messageHash,
+      });
+      if (error) throw error;
+      const alertId = String(data);
+      const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
+      if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
+      return orbitAlertPayload(ctx, found[0]);
+    },
+
+    orbitRespond: async (
+      _: unknown,
+      { alertId, response }: { alertId: string; response: string },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      const { data, error } = await dbFor(ctx).rpc('respond_to_orbit_alert', {
+        p_alert: alertId,
+        p_response: response,
+      });
+      if (error) throw error;
+      return { alertId, responseId: String(data), guidance: ORBIT_GUIDANCE };
+    },
+
+    orbitClose: async (_: unknown, { alertId }: { alertId: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      const { error } = await dbFor(ctx).rpc('close_orbit_alert', { p_alert: alertId });
+      if (error) throw error;
+      const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
+      if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
+      return orbitAlertPayload(ctx, found[0]);
+    },
+
     requestPickup: async (
       _: unknown,
       { childId, asOf, window }: { childId: string; asOf?: string; window?: string },
