@@ -48,6 +48,10 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
   if (!session) return null
   const { scope } = session
   const live = authMode === 'live'
+  // The focused child (current context), kept separate from the session home child
+  // and from the authorized list. Falls back to the session scope before context loads.
+  const childId = access?.selectedChildId ?? scope.childId
+  const childName = access?.selectedChildName ?? scope.childName
 
   const events = (mission.data?.frontendSnapshot.events ?? []).slice().sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 4)
   const villageNodes = village.data?.frontendSnapshot.nodes ?? []
@@ -59,8 +63,12 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
         <header className="fg-today-greet">
           <p className="fg-today-date">{longDate(at)}</p>
           <h2 className="fg-today-hi">{greeting(at)}, {scope.parentName}.</h2>
-          <StatusChip tone="brand" className="fg-today-context">Viewing {scope.childName}</StatusChip>
+          <StatusChip tone="brand" className="fg-today-context">Viewing {childName}</StatusChip>
         </header>
+
+        {/* Next attention — the real Orbit check-in — is the hero of the screen when
+            there is one to act on. */}
+        {attention ? <div className="fg-today-hero">{attention}</div> : null}
 
         {/* Ask Rosina entry */}
         <Surface elevated className="fg-today-rosina">
@@ -71,48 +79,48 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
               <p>Ask about what’s shared with you. Every change needs your confirmation.</p>
             </div>
           </div>
-          <Composer placeholder={`What’s on ${scope.childName}’s calendar today?`} onSend={() => go('ask-rosina')} sendLabel="Ask Rosina" />
+          <Composer placeholder={`What’s on ${childName}’s calendar today?`} onSend={() => go('ask-rosina')} sendLabel="Ask Rosina" />
         </Surface>
 
-        {/* Next attention — the real Orbit check-in, self-managing its relevance */}
-        {attention ? <div className="fg-today-attention">{attention}</div> : null}
-
-        {/* Recorded activity */}
-        <Surface className="fg-today-activity" aria-label="Recorded activity">
-          <div className="fg-today-section-head">
-            <h3>Recorded activity</h3>
-            <a className="fg-today-link" href="#/mission-control">Mission Control <Icon.chevron /></a>
-          </div>
-          {mission.loading && !mission.data ? (
-            <div className="fg-skel-list" aria-hidden><span /><span /><span /></div>
-          ) : mission.error && /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(mission.error.message) ? (
-            <p className="fg-today-empty">No records are available to this view.</p>
-          ) : mission.error ? (
-            <InlineFeedback tone="error">I couldn’t check that just now.</InlineFeedback>
-          ) : events.length === 0 ? (
-            <p className="fg-today-empty">No recorded activity to show yet.</p>
-          ) : (
-            <>
-              <ul className="fg-today-events">
-                {events.map((e) => (
-                  <li key={e.id}>
-                    <span className="fg-today-event-dot" data-kind={e.kind} aria-hidden />
-                    <span className="fg-today-event-summary">{recordedSummary(e.summary)}</span>
-                    <time className="fg-today-event-when" dateTime={e.at}>{shortWhen(e.at)}</time>
-                  </li>
-                ))}
-              </ul>
-              <SourceChip>Pickup records{live ? '' : ' · sample'}</SourceChip>
-            </>
-          )}
-        </Surface>
+        {/* Recorded activity — the latest recorded items. Loading and refusal are
+            explicit; when it has loaded with nothing to show, the section is omitted
+            entirely rather than rendering an empty block on the hero screen. */}
+        {(mission.loading && !mission.data) || mission.error || events.length > 0 ? (
+          <Surface className="fg-today-activity" aria-label="Recorded activity">
+            <div className="fg-today-section-head">
+              <h3>Recorded activity</h3>
+              <a className="fg-today-link" href="#/mission-control">Mission Control <Icon.chevron /></a>
+            </div>
+            {mission.loading && !mission.data ? (
+              <div className="fg-skel-list" aria-hidden><span /><span /><span /></div>
+            ) : mission.error && /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(mission.error.message) ? (
+              <p className="fg-today-empty">No records are available to this view.</p>
+            ) : mission.error ? (
+              <InlineFeedback tone="error">I couldn’t check that just now.</InlineFeedback>
+            ) : (
+              <>
+                <ul className="fg-today-events">
+                  {events.map((e) => (
+                    <li key={e.id}>
+                      <span className="fg-today-event-dot" data-kind={e.kind} aria-hidden />
+                      <span className="fg-today-event-summary">{recordedSummary(e.summary)}</span>
+                      <time className="fg-today-event-when" dateTime={e.at}>{shortWhen(e.at)}</time>
+                    </li>
+                  ))}
+                </ul>
+                <SourceChip>Pickup records{live ? '' : ' · sample'}</SourceChip>
+              </>
+            )}
+          </Surface>
+        ) : null}
       </div>
 
       {/* ── Supporting rail ────────────────────────────────────────── */}
       <aside className="fg-today-aside">
-        {/* Your children — fresh MyChildren; selected context marked, never unioned */}
+        {/* Children shared with you — fresh MyChildren; a read scope, not parenthood;
+            selected context marked, scopes never unioned. */}
         <Surface className="fg-today-children" aria-label="Children shared with you">
-          <div className="fg-today-section-head"><h3>Your children</h3></div>
+          <div className="fg-today-section-head"><h3>Children shared with you</h3></div>
           {!live ? (
             <ChildRow child={{ id: scope.childId, displayName: scope.childName, scopes: [] }} current sample />
           ) : myChildren.status === 'loading' ? (
@@ -124,7 +132,7 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           ) : (
             <ul className="fg-today-childlist">
               {myChildren.children.map((c) => (
-                <li key={c.id}><ChildRow child={c} current={c.id === scope.childId} /></li>
+                <li key={c.id}><ChildRow child={c} current={c.id === childId} /></li>
               ))}
             </ul>
           )}
@@ -133,7 +141,7 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
         {/* Village preview */}
         <Surface className="fg-today-village" aria-label="Village preview">
           <div className="fg-today-section-head">
-            <h3>{scope.childName}’s village</h3>
+            <h3>{childName}’s village</h3>
             <a className="fg-today-link" href="#/village">Open <Icon.chevron /></a>
           </div>
           {village.loading && !village.data ? (
@@ -141,7 +149,7 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           ) : village.error ? (
             <p className="fg-today-empty">No records are available to this view.</p>
           ) : villageNodes.length === 0 ? (
-            <p className="fg-today-empty">The people around {scope.childName} will gather here.</p>
+            <p className="fg-today-empty">The people around {childName} will gather here.</p>
           ) : (
             <>
               <div className="fg-today-cluster">
@@ -171,9 +179,12 @@ function ChildRow({ child, current, sample }: { child: ChildAccess; current?: bo
           {sample ? <StatusChip tone="simulated" icon={false}>Sample</StatusChip> : null}
         </div>
         {child.scopes.length > 0 ? (
-          <div className="fg-childrow-scopes">
-            {child.scopes.map((s) => <span key={s} className="fg-scope-tag">{scopeLabel(s)}</span>)}
-          </div>
+          <details className="fg-childrow-scopes">
+            <summary><span>{child.scopes.length} {child.scopes.length === 1 ? 'area' : 'areas'} shared</span><span className="fg-childrow-scopes-view">View</span></summary>
+            <div className="fg-childrow-scopelist">
+              {child.scopes.map((s) => <span key={s} className="fg-scope-tag">{scopeLabel(s)}</span>)}
+            </div>
+          </details>
         ) : sample ? null : (
           <span className="fg-childrow-noscope">No shared access recorded</span>
         )}
