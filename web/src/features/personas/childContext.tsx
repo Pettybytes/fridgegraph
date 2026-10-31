@@ -60,10 +60,14 @@ export function ChildAccessProvider({
   }, [authorized, sessionChildId])
 
   const value = useMemo<ChildAccessValue>(() => {
+    // Another focused child's name is its OWN disclosed displayName — or "Name not
+    // shared" when the contract withheld it. Never borrow the home child's name,
+    // which would misattribute identity across children.
+    const focusedChild = authorized.status === 'ready' ? authorized.children.find((c) => c.id === focusedId) : undefined
     const focusedName =
       focusedId === sessionChildId
         ? sessionChildName
-        : (authorized.status === 'ready' && authorized.children.find((c) => c.id === focusedId)?.displayName) || sessionChildName
+        : (focusedChild?.displayName ?? 'Name not shared')
     return { sessionChildId, sessionChildName, selectedChildId: focusedId, selectedChildName: focusedName, selectChild, authorized, client, runRead }
   }, [sessionChildId, sessionChildName, focusedId, selectChild, authorized, client, runRead])
 
