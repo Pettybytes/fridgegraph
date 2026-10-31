@@ -84,6 +84,8 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
       currentRoute: body.currentRoute,
       history: body.history,
       bearer,
+      personId: identity.personId,
+      isGuide: identity.demoGuide,
       provider: PROVIDER,
       mcpUrl: MCP_URL,
     }).catch((error: unknown) => {
@@ -99,7 +101,7 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} latencyMs=${Date.now() - startedAt}`);
+  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} latencyMs=${Date.now() - startedAt}`);
   res.status(200).json({ reply: outcome.reply, actions: outcome.actions });
 }
 

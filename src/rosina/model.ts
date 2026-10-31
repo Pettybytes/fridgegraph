@@ -10,6 +10,9 @@
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { validateActions, type CatalogAction } from './catalog';
+import { localizeTimestamps } from './localTime';
+import { applyOutputGuard } from './outputGuard';
+import { scopedRoster } from './roster';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string };
@@ -23,6 +26,11 @@ export type RosinaTurnOptions = {
   currentRoute: string;
   history: HistoryMessage[];
   bearer: string;
+  /** The caller's own verified identity (src/auth/verify.ts) — used ONLY to look up this
+   * caller's own scoped roster (src/rosina/roster.ts). Never used to act as anyone else. */
+  personId: string;
+  /** From the verified token's app_metadata.demo_guide claim — never guessed from personId. */
+  isGuide: boolean;
   provider: ProviderId;
   mcpUrl: string;
   maxRounds?: number;
@@ -54,11 +62,17 @@ export type RosinaTurnResult = {
   toolCalls: ToolCallEvidence[];
   usage: { prompt: number; completion: number; total: number };
   latencyMs: number;
+  /** True if the output guard replaced the model's reply. Safe to log as a bare boolean — never
+   * log which name triggered it (src/rosina/outputGuard.ts). */
+  outputGuardTriggered: boolean;
 };
 
 /** Defense in depth, independent of .apollo/mcp*.yaml: even if MCP ever exposed a mutation, this
- * service refuses to call anything by a name it does not already know is a read. */
-const ALLOWED_MCP_TOOL_NAMES = new Set(['PickupCandidates']);
+ * service refuses to call anything by a name it does not already know is a read. Grown one tool
+ * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
+ * available" — a new read ships in the same PR as its own persona-boundary tests). `Attempts`
+ * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40, PR #29's own tool contract). */
+const ALLOWED_MCP_TOOL_NAMES = new Set(['PickupCandidates', 'Attempts', 'JobTimeline']);
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
   return tools
@@ -83,9 +97,11 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const mcpTools = await mcp.listTools();
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), ...ACTION_TOOLS];
 
+  const roster = scopedRoster(options.personId, options.isGuide);
+
   const started = Date.now();
   const messages: ModelMessage[] = [
-    { role: 'system', content: buildSystemPrompt() },
+    { role: 'system', content: buildSystemPrompt(roster, options.isGuide) },
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
   ];
@@ -94,6 +110,10 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const toolCallEvidence: ToolCallEvidence[] = [];
   const proposedActions: unknown[] = [];
   const rounds: ChatResult[] = [];
+  // Every real MCP result's raw JSON this turn — the output guard's only "this name is grounded"
+  // signal besides the caller's own roster. Never sent to the model a second time; it already has
+  // these in `messages` as tool-role content.
+  const toolResultTexts: string[] = [];
   // Catalog presence never implies permission. The ONLY proof this service has that the caller
   // has real standing over a given child is a PickupCandidates call for that exact childId that
   // came back without error, in THIS turn. start-pickup — the one consequential, data-changing
@@ -152,11 +172,16 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       if (call.name === 'PickupCandidates' && !callResult.isError && typeof args.childId === 'string') {
         verifiedChildIds.add(args.childId);
       }
+      // Deterministic, not a hope the model converts UTC correctly: any `at`/`closedAt` in a
+      // JobTimeline/Attempts result is rewritten to the family's own local time before the
+      // model ever sees it. A no-op for PickupCandidates, which has neither field.
+      const localizedData = callResult.isError ? callResult.data : localizeTimestamps(callResult.data);
+      if (!callResult.isError && localizedData) toolResultTexts.push(JSON.stringify(localizedData));
       toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: callResult.isError, errorCodes });
       messages.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: callResult.data } : callResult.data),
+        content: JSON.stringify(callResult.isError ? { error: errorCodes, data: localizedData } : localizedData),
       });
     }
 
@@ -195,14 +220,19 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     { prompt: 0, completion: 0, total: 0 },
   );
 
+  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", roster, toolResultTexts.join('\n'));
+
   return {
-    reply: finalContent || "I couldn't check that just now.",
-    actions: validateActions(proposedActions),
+    reply: guarded.reply,
+    // Fail closed: if the output guard caught a boundary violation in the reply text, don't trust
+    // this turn's actions either — drop them rather than offer a card alongside a corrected reply.
+    actions: guarded.triggered ? [] : validateActions(proposedActions),
     provider: options.provider,
     model: config.model,
     rounds: rounds.length,
     toolCalls: toolCallEvidence.map((t) => ({ ...t, argsPreview: typeof t.argsPreview === 'object' ? JSON.parse(truncate(JSON.stringify(t.argsPreview))) : t.argsPreview })),
     usage,
     latencyMs: Date.now() - started,
+    outputGuardTriggered: guarded.triggered,
   };
 }
