@@ -16,6 +16,9 @@ async page=>{
  await page.getByText('No recorded pickup run',{exact:true}).waitFor();await page.waitForTimeout(120)
  const audit=await page.evaluate(()=>window.__perspectiveAudit)
  if(audit.leaks||!audit.frames)throw Error('Private pickup data survived a perspective switch frame')
+ await page.getByRole('button',{name:'Switch perspective',exact:true}).click();await page.getByRole('button',{name:'Explore as the Demo guide',exact:true}).click();await page.getByText('Exploring as Demo guide',{exact:true}).waitFor()
+ await page.locator('.village-route > .persona-mock').waitFor()
+ for(const [size,label] of [[{width:1440,height:1000},'desktop'],[{width:390,height:844},'mobile']]){await page.setViewportSize(size);await shot('demo-guide-landing-'+label)}
  const proof={passed:true,scope:'Additional visual and frame-isolation checks only; does not override the failing full directory gate',frameAudit:{pass:true,frames:audit.frames,leaks:audit.leaks},screenshots:['mission-control-timeline-desktop.png','mission-control-timeline-mobile.png']}
  await page.evaluate(async({origin,proof})=>{await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(proof)})},{origin,proof})
  return proof

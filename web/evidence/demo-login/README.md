@@ -65,7 +65,7 @@ actual read. No frontend rewrite hid the wording.
 
 Two concurrent browser contexts: A stayed Kendra while B chose Dana and switched to Andre; A's
 identity and in-memory session did not change. Additional visual run (`visual-results.json`):
-Kendra → Dana sampled 35 animation frames with zero surviving Nora pickup records. Unit tests
+Kendra → Dana sampled 70 animation frames with zero surviving Nora pickup records. Unit tests
 also check synchronous DOM/cache clearing, aborts, generation guards, late logins/renewals, and
 late GraphQL/Rosina responses. No sign-out/revoke endpoint is called.
 

@@ -43,9 +43,9 @@ function SignedInVillage() {
       <Shell slots={{
         'mission-control': session.accessToken&&authMode==='live'?<LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
         'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
-        'care-information': <><p className="persona-mock">Sample data · live care read pending</p><CareInformation /></>,
-        calendar: calendar ? <><p className="persona-mock">Sample data · live calendar read pending</p><FamilyCalendar adapter={calendar} /></> : null,
-        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data · live Village v2 read pending</p><LivingVillage /></section></Suspense>,
+        'care-information': <><p className="persona-mock">Sample data</p><CareInformation /></>,
+        calendar: calendar ? <><p className="persona-mock">Sample data</p><FamilyCalendar adapter={calendar} /></> : null,
+        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} />
     </DataProvider>

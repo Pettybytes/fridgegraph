@@ -4,7 +4,7 @@
     "scope": "Additional visual and frame-isolation checks only; does not override the failing full directory gate",
     "frameAudit": {
       "pass": true,
-      "frames": 35,
+      "frames": 70,
       "leaks": 0
     },
     "screenshots": [
@@ -14,8 +14,8 @@
   },
   "scan": {
     "pass": true,
-    "scanned": 569,
-    "heldSessions": 2,
+    "scanned": 571,
+    "heldSessions": 3,
     "tokenFindings": [],
     "genericFilesToInspect": [
       "docs/evidence/01-kendra-full-view.md",
