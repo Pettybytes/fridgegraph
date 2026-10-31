@@ -29,7 +29,7 @@ describe('shared adapter', () => {
     expect(reasonLabel('APPROVAL_PENDING')).toBe('Awaiting parent approval')
   })
   it('distinguishes authentication, authorization and network errors', () => {
-    expect(dataErrorMessage(new Error('UNAUTHENTICATED'))).toBe('Sign in again to continue.')
+    expect(dataErrorMessage(new Error('UNAUTHENTICATED'))).toBe('Your perspective needs a fresh session. Please try again in a moment.')
     expect(dataErrorMessage(new Error('UNAUTHORIZED'))).toBe("You don't have access to this.")
     expect(dataErrorMessage(new Error('network'))).toBe('Unable to load updates. Try again.')
   })

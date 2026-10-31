@@ -15,53 +15,33 @@ const BASE = env.SUPABASE_URL.replace(/\/$/, '');
 const KEY = 'auth' + 'orization';
 const SCHEME = 'B' + 'earer' + ' ';
 const { tokenForPersonId } = await import('./auth.mjs');
-import { existsSync, mkdirSync, readFileSync as rf, writeFileSync, chmodSync } from 'node:fs';
+const mint = (pid) => tokenForPersonId(pid);
 
-// Supabase Auth rate-limits password grants. Cache the short-lived demo tokens in /tmp (mode 600)
-// so repeated proof runs do not re-mint. Nothing is printed and nothing is committed.
-const CACHE = '/tmp/fg-demo-tokens.json';
-const now = () => Math.floor(Date.now() / 1000);
-const readCache = () => (existsSync(CACHE) ? JSON.parse(rf(CACHE, 'utf8')) : {});
-let cache = readCache();
-const mintCached = async (personId) => {
-  const hit = cache[personId];
-  if (hit && hit.exp > now() + 120) return hit.token;
-  const token = await tokenForPersonId(personId);
-  const parts = token.split('.');
-  let exp = now() + 3000;
-  try { exp = JSON.parse(Buffer.from(parts[1], 'base64url').toString()).exp ?? exp; } catch { /* keep default */ }
-  cache[personId] = { token, exp };
-  if (!existsSync('/tmp')) mkdirSync('/tmp', { recursive: true });
-  writeFileSync(CACHE, JSON.stringify(cache), { mode: 0o600 });
-  try { chmodSync(CACHE, 0o600); } catch { /* best effort */ }
-  return token;
-};
-
-let failed = 0;
-const check = (l, ok, d = '') => { if (!ok) failed += 1; console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${l}${d ? ': ' + d : ''}`); };
-
+// MEMORY ONLY. Tokens are held in this process and never written anywhere — no file, no cache dir.
+// Supabase rate-limits password grants, so each persona is minted at most once per run and reused
+// from memory; a 429 is retried with backoff rather than amplifying the request rate.
+const minted = new Map();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Supabase Auth rate-limits token grants per project; a fresh identity seed can exhaust the window.
-// Back off on 429 instead of failing the proof, and pace sign-ins so the limit is not re-hit.
-const minted = new Set();
-const tokenPaced = async (personId) => {
+const tokenOnce = async (personId) => {
+  if (minted.has(personId)) return minted.get(personId);
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const token = await tokenForPersonId(personId);
-      if (!minted.has(personId)) { minted.add(personId); await sleep(1500); }
+      const token = await mint(personId);
+      minted.set(personId, token);
+      await sleep(1200); // pace minting so the limiter is not hit by our own burst
       return token;
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
-      if (!/HTTP 429/.test(message) || attempt >= 5) throw error;
-      console.log(`  … rate limited on ${personId}, waiting 30s`);
+      if (!/HTTP 429/.test(message) || attempt >= 6) throw error;
+      console.log(`  … rate limited on ${personId}, waiting 30s (memory-only retry)`);
       await sleep(30000);
     }
   }
 };
 
 const ask = async (personId, child, proposer) => {
-  const token = await tokenPaced(personId);
+  const token = await tokenOnce(personId);
   const res = await fetch(`${BASE}/rest/v1/rpc/can_approve_swap`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', apikey: env.SUPABASE_PUBLISHABLE_KEY, [KEY]: SCHEME + token },
@@ -69,6 +49,12 @@ const ask = async (personId, child, proposer) => {
   });
   if (!res.ok) return { error: res.status };
   return { allowed: await res.json() };
+};
+
+let failed = 0;
+const check = (label, ok, detail = '') => {
+  if (!ok) failed += 1;
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ': ' + detail : ''}`);
 };
 
 console.log('=== approval policies ===');
