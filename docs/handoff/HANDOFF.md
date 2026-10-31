@@ -3072,5 +3072,8 @@ itself is correct (honoring the flag exactly as designed — the defect was in t
 server logic), then fixed the test to explicitly set/restore `implemented = false` for its own
 duration. Re-verified 75/75 PASS both with the real flag at its current `false` and with it
 flipped to `true` on disk (standing in for #44 having landed). No catalog file touched by this
-fix — `src/rosina/catalog.ts` / `web/src/features/rosina/catalog.ts` carry zero diff. PR:
-branch `fix/orbit-test-disabled-flag`, worktree `../fridgegraph-orbit-test-fix`. Not merged.
+fix — `src/rosina/catalog.ts` / `web/src/features/rosina/catalog.ts` carry zero diff. PR #48 head
+`1f2a39a`, branch `fix/orbit-test-disabled-flag`, worktree `../fridgegraph-orbit-test-fix`.
+`gh pr ready 48` run; `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`,
+`mergeStateStatus: CLEAN`. Both CI checks pass: `typecheck + secret scan` (27s), `web build`
+(21s). Not merged — Bryan merges.
