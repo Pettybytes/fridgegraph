@@ -1,12 +1,13 @@
 {
   "proof": {
-    "passed": false,
-    "incomplete": true,
+    "passed": true,
+    "scope": "Affected #38 current-main Rosina/catalog acceptance; unchanged graph/isolation full receipt remains results.json",
+    "catalogUnimplemented": true,
     "rows": [
       {
         "persona": "kendra",
         "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nThe pickup records show them as authorized, with no availability recorded — so this is permission, not confirmed free time.",
+        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nAuthorization vs availability — per the pickup records, all four are recorded as AUTHORIZED with a grant valid today, and availability UNKNOWN, meaning permission is recorded but free time is not confirmed.",
         "result": "live answer",
         "actualCandidates": [
           {
@@ -46,7 +47,7 @@
       {
         "persona": "andre",
         "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today — availability is not recorded for any of them.\n\nPer the pickup records, all four are listed as authorized for today with unknown availability. Authorization is permission, not free time.",
+        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison and Monique Davis are authorized to pick up Nora today.\n\nThe pickup records list those four as authorized for today, with availability unknown — that's permission, not confirmed free time. The schedule records Andre Ellison has Nora today under the ordinary weekly rule.",
         "result": "live answer",
         "actualCandidates": [
           {
@@ -100,7 +101,7 @@
       {
         "persona": "dana",
         "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nAuthorization means permission for today; availability is recorded as unknown, so it doesn't confirm she is free — per the pickup records.",
+        "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nAuthorization means she has permission recorded for today — availability is separate, and her availability is recorded as unknown, not confirmed free or busy, per the pickup records.",
         "result": "live answer",
         "actualCandidates": [
           {
@@ -112,25 +113,112 @@
             "availability": "UNKNOWN"
           }
         ]
+      },
+      {
+        "persona": "jax-family",
+        "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
+        "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nThe pickup records show authorization valid for today, with availability recorded as unknown — authorization is permission, availability is whether free time is recorded.",
+        "result": "live answer",
+        "actualCandidates": [
+          {
+            "person": {
+              "id": "p_evelyn",
+              "displayName": "Evelyn Carter"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          }
+        ]
+      },
+      {
+        "persona": "demo-guide",
+        "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
+        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nAuthorization is permission, not free time — availability for all four is recorded as unknown.\n\nThe pickup records show all four with a grant valid 2026-10-31: Loretta Brooks — grandmother, Bryan Brooks — uncle, Tasha Ellison — aunt + godmother, Monique Davis — parent friend.",
+        "result": "live answer",
+        "actualCandidates": [
+          {
+            "person": {
+              "id": "p_gma",
+              "displayName": "Loretta Brooks"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_bryan",
+              "displayName": "Bryan Brooks"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_tasha",
+              "displayName": "Tasha Ellison"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_monique",
+              "displayName": "Monique Davis"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          }
+        ]
       }
     ],
-    "active": {
-      "persona": "jax-family",
-      "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-      "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nThe pickup records show her as authorized for today, with no availability recorded — authorization is permission, not a promise she is free.",
-      "actualCandidates": [
-        {
-          "person": {
-            "id": "p_evelyn",
-            "displayName": "Evelyn Carter"
+    "calendarRosina": [
+      {
+        "persona": "kendra",
+        "question": "Who is scheduled with Nora on November 26, 2026? Is this the weekly schedule or an approved arrangement?",
+        "reply": "Andre Ellison is scheduled with Nora on November 26, 2026.\nThis is from an approved arrangement, per the schedule records — not the ordinary weekly rule.",
+        "actual": {
+          "parent": {
+            "id": "p_dad",
+            "displayName": "Andre Ellison"
           },
-          "authorization": "AUTHORIZED",
-          "availability": "UNKNOWN"
+          "source": "ARRANGEMENT",
+          "arrangementId": "ha_nora_thanksgiving"
         }
-      ]
-    }
+      },
+      {
+        "persona": "dana",
+        "question": "Show me Nora's calendar on November 26, 2026.",
+        "reply": "I can only help with children shared with you."
+      }
+    ],
+    "newPersonas": [
+      {
+        "persona": "rosa",
+        "picker": "READY",
+        "liveReads": "pending expanded Cast v2 integration",
+        "rosina": "pending expanded Cast v2 integration"
+      },
+      {
+        "persona": "felicia",
+        "picker": "READY",
+        "liveReads": "pending expanded Cast v2 integration",
+        "rosina": "pending expanded Cast v2 integration"
+      },
+      {
+        "persona": "simone",
+        "picker": "READY",
+        "liveReads": "pending expanded Cast v2 integration",
+        "rosina": "pending expanded Cast v2 integration"
+      },
+      {
+        "persona": "dwayne",
+        "picker": "READY",
+        "liveReads": "pending expanded Cast v2 integration",
+        "rosina": "pending expanded Cast v2 integration"
+      }
+    ]
   },
-  "lastStage": "Rosina capture jax-family",
+  "lastStage": "Seeded picker dwayne",
   "scan": {
     "pass": true,
     "files": [

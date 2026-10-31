@@ -2531,3 +2531,40 @@ expectations removed. Final staged scan **506 files / 0 findings**. Current read
 released to Bentley after independent checks completed, with the stopped matcher gate reported.
 No more live requests until a new coordinated window if needed. #32 remains draft pending Bryan's
 specific authorization; no PR merge. W-ORBIT remains queued after #32 is merged.
+
+### W4b — authorized wording correction (append-only result)
+
+Bryan explicitly approved correcting the new acceptance matcher. The original failed receipt
+`current/main38-matcher-failure.json` remains unchanged and still says passed:false. The regression
+test reads that exact reply and source records, rather than rewriting the receipt. “No availability
+recorded” now means absent records only. Independent rejection checks prevent an uncertainty
+sentence from masking “nobody is available”, a positive availability claim for an UNKNOWN candidate,
+or a FREE → confirmed-willingness conclusion (including “so”, “therefore” and “because” variants).
+Recorded availability remains distinct from willingness; explicit “FREE does not mean willingness”
+wording remains valid. This is a bounded acceptance-language check, not a source of new facts.
+
+Red/green verification: the old matcher failed **5 of 6 groups**; corrected matcher **6/6 PASS**,
+including the exact preserved receipt and negative controls. Client production code and backend
+contracts are unchanged. The live capture uses the same tested helper. Further results follow;
+no earlier failure is relabeled as green.
+
+Final authorized correction verification: **7/7 matcher groups PASS**, including the exact original
+failed receipt and negative controls for absent-record “nobody available” claims (even without a
+candidate row), unsupported positive availability, and FREE → confirmed willingness/can-help
+conclusions. The additional controls were also observed failing before the final fix. All five
+current grounded live replies pass an offline audit against the final helper. No earlier receipt
+is modified or relabeled.
+
+Affected current-main live acceptance **PASS**: seven scoped Rosina flows, names/availability
+grounded in current tool results, Kendra calendar consistency, exact Dana private-calendar refusal,
+unimplemented Orbit card blocked, all eleven READY picker paths, desktop/mobile captures, and
+clean in-process token scan. Receipt: current/rosina-captures.json; independent eleven-picker proof:
+current/picker-ready.json. Explicit completion/release sent to Bentley; no additional live requests
+or resets/seeds/restarts/checkout switches by Codex.
+
+Rechecked: **206/206 web tests, 53/53 Rosina tests**, root typecheck, web typecheck/build, catalog
+**8 ids** and reservation guard **3/3 PASS**. W4b slice: **UI complete · backend documented reads
+complete · integrated + tested PASS**. Broader W4 dependencies remain PENDING and do not block
+review. Proceed with normal push, final-head CI, and mark #32 ready as Bryan authorized. Never
+merge. W-ORBIT remains queued AFTER #32 is merged by Bryan.
+Final staged secret scan after the authorized correction: **508 files / 0 findings**.

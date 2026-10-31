@@ -26,7 +26,8 @@ async page=>{
    const words=new Set([...new Intl.Segmenter('en',{granularity:'word'}).segment(reply)].map(x=>x.segment.toLowerCase()))
    if(!actualCandidates.every(c=>words.has(c.person.displayName.split(' ')[0].toLowerCase()))||/couldn't check|send your question again|busy, try again|give me a moment/i.test(reply))throw Error(id+': live reply not grounded in current candidates')
    await page.evaluate(async({origin,proof})=>{await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(proof)})},{origin,proof:{passed:false,incomplete:true,rows,active:{persona:id,question,reply,actualCandidates}}})
-   if(actualCandidates.some(c=>c.availability==='UNKNOWN')&&!/unknown|not recorded|not confirmed|can't confirm/i.test(reply))throw Error(id+': unknown availability distinction missing')
+   const consistent=await page.evaluate(async({reply,actualCandidates})=>{const m=await import('/scripts/availability-acceptance.mjs');return m.availabilityConsistent(reply,actualCandidates)},{reply,actualCandidates})
+   if(!consistent)throw Error(id+': availability distinction unsupported by source records')
   }
   for(const [size,label] of [[{width:1920,height:1080},'desktop'],[{width:390,height:844},'mobile']]){
    await page.setViewportSize(size)

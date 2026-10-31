@@ -1,6 +1,6 @@
 **Latest runtime: all eleven picker sessions READY and verified.** See picker-ready.json.
 Earlier Coming-soon observations below are historical; live scripts no longer require them.
-#38 wording-matcher gate is pending Bryan's authorization; see the final section.
+#38 wording matcher is corrected with Bryan's approval; latest affected acceptance PASS below.
 
 # W4b replacement brief — current evidence
 
@@ -38,7 +38,10 @@ malformed calendar IDs are indistinguishable within each operation.
 | Dana | READY | PASS — bounded Jax reads; Nora private records refused, including after Kendra | Live answer: Evelyn authorized for Jax, availability unknown |
 | Jax's family | READY | PASS — Jax records; Nora private records refused | Live answer: Evelyn authorized for Jax, availability unknown |
 | Demo guide | READY | PASS — sandbox calendar/job; non-sandbox calendar refused; confirmed forced write refused read-only | Live answer grounded in sandbox candidates |
-| Rosa Castellano | Coming soon, disabled | Pending Cast v2 seed; no identity substituted | Pending |
+| Rosa Castellano | READY | Pending expanded Cast v2 read acceptance | Pending expanded Cast v2 Rosina acceptance |
+| Felicia Reyes | READY | Pending expanded Cast v2 read acceptance | Pending expanded Cast v2 Rosina acceptance |
+| Simone Lee | READY | Pending expanded Cast v2 read acceptance | Pending expanded Cast v2 Rosina acceptance |
+| Dwayne Ferris | READY | Pending expanded Cast v2 read acceptance | Pending expanded Cast v2 Rosina acceptance |
 
 All seven live replies from the acceptance run are preserved verbatim in `results.json`.
 No unsupported availability claim or foreign private identity was observed in these replies.
@@ -231,3 +234,35 @@ recorded — authorization is permission, not a promise she is free,” matching
 value. The new matcher does not recognize that equivalent phrase. AGENTS §1.4 stop applies;
 authorization to correct the matcher with a rejecting negative control is pending. No assertion
 was weakened or failing receipt relabeled. W-ORBIT is queued after #32 is merged by Bryan.
+
+## Authorized matcher correction
+
+Bryan approved accepting “no availability recorded” as absent records. The original failed receipt
+is unchanged. A regression reads that actual receipt; negative controls reject “nobody is available”,
+UNKNOWN → confirmed availability, and FREE → confirmed willingness (even alongside a correct
+uncertainty disclaimer). Old logic failed 5/6 groups; corrected helper passes 6/6. No production
+behavior or response was rewritten. Current live rerun results will be appended separately.
+
+## Corrected acceptance — final current-main result
+
+Bryan approved the matcher correction. Final helper tests **7/7 PASS**, including the exact original
+failed receipt, nobody-available conclusions with and without candidate rows, unsupported positive
+availability claims, and FREE-to-willingness conclusions (also “so”, “therefore”, “because”, “can
+help”, “available to help”). Explicit limits on FREE and actual recorded availability still pass.
+The helper is a bounded acceptance-language check; source records remain authoritative. The original
+failed receipt remains unchanged and false. Corrections/results are appended here and in HANDOFF.
+
+Affected live rerun **PASS** (`rosina-captures.json`): seven scoped Rosina flows, actual current
+candidate grounding, calendar consistency, exact Dana boundary refusal, disabled unimplemented Orbit
+card, and all eleven picker sessions. Final token scan PASS; desktop/mobile captures refreshed.
+The final helper was also audited against all five current grounded candidate replies: PASS.
+All eleven READY and landing checks also have the independent `picker-ready.json` receipt.
+UNAVAILABLE behavior remains covered only by controlled unit responses, not stale live expectations.
+
+Offline checks: 206/206 web tests, 53/53 Rosina tests, root typecheck, web typecheck/build, 8-entry
+catalog consistency and 3/3 reservation guards PASS. Existing full graph/context/frame-isolation
+proofs remain valid; #38 changed no schema/session/cache code. W4b slice: UI complete · backend
+documented reads complete · integrated + tested PASS. Expanded Cast v2 breadth and other broader
+W4 dependencies remain separately PENDING. Read-only window explicitly released to Bentley after
+completion. No reset, seed, restart or checkout switch by this task. Final CI/readiness publication
+is recorded in the PR; no merge. W-ORBIT starts only after Bryan merges #32.
