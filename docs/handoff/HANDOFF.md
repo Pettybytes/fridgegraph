@@ -1628,3 +1628,71 @@ Published draft PR **#27**: https://github.com/Pettybytes/fridgegraph/pull/27.
 Frontend implementation f5d451c. Draft is mechanically mergeable, but **W4a NOT DONE / live
 privacy gate FAILED**. Keep the exact service regression visible; do not merge as an all-green
 integration. Await Task R correction, then rerun the same local smoke and disk gate.
+
+## Task R-LEAK — scoped roster + output guard (2026-10-30)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §10. Summary for the next
+agent (likely W4a's rerun, or Bentley's next Rosina-tools pass):
+
+**Bug (found by #27's W4a smoke):** `src/rosina/systemPrompt.ts` hard-coded
+`KNOWN_CHILDREN = [Nora, Jax]` into EVERY caller's system prompt. Kendra, who has no access to
+Jax's family, got told Jax exists ("I only know Nora and Jax by name") — a cross-family
+disclosure. With Cast v2 (six families) that leak only grows as more names get added to such a
+list.
+
+**Fix:**
+1. `src/rosina/roster.ts` (new): `scopedRoster(personId, isGuide)` — per-request, scoped to
+   exactly the caller. Looks up the caller's own entry in `src/demo/personas.ts`
+   (`DEMO_PERSONAS`, server code shipped in `#26`) by their OWN verified `personId`; an
+   unrecognized personId gets an EMPTY roster, never a guess. `isGuide` comes from the verified
+   token's `app_metadata.demo_guide` claim (`verifyBearer`, also `#26`) — never a personId string
+   match — and returns every sandbox child, matching the guide's documented broad role.
+   **Investigated first:** no live MCP/GraphQL read exists that answers "list my children" as
+   output (every query needs a `childId` as input) — recorded as a Bentley follow-up: ship a
+   `MyChildren` (or `myVillages`) read to replace this fallback.
+2. `src/rosina/systemPrompt.ts`: `buildSystemPrompt(roster, isGuide)` takes the roster as a
+   parameter now; the global constant is gone. New mandatory rule: a scope refusal is always
+   exactly "I can only help with children shared with you." — no names, no count, no example,
+   even if the user already said a name themselves.
+3. `src/rosina/outputGuard.ts` (new): server-side defense in depth. Scans the reply for any demo
+   child/adult name not in the caller's roster and not grounded in this turn's own tool results;
+   if found, replaces the WHOLE reply with the same fixed refusal and drops `actions` too (fail
+   closed). The name list used for scanning is built from `DEMO_PERSONAS` and is never sent to
+   the model.
+4. `model.ts`/`server.ts` thread `personId`/`isGuide` through; `server.ts` logs
+   `outputGuardTriggered` as a bare boolean, never which name triggered it.
+
+**Tests:** `npm run test:rosina` **16/16 PASS** (the original 8 Task R-FIX regressions +8 new:
+per-persona roster scoping incl. the guide and an unknown personId, plus three output-guard
+cases). `npm run check:rosina-catalog` PASS. `npm run check` PASS (393 files, 0 findings).
+`npm --prefix web test` **168 PASS** (unchanged — no `web/` file touched).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls, real tokens:** Kendra asking about
+"another family's child" and by name ("Jax") both get the exact scoped refusal with Jax named
+nowhere in either reply; Dana asking about Nora gets the same refusal; Jax's family asking about
+Jax gets their own normal, grounded answer; Kendra's own-child query and Priya's
+no-capability-fabrication case are unaffected (regression-clean); the Demo guide (real seeded
+login, `app_metadata.demo_guide` verified, not assumed) gets the broad sandbox answer. Full
+transcripts: evidence §10 (one live phone number was hand-redacted before saving, per this
+task's hard stop).
+
+BRANCH: fix/rosina-scoped-roster; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-scoped-roster
+TASK: stop Rosina's system prompt from naming any child outside the caller's own access.
+LAYER: server (src/rosina/ only; no web/, schema, auth or DB change).
+TOUCHED: src/rosina/roster.ts, src/rosina/outputGuard.ts, src/rosina/systemPrompt.ts,
+  src/rosina/model.ts, src/rosina/model.test.ts, src/rosina/server.ts,
+  docs/evidence/35-rosina-service.md (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (16/16); npm --prefix web test (168); live probes against the alt stack (not GraphOS) — all
+  actually run above, not just described.
+NOT DOING: schema/auth/DB changes, service-role reads, mutation tools, merging. The four
+  previously-BLOCKED scenarios (care plan, calendar/events, Mission Control recommendation,
+  village directory) remain BLOCKED, unchanged by this fix.
+BLOCKERS: none for this fix. Follow-up for Bentley: a `MyChildren`/`myVillages` MCP read, scoped
+  by RLS to the caller, would let `roster.ts` stop depending on `src/demo/personas.ts` and read
+  the graph directly instead — add it to "Rosina tools available" when it ships, with the usual
+  persona-boundary tests.
+
+**Final state (2026-10-30):** PR #30 head `c9553ab`. `gh pr ready 30` run; `gh pr view 30` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (17s), `web build` (25s). Not merged — Bryan merges.

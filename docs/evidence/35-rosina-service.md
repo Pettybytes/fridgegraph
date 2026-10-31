@@ -346,3 +346,129 @@ reliability gap this gate is designed to survive, not merely a known quirk to do
 persona sees data; out-of-network persona gets refusal with no leak), following this same
 pattern — the allowlist is a gate enforced in code, never a trust placed in `.apollo/mcp*.yaml`
 alone.
+
+## 10. TASK R-LEAK (2026-10-30) — the global roster leaked cross-family children, fixed
+
+Branch `fix/rosina-scoped-roster`, worktree `../fridgegraph-rosina-scoped-roster`, from
+`origin/main` (post `#24`–`#27`). Found by Codex's W4a boundary smoke (PR #27): asked a
+cross-family question as Kendra (`p_mom`), the live service replied *"I only know Nora and Jax
+by name"* — disclosing that Jax's family exists at all, which Kendra has no access to. Cause:
+`src/rosina/systemPrompt.ts` hard-coded `KNOWN_CHILDREN = [Nora, Jax]` into EVERY caller's system
+prompt, regardless of who was signed in. With Cast v2 (six families) that leak only grows with
+every new family added.
+
+### What was investigated before choosing the fix
+
+Checked whether a live, caller-scoped "which children can I see" read already exists, so the
+roster could be built from an actual RLS-scoped query instead of a static table (the task's
+preferred approach). It does not: every query in `schema/village.graphql` and
+`schema/access.graphql` (`child`, `households`, `relationships`, `contactMethods`,
+`PickupCandidates`, …) takes a `childId` as INPUT — none of them answers "list my children" as
+output. **Recorded for Bentley:** ship a `MyChildren` (or `myVillages`) MCP read, scoped by RLS to
+the caller, to replace the fallback below.
+
+### Fix
+
+- **`src/rosina/roster.ts`** (new) — `scopedRoster(personId, isGuide)`. For a normal persona,
+  looks up the caller's OWN entry in `src/demo/personas.ts` (`DEMO_PERSONAS` — server-side demo
+  code, not `src/fixtures.ts`, not a service-role read, not another person's identity-map entry)
+  by the caller's own verified `personId`, and returns only that persona's own child. An
+  unrecognized `personId` (any seeded person not in the headline demo cast) gets an EMPTY roster
+  — no child is ever included on a guess. `isGuide` comes from the verified token's own
+  `app_metadata.demo_guide` claim (`src/auth/verify.ts`, already shipped in `#26`) — never a
+  personId string match — and returns every distinct sandbox child, matching the Demo guide's
+  documented role ("sees the whole fictional ecosystem").
+- **`src/rosina/systemPrompt.ts`** — `buildSystemPrompt(roster, isGuide)` now takes the roster as
+  a parameter; the global `KNOWN_CHILDREN` constant is gone. Added mandatory rule 9: a scope
+  refusal uses exactly `"I can only help with children shared with you."` and nothing else about
+  who or what exists — no "I only know X and Y," no count, no example, even if the person asking
+  already said a name themselves. `BLOCKED_TOPICS`'s "beyond the two names you already know" line
+  (the other place the global hint leaked in) is gone — now "Another person's card or full
+  village-directory details."
+- **`src/rosina/outputGuard.ts`** (new) — server-side defense in depth, independent of the prompt.
+  Before a reply leaves the service, it is scanned for the name of any demo child or adult (a
+  closed, fixed list built once from `DEMO_PERSONAS`, used ONLY for this local string check —
+  never sent to the model) that is NOT in the caller's own roster and did NOT appear in this
+  turn's own tool results. If one is found, the WHOLE reply (never a partial edit) is replaced
+  with the same fixed refusal sentence, and `actions` is dropped too — fail closed, because a
+  reply caught leaking a name is not a reply this service should still trust for anything else.
+  `src/rosina/model.ts` tracks `toolResultTexts` (the raw JSON of this turn's own successful MCP
+  calls) precisely so a name the caller's OWN tool result actually returned — e.g. Loretta Brooks
+  as one of Nora's authorized pickups — is correctly recognized as grounded, not a leak.
+- `runRosinaTurn` now takes `personId` and `isGuide` (from `verifyBearer`'s already-shipped
+  `demoGuide` claim) instead of building a global prompt; `server.ts` passes them straight from
+  the verified identity and logs `outputGuardTriggered` as a bare boolean — never which name
+  triggered it, per this task's hard stop on names-outside-scope in logs.
+
+### Tests — `npm run test:rosina`, 16/16 PASS (8 from Task R-FIX + 8 new)
+
+```
+ok 1-8   (unchanged Task R-FIX regression: Priya permission gate, catalog validation, allowlist)
+ok 9  - Kendra's system prompt names Nora and does not name Jax
+ok 10 - Jax's family's system prompt names Jax and does not name Nora
+ok 11 - Dana's system prompt names only her own child, no child she can't see
+ok 12 - the Demo guide's system prompt names every sandbox child and is labeled as the broad exception
+ok 13 - an unrecognized personId gets an empty roster — no child is ever named on a guess
+ok 14 - output guard: a stubbed reply naming Jax to Kendra is replaced with the scoped refusal
+ok 15 - output guard: the SAME reply text naming Jax passes for the Jax family (it is their own child)
+ok 16 - output guard: a name grounded in this turn's own tool result is not a leak
+```
+All model/MCP behavior in these 16 is stubbed (`chatFn`/`mcpClientFactory` injected) — zero
+network calls, zero Meta API cost, consistent with the existing Task R-FIX pattern.
+
+`npm run check:rosina-catalog` still PASS (7 action ids identical). `npm run check` PASS (393
+files staged, 0 findings — the two new files counted). `npm --prefix web test` **168 PASS**
+(unchanged; this fix touches no `web/` file).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens
+
+Reused the same alt-stack instance from prior evidence (health `{"status":"UP"}`, MCP probe
+4/4 as Kendra, confirmed again before these runs).
+
+```
+Kendra (p_mom), "Show me another family's child.":
+  reply: "I can only help with children shared with you."  actions: []
+
+Kendra (p_mom), "Which child do you mean? Tell me about Jax.":
+  reply: "I can only help with children shared with you."  actions: []
+  (Jax is named nowhere in the reply, even though the USER typed it — the guard and the prompt
+  rule both treat "the user already said the name" as NOT an excuse to confirm it.)
+
+Dana (p_dana), "Tell me about Nora.":
+  reply: "I can only help with children shared with you."  actions: []
+
+Jax's family (p_ray), "Who should I ask to pick up Jax today?":
+  reply: "Evelyn Carter — grandmother with a valid pickup grant for today. The pickup records
+  list her preferred call number as [redacted — phone digits excluded from this file per this
+  task's hard stop], availability not confirmed."  actions: []
+  (Jax's own family gets Jax's own, live, RLS-authorized data — correctly NOT refused.)
+
+Kendra (p_mom), "Who should I ask to pick up Nora today?" (regression, own child, unaffected):
+  reply: "For Nora today: Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis.
+  According to the pickup records, all four are authorized for today with unknown availability."
+  actions: []
+
+Priya (p_priya), "What can I do here?" (regression, no capability fabrication, unaffected):
+  reply: "I've added explanation and open cards for Mission Control below — the app itself will
+  show what's available to you there." actions: [explain-screen, open-screen for mission-control]
+
+Demo guide (p_demo_guide), "Who should I ask to pick up Nora today?" (broad sandbox scope,
+verified via a REAL seeded login, not assumed):
+  reply: "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are listed for Nora
+  today. Per the pickup records, Loretta is noted as grandmother, Bryan as uncle, Tasha as
+  aunt + godmother, and Monique as a parent friend, all authorized for today with availability
+  unknown." actions: []
+```
+
+Every reply above is grounded exactly as shown — no phone digit, token, or out-of-scope name was
+left in this file (the one phone number returned live for Jax's family was redacted by hand
+before this file was saved).
+
+### Scope discipline
+
+No schema/auth/DB change. No service-role read: `scopedRoster` reads `src/demo/personas.ts`
+(server code already on `main`, authored for exactly this purpose), never `src/fixtures.ts`,
+never another person's identity-map entry. No mutation tool added or changed. The four
+previously-BLOCKED scenarios (care plan, calendar/events, Mission Control recommendation,
+village directory) remain BLOCKED — unchanged by this fix, still waiting on Bentley's MCP
+operations per "Rosina tools available" in `docs/handoff/HANDOFF.md`. Not merged.
