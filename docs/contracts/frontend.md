@@ -31,7 +31,7 @@ Pick by intent:
 - Frontend gets **`VITE_*` publishable values only**: `VITE_GRAPHQL_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_MAPBOX_TOKEN`.
 - **`VITE_` means "compiled into the browser bundle".** Treat every `VITE_` value as public. A service-role key, DB URL or server secret in `web/` is a security defect.
 - `web/.env.example` lists names only, no values. A root `.env.example` is also tracked, names only — see `AGENTS.md` §4.
-- Auth: the browser signs in with Supabase and sends the **user's** token to the graph. It never holds a server credential.
+- Demo perspectives: the browser calls `POST /api/demo/login` and holds only the returned access token and actual expiry in memory. Renewal calls the same endpoint; no browser Supabase client, refresh token, persistence, or sign-out/revoke. The server enforces permissions. Current contract: `docs/evidence/39-persona-sessions.md` and HANDOFF. Apollo sends the current perspective’s bearer to the graph; it never holds a server credential.
 
 ## 4. Build and verify
 

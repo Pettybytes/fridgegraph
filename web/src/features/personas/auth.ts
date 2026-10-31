@@ -27,10 +27,11 @@ export const personaGroups = [
 ] as const
 export type DemoFamilyInput = { parentName: string; childName: string }
 export type DemoFamily = DemoFamilyInput & { id: string; childId: string }
-export type AuthSession = { persona: Persona; scope: Scope; generation: number; accessToken?: string }
+export type AuthSession = { persona: Persona; scope: Scope; generation: number; accessToken?: string; expiresAt?: number; marks?: {demo:boolean;demoGuide:boolean} }
 export interface AuthAdapter {
-  readonly mode: 'mock'
-  signInAsPersona(personaId: PersonaId): Promise<Omit<AuthSession, 'generation'>>
+  readonly mode: 'mock' | 'live'
+  signInAsPersona(personaId: PersonaId, signal?: AbortSignal): Promise<Omit<AuthSession, 'generation'>>
+  unavailablePersonas?(signal:AbortSignal):Promise<PersonaId[]>
   resetDemo(): Promise<void>
   createDemoFamily(input: DemoFamilyInput): Promise<DemoFamily>
 }

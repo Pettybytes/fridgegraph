@@ -3,6 +3,10 @@ import { Shell } from '@/app/Shell'
 import { DataProvider } from '@/lib/frontendData/provider'
 import { MissionControlV2 as MissionControl } from '@/features/mission-control/v2/MissionControlV2'
 import type { AuthAdapter } from '@/features/personas/auth'
+import {createLiveAuthAdapter} from '@/features/personas/liveAuth'
+import {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
+import {createDeliveredAdapter} from '@/lib/frontendData/deliveredAdapter'
+import {LiveMissionControl} from '@/features/mission-control/LiveMissionControl'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { SessionProvider, useSession } from '@/features/personas/Session'
 import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/PersonaPicker'
@@ -27,28 +31,27 @@ function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   return <PersonaAccessState surface={surface} actions={<CatalogCards actions={actions} />} />
 }
 function SignedInVillage() {
-  const { session, switching } = useSession()
-  const adapter = useMemo(() => session ? createPersonaDataAdapter(session) : null, [session])
-  const calendar = useMemo(() => session ? createMockCalendarAdapter(session.persona.personId) : null, [session])
+  const { session, switching, getCurrentSession, getSessionGeneration, runRead, authMode } = useSession()
+  const adapter = useMemo(() => session ? session.accessToken && authMode==='live' ? createDeliveredAdapter(createGraphClient(async()=>getCurrentSession()?.accessToken??null,undefined,getSessionGeneration),runRead) : createPersonaDataAdapter(session) : null, [session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead])
+  const calendar = useMemo(() => session ? createMockCalendarAdapter(session.persona.personId) : null, [session?.generation])
   if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
   if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
-  return <div key={session.generation} data-state="unavailable" data-mode="mock">
+  return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <SessionChip />
     <DataProvider adapter={adapter} scope={session.scope}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
-        'mission-control': <><p className="persona-mock">Demo village · sample information</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
+        'mission-control': session.accessToken&&authMode==='live'?<LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
         'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
-        'care-information': <CareInformation />,
-        calendar: calendar ? <FamilyCalendar adapter={calendar} /> : null,
-        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><LivingVillage /></section></Suspense>,
+        'care-information': <><p className="persona-mock">Sample data · live care read pending</p><CareInformation /></>,
+        calendar: calendar ? <><p className="persona-mock">Sample data · live calendar read pending</p><FamilyCalendar adapter={calendar} /></> : null,
+        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data · live Village v2 read pending</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} />
     </DataProvider>
   </div>
 }
 export default function App({authAdapter}:{authAdapter?:AuthAdapter}={}) {
-  const auth = useMemo(() => authAdapter ?? createMockAuthAdapter(), [authAdapter])
-  if (import.meta.env.VITE_DATA_MODE && import.meta.env.VITE_DATA_MODE !== 'mock') return <><SandboxBanner /><main className="persona-entry"><h1>Demo sign-in unavailable</h1><p>Demo sign-in isn’t connected yet. You’ll be able to choose a person when it’s ready.</p></main></>
+  const auth = useMemo(() => authAdapter ?? (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH==='true'?createMockAuthAdapter():createLiveAuthAdapter()), [authAdapter])
   return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage /></SessionProvider>
 }

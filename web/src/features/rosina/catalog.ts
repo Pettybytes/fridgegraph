@@ -54,7 +54,8 @@ export function actionRoute(action: CatalogAction): string | null {
   if (action.id === 'open-person') return `#/village?person=${encodeURIComponent(action.args.personId)}`
   return null
 }
-export function actionAllowed(action: CatalogAction, context: { childId: string | null; parent: boolean; visiblePeople: ReadonlySet<string>; canReadCare?: boolean; calendarChildIds?: ReadonlySet<string>; calendarEventIds?: ReadonlySet<string> }): boolean {
+export function actionAllowed(action: CatalogAction, context: { childId: string | null; parent: boolean; visiblePeople: ReadonlySet<string>; readOnly?: boolean; canReadCare?: boolean; calendarChildIds?: ReadonlySet<string>; calendarEventIds?: ReadonlySet<string> }): boolean {
+  if(context.readOnly && catalog[action.id].changesData)return false
   if (action.id === 'open-calendar') return context.calendarChildIds?.has(action.args.childId) === true
   if (action.id === 'open-event') return context.calendarEventIds?.has(action.args.id) === true
   if (action.id === 'open-screen' && action.args.screen === 'care-information') return context.canReadCare === true

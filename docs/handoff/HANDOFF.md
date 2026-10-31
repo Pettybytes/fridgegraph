@@ -1881,3 +1881,92 @@ test:rosina` **24/24 PASS**; `npm run check` PASS; `npm --prefix web test` **168
 `git diff origin/main...HEAD --stat` confirmed to contain ONLY this task's own files. Pushed;
 `gh pr view 34` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
 merged — Bryan merges.
+## W4b — Explore as persona sessions
+
+BRANCH feat/web-demo-login; WORKTREE ../fridgegraph-web-demo-login.
+BASE actual origin/main 0ff82ee86baf9973152c49e93bd186edc2afe276; ancestry of required 1cd7ab8
+verified (includes #28 sessions + W4a #27). Read persona-session contract/evidence 39/E2A report.
+E2A's original refresh-token example is historical; current HANDOFF/evidence 39 govern: nested
+access token + real expiry, no browser refresh token, 60/min IP, repeat endpoint renewal.
+Layer web + companion docs only. Never merge. No browser Supabase client, identity substitution,
+shared-session sign-out/revoke, credential-file reads, or automatic mutation/Rosina-message replay.
+UI in progress · backend session/E3 reads delivered · integration not yet verified here.
+
+W4b implementation: **UI complete · backend sessions/E3 recorded reads delivered, v2 partial ·
+integrated + tested partial. NOT DONE.** Default picker is live “Explore as…”; mock identity only
+with explicit VITE_DEV_MOCK_AUTH=true in development/tests. Live sessions whitelist nested access
+bearer + real expiry into memory. No browser Supabase client, refresh token, storage, logs,
+identity substitution, shared-session sign-out/revoke, or auto-replayed mutation/Rosina message.
+Renew at four minutes before actual expiry; same-expiry/failure backoff 30/60/120 s and at least
+Retry-After; per-generation single-flight; independent expiry safety timer. Eligible read retries
+once after renewal; Rosina renews on 401 but asks the visitor to send again, never replays.
+Switch/leave synchronously removes private DOM, clears Apollo/selection/thread state, aborts and
+bumps generation; late results cannot enter the cache or restore a prior perspective.
+
+Actual final local browser results (full receipt: web/evidence/demo-login/results.json):
+
+| Persona | Picker | Live reads | Rosina |
+| --- | --- | --- | --- |
+| Kendra | READY | Private reads pass; stored job + 5 timeline entries. Directory isolation pending (failed) | Live answer |
+| Andre | READY | Same family/job/timeline as Kendra; private reads pass. Directory isolation pending (failed) | Live answer |
+| Loretta | READY | Schedule/approved goals pass; care/household/candidates correctly refused. Directory isolation pending (failed) | Correct refusal; care tool pending |
+| Priya | READY | Schedule/care permission pass; goals/household/candidates correctly refused. Directory isolation pending (failed) | Correct refusal; care tool pending |
+| Dana | READY | Jax reads pass; Nora private records correctly refused after switch. Directory isolation pending (failed) | Live answer; date grounding follow-up |
+| Jax's family | READY | Jax reads pass; Nora private records correctly refused. Directory isolation pending (failed) | Live answer |
+| Demo guide | READY | Sandbox reads pass; confirmed forced write refused. Topology/goals correctly refused under current contract; breadth pending | Live answer |
+| Rosa Castellano | Coming soon | Pending: no seeded identity; disabled, not chosen | Pending |
+
+**Full live smoke FAILS six directory-name checks.** Direct child-directory probes disclose Jax's
+name to Nora's family/grant holders and Nora's name to Jax's family. E2c evidence 37 explicitly
+records the inherited authenticated directory policies; they do not satisfy this task's stricter
+isolation gate. No backend change or client-side filter concealed this. Bentley needs to reconcile
+that directory posture with the requested persona boundary. Other families' household/candidate/
+care/schedule/goals reads were correctly refused. The product did not render the foreign probe
+results. Full assertions remain nonzero; do not mark integrated or DONE from the unit suite.
+Guide topology remains parent-only per E2e; guide goals refusal is recorded, not invented away.
+
+Two simultaneous contexts verified independent browser identities. Supplemental Kendra → Dana
+visual check sampled **32 frames, zero old pickup records**. Token-leak scans in-process PASS:
+zero held token/current-prefix hits, zero new generic-prefix matches; existing generic matches
+inspected (redacted evidence/patterns/integrity text/binary PNG), no matching content printed.
+Coverage/filenames and exclusions are in the receipts. No credential-file reads, traces, HAR,
+video, saved browser sessions, header logging or token fragments in command arguments.
+Desktop/mobile screenshots for every READY landing and live Rosina reply, picker/Coming soon,
+guide refusal and actual Mission Control timeline are in web/evidence/demo-login/.
+
+Recorded Mission Control now uses actual jobTimeline and Attempt.candidate/mode/closure fields;
+missing evaluations/times stay explicit. “Stored pickup record” describes persistence only,
+never verified execution. Calls/texts may be simulated; sending is explicitly unverified. The
+separate no-driver fixture remains “Sample scenario”; Village v2/Calendar/care remain “Sample
+data”. No live mutation enabled. Proxy correction: web /graphql rewrites to the router's actual /
+endpoint on 4010; /api/demo proxies 4008. Updated frontend identity docs that still incorrectly
+required a browser Supabase sign-in; current session contract remains evidence 39/HANDOFF.
+
+Rosina's generic boundary reply introduced no foreign name this time; exact replies are retained
+in the evidence README/receipt. Dana's reply cited “grant valid 2026-10-31” during the Detroit
+October 30 run: Task R/Bentley must review the tool/service meaning of “today”; no client rewrite.
+Permission-only v1 care/schedule probes are not v2 UI or Rosina care integration.
+
+Remaining dependencies alongside W4: Cast v2 seed for Rosa/Felicia/Simone/Dwayne and six-family
+Guide breadth; directory/guide topology scope; Village v2 relationships/visibility reads; Calendar
+event/category/status, holiday precedence and adult busy/free reads; v2 care read/tool;
+resetDemo/createDemoFamily real services; Task H public judge access + Try FridgeGraph landing
+button. Current live failures remain Live; never replaced by mock family answers.
+
+Observed local checks: **197 web tests PASS**; root typecheck PASS; web typecheck/build PASS
+(existing chunk-size advisory); shared Rosina catalog check PASS (7 identical ids).
+Root staged secret scan PASS: **413 files, 0 findings**. No backend/schema/auth paths changed.
+
+W4b upstream reconciliation: rebased onto origin/main **558796a** (#29) before first push; initial
+base remains 0ff82ee. Read updated Task E-NEXT and evidence 40: MCP exposes JobTimeline/Attempts
+alongside PickupCandidates (service allowlisting is Task R). The current stored pickup is the
+separate SIMULATED seed, not proof of actual execution. UI now says “Stored pickup record” and
+explicitly leaves dispatch unverified; it makes no “Recorded run” claim. Destination badges use
+only destinationMode; that field alone is not sending evidence. Bentley dependency: expose
+execution provenance/delivery evidence before calling this an executed run. No field invented.
+Removed the obsolete, unused ConnectedEntry browser Supabase client; all sessions now enter
+through the documented endpoint. No browser Supabase imports remain in application source.
+Final after rebase/provenance correction: root staged secret scan **420 files, 0 findings**.
+The refreshed full live receipt has exactly six directory-name failures, not a weakened assertion.
+Supplementary frame audit: 32 frames / zero old pickup records. Temporary Playwright logs were
+scanned before cleanup; screenshots and safe receipts remain in web/evidence/demo-login/.

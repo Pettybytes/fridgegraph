@@ -18,7 +18,7 @@ export function RosinaPanel(props:PanelProps){
   return <PersonaRosinaPanel key={session?.generation??'signed-out'} {...props}/>
 }
 function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
-  const { session, registerPrivateCleanup, getSessionGeneration } = useSession()
+  const { session, registerPrivateCleanup, getSessionGeneration, renewSession, authMode } = useSession()
   const calendarScope = useCalendarActionScope(session?.persona.personId)
   const sessionRef = useRef(session)
   sessionRef.current = session
@@ -39,7 +39,7 @@ function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
   const nextId = useRef(0), active = useRef(true), abort = useRef<AbortController | null>(null)
   const threadRef = useRef<HTMLDivElement>(null), launcherRef = useRef<HTMLButtonElement>(null)
   const sent = useRef(false), executed = useRef(new Set<string>())
-  const context = { ...calendarScope, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
+  const context = { ...calendarScope, readOnly: session?.marks?.demoGuide===true, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
   useEffect(() => {
     active.current = true
     const unregister = registerPrivateCleanup(() => {
@@ -87,7 +87,7 @@ function PersonaRosinaPanel({ dataAdapter, service }: PanelProps) {
     if(recordUser)append('PARENT',message)
     try {
       const response=await adapter.send({message,currentRoute:location.hash||'#/mission-control',history},controller.signal)
-      if(owns()){if(response.notice==='sign-in')setNeedsSignIn(true);accept(response)}
+      if(owns()){if(response.notice==='sign-in'){setNeedsSignIn(true);const renewed=await renewSession();if(owns()&&renewed){setNeedsSignIn(false);append('ROSINA','Your perspective is ready again. Please send your question again.')}else if(owns()){if(authMode==='live'){setNeedsSignIn(false);append('ROSINA','Busy, try again in a moment')}else accept(response)}}else accept(response)}
     }catch(error){
       if(owns() && !(error instanceof RosinaCancelled)) {
         if(adapter.mode==='live')append('ROSINA',LIVE_FALLBACK)
