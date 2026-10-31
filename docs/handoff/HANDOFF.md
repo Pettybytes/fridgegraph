@@ -3444,3 +3444,35 @@ reached my catch because the transaction ended differently.
 
 Do not treat 2b as passed. The guard matrix is 16/16 apart from this, and the API-origin proof,
 the contract doc and the PR all remain outstanding. No merge.
+
+## Group 5 Piece 1 — forgery guards established (2026-10-31 04:00)
+
+Diagnosed by row count and SQLSTATE before touching the guard, per instruction. Result:
+
+| Observation | Value |
+|---|---|
+| target response before | 1 |
+| RLS on `orbit_responses` | **true** |
+| snapshot owner under attack | attacker role (created by it), schema `pg_temp_N` |
+| `_reset_eligible()` verdict for forged snapshot | **false** |
+| forged `DELETE … RETURNING 1` | **rowCount 0, no SQLSTATE** |
+| target response after | 1 — intact |
+
+**Interpretation (case 1):** `rowCount=0` with the row intact means the attempt never matched a row —
+**RLS** stopped it before the trigger. That separately protects the data but does **not** prove the
+ownership check, so it is not claimed as such.
+
+**Trigger ownership check, exercised where the row does reach the trigger**
+(`ops/forgery-trigger-check.mjs`, isolated + rolled back, BYPASSRLS test role created and dropped inside
+the proof, no production grant or policy changed):
+- row visible to the attacker role: **yes**
+- forged DELETE refused: **SQLSTATE 42501**
+- message: **ORBIT_RESPONSES_APPEND_ONLY** (the guard, not a privilege error)
+- response row intact afterwards: **yes** — 4/4 PASS
+
+**Acceptance suite:** `ops/reset-demo-proof.mjs` **18/18 PASS** (RLS and trigger now asserted as two
+separate protections rather than one conflated one).
+
+Still outstanding before PR: the **API-origin proof** (`orbitActivate` → `orbitRespond` → reset with
+seeded consumer reads restored) and the **contract documentation** of the append-only exception.
+No merge.
