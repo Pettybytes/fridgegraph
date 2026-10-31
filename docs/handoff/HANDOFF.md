@@ -3298,3 +3298,19 @@ and diff check all PASS. Staged secret scan: **548 text files / 0 findings**. Fi
 W-ORBIT browser acceptance: **DONE — UI complete · backend serving verified · integrated + tested
 PASS** on the recorded runtime. Final-head CI must pass before #44 is marked ready; Bryan alone
 merges. Broad W4 and runtime rollout dependencies above are not included in this DONE state.
+
+## Re-verification: MyChildren displayName gap closed, no fix needed (2026-10-31)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §18. With #43 merged,
+`ops/MyChildren.graphql` now selects `child.person.displayName`, closing the exact Bentley
+follow-up §15 flagged. Reran the name-based live probes on current `main` (`49205cc`), coordinated
+via the HANDOFF reservation record (none held; prior W-ORBIT window already released at 05:50
+UTC) plus a direct `ops/alt-stack.sh --check` (PASS). All six probes passed on the first run:
+Kendra lists/uses Leo/Max/Nora by name with zero output-guard trips; Priya correctly resolves
+Malik (`careplan.read`-only — care question works, calendar still refused) and Nora (separate,
+wider scope — both work) by name in the same persona; Oscar's empty result still has no names
+anywhere; Dana's boundary on Nora still holds with zero leak. **No code change was needed and
+none was made** — `npm run test:rosina` 75/75, `npm --prefix web test` 231/231, both unchanged on
+`main`. This is a verification-only append; no PR opened. Worktree
+`../fridgegraph-mychildren-verify`, branch `verify/mychildren-displayname` (evidence/HANDOFF
+commit only, for the record).
