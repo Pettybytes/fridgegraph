@@ -2892,3 +2892,24 @@ and affected live acceptance are complete; broader W4 dependencies remain separa
 This documentation follow-up is pushed normally; final-head CI/status are reported in the user
 response and the PR. No PR merge. W-ORBIT begins only after Bryan merges #32; do not start it on
 this worktree/branch or infer that READY means merged.
+
+---
+
+## Stack reservations — status as of 2026-10-31 03:21
+
+**No reservation is held right now.** Services are idle and verified:
+
+| Service | PID | Note |
+|---|---|---|
+| demo/picker 4008 | 10834 | up |
+| router 4012 | 36262 | up |
+| Rosina 4200 | 40176 | worktree @ **a88d613** — now **behind main 2e6e869** |
+| MCP 5051 | 36876 | up |
+| alt subgraphs 4101–4107 | — | up via `ops/stack-alt.mjs` |
+
+**W-ORBIT requested a future scenario-clock window**: simulated-only draft / preview / activate /
+respond / close, photo access, and a mid-activation perspective switch, driven by the actual picker.
+No real sends. Pending: the branch/commit to run and the scenario-clock start date.
+
+**Bentley pending**: #41 rebase after #40 merges (~10 min, needs no stack) and the later Rosina 4200
+reload for the catalog metadata flip (~5 min, restart, needs the reservation).
