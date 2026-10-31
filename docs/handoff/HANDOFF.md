@@ -3539,3 +3539,27 @@ Branch `piece3-consent` from `origin/main` (`c499e21`, #50 merged). No code writ
 approval counted once (ledger row count stays 1); decision visible in the child's history.
 
 No PR. Piece 2 (createDemoFamily) from current main afterwards — Piece 1 is merged, so no stacking.
+
+## Reset route must move to 4008 — stop point (2026-10-31 04:16)
+
+`POST /api/demo/reset` currently sits on Rosina **4200**, but the persona session cache lives in the
+**4008** process (`src/demo/server.ts` imports `getPersonaSession`), so `dropPersonaSessionCache()`
+there clears a map 4200 never populates. The route belongs in 4008 so reset and cache-drop share a
+process.
+
+**Not yet done — exact next steps:**
+1. Add `app.post('/api/demo/reset', …)` in `src/demo/server.ts` (express, bound `127.0.0.1`, siblings
+   `/api/demo/login`, `/api/demo/…`). **Open decision that must be made first:** that file does *not*
+   import `verifyBearer` — it authenticates through persona sessions (`getPersonaSession`). Choose one
+   and state it: (a) import `verifyBearer` as Rosina does and require `identity.demo && !identity.demoGuide`,
+   or (b) reuse the persona-session lookup. Do not guess: the guards must be the same as today
+   (loopback-only until Task H, demo sessions only, guide refused, 30 s cooldown).
+2. Call `resetDemo()` then `dropPersonaSessionCache()` in that process, in that order.
+3. **Remove** the 4200 route so exactly one reset path exists.
+4. Restart 4008 inside a reserved window (stack change), then prove: a cached persona session is
+   **dropped** by reset — the next pick **re-mints** (observe a new mint, not a cache hit) — and the
+   DB reads come back seeded.
+5. Tell Codex the live route/port: `POST http://127.0.0.1:4008/api/demo/reset`.
+
+Piece 3 also still owes its HANDOFF record (the earlier commit was skipped) and its resolver/proof.
+Piece 2 after that. Nothing merged.
