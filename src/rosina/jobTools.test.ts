@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
+import type { ChildAccess } from './childAccess';
 import { localizeTimestamps, toFamilyLocalTime } from './localTime';
 import { runRosinaTurn, type McpClientLike } from './model';
-import { scopedRoster } from './roster';
 import { buildSystemPrompt } from './systemPrompt';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
@@ -36,6 +36,11 @@ const ALL_TOOLS: McpTool[] = [
   { name: 'SomeFutureMutation', description: 'not a read this service knows about', inputSchema: {} },
 ];
 
+/** TASK R-MYCHILDREN: every runRosinaTurn call makes an eager MyChildren call first; none of
+ * PickupCandidates/Attempts/JobTimeline are childId-gated at all, so its exact content barely
+ * matters here — it just has to succeed. */
+const MY_CHILDREN_NORA: McpToolCall = { data: { myChildren: [{ child: { id: 'p_nora' }, scopes: ['schedule.read'] }] }, errors: [], isError: false, raw: null };
+
 /** Keyed by exact (name, JSON.stringify(args)) so a test can script distinct results for, e.g.,
  * Attempts() with no args vs Attempts({jobId}). */
 function stubMcp(byCall: Record<string, McpToolCall>): McpClientLike & { calls: Array<{ name: string; args: Record<string, unknown> }> } {
@@ -48,6 +53,7 @@ function stubMcp(byCall: Record<string, McpToolCall>): McpClientLike & { calls: 
     },
     async callTool(name: string, args: Record<string, unknown>) {
       calls.push({ name, args });
+      if (name === 'MyChildren') return MY_CHILDREN_NORA;
       const key = `${name}:${JSON.stringify(args)}`;
       return byCall[key] ?? { data: null, errors: [{ message: 'NO_SUCH_FIXTURE' }], isError: true, raw: null };
     },
@@ -78,20 +84,20 @@ test('the allowlist accepts PickupCandidates, Attempts and JobTimeline, and reje
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 1, 'only the allowlisted call reached the MCP client');
-  assert.equal(mcp.calls[0].name, 'Attempts');
+  assert.equal(mcp.calls.length, 2, 'MyChildren, then Attempts — SomeFutureMutation never reached the client');
+  assert.equal(mcp.calls[1].name, 'Attempts');
   const refused = result.toolCalls.find((t) => t.kind === 'refused');
   assert.deepEqual(refused, { round: 1, kind: 'refused', name: 'SomeFutureMutation', argsPreview: { jobId: 'job_nora_oct16' }, isError: true, errorCodes: ['TOOL_NOT_ALLOWED'] });
 });
 
 test('an empty Attempts/JobTimeline result never implies "nothing happened" in the prompt text', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }] as ChildAccess[], false, 'p_mom');
   assert.match(prompt, /I can't see that pickup/);
   assert.match(prompt, /Never read \[\] as "nothing\s+happened/);
 });
 
 test('the system prompt tells the model times already arrive in the family\'s own local time', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }] as ChildAccess[], false, 'p_mom');
   assert.match(prompt, /America\/Detroit/);
   assert.match(prompt, /ALREADY converted/);
 });
