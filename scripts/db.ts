@@ -69,6 +69,7 @@ const TABLES = [
   'approvals', 'household_policies', 'parenting_schedules', 'events', 'school_reports',
   'permission_slips', 'bus_rosters', 'vehicles', 'practices', 'locations', 'coordination_jobs', 'attempts',
   'information_requests', 'confirmations', 'conversation_state', 'village_event',
+  'orbit_vocabulary',
 ] as const;
 
 /** Tables where reset removes non-baseline rows (test artifacts, onboarding ghosts). */
@@ -112,9 +113,28 @@ async function fetchAll(table: string, filtered = false): Promise<Record<string,
   return (await res.json()) as Record<string, unknown>[];
 }
 
+
+/**
+ * The controlled descriptor vocabulary is REFERENCE data, not fixture data: it must survive
+ * `db:reset` exactly like the rest of the baseline. Migration 0034 seeds it once, but a reset that
+ * drops non-baseline rows empties the table, so it is seeded here as baseline too.
+ */
+const COLORS = ['black', 'white', 'grey', 'navy', 'blue', 'red', 'green', 'yellow', 'purple', 'pink', 'orange', 'brown', 'tan', 'beige'];
+const VOCABULARY = [
+  ...COLORS.map((value) => ({ kind: 'WEAR_COLOR', value, version: 1 })),
+  ...['hoodie', 'raincoat', 'jacket', 'coat', 't-shirt', 'sweater', 'dress', 'skirt', 'trousers', 'jeans', 'shorts', 'uniform']
+    .map((value) => ({ kind: 'WEAR_GARMENT', value, version: 1 })),
+  ...['short', 'long', 'ponytail', 'bun', 'braids', 'curly', 'straight', 'buzz cut']
+    .map((value) => ({ kind: 'HAIR', value, version: 1 })),
+  ...COLORS.map((value) => ({ kind: 'CARRY_COLOR', value, version: 1 })),
+  ...['backpack', 'school bag', 'lunchbox', 'water bottle', 'book bag', 'sports bag', 'instrument case']
+    .map((value) => ({ kind: 'CARRY_ITEM', value, version: 1 })),
+];
+
 function baseline() {
   const s = createSeed();
   return {
+    orbit_vocabulary: VOCABULARY,
     villages: s.villages.map((v) => ({ id: v.id, name: v.name })),
     people: s.people.map((p) => ({ id: p.id, display_name: p.displayName, birth_date: p.birthDate })),
     children: s.children.map((c) => ({ person_id: c.id })),
@@ -166,6 +186,7 @@ const CONFLICT: Record<string, string | undefined> = {
   household_members: 'person_id,household_id', memberships: 'person_id,group_id',
   capabilities: 'person_id,name', contact_methods: 'person_id,channel,value',
   locations: 'id',
+  orbit_vocabulary: 'kind,value',
 };
 
 export async function seedDatabase() {

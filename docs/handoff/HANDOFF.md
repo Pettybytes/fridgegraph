@@ -352,6 +352,23 @@ be probed. `ops/e3-proof.mjs` **21/21**: parent 4 attempts (`p_bryan, p_gma, p_m
 router restarted — a stale supergraph had made the new fields fail validation. Guardian authority is
 inherited from 0024 but **no guardian persona is seeded, so it is not exercised** and not claimed.
 
+## ⚠️ Stack/database operations — ANNOUNCE BEFORE RUNNING (2026-10-30)
+
+Codex's live tests share the alt stack (subgraphs 4101–4107, router 4012) **and the same database**.
+During the #33 pickup diagnosis I killed those subgraphs, pointed them at a different checkout
+(`/tmp/fg-main`) and ran `db:reset` + `seed` without announcing it — Codex's runs broke. That was my
+error, not theirs.
+
+**Rule from now on:** before ANY `db:reset`, `db:seed`, alt-stack restart or checkout switch, append a
+line to this section saying what will run, against which checkout and ports, and roughly for how long.
+Then run it, then say it is restored. Never leave the stack pointed at a different checkout.
+
+| when | what | checkout | ports | restored |
+|---|---|---|---|---|
+| 2026-10-30 ~21:2x | killed subgraphs, ran `db:reset` + `seed`, tests | `/tmp/fg-main` (origin/main) | 4101–4107 / 4012 | yes — back on `feat/o-orbit` |
+| 2026-10-30 21:35 | alt-stack restart (NO reset, NO seed) + supergraph recompose + MCP restart, for the vocabulary API | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored** |
+| 2026-10-30 21:40 | `db:reset` + `seed` + `seed:simulated` to restore the baseline vocabulary (0034's insert is wiped by reset) | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored, 55 values** |
+
 ### Rosina tools available
 
 No new MCP tool was added, so Rosina's toolset is unchanged and this task adds no tool grant. The two
@@ -361,6 +378,11 @@ new app reads are GraphQL operations on the coordination subgraph:
 |---|---|---|---|---|
 | `jobTimeline` | `jobId: ID!` | `[TimelineEntry!]!` — `at`, `kind` (JOB_CREATED / ATTEMPT_OPENED / ATTEMPT_CLOSED / COST_CALCULATED / CONFIRMATION), `attemptId`, `candidate { id }`, `detail` | parents + guardians of the job's child (RLS `is_parent_of`); Demo guide on sandbox jobs; **nobody else** | e3-proof 2,3,4,5,6 — parent 5 entries, co-parent 5, unrelated adult `[]`, guide 5 read-only, missing id `[]` |
 | `Attempt.candidate` | via `attempts(jobId)`; no new argument | `Person` (nullable) + `destinationMode`, `closedAt`, `closedReason` | same as the Attempt row's own visibility | e3-proof 1 — 4 attempts, 4 distinct recorded candidates, all `TEST_RESPONDER` |
+| `orbitStatus` | `childId: ID!`, `alertId: ID` | `OrbitStatus` — status, audience/notified counts, response counts, latest responses, guidance | parent/guardian full view; an audience member only their own row; nobody else an empty status (no oracle) | `ops/orbit-leakage-proof.mjs` 19/19 — parent 4, audience member 1, Dana `alertId: null` |
+| `checkInStatus` | `childId: ID!` | `CheckInStatus` — `recorded`, `label`, `dueAt`, `text` ("check-in not recorded"), `guidance` | parent/guardian only; a stranger and a nonexistent child receive the same refusal | `orbit-leakage-proof` 3 — parent text, Dana UNAUTHORIZED |
+| `orbitVocabulary` | `version: Int` (optional) | `[OrbitVocabularyEntry!]!` — `kind`, `value`, `version` | authenticated read; it is public vocabulary, no oracle concern | `orbit-vocabulary-proof` — 55 values, **five** kinds, version filter |
+| MCP `OrbitStatus` / `CheckInStatus` | `childId`, `alertId?` / `childId` | same projections as the GraphQL reads | read-only; no photo, no activate/close; audience row set is RLS-limited | `orbit-leakage-proof` 3 |
+| MCP `OrbitVocabulary` | `version: Int` (optional) | `[{kind, value, version}]` | read-only | `orbit-vocabulary-proof` |
 
 Both are refused to the guide for writes (`DEMO_GUIDE_READ_ONLY`) and to a demo session for outreach
 (`DEMO_OUTREACH_REFUSED`, E2b). Nothing here dials, sends, approves or spends.

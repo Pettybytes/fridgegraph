@@ -538,6 +538,14 @@ type OrbitStatus
   guidance: String!
 }
 
+type OrbitVocabularyEntry
+  @join__type(graph: COORDINATION)
+{
+  kind: String!
+  value: String!
+  version: Int!
+}
+
 type ParentingSchedule
   @join__type(graph: ACCESS)
 {
@@ -628,6 +636,12 @@ type Query
   "missing", never "in danger". Carries the 911 guidance text.
   """
   checkInStatus(childId: ID!): CheckInStatus! @join__field(graph: COORDINATION)
+
+  """
+  The controlled descriptor vocabulary — the closed list every Orbit share value must come from.
+  Public and versioned: an authenticated read, no oracle concern.
+  """
+  orbitVocabulary(version: Int): [OrbitVocabularyEntry!]! @join__field(graph: COORDINATION)
   events(childId: ID!, date: String!): [Event!]! @join__field(graph: SCHEDULE)
 
   """

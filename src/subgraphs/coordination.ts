@@ -46,6 +46,12 @@ const typeDefs = parse(`
     "missing", never "in danger". Carries the 911 guidance text.
     """
     checkInStatus(childId: ID!): CheckInStatus!
+
+    """
+    The controlled descriptor vocabulary — the closed list every Orbit share value must come from.
+    Public and versioned: an authenticated read, no oracle concern.
+    """
+    orbitVocabulary(version: Int): [OrbitVocabularyEntry!]!
   }
 
   type Mutation {
@@ -81,6 +87,12 @@ const typeDefs = parse(`
 
     """Parent/guardian only. No response closes the alert by itself."""
     orbitClose(alertId: ID!): OrbitAlert!
+  }
+
+  type OrbitVocabularyEntry {
+    kind: String!
+    value: String!
+    version: Int!
   }
 
   type OrbitShare {
@@ -501,6 +513,22 @@ const resolvers = {
         text: recorded ? 'check-in recorded' : 'check-in not recorded',
         guidance: ORBIT_GUIDANCE,
       };
+    },
+
+    orbitVocabulary: async (_: unknown, { version }: { version?: number }, ctx: Ctx) => {
+      requireCaller(ctx);
+      let query = dbFor(ctx)
+        .from('orbit_vocabulary')
+        .select('kind,value,version')
+        .order('kind')
+        .order('value');
+      if (typeof version === 'number') query = query.eq('version', version);
+      const list = await rows(query);
+      return list.map((r) => ({
+        kind: String(r.kind),
+        value: String(r.value),
+        version: Number(r.version),
+      }));
     },
     coordinationJobs: async (_: unknown, { childId }: { childId?: string }, ctx: Ctx) => {
       requireCaller(ctx);
