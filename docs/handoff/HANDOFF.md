@@ -1978,3 +1978,9 @@ PASS; secret scan 420 files / 0 findings; catalog drift PASS. CI typecheck/secre
 build passed on initial implementation 25c5b6f; final evidence/copy follow-up checked on the PR.
 Only the task-owned local Rosina process was stopped after the probes; shared demo login,
 routers and MCP were not stopped or reset. No merge, tag, release, seed or database mutation.
+Supplemental direct stored-job lookup PASS for all seven READY personas: discover Kendra's real
+job ID, then query that SAME ID under every perspective. Kendra/Andre/guide return identical
+5 timeline entries / 2 attempts; Loretta/Priya/Dana/Jax's family return empty job/timeline/attempt
+results, with no existence disclosure. In-process token scan PASS. Receipt:
+web/evidence/demo-login/job-boundary-results.json. This does not override the six directory-name
+failures. No model call or mutation was used by this supplemental probe.

@@ -8,7 +8,7 @@ import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {createServer as viteServer} from 'vite'
 const exec=promisify(execFile),web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=dirname(web)
-const visual=process.env.DEMO_SMOKE_VISUAL_ONLY==='1'
+const visual=process.env.DEMO_SMOKE_VISUAL_ONLY==='1',jobBoundary=process.env.DEMO_SMOKE_JOB_BOUNDARY_ONLY==='1'
 const prefix=String.fromCharCode(101,121,74),tokens=new Set(),baseline=new Map()
 async function files(root){const result=[];async function walk(dir){for(const name of await readdir(dir)){
  if(['.git','node_modules','data','.demo-credentials'].includes(name)||name.startsWith('.env'))continue
@@ -34,7 +34,7 @@ try{
  const port=server.address().port
  const run=async args=>{const result=await exec('playwright-cli',['-s=demo-login',...args],{cwd:repo,maxBuffer:2*1024*1024});if([...tokens].some(t=>(result.stdout+result.stderr).includes(t.slice(0,12))))throw Error('Unsafe CLI output');return result.stdout}
  await run(['open',`http://127.0.0.1:5185/?harnessPort=${port}`])
- const output=await run(['run-code','--filename=web/scripts/'+(visual?'demo-login-visual.js':'demo-login-browser.js')])
+ const output=await run(['run-code','--filename=web/scripts/'+(visual?'demo-login-visual.js':jobBoundary?'demo-login-job-boundary.js':'demo-login-browser.js')])
  if(output.includes('### Error')){const line=output.match(/### Error\n([^\n]*)/)?.[1]??'Browser assertion failed';if(!line.includes(prefix)&&![...tokens].some(t=>line.includes(t.slice(0,12))))console.error(line.slice(0,240));throw Error('Browser assertion failed')}
  await run(['close'])
 }catch(error){const output=typeof error?.stdout==='string'?error.stdout:'';const line=output.match(/### Error\n([^\n]*)/)?.[1];if(line&&!line.includes(prefix)&&![...tokens].some(t=>line.includes(t.slice(0,12))))console.error('Safe check failure: '+line.slice(0,260));process.exitCode=1;console.error('Local browser smoke incomplete. Raw errors and network output suppressed.')}
@@ -50,7 +50,7 @@ finally{
  const receipt={proof:proof??null,lastStage,scan};const safe=JSON.stringify(receipt,null,2)
  if(!scan.pass||!proof?.passed)process.exitCode=1
  if(![...tokens].some(t=>safe.includes(t.slice(0,12)))&&!safe.includes(prefix)){
-  await writeFile(join(web,'evidence/demo-login/'+(visual?'visual-results.json':'results.json')),safe+'\n');console.log(safe)
+  await writeFile(join(web,'evidence/demo-login/'+(visual?'visual-results.json':jobBoundary?'job-boundary-results.json':'results.json')),safe+'\n');console.log(safe)
  }
  tokens.clear();if(server)await new Promise(resolve=>server.close(resolve));if(vite)await vite.close()
 }

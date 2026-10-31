@@ -34,3 +34,14 @@ export async function confirmGuideRefusal(token:string){
  try{await client.mutate({mutation:gql`mutation GuideRefusalProbe{approvePickup(jobId:"local-read-only-refusal-probe",version:1,decision:APPROVED){id}}`});return 'FAIL: write unexpectedly accepted'}
  catch(error){return dataErrorMessage(error as Error)}finally{client.stop()}
 }
+export async function inspectStoredJob(token:string,jobId:string|null){
+ const client=createGraphClient(async()=>token)
+ try{
+  const jobs=await client.query<{coordinationJobs:{id:string}[]}>({query:JOBS,variables:{childId:'p_nora'},fetchPolicy:'no-cache'})
+  const ids=jobs.data?.coordinationJobs.map(j=>j.id)??[]
+  if(!jobId)return {ids,timelineCount:0,attemptCount:0}
+  const timeline=await client.query<{jobTimeline:unknown[]}>({query:STORED_TIMELINE,variables:{jobId},fetchPolicy:'no-cache'})
+  const attempts=await client.query<{attempts:unknown[]}>({query:STORED_ATTEMPTS,variables:{jobId},fetchPolicy:'no-cache'})
+  return {ids,timelineCount:timeline.data?.jobTimeline.length??0,attemptCount:attempts.data?.attempts.length??0}
+ }finally{client.stop()}
+}

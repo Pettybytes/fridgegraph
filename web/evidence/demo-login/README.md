@@ -115,3 +115,14 @@ Remaining: Cast v2 seed for Rosa/Felicia/Simone/Dwayne and six-family guide brea
 contract; Village v2 events/relationships/directory visibility and Calendar event/holiday/busy-free
 reads; v2 care read/tool; real reset/create-family endpoints; Task H public judge access and the
 Try FridgeGraph landing button. No live approval, reset or family-creation mutation was enabled.
+
+Supplemental direct job boundary: `job-boundary-results.json` PASS, all seven READY personas.
+The harness discovers the real stored job ID as Kendra, then queries that SAME ID under each
+perspective. Kendra, Andre and guide see the same five timeline entries/two attempts; Loretta,
+Priya, Dana and Jax's family get empty job/timeline/attempt results, without an existence signal.
+This verifies the direct lookup boundary, not just an empty scope-filtered screen. Token scan
+PASS. It does not override the six directory failures. Reproduce without model calls:
+
+```sh
+DEMO_SMOKE_JOB_BOUNDARY_ONLY=1 node web/scripts/demo-login-smoke.mjs
+```
