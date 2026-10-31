@@ -1853,3 +1853,8 @@ NOT DOING: schema/auth/DB changes, service-role reads (`seed:simulated` uses the
   merging.
 BLOCKERS: none for this task. CarePlan, village-directory, and the three Orbit/check-in tools
   (once they land on main) remain the open follow-ups under "Rosina tools available" above.
+
+**Final state (2026-10-30):** PR #37 head `703b7f5`. `gh pr ready 37` run; `gh pr view 37` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (15s), `web build` (20s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 8 files only. Not merged — Bryan merges.
