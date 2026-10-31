@@ -2190,3 +2190,8 @@ NOT DOING: schema/auth/DB changes, any db:reset/seed/restart/checkout-switch (re
   only grant stays care-plan-only), touching src/demo/personas.ts, merging.
 BLOCKERS: none for this task. The `MyChildren`/grants-by-caller MCP read that would replace
   `scopedRoster` would also replace `careOnlyChildren` — still not shipped.
+
+**Final state (2026-10-31):** PR #42 head `3bf8fb0`. `gh pr ready 42` run; `gh pr view 42` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (19s), `web build` (27s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 6 files only. Not merged — Bryan merges.
