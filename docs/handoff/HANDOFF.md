@@ -3335,3 +3335,179 @@ Required preflight, before any visitor run:
 - the token is minted in-process and **never logged** (no token, no `Authorization` header, no payload
   echo in output);
 - treat a non-JSON / error / empty result as **preflight FAIL**, not as an empty answer.
+
+## Group 5 resume point — 2026-10-31 02:30 (Piece 1 in progress)
+
+**Branch `feat/reset-demo` pushed.** Written and typechecking, **NOT PROVEN — no PR yet**:
+
+- `src/demo/reset.ts` — sandbox-scoped restore in ONE transaction under `pg_advisory_xact_lock`;
+  deletes only sandbox/fixture rows, upserts the fixture set, `dropPersonaSessionCache()` **after**
+  commit. Never calls `db:reset`.
+- `src/rosina/server.ts` — `POST /api/demo/reset`: loopback-only, demo-session-only, refuses the
+  Demo guide, 30 s per-person cooldown.
+
+**Exact next step (do this first):**
+1. Reserve the stack in this file (the proof resets state).
+2. Write `ops/reset-demo-proof.mjs`: mutate demo state (activate + close an Orbit alert, one response,
+   one calendar change) → call the route as a demo session → assert restore.
+3. Verify after reset, all of: `jobTimeline`, Thanksgiving `effectiveScheduleFor`, `orbitVocabulary`,
+   `checkInStatus`, `careFacts`, `myChildren`, **plus one authenticated MCP tool call** (Task H),
+   11/11 personas READY, Kendra's Mission Control job still answers, and non-sandbox row counts
+   unchanged (capture before/after).
+4. Failure path: inject a mid-restore error and confirm the transaction rolls back with the demo
+   still intact — "never partially restored" is a claim that needs a negative control.
+5. Only then open the PR and report the three lines separately: backend / button wiring / browser.
+
+Pieces 2–3 untouched. No merges.
+| 2026-10-31 07:12 | **RESERVED: resetDemo proof window (~15 min)** — destructive demo reset cycle (mutate → reset → verify) on the idle stack; loopback route calls only, no real sends. | `feat/reset-demo` | 4200/34734 · 5051/91606 · 4008/10834 | **in progress** |
+
+## Group 5 Piece 1 — REAL CONFLICT found (2026-10-31 03:20), needs a decision
+
+`resetDemo` deletes sandbox `orbit_alerts`; that cascades to `orbit_responses`, whose trigger
+`_orbit_responses_append_only()` raises `ORBIT_RESPONSES_APPEND_ONLY` **unconditionally on DELETE**
+(and UPDATE). So any demo alert that received a response **cannot be removed** — the reset aborts and
+rolls back (correctly, but it means the reset can never complete once a visitor responds).
+
+This is a deliberate safety invariant (responses are evidence), not a bug. Three options, none of which
+I will take unilaterally:
+
+1. **Controlled escape hatch** — allow DELETE only when `current_setting('app.demo_reset', true) = 'on'`
+   is set inside the reset transaction. Smallest code change, but it punches a hole in append-only and
+   needs explicit approval.
+2. **Redefine reset semantics** — keep responded alerts (close them, keep responses as audit), restore
+   only unresponded fixtures. Preserves the invariant, but "reset" no longer returns to a pristine
+   seeded state, and the checksum proof must exclude responded alerts.
+3. **Separate demo schema/tenant** — resets drop a demo-owned partition. Cleanest invariant-wise,
+   much larger change.
+
+Proof status: mutation, concurrency, non-sandbox totals and rollback logic are written; the run stops
+at the cascade. `src/demo/reset.ts` + `POST /api/demo/reset` are committed on `feat/reset-demo`.
+
+**Next step depends on the decision above.** No PR opened; no merge.
+
+## Group 5 Piece 1 — option 1 IMPLEMENTED, proof mid-flight (2026-10-31 03:30)
+
+**Migration `0042_demo_reset_disposable_orbit.sql` applied.** The exception is database-enforced and
+narrow, exactly as decided:
+
+- `_orbit_responses_append_only()` permits DELETE **only** when all hold: transaction-local
+  `app.demo_reset='on'`; parent alert `sandbox`; the alert is **not** tied to the consented real-call
+  path (job not `demo_caller`, no `real_call_authorizations` row); **every** audience
+  `notification_outcome` ∈ (`SIMULATED`,`TEST_RESPONDER`). UPDATE and INSERT still raise.
+- `reset_demo_orbit(actor)` is `SECURITY DEFINER`, sets the GUC locally, deletes, and writes
+  `demo_reset_audit` (actor, at, per-table counts) **inside the same transaction** — a failed reset
+  leaves no audit row, a successful one leaves a row that survives.
+- `EXECUTE` revoked from `public, anon, authenticated`: a browser/RPC caller cannot reach it.
+- `resetDemo()` no longer touches `orbit_alerts` directly; it calls the privileged function.
+
+**Proof state (`ops/reset-demo-proof.mjs`).** Written and iterated; each run surfaced a genuine issue
+that is now fixed: `people/households/children` have no `sandbox` column (use totals); ACTIVE alerts
+require `activated_at`; responses allow only `WITH_ME|ON_WAY|CANNOT_HELP`; one ACTIVE alert per child.
+
+**Current failing point:** an insert in the proof throws `transformInsertRow` (analyze.c 1043 —
+expression/column count mismatch) on a statement whose columns and values look balanced in source, so
+the mismatch is likely in the fixture **upsert** in `src/demo/reset.ts` (cols derived per-table while a
+row carries extra keys). **Next step:** print the generated SQL (table, cols.length vs params.length)
+before executing, fix, then complete the remaining checks: responded disposable alert resets; ordinary
+DELETE fails; GUC alone fails on a non-disposable record; RPC refused; protected hash unchanged;
+injected failure rolls back with no audit row.
+
+No PR, no merge. Pieces 2–3 not started.
+
+## Group 5 Piece 1 — corrections applied, one failure left (2026-10-31 03:40)
+
+**Correction 1 (guard was inverted).** Condition 3 no longer uses `demo_caller`. It was backwards:
+`demo_caller = true` marks a demo-session-originated job (real outreach refused) — exactly the
+disposable case. Real-consented records are now protected by their own markers only:
+`real_call_authorizations.job_id` reference, and `attempts.real_consent_authorization_id` non-null.
+No marker's meaning was changed.
+
+**Correction 2 (append-only applies to UPDATE/DELETE, not INSERT).** The earlier "INSERT still raises"
+wording was wrong. 0032 creates triggers on UPDATE and DELETE only; INSERT through the authorised
+`orbitRespond` path always worked and still does. The migration recreates only the UPDATE/DELETE
+guard. Regression still to be added: orbitRespond appends normally while UPDATE/ordinary DELETE fail.
+
+**SQL bug found and fixed** — the diagnostics (shape only: table, column names, counts, placeholders)
+identified a nested row expression: `valueRow()` already emits `(...)`, and the statement wrapped it
+again. Fixed; placeholders now equal columns. A second real defect followed: `events` was restored
+before `children`, violating `events_child_id_fkey` — restore now runs in FK-safe order with `events`
+last, matching the fixture's own ordering.
+
+**Remaining failure:** a DELETE on `orbit_responses` still hits `_orbit_responses_append_only()` line 8
+during the run. Next step: log the alert id and `_orbit_response_disposable()`'s verdict at the delete,
+confirm whether the GUC is visible to the trigger inside the SECURITY DEFINER call, and whether an
+audience row with a NULL `notification_outcome` is making a genuinely disposable alert ineligible.
+No PR; no merge.
+
+## Group 5 Piece 1 — forgery guard NOT yet proven (2026-10-31 03:50)
+
+`0045` now requires the snapshot's `pg_class.relowner` to equal `reset_demo_orbit`'s `proowner`, resolved
+through a dynamic query. Applied.
+
+**But the forgery test does not pass, and it fails in the dangerous direction:** the delete performed by
+the attacker role did **not raise** (assertion 2b reports no error at all), while the "not merely a
+privilege error" check passes. Either the attacker's delete really succeeded, or the exception never
+reached my catch because the transaction ended differently.
+
+**Next step, exactly:**
+1. Inside `_reset_eligible`, log `v_owner`, the function's `proowner`, and `session_user` vs `current_user`
+   during the forged attempt (shape only — no ids or values).
+2. Confirm the temp table was actually created by the attacker role (owner oid ≠ postgres) and that
+   `set local role` took effect before `create temp table`.
+3. If ownership is correct and the delete still succeeds, the trigger is not firing on that path —
+   check `tg_op`, that the trigger exists on `orbit_responses`, and that `current_setting` inside the
+   trigger is the same transaction.
+
+Do not treat 2b as passed. The guard matrix is 16/16 apart from this, and the API-origin proof,
+the contract doc and the PR all remain outstanding. No merge.
+
+## Group 5 Piece 1 — forgery guards established (2026-10-31 04:00)
+
+Diagnosed by row count and SQLSTATE before touching the guard, per instruction. Result:
+
+| Observation | Value |
+|---|---|
+| target response before | 1 |
+| RLS on `orbit_responses` | **true** |
+| snapshot owner under attack | attacker role (created by it), schema `pg_temp_N` |
+| `_reset_eligible()` verdict for forged snapshot | **false** |
+| forged `DELETE … RETURNING 1` | **rowCount 0, no SQLSTATE** |
+| target response after | 1 — intact |
+
+**Interpretation (case 1):** `rowCount=0` with the row intact means the attempt never matched a row —
+**RLS** stopped it before the trigger. That separately protects the data but does **not** prove the
+ownership check, so it is not claimed as such.
+
+**Trigger ownership check, exercised where the row does reach the trigger**
+(`ops/forgery-trigger-check.mjs`, isolated + rolled back, BYPASSRLS test role created and dropped inside
+the proof, no production grant or policy changed):
+- row visible to the attacker role: **yes**
+- forged DELETE refused: **SQLSTATE 42501**
+- message: **ORBIT_RESPONSES_APPEND_ONLY** (the guard, not a privilege error)
+- response row intact afterwards: **yes** — 4/4 PASS
+
+**Acceptance suite:** `ops/reset-demo-proof.mjs` **18/18 PASS** (RLS and trigger now asserted as two
+separate protections rather than one conflated one).
+
+Still outstanding before PR: the **API-origin proof** (`orbitActivate` → `orbitRespond` → reset with
+seeded consumer reads restored) and the **contract documentation** of the append-only exception.
+No merge.
+
+## Group 5 Piece 1 — API-origin proof: root cause found (2026-10-31 04:10)
+
+**`orbitPreview` is a MUTATION, not a Query.** That single fact explains both earlier symptoms: a
+`query` document naming a Mutation field discards its argument, so the router reported
+`Variable "$d" is never used` — the document was fine, the operation type was wrong. Fixed.
+
+Now passing through the real mutations: **orbitDraft → orbitPreview (v4, audience=3) → orbitActivate
+(ACTIVE alert)**. Reset then removed the API-origin alert and its response, and the seeded reads
+answered (`myChildren` 3, `careFacts` 3, `orbitVocabulary` 55, `checkInStatus` ok).
+
+Remaining failures are all in my probe documents, not the product:
+- `orbitRespond` returns `NON_NULL OrbitResponseResult` — need its real field names (my `{ ok }` is not
+  producing a valid selection).
+- `effectiveScheduleFor` takes **`date`**, not `day`.
+- `jobTimeline` is `NON_NULL` of a list type — need the element type's fields instead of `{ type }`.
+
+Next: introspect `OrbitResponseResult` and the `jobTimeline` element type, fix the three documents,
+re-run, then open the PR.

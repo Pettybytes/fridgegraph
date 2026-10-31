@@ -108,6 +108,42 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
   res.status(200).json({ reply: outcome.reply, actions: outcome.actions });
 }
 
+/** One reset per demo session per 30s. In-process and per-person: a reset is expensive and
+ *  destructive, so a double click must not queue a second one. */
+const lastResetAt = new Map<string, number>();
+const RESET_COOLDOWN_MS = 30_000;
+
+function isLoopback(req: Request): boolean {
+  const addr = req.socket.remoteAddress ?? '';
+  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+}
+
+async function handleResetDemo(req: Request, res: Response) {
+  // Loopback only until Task H adds the MCP tool-layer preflight and a proper ingress story.
+  if (!isLoopback(req)) { res.status(403).json({ error: 'LOOPBACK_ONLY' }); return; }
+
+  const authorization = req.headers.authorization;
+  const identity = await verifyBearer(authorization);
+  if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+  // Demo sessions only — a real family's session must never be able to wipe demo state.
+  if (!identity.demo) { res.status(403).json({ error: 'DEMO_SESSION_REQUIRED' }); return; }
+  // The guide is a read-only observer by contract; it may never mutate.
+  if (identity.demoGuide) { res.status(403).json({ error: 'DEMO_GUIDE_READ_ONLY' }); return; }
+
+  const now = Date.now();
+  const last = lastResetAt.get(identity.personId) ?? 0;
+  if (now - last < RESET_COOLDOWN_MS) {
+    res.status(429).json({ error: 'RESET_RATE_LIMITED', retryAfterMs: RESET_COOLDOWN_MS - (now - last) });
+    return;
+  }
+  lastResetAt.set(identity.personId, now);
+
+  const { resetDemo } = await import('../demo/reset');
+  const report = await resetDemo();
+  console.log(`[demo] reset person=${identity.personId} restored=${Object.keys(report.restored).length} tables`);
+  res.status(200).json({ ok: true, ...report });
+}
+
 export function createRosinaApp() {
   const app = express();
   app.use(express.json({ limit: '64kb' }));
@@ -116,6 +152,12 @@ export function createRosinaApp() {
   app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {
     if (err instanceof SyntaxError) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     next(err);
+  });
+  app.post('/api/demo/reset', (req, res) => {
+    handleResetDemo(req, res).catch((error: unknown) => {
+      console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
+      if (!res.headersSent) res.status(500).json({ error: 'RESET_FAILED' });
+    });
   });
   app.post('/api/rosina', (req, res) => {
     handleRosina(req, res).catch((error: unknown) => {
