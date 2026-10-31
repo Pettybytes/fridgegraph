@@ -11,6 +11,23 @@ function readHeader(headers: HeaderBag, name: string): string | undefined {
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * The scenario instant (`x-demo-now`), honoured ONLY when DEMO_CLOCK=1.
+ *
+ * Deliberately separate from `x-demo-date`: the date header answers "what is today" for day-granular
+ * grants and schedules, while this answers "what time is it" for time-of-day questions such as an
+ * overdue check-in. It is read for SCENARIO computation only — never for token verification, which
+ * always uses the real clock.
+ */
+export function scenarioNowFrom(headers: HeaderBag, demoClock: boolean): Date | undefined {
+  if (!demoClock) return undefined;
+  const raw = readHeader(headers, 'x-demo-now');
+  if (!raw || !ISO_INSTANT.test(raw)) return undefined;
+  const at = new Date(raw);
+  return Number.isNaN(at.getTime()) ? undefined : at;
+}
 
 /**
  * The household calendar is a LOCAL calendar. Using toISOString() here made "today" flip to the

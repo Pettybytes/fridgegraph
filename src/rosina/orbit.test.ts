@@ -12,6 +12,7 @@ import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
 import { catalog } from './catalog';
 import { decideOrbitAction } from './orbit';
+import { scenarioNowFrom } from '../context';
 import { runRosinaTurn, type McpClientLike } from './model';
 import {
   checkInStatusFrom,
@@ -355,4 +356,41 @@ test('card: flag flipped but the gate fails on authority — still refused, neve
   } finally {
     (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
   }
+});
+
+// --- 2026-10-31: the scenario INSTANT (time-of-day), separate from the demo DATE ---
+
+test('scenario instant: ignored entirely when DEMO_CLOCK is off', () => {
+  const at = scenarioNowFrom({ 'x-demo-now': '2026-10-31T20:05:00Z' }, false);
+  assert.equal(at, undefined, 'the real clock is authoritative outside demo mode');
+});
+
+test('scenario instant: a valid ISO instant is honoured under DEMO_CLOCK', () => {
+  const at = scenarioNowFrom({ 'x-demo-now': '2026-10-31T20:05:00Z' }, true);
+  assert.equal(at?.toISOString(), '2026-10-31T20:05:00.000Z');
+});
+
+test('scenario instant: a date-only value is NOT an instant and is ignored', () => {
+  assert.equal(scenarioNowFrom({ 'x-demo-now': '2026-10-31' }, true), undefined);
+});
+
+test('scenario instant: garbage is ignored rather than throwing', () => {
+  assert.equal(scenarioNowFrom({ 'x-demo-now': 'not-a-time' }, true), undefined);
+  assert.equal(scenarioNowFrom({ 'x-demo-now': '2026-13-45T99:99:99Z' }, true), undefined);
+});
+
+test('overdue proof: dueAt 20:00Z is FUTURE at 19:55Z and OVERDUE at 20:05Z — same fixture, different instant', async () => {
+  const run = async (iso) => {
+    const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: false, dueAt: '2026-10-31T20:00:00Z' }) });
+    const { fn: chatFn, seenMessages } = recordingChat([
+      chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' })] }),
+      chatResult({ content: 'ok' }),
+    ]);
+    await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp, scenarioNow: new Date(iso) });
+    const toolMessage = seenMessages[1].find((m) => m.role === 'tool');
+    return JSON.parse(toolMessage.content).checkInStatus.overdue;
+  };
+
+  assert.equal(await run('2026-10-31T19:55:00Z'), false, 'five minutes BEFORE the due time: not overdue');
+  assert.equal(await run('2026-10-31T20:05:00Z'), true, 'five minutes AFTER the due time: overdue');
 });
