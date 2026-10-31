@@ -6,8 +6,19 @@
 .sandbox-banner {
   margin: 0; padding: 8px 16px; text-align: center;
   font-size: 12px; color: var(--fg-muted);
-  background: color-mix(in oklch, var(--fg-primary) 5%, var(--fg-canvas));
+  background: color-mix(in oklch, var(--fg-primary) 8%, color-mix(in oklch, var(--fg-surface) 60%, transparent));
+  backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
   border-bottom: 1px solid var(--fg-border);
+  position: sticky; top: 0; z-index: var(--z-sticky);
+}
+/* Solid fallbacks where glass can't render or the viewer prefers less transparency. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sandbox-banner { background: color-mix(in oklch, var(--fg-primary) 5%, var(--fg-canvas)); }
+  .fg-pcard { background: var(--fg-surface); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sandbox-banner { background: color-mix(in oklch, var(--fg-primary) 5%, var(--fg-canvas)); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .fg-pcard { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 
 .fg-picker { max-width: 940px; margin: 0 auto; padding: clamp(28px, 5vw, 56px) 20px 64px; display: grid; gap: 32px; }
@@ -34,7 +45,8 @@
   padding: 14px; min-height: 76px;
   border-radius: var(--radius-card);
   border: 1px solid var(--fg-border);
-  background: var(--fg-surface); color: var(--fg-ink);
+  background: color-mix(in oklch, var(--fg-surface) 78%, transparent); color: var(--fg-ink);
+  backdrop-filter: blur(16px) saturate(135%); -webkit-backdrop-filter: blur(16px) saturate(135%);
   cursor: pointer;
   transition: border-color var(--dur-feedback) var(--ease-out), background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
 }

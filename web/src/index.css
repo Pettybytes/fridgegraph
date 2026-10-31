@@ -212,12 +212,22 @@ body,
   }
   body {
     margin: 0;
+    /* Ambient gradient field — a soft, static depth layer behind every surface
+       (picker, Today, village). Palette-tinted so it adapts light/dark; fixed so it
+       reads as a field the content floats over, not a scrolling texture. No motion. */
     background-color: var(--fg-canvas);
+    background-image:
+      radial-gradient(1200px 820px at 12% -12%, color-mix(in oklch, var(--rosina-periwinkle) 24%, transparent), transparent 62%),
+      radial-gradient(1020px 720px at 104% -4%, color-mix(in oklch, var(--fg-primary) 16%, transparent), transparent 56%),
+      radial-gradient(1000px 1000px at 50% 118%, color-mix(in oklch, var(--rosina-violet) 15%, transparent), transparent 60%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--fg-ink);
     font-family: var(--font-sans);
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
   }
+  @media (prefers-contrast: more) { body { background-image: none; } }
   html {
     @apply font-sans;
   }
@@ -255,7 +265,7 @@ body,
    superseded by the new Today surface + primitives (see docs/design/system.md).
    ─────────────────────────────────────────────────────────────────────────── */
 .app-shell { min-height: 100dvh; display: grid; grid-template-columns: 244px minmax(0, 1fr); }
-.sidebar { background: var(--fg-surface); border-right: 1px solid var(--fg-line); padding: 36px 20px 24px; display: flex; flex-direction: column; }
+.sidebar { background: color-mix(in oklch, var(--fg-surface) 72%, transparent); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); border-right: 1px solid var(--fg-line); padding: 36px 20px 24px; display: flex; flex-direction: column; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 23px; font-weight: 650; text-decoration: none; letter-spacing: -0.02em; padding: 0 12px; }
 .brand svg { color: var(--fg-primary); }
 .village-caption { margin: 8px 12px 48px; font-size: 13px; color: var(--fg-muted); }
@@ -268,7 +278,10 @@ body,
 .sidebar-footer strong { font-size: 13px; }
 .sidebar-footer small { display: block; margin-top: 3px; color: var(--fg-muted); font-size: 11px; }
 .workspace { display: flex; flex-direction: column; min-width: 0; }
-.topbar { min-height: 79px; border-bottom: 1px solid var(--fg-line); padding: 0 44px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.topbar { min-height: 79px; border-bottom: 1px solid var(--fg-line); padding: 0 44px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; background: color-mix(in oklch, var(--fg-surface) 55%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); position: sticky; top: 0; z-index: var(--z-sticky); }
+/* Solid fallbacks where glass can't render or is unwanted. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .sidebar, .topbar { background: var(--fg-surface); } }
+@media (prefers-reduced-transparency: reduce) { .sidebar, .topbar { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 .demo-badge { background: color-mix(in oklch, var(--fg-primary) 10%, var(--fg-surface)); color: var(--fg-muted); padding: 6px 11px; border-radius: var(--radius-chip); font-size: 11px; }
 .workspace main { padding: 42px 44px; flex: 1; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; gap: 20px; }
