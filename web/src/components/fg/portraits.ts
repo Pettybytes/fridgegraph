@@ -48,10 +48,12 @@ export const PORTRAIT_BY_FULLNAME: Record<string, string> = {
   'Angela Price': Angela, 'Chris Harlan': Chris, 'Jax Coleman': Jax, 'Leo Ellison': Leo,
 }
 
-/** Resolve by person ID first, then an EXACT full-name match; unknown → undefined
- * (the caller renders a monogram). Never a first-name match. */
+/** Resolve by person ID when one is given; the id DECIDES — an unknown id returns
+ * undefined (monogram) and never falls through to the name, so a new child whose id
+ * isn't mapped can't borrow another person's art by sharing a full name. The exact
+ * full-name net is only consulted when there is NO id. Never a first-name match. */
 export function portraitFor(input: { personId?: string | null; name?: string | null }): string | undefined {
-  if (input.personId && PORTRAIT_BY_PERSON[input.personId]) return PORTRAIT_BY_PERSON[input.personId]
+  if (input.personId) return PORTRAIT_BY_PERSON[input.personId]
   const full = input.name?.trim()
   return full ? PORTRAIT_BY_FULLNAME[full] : undefined
 }
