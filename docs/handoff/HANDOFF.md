@@ -2953,3 +2953,5 @@ No real sends. Pending: the branch/commit to run and the scenario-clock start da
 
 **Bentley pending**: #41 rebase after #40 merges (~10 min, needs no stack) and the later Rosina 4200
 reload for the catalog metadata flip (~5 min, restart, needs the reservation).
+
+| 2026-10-31 03:30 | **MyChildren DONE and restored** — `myChildren` live on router 4012 (supergraph recomposed, 1 hit), MCP `MyChildren` registered; seed re-applied with Priya→Malik `careplan.read` only. Proof 14/14. NO reset. | `feat/my-children` (stacks on #41) | 4101–4107 / 4012 / 5051 | **restored** |

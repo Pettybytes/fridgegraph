@@ -20,6 +20,7 @@ operations:
     - ./ops/CheckInStatus.graphql
     - ./ops/OrbitVocabulary.graphql
     - ./ops/CareFacts.graphql
+    - ./ops/MyChildren.graphql
 introspection:
   introspect:
     enabled: false

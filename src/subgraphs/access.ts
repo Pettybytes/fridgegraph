@@ -35,6 +35,12 @@ const typeDefs = parse(`
     pickupCandidates(childId: ID!, asOf: String): [Candidate!]!
     supervisionCandidates(childId: ID!, asOf: String): [Candidate!]!
     approverFor(childId: ID!, date: String): ApproverResult!
+
+    """
+    The caller's own children, each with the scopes that caller actually holds for that child.
+    A scope grants only what it names: careplan.read never implies schedule reads, pickup or approval.
+    """
+    myChildren: [ChildAccess!]!
   }
 
   type Mutation {
@@ -58,6 +64,12 @@ const typeDefs = parse(`
 
   type Household @key(fields: "id") {
     id: ID!
+  }
+
+  type ChildAccess {
+    child: Child!
+    """Exactly the scopes held for THIS child — no inference, no union across children."""
+    scopes: [String!]!
   }
 
   type Grant {
@@ -307,6 +319,63 @@ const resolvers = {
         approver: approverId ? { id: approverId } : null,
         fyiParents: fyiParentIds.map((id) => ({ id })),
       };
+    },
+
+    myChildren: async (_: unknown, __: unknown, ctx: Ctx) => {
+      requireCaller(ctx);
+      const callerId = ctx.callerId!;
+      const today = ctx.today;
+
+      // (a) children the caller has authority over, via a parent/guardian membership.
+      const memberships = await rows(
+        dbFor(ctx).from('household_members').select('household_id,role').eq('person_id', callerId),
+      );
+      const parentHouseholds = memberships
+        .filter((m) => m.role === 'parent' || m.role === 'guardian')
+        .map((m) => String(m.household_id));
+
+      const parentChildIds = parentHouseholds.length === 0
+        ? []
+        : (await rows(
+            dbFor(ctx)
+              .from('household_members')
+              .select('person_id')
+              .in('household_id', parentHouseholds)
+              .eq('role', 'child'),
+          )).map((r) => String(r.person_id));
+
+      // (b) children the caller holds a date-valid grant for. The grant's OWN scopes are reported.
+      const grantRows = await rows(
+        dbFor(ctx).from('grants').select('child_id,scopes,valid_from,valid_until').eq('actor_id', callerId),
+      );
+      const granted = new Map<string, Set<string>>();
+      for (const g of grantRows) {
+        const from = g.valid_from ? String(g.valid_from) : null;
+        const until = g.valid_until ? String(g.valid_until) : null;
+        const inWindow = (!from || from <= today) && (!until || until >= today);
+        if (!inWindow) continue;
+        const childId = String(g.child_id);
+        const set = granted.get(childId) ?? new Set<string>();
+        for (const scope of (g.scopes as string[]) ?? []) set.add(scope);
+        granted.set(childId, set);
+      }
+
+      const FULL = [
+        SCOPE.schedule, SCOPE.careplan, SCOPE.school, SCOPE.contacts,
+        SCOPE.transport, SCOPE.goals, SCOPE.pickupVerify, SCOPE.pickupRequest,
+      ];
+
+      const out = new Map<string, string[]>();
+      for (const childId of new Set([...parentChildIds, ...granted.keys()])) {
+        const set = new Set<string>();
+        if (parentChildIds.includes(childId)) for (const scope of FULL) set.add(scope);
+        for (const scope of granted.get(childId) ?? []) set.add(scope);
+        out.set(childId, [...set].sort());
+      }
+
+      return [...out.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, scopes]) => ({ child: { id }, scopes }));
     },
   },
 

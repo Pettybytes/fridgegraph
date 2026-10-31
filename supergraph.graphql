@@ -211,6 +211,17 @@ type Child
   person: Person @join__field(graph: VILLAGE)
 }
 
+type ChildAccess
+  @join__type(graph: ACCESS)
+{
+  child: Child!
+
+  """
+  Exactly the scopes held for THIS child — no inference, no union across children.
+  """
+  scopes: [String!]!
+}
+
 type Confirmation
   @join__type(graph: COORDINATION)
 {
@@ -626,6 +637,12 @@ type Query
   pickupCandidates(childId: ID!, asOf: String): [Candidate!]! @join__field(graph: ACCESS)
   supervisionCandidates(childId: ID!, asOf: String): [Candidate!]! @join__field(graph: ACCESS)
   approverFor(childId: ID!, date: String): ApproverResult! @join__field(graph: ACCESS)
+
+  """
+  The caller's own children, each with the scopes that caller actually holds for that child.
+  A scope grants only what it names: careplan.read never implies schedule reads, pickup or approval.
+  """
+  myChildren: [ChildAccess!]! @join__field(graph: ACCESS)
   practices(childId: ID!, date: String!): [Practice!]! @join__field(graph: ACTIVITIES)
   groupEvents(groupId: ID!): [GroupEvent!]! @join__field(graph: ACTIVITIES)
   coordinationJobs(childId: ID): [CoordinationJob!]! @join__field(graph: COORDINATION)

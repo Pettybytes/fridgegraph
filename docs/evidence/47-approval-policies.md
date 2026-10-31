@@ -48,3 +48,11 @@ Supabase Auth returned **HTTP 429** on password grants while the Cast v2 identit
 quota. The proof now caches short-lived demo tokens in `/tmp/fg-demo-tokens.json` (mode 600, never
 printed, never committed) and paces mints, so a single successful set serves repeat runs. A 30 s
 backoff remains for the first mint of a run. With that, the full 16/16 completes.
+
+---
+
+## Correction (2026-10-31, post-merge) — 16 → 15
+
+The earlier text in this file said "16/16". The suite has **15 checks**; the run is **15/15 PASS**.
+The earlier statement is left intact above rather than rewritten — this note is the correction of
+record. Nothing about the results changes: every listed case passed.

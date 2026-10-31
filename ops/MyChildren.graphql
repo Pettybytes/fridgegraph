@@ -1,0 +1,13 @@
+# Rosina tool: MyChildren — the caller's own children, each with the scopes held FOR THAT CHILD.
+#
+# A scope grants only what it names: `careplan.read` on a child never implies schedule reads, pickup
+# requests or approval authority. Rosina must not answer a calendar or pickup question from a
+# care-plan scope. Read-only.
+query MyChildren {
+  myChildren {
+    child {
+      id
+    }
+    scopes
+  }
+}
