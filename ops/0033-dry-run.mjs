@@ -12,7 +12,10 @@ const url = row.slice(row.indexOf('=') + 1).replace(/["'\s\r]/g, '');
 const map = JSON.parse(readFileSync('data/identity-map.json', 'utf8'));
 const subFor = (pid) => Object.entries(map).find(([, p]) => p === pid)?.[0];
 
-const sql = readFileSync('supabase/migrations/0033_orbit_hash_photo_helpers.sql', 'utf8')
+// Replays the CURRENT delta (0034). 0033 is already applied and is not idempotent (it drops a
+// function that no longer exists), so replaying it here would fail on its own revoke line rather
+// than testing anything. The behaviours 0033 introduced are still asserted below against live state.
+const sql = readFileSync('supabase/migrations/0034_orbit_controlled_vocabulary.sql', 'utf8')
   .split('\n').filter((l) => !/^\s*(begin|commit);\s*$/.test(l)).join('\n');
 
 const c = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
@@ -45,7 +48,7 @@ try {
 
   // ---------------------------------------------------------------- 1. sha256 binding
   await as('p_mom');
-  const d = (await c.query(`select * from draft_orbit_share('p_nora','grey hoodie','ponytail','blue backpack',null,null)`)).rows[0];
+  const d = (await c.query(`select * from draft_orbit_share('p_nora','grey','hoodie','ponytail','blue','backpack',null)`)).rows[0];
   const prev = (await c.query(`select * from preview_orbit_share($1)`, [d.id])).rows[0];
   check('1 the binding hash is SHA-256 (64 hex chars)', /^[a-f0-9]{64}$/.test(prev.message_hash), `${prev.message_hash.length} chars`);
 
@@ -65,10 +68,10 @@ try {
     values ('ph_mom_nora','p_nora','p_mom',$1), ('ph_dad_nora','p_nora','p_dad',$2), ('ph_dana_jax','p_jax','p_dana',$1)`, [goodHash, otherHash]);
 
   await as('p_mom');
-  const d2 = (await c.query(`select * from draft_orbit_share('p_nora',null,null,null,null,'ph_mom_nora')`)).rows[0];
+  const d2 = (await c.query(`select * from draft_orbit_share('p_nora',null,null,null,null,null,'ph_mom_nora')`)).rows[0];
   check('3 the parent can bind her own photo for her own child', d2.photo_id === 'ph_mom_nora');
-  await expectError('3 a photo owned by the other parent is refused', () => c.query(`select draft_orbit_share('p_nora',null,null,null,null,'ph_dad_nora')`), 'ORBIT_PHOTO_NOT_YOURS');
-  await expectError('3 a photo of another child is refused', () => c.query(`select draft_orbit_share('p_nora',null,null,null,null,'ph_dana_jax')`), 'ORBIT_PHOTO_NOT_YOURS');
+  await expectError('3 a photo owned by the other parent is refused', () => c.query(`select draft_orbit_share('p_nora',null,null,null,null,null,'ph_dad_nora')`), 'ORBIT_PHOTO_NOT_YOURS');
+  await expectError('3 a photo of another child is refused', () => c.query(`select draft_orbit_share('p_nora',null,null,null,null,null,'ph_dana_jax')`), 'ORBIT_PHOTO_NOT_YOURS');
   await service();
   await expectError('3 photo bytes are immutable under the same id', () => c.query(`update orbit_photos set content_sha256=$1 where id='ph_mom_nora'`, ['c'.repeat(64)]), 'ORBIT_PHOTO_IMMUTABLE');
   await as('p_mom');

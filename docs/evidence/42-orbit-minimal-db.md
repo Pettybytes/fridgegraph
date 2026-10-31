@@ -156,3 +156,58 @@ for the child, exactly one `ORBIT_ALERT` job was created, and cleanup left no or
 2. **Audience-facing payloads tested for location leakage** (GraphQL, MCP, media endpoint, free-text
    fields, error responses). **NOT YET TESTED — this is the acceptance result and it is PENDING.**
    Those surfaces do not exist yet in this PR. The PR must not be marked ready until it passes.
+
+---
+
+## Controlled descriptors (migration 0034, applied) — the privacy guarantee
+
+Free-text share fields are replaced by **controlled vocabulary**. The notification is generated ONLY
+from validated values through the app-owned template; unmapped phrases never reach it and Rosina must
+ask instead.
+
+- `orbit_vocabulary(kind, value, version)` — 55 seeded values across `WEAR_COLOR`, `WEAR_GARMENT`,
+  `HAIR`, `CARRY_COLOR`, `CARRY_ITEM`.
+- Draft columns are the vocabulary fields (`wear_color`, `wear_garment`, `hair_desc`, `carry_color`,
+  `carry_item`); `distinctive` is **retired** from the template, the payload and the hash.
+- `draft_orbit_share(child, wear_color, wear_garment, hair, carry_color, carry_item, photo)` refuses any
+  value not in the vocabulary with `ORBIT_VALUE_NOT_IN_VOCAB` — it does not "clean" text.
+- `message_hash` (SHA-256) covers the **vocabulary values**, the photo's content hash and the resolved
+  audience — not raw input.
+- `_orbit_has_location()` remains as **defence in depth only**. It is not the guarantee; the closed
+  vocabulary plus generated text is.
+
+### Proof — `node ops/0034-dry-run.mjs` — 14/14 PASS (rolled back)
+
+| # | Check |
+|---|---|
+| 1 | "yellow raincoat, purple backpack" generates `Wearing: yellow raincoat. … Carrying: purple backpack.` with `Hair: ponytail.` |
+| 2 | `near Lincoln School`, `by Hartwell's`, free text in a color field, and a sentence in the garment field are all **refused** (`ORBIT_VALUE_NOT_IN_VOCAB`) |
+| 3 | legacy `distinctive` text never reaches the message and does not change the binding hash |
+| 4 | the delivered (simulated) notification equals the preview and is vocabulary-generated only |
+| 5 | audience exposure (below) |
+
+## `orbit_audience_for(childId)` exposure — caller-scoped
+
+The function now answers **only** the child's parent/guardian (or the read-only guide on sandbox data).
+Everyone else gets **no rows**, identical to a nonexistent child id.
+
+| Caller | `orbit_audience_for('p_nora')` |
+|---|---|
+| Kendra (parent) | the list (`p_gma,p_bryan`) |
+| Dana (out-of-network adult) | 0 rows |
+| Loretta (audience member, not a parent) | **0 rows** |
+| guide, NON-sandbox child | 0 rows |
+| nonexistent child id | 0 rows — **identical** to the hidden cases |
+
+## Photo claims, stated precisely
+
+Stripping removes embedded metadata (EXIF/GPS). It does **not** remove visible landmarks, signs or
+uniforms in the image itself. The demo therefore uses a curated fictional illustration with a neutral
+background — never a real child — and the UI copy says so.
+
+## Results, reported separately
+
+1. **No location columns** — **PASS** (schema scan).
+2. **Audience-facing payloads tested for location leakage** (GraphQL, MCP, media endpoint, free-text
+   fields, error responses) — **PENDING, and this is the acceptance result.** #33 must not go ready
+   until it passes.

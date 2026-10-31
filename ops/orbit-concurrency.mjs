@@ -50,8 +50,8 @@ try {
   const kendra = await connect('p_mom');
   const andre = await connect('p_dad');
 
-  const d1 = (await kendra.query(`select * from draft_orbit_share('p_nora','grey hoodie',null,null,null,null)`)).rows[0];
-  const d2 = (await andre.query(`select * from draft_orbit_share('p_nora','blue coat',null,null,null,null)`)).rows[0];
+  const d1 = (await kendra.query(`select * from draft_orbit_share('p_nora','grey','hoodie',null,null,null,null)`)).rows[0];
+  const d2 = (await andre.query(`select * from draft_orbit_share('p_nora','blue','coat',null,null,null,null)`)).rows[0];
   created.alerts.push(d1.id, d2.id);
   const p1 = (await kendra.query(`select * from preview_orbit_share($1)`, [d1.id])).rows[0];
   const p2 = (await andre.query(`select * from preview_orbit_share($1)`, [d2.id])).rows[0];

@@ -26,9 +26,20 @@ caller-scoped (`_orbit_can_see_alert` replaces `_orbit_is_active`) so direct RPC
 `ops/0033-dry-run.mjs` **14/14**, `ops/orbit-concurrency.mjs` **5/5** (two simultaneous activations on
 separate connections → one ACTIVE, loser `ORBIT_ALREADY_ACTIVE`).
 
-**Two separate results:** (a) "no location columns" — PASS; (b) "audience-facing payloads tested for
-location leakage" — **PENDING, and it is the acceptance result**. Those surfaces (GraphQL, MCP, media
-endpoint, error responses) do not exist yet; #33 must not go ready until (b) passes.
+**0034 (applied)** replaces free-text share fields with **controlled vocabulary** (55 values across
+WEAR_COLOR / WEAR_GARMENT / HAIR / CARRY_COLOR / CARRY_ITEM). The notification is generated only from
+validated values; unmapped text is **refused** (`ORBIT_VALUE_NOT_IN_VOCAB`) so Rosina asks, and
+`distinctive` is retired from the message, payload and hash. `_orbit_has_location()` is now **defence in
+depth only, not the privacy guarantee**. `orbit_audience_for(childId)` is caller-scoped: parent/guardian
+(or guide on sandbox) gets the list; Dana, a non-parent audience member, the guide on a non-sandbox
+child, and a nonexistent child all get **0 rows, identical**. Dry runs `ops/0034-dry-run.mjs` **14/14**,
+`ops/0033-dry-run.mjs` (replays the 0034 delta) PASS, `ops/orbit-concurrency.mjs` **5/5**.
+
+**Two separate results:** (a) "no location columns" — **PASS**; (b) "audience-facing payloads tested
+for location leakage" (GraphQL, MCP, media endpoint, free-text fields, error responses) — **PENDING,
+and it is the acceptance result**. #33 goes ready only when (b), the GraphQL contract, audience
+isolation, the media access rules and the pickup regression all pass — never on database hardening
+alone.
 
 **Data layer as built:** `orbit_alerts` (draft/ACTIVE/CLOSED, `message_hash`, `draft_version`, share
 fields, `photo_id` identity only), `orbit_audience_members` (frozen at activation, `notification_outcome
