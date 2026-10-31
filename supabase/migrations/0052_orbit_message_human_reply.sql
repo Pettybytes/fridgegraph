@@ -111,3 +111,64 @@ as $$
 $$;
 
 grant execute on function _orbit_reply_choice(text) to authenticated;
+
+-- ---------------------------------------------------------------- refusal must not look retryable
+-- `ORBIT_DRAFT_STALE` and `ORBIT_PREVIEW_MISMATCH` were raised with SQLSTATE 40001
+-- (serialization_failure). That code means "concurrency conflict — try again", so the refusal was
+-- retried instead of returned: measured through GraphQL, a stale hash hung until the router timeout
+-- ("Your request has been timed out") rather than reporting the error. A business refusal is not a
+-- retryable condition; 22023 (invalid_parameter_value) states that correctly. The message text, which
+-- the web adapter maps for users, is unchanged.
+create or replace function activate_orbit_alert(p_draft text, p_version int, p_hash text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_alert orbit_alerts; v_job text; v_hash text; v_count int;
+begin
+  select * into v_alert from orbit_alerts where id = p_draft for update;
+  if not found then raise exception 'ORBIT_NOT_FOUND' using errcode = 'P0002'; end if;
+  if not is_parent_of(v_alert.child_id) then raise exception 'UNAUTHORIZED' using errcode = '42501'; end if;
+  if v_alert.status <> 'PENDING_ACTIVATION' then raise exception 'ORBIT_NOT_DRAFT' using errcode = '22023'; end if;
+  if v_alert.draft_version <> p_version then raise exception 'ORBIT_DRAFT_STALE' using errcode = '22023'; end if;
+
+  if not orbit_vocab_ok('WEAR_COLOR', v_alert.wear_color)
+     or not orbit_vocab_ok('WEAR_GARMENT', v_alert.wear_garment)
+     or not orbit_vocab_ok('HAIR', v_alert.hair_desc)
+     or not orbit_vocab_ok('CARRY_COLOR', v_alert.carry_color)
+     or not orbit_vocab_ok('CARRY_ITEM', v_alert.carry_item) then
+    raise exception 'ORBIT_VALUE_NOT_IN_VOCAB' using errcode = '22023';
+  end if;
+  if _orbit_has_location(v_alert.wear_color) or _orbit_has_location(v_alert.wear_garment)
+     or _orbit_has_location(v_alert.hair_desc) or _orbit_has_location(v_alert.carry_color)
+     or _orbit_has_location(v_alert.carry_item) then
+    raise exception 'ORBIT_SHARE_HAS_LOCATION' using errcode = '22023';
+  end if;
+
+  v_hash := _orbit_message_hash(v_alert);
+  if v_hash <> p_hash then raise exception 'ORBIT_PREVIEW_MISMATCH' using errcode = '22023'; end if;
+
+  select count(*)::int into v_count from orbit_audience_for(v_alert.child_id);
+  if v_count = 0 then raise exception 'ORBIT_NO_AUDIENCE' using errcode = '22023'; end if;
+
+  insert into coordination_jobs (id, idempotency_key, type, child_id, status, version)
+  values ('job_' || substr(md5(random()::text || clock_timestamp()::text), 1, 12),
+          'orbit:' || v_alert.id, 'ORBIT_ALERT', v_alert.child_id, 'confirmed', 1)
+  returning id into v_job;
+
+  insert into orbit_audience_members (orbit_alert_id, person_id, notify_order, eligible, eligibility_source)
+  select v_alert.id, a.person_id, a.notify_order, true, a.eligibility_source
+    from orbit_audience_for(v_alert.child_id) a;
+
+  update orbit_alerts
+     set status = 'ACTIVE', activated_by = current_person(), activated_at = now(),
+         job_id = v_job, minimal_message = _orbit_message_for(v_alert), message_hash = v_hash
+   where id = v_alert.id returning * into v_alert;
+
+  update orbit_audience_members
+     set notified_at = now(), notification_outcome = 'SIMULATED'
+   where orbit_alert_id = v_alert.id;
+
+  return v_alert.id;
+end $$;

@@ -15,6 +15,7 @@
  * Run: node --import tsx ops/orbit-message-proof.mjs
  */
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import pg from 'pg';
 
 const env = Object.fromEntries(readFileSync('.env', 'utf8').split('\n').filter((l) => l.includes('=') && !l.trimStart().startsWith('#'))
@@ -25,8 +26,8 @@ const ROUTER = 'http://127.0.0.1:4012/';
 const SCHEME = 'B' + 'earer' + ' ';
 const { tokenForPersonId } = await import('./auth.mjs');
 
-let failed = 0;
-const check = (label, ok, detail = '') => { if (!ok) failed += 1; console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ' — ' + detail : ''}`); };
+let failed = 0; let total = 0;
+const check = (label, ok, detail = '') => { total += 1; if (!ok) failed += 1; console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ' — ' + detail : ''}`); };
 
 const gql = async (token, query, variables) => (await fetch(ROUTER, {
   method: 'POST', headers: { 'content-type': 'application/json', authorization: SCHEME + token }, body: JSON.stringify({ query, variables }),
@@ -58,6 +59,25 @@ check('4 described fields are present', /Wearing: yellow raincoat/.test(msg) && 
 check('5 raw enum codes are gone from the ask', !/WITH_ME|ON_WAY|CANNOT_HELP/.test(msg));
 check('6 human reply options are named', /Reply 1 = With me, 2 = On my way, 3 = Can't help\./.test(msg));
 check('7 photo line absent when no photo', !/Photo attached/.test(msg));
+
+// 7a/7b — a preview minted under the OLD wording must not activate after the template change.
+// The old text is reconstructed exactly (0034 wording) and hashed the same way the server does; the
+// point is that the ACTIVATION IS REFUSED, not merely that a different hash exists.
+const aud = (await db.query(
+  `select coalesce(string_agg(person_id, ',' order by notify_order), '') v from orbit_audience_for($1)`, ['p_nora'],
+)).rows[0].v;
+const oldMessage = 'FridgeGraph Orbit: check-in not recorded for Nora. Wearing: yellow raincoat. '
+  + 'Hair: not described. Carrying: green backpack. Reply WITH_ME, ON_WAY, or CANNOT_HELP.';
+const oldHash = createHash('sha256').update(oldMessage + '|' + aud).digest('hex');
+check('7a the pre-0052 hash differs from the current preview hash', oldHash !== preview.messageHash,
+  `${oldHash.slice(0, 8)} vs ${preview.messageHash.slice(0, 8)}`);
+const stale = await gql(kendra, `mutation($d: ID!, $v: Int!, $h: String!){ orbitActivate(draftId:$d, draftVersion:$v, messageHash:$h){ id status } }`,
+  { d: d.draftId, v: preview.draftVersion, h: oldHash });
+check('7b activation with the pre-0052 hash is REFUSED (ORBIT_PREVIEW_MISMATCH)',
+  /ORBIT_PREVIEW_MISMATCH/.test(JSON.stringify(stale.errors ?? {})),
+  (stale.errors?.[0]?.message ?? 'accepted').slice(0, 60));
+const stillPending = (await db.query(`select status from orbit_alerts where id=$1`, [d.draftId])).rows[0]?.status;
+check('7c the refused activation left the draft untouched', stillPending === 'PENDING_ACTIVATION', String(stillPending));
 
 // 2. activate, then answer with the NUMBER a recipient would actually send
 const act = await gql(kendra, `mutation($d: ID!, $v: Int!, $h: String!){ orbitActivate(draftId:$d, draftVersion:$v, messageHash:$h){ id status message } }`,
@@ -100,6 +120,6 @@ check('15 no ACTIVE alert remains', Number(active.rows[0].n) === 0, `active=${ac
 
 const totals = await db.query(`select (select count(*)::int from orbit_alerts) a, (select count(*)::int from orbit_responses) r`);
 console.log(`\n  leftover counts: alerts=${totals.rows[0].a} responses=${totals.rows[0].r} (closed, not reset)`);
-console.log(`\nRESULT: ${15 - failed}/15 PASS`);
+console.log(`\nRESULT: ${total - failed}/${total} PASS`);
 await db.end();
 process.exit(failed === 0 ? 0 : 1);
