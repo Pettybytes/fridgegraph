@@ -383,6 +383,11 @@ Then run it, then say it is restored. Never leave the stack pointed at a differe
 | 2026-10-30 21:35 | alt-stack restart (NO reset, NO seed) + supergraph recompose + MCP restart, for the vocabulary API | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored** |
 | 2026-10-30 21:40 | `db:reset` + `seed` + `seed:simulated` to restore the baseline vocabulary (0034's insert is wiped by reset) | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored, 55 values** |
 | 2026-10-30 21:40 | **Group 4 window** — 0039 (CareFact) applied; stack + MCP restarted; `seed:simulated` re-applied. Codex: no live run at reservation. | `feat/group4-care-facts` | 4101–4107 / 4012 / 5051 | **restored** |
+| 2026-10-30 22:12 | **W4b live-acceptance window (~8 min, READ-ONLY)** — Rosina 4200 reloaded from worktree `fridgegraph-main` @ **593e794** (PID 98552). PID 59207 was stale: started 21:55 **after** the 21:48 merge, but from the `feat/group4-care-facts` checkout cut before #37 (`model.ts` had **0** of the three tool names; main has **11**). Also fixed: Rosina's MCP URL defaulted to **5050** (no listener) — now `ROSINA_MCP_URL=...:5051/mcp`, which lists `ChildEvents, EffectiveSchedule, AdultAvailability`. NO reset, NO seed, no subgraph/router change. | worktree `fridgegraph-main` @ 593e794 | 4200 (stack 4101–4107 / 4012 / 5051 untouched) | **restored, verified** |
+| 2026-10-30 22:20 | **W4b post-reload 401 — fixed** (identity map missing from the worktree cwd). Rosina 4200 restarted with `IDENTITY_MAP_PATH` → owning checkout's map and `ROSINA_MCP_URL` → 5051. Probe: **200**. NO reset, NO seed. | worktree `fridgegraph-main` @ 593e794 | 4200 only | **restored, verified** |
+| 2026-10-30 22:32 | **W4b window released** — final instrumented acceptance PASS (seven READY, Rosa Coming soon, boundaries, isolation, #37 Thanksgiving, exact Dana refusal, 120-frame Kendra→Dana audit zero leaks). 4200 remains on worktree @ 593e794 with MCP 5051. | `fridgegraph-main` @ 593e794 | 4200 | **released to normal** |
+| 2026-10-30 22:36 | **#38 acceptance window (~8 min, READ-ONLY)** — Rosina 4200 reloaded to main `a88d613` (#38 Rosina Orbit), PID 40176, worktree `fridgegraph-main`; `IDENTITY_MAP_PATH` + `ROSINA_MCP_URL=5051` preserved; status probe **200**. NO reset/seed/subgraph/router change. | worktree @ a88d613 | 4200 only | **restored, verified** |
+| 2026-10-30 22:35 | **Group 4 pieces 1–3** — **Piece 1 (Cast v2) DONE and RESTORED**: baseline seed 404 rows, 11/11 personas READY (Piece 1 availability, not a Coming-soon regression), restoration reads verified (jobTimeline 5 · effectiveScheduleFor ARRANGEMENT · orbitVocabulary 55 · checkInStatus · careFacts Nora 3 / Malik 3). **Pieces 2–3 QUEUED, NOT ACTIVE.** Stack PAUSED for W4b's read-only window; no reset/seed/subgraph/router change. | `feat/cast-v2` (PR #39); pieces 2–3 not started | 4101–4107 / 4012 / 5051 | **restored / paused** |
 
 ## Group 4 — CareFact (2026-10-30)
 
@@ -1947,6 +1952,165 @@ test:rosina` **24/24 PASS**; `npm run check` PASS; `npm --prefix web test` **168
 `gh pr view 34` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
 merged — Bryan merges.
 
+---
+
+## W4b coordination — 503 `DEMO_LOGIN_UNAVAILABLE` (2026-10-30, sanitized)
+
+**Symptom.** The actual picker returned HTTP 503 `DEMO_LOGIN_UNAVAILABLE` while port 4008 was served by
+the `fridgegraph-level-b` checkout. After the restored window, 4008 returns **200 READY** from
+`/Users/user/Desktop/bentley/fridgegraph`.
+
+**Owning layer: process-start runtime configuration — not credentials, not cached-session renewal.**
+
+| Evidence | Where |
+|---|---|
+| The only producer of that exact code is the missing-value gate: `required(name)` throws `MintError('DEMO_LOGIN_UNAVAILABLE')` when `process.env[name]` is empty | `src/demo/session.ts:38–41` |
+| Values read by the mint: the three Supabase configuration keys (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) — **names only, no values** | `src/demo/session.ts` call sites |
+| The login route maps any `MintError` to **HTTP 503** `{status:'UNAVAILABLE', reason: code}` | `src/demo/server.ts:221–223` |
+| The gate runs **before** any Supabase call, so an invalid or expired credential cannot produce this code | same |
+
+**Why it differed between checkouts.** `.env` living on disk is not the same as `.env` loaded into the
+serving process. The older `fridgegraph-level-b` process on 4008 had been started without an env load,
+so its environment was empty at mint time even though the file existed in that checkout — the same
+failure I reproduced on this checkout by starting the server without `--env-file`, and the same restart
+that fixed it (`--env-file=.env`). Persona readiness is a *different* path and returns **200**
+`UNAVAILABLE` with `NO_SEEDED_IDENTITY` / `UNKNOWN_PERSONA`; a Supabase mint rejection would be
+`MINT_FAILED`. Neither is this code.
+
+**Restoration.** The level-b process was stopped; 4008 now runs from
+`/Users/user/Desktop/bentley/fridgegraph` (verified by the process working directory), and login answers
+200 READY. No reset, no checkout switch, no stack change was made for this request.
+
+**Caveat, stated honestly.** The old process is gone, so its environment cannot be read after the fact.
+"Env not loaded" is inferred from (a) that code being the only producer of this error, (b) the gate
+being pre-network, and (c) the reproduced failure and fix on this checkout. If it recurs, capture the
+serving process's environment **at failure time** (names only) before restarting.
+
+---
+
+
+### Root cause (sanitized) — 401 on every first message after the reload
+
+`src/auth/verify.ts` resolves the caller by mapping the token's subject through
+`identityMapPath()` — and that path is **`process.cwd()/data/identity-map.json`**
+(`src/demo/personas.ts:181–183`). A git worktree has no `data/` directory: the file is a runtime
+artifact, not a tracked file. With the map absent, `mappedPersonId()` returns `undefined`,
+`verifyBearer` answers `{ ok:false, reason:'unmapped' }`, and the handler replies
+`401 {"error":"UNAUTHENTICATED"}` (`src/rosina/server.ts:61–65`) — which the frontend surfaces as the
+"send your question again" manual-resend path. Follow-ups then hit the per-person limiter, so they read
+as Busy.
+
+Why the previous 4200 worked: it ran from `/Users/user/Desktop/bentley/fridgegraph`, whose cwd *does*
+contain the map. Nothing about the tokens or credentials changed — only the process working directory.
+
+Fix applied (no file copied, no contents read): start 4200 with
+`IDENTITY_MAP_PATH=/Users/user/Desktop/bentley/fridgegraph/data/identity-map.json` and
+`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`. Verification: process cwd is the worktree, startup log
+shows `mcp=…:5051/mcp`, and a status-only probe returned **200** (no body or identity values logged).
+
+**Rule for worktrees:** tracked code may live in a worktree; runtime state (.env, `data/identity-map.json`,
+credentials) must be passed by PATH through the environment, never copied and never committed.
+
+## QUEUED — owning read contract extension for W4b (2026-10-30)
+
+**Status: documented and queued, NOT implemented.** W4b must not infer any of these from existing
+fields. Everything below is additive; no current field changes shape or meaning.
+
+### What exists today (verified)
+
+| Surface | Fields | Source |
+|---|---|---|
+| `childEvents` | `id, child, title, start, end, location, status` (`proposed \| confirmed \| cancelled`) | `src/subgraphs/schedule.ts:57–66`; `events` columns `0001_schema.sql:123–130` + `status` in `0027:24–32` |
+| `effectiveScheduleFor` | `parent, source, arrangementId` | `src/subgraphs/schedule.ts:77–82`; RPC `effective_schedule_for` returns only `parent_id, source, arrangement_id` |
+| Holiday data that exists but is NOT exposed | `holidays(name, start_date, end_date, sandbox)`; `holiday_arrangements(holiday_name, date_start, date_end, assigned_parent_id, pickup_duty_parent_id, dropoff_duty_parent_id, status, proposed_by_id, approval_id)` | `0027:47–55`, `0028:52–64` |
+
+**Missing at the source, not merely in the API:** `events` has no category, no confirmer and no links
+column; `holidays` has no day-kind column. Adding API fields alone would force the frontend to invent
+values — which is exactly what W4b reported.
+
+### Proposed additive contract
+
+**`childEvents`** — new fields, all nullable, none inferred:
+
+```graphql
+type EventLink { label: String!, url: String! }
+
+type CalendarEvent {
+  # ... existing fields unchanged ...
+  """Recorded category. Null means NOT RECORDED — never a guess."""
+  category: String
+  """Who confirmed it, when. Null when the event was created already-confirmed."""
+  confirmedBy: Person
+  confirmedAt: String
+  """Attachments/links from the record. Empty array when none recorded."""
+  links: [EventLink!]!
+}
+```
+
+Columns: `events.category text` (check against a fixed list, e.g. `SCHOOL | SPORT | MEDICAL | CARE |
+SOCIAL | OTHER`), `events.confirmed_by text references people(id)`, `events.confirmed_at timestamptz`,
+`events.links jsonb not null default '[]'` validated as `[{label,url}]`.
+
+**`effectiveScheduleFor`** — new nested fields, populated only when an arrangement/holiday row exists:
+
+```graphql
+enum HolidayDayKind { SCHOOL_CLOSURE, PUBLIC_HOLIDAY, TEACHER_WORKDAY, BREAK }
+
+type Holiday {
+  id: ID!
+  name: String!
+  startDate: String!
+  endDate: String!
+  """Recorded kind. Null means NOT RECORDED — never derived from the name or the weekday."""
+  dayKind: String
+}
+
+type HolidayArrangement {
+  id: ID!
+  holidayName: String
+  dateStart: String!
+  dateEnd: String!
+  assignedParent: Person
+  pickupDutyParent: Person
+  dropoffDutyParent: Person
+  status: String!
+  proposedBy: Person
+  approvalId: ID
+}
+
+type EffectiveSchedule {
+  # ... existing parent, source, arrangementId unchanged ...
+  holiday: Holiday
+  arrangement: HolidayArrangement
+}
+```
+
+Columns: `holidays.day_kind text` (check against `HolidayDayKind`); everything else reads existing
+`holiday_arrangements` columns. The resolver fetches the arrangement by `arrangementId` and the holiday
+by date coverage through the caller's own RLS client — no service-role read, no widening of the RPC.
+
+### No-inference rules (binding on W4b)
+
+1. `category` / `dayKind` null → render "Not recorded". Never map from `title`, weekday, month or
+   another record.
+2. `confirmedBy` null → show status only. Never assume the creator or the other parent confirmed.
+3. `links` empty → show nothing. Never synthesise a venue/school URL from `location`.
+4. `holiday`/`arrangement` null → show parent + source only. Never infer a school closure from a
+   `WEEKLY` source or from an event titled "no school".
+5. A `status` of `proposed` is not confirmation — `confirmedBy` must come from its own column.
+
+### Authorization and proof plan (for the implementing task)
+
+- Authorization unchanged: `authorizeChild(ctx, childId, SCOPE.schedule)`; RLS decides row visibility.
+- New columns inherit the table's existing row visibility; no new policy unless a column needs one.
+- Fixtures: one event per category with `confirmed_by` set and one with it null; one holiday per
+  `dayKind` plus one with `day_kind` null; one arrangement with duties recorded and one one-off swap.
+- Proof must assert: every new field is `null`/`[]` where the column is null, never defaulted; the
+  MCP `ChildEvents`/`EffectiveSchedule` outputs match; and existing consumers' reads are byte-identical
+  apart from the new fields.
+- Sequence: migration → subgraph schema/resolver → MCP ops → proof → evidence → HANDOFF.
+
+Queue owner: next available task. No frontend inference in the meantime.
 ## Task R-TOOLS-2 — ChildEvents, EffectiveSchedule, AdultAvailability ENABLED + TESTED (2026-10-30)
 
 Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §12.
