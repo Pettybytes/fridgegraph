@@ -3512,6 +3512,85 @@ Remaining failures are all in my probe documents, not the product:
 Next: introspect `OrbitResponseResult` and the `jobTimeline` element type, fix the three documents,
 re-run, then open the PR.
 
+## Group 5 Piece 3 — simple consent: surface inspected, design fixed (2026-10-31 04:10)
+
+Branch `piece3-consent` from `origin/main` (`c499e21`, #50 merged). No code written yet.
+
+**What exists**
+- `permission_slips(id, child_id, title, signed)` — no approver, no state machine.
+- `approvals(id, approver_id, subject_type, subject_id, decision, at)` — the audit ledger.
+- `household_policies` rules: `caregiver_approval`, `ride_cost_cap_usd`, `sibling_supervision_min_age`,
+  `schedule_swap_approval`, `orbit_notify_eligible` — **there is no consent rule yet**.
+
+**Design (Stage 1, single approver, CONSENT authority — NOT `schedule_swap_approval`)**
+1. Migration `0046`: add policy rule `consent_approval` (value = `parent` | a single person id), and a
+   partial unique index on `approvals(subject_type, subject_id, approver_id)` where
+   `subject_type='permission_slip'` so a repeated approval cannot count twice at the database level.
+2. Resolver `approveConsent(slipId: ID!)` in `school.ts` (owner of `permission_slips`):
+   - authority = CONSENT: a parent/guardian of the child, **or** the single approver named by
+     `consent_approval` for that household; never derived from parenting time, never from
+     `schedule_swap_approval`;
+   - refuse the Demo guide explicitly (read-only observer);
+   - idempotent: second approval returns the existing decision, writes no second row;
+   - sets `signed = true` and appends the `approvals` row in the same transaction.
+3. `approvals(subjectId: childId)` is the child's history view — the decision must appear there.
+
+**Proof to write**: policy approver approves; Marcus and Priya refused; Demo guide refused; repeated
+approval counted once (ledger row count stays 1); decision visible in the child's history.
+
+No PR. Piece 2 (createDemoFamily) from current main afterwards — Piece 1 is merged, so no stacking.
+
+## Reset route must move to 4008 — stop point (2026-10-31 04:16)
+
+`POST /api/demo/reset` currently sits on Rosina **4200**, but the persona session cache lives in the
+**4008** process (`src/demo/server.ts` imports `getPersonaSession`), so `dropPersonaSessionCache()`
+there clears a map 4200 never populates. The route belongs in 4008 so reset and cache-drop share a
+process.
+
+**Not yet done — exact next steps:**
+1. Add `app.post('/api/demo/reset', …)` in `src/demo/server.ts` (express, bound `127.0.0.1`, siblings
+   `/api/demo/login`, `/api/demo/…`). **Open decision that must be made first:** that file does *not*
+   import `verifyBearer` — it authenticates through persona sessions (`getPersonaSession`). Choose one
+   and state it: (a) import `verifyBearer` as Rosina does and require `identity.demo && !identity.demoGuide`,
+   or (b) reuse the persona-session lookup. Do not guess: the guards must be the same as today
+   (loopback-only until Task H, demo sessions only, guide refused, 30 s cooldown).
+2. Call `resetDemo()` then `dropPersonaSessionCache()` in that process, in that order.
+3. **Remove** the 4200 route so exactly one reset path exists.
+4. Restart 4008 inside a reserved window (stack change), then prove: a cached persona session is
+   **dropped** by reset — the next pick **re-mints** (observe a new mint, not a cache hit) — and the
+   DB reads come back seeded.
+5. Tell Codex the live route/port: `POST http://127.0.0.1:4008/api/demo/reset`.
+
+Piece 3 also still owes its HANDOFF record (the earlier commit was skipped) and its resolver/proof.
+Piece 2 after that. Nothing merged.
+| 2026-10-31 08:19 | **RESERVED: W-RESET window (~30 min)** — restart 4008 from authoritative move `dd84886`, restore MCP 5051, confirm authenticated MyChildren (Task H), GraphQL + reset route ready. Then actual-UI shared reset + two-tab valid-token explicit-refetch. No db:reset. Window starts on restoration confirmation. | `piece3-consent` @ `dd84886` | 4008 / 4012 / 4200 / 5051 | **reserved** |
+
+### W-RESET restoration receipt — FAILED, window stays CLOSED (2026-10-31 04:22)
+
+| Check | Result |
+|---|---|
+| 4008 restarted from `dd84886` (`npm run start` → `src/main.ts`) | up, PID 28366 |
+| `POST /api/demo/reset` | **401** unauthenticated — route present and guarded (not 404) |
+| MCP 5051 | restored, PID 28180 |
+| **Task H: authenticated `MyChildren` for Kendra** | **0 children — expected 3 (`p_leo,p_max,p_nora`)** |
+
+`named=true` on that result is vacuous over an empty array; it proves nothing. A tool that returns an
+empty list while every port is listening is exactly the failure Task H exists to catch.
+
+**DB truth is intact** (this is not data loss): `p_mom` is `parent` in `h_a`; totals
+`people=40, children=9, household_members=25`. So the defect is in the **serving layer**, not the data.
+
+Likely cause: `npm run start` brought up a **second full subgraph set on 4001–4007**. The restarted
+processes are not resolving the same identity/DB context the router and MCP expect, so authorization
+returns an empty set instead of an error.
+
+**Next step (backend owner only):** restore the stack to its previous topology — start 4008 from
+`src/main.ts` without standing up a duplicate subgraph set, then compare `myChildren` at router 4012
+GraphQL against the MCP `MyChildren` call. Both must return `p_leo,p_max,p_nora` **with displayName**
+before the window opens. No identity substitution to make the check pass.
+
+Bryan input: **not required** — this is a restore/config issue, not a decision.
+
 ## Task W-RESET — browser reset (in progress)
 
 Branch `feat/web-demo-reset`, base `origin/main` **c499e217a1455e8053646beb0d554d11b76e0f1c** (#50). Web and docs only. Evidence 51's completed API-origin proof supersedes the earlier unfinished Group 5 checkpoint above; its original failed receipt is preserved.
@@ -3526,6 +3605,8 @@ Visual direction follows the existing family demo: Geist type, white #ffffff, in
 
 Offline checkpoint: **253/253 web tests**, web typecheck/build, root typecheck and `npm run check` (**0 findings**) passed. New cases cover confirm/cancel, one request, verification ordering, cleanup/generation/token disposal, explicit failure, cooldown, uncertainty, stale completion, guide protection, independent tabs, transport timeout/cancellation and no read retry. Existing privacy/image lifecycle tests remain green. Baseline before changes: 231/231. The initial new test red receipt is retained outside tracked evidence in the local check log; no historical result was rewritten. Live acceptance, token/media scan and live desktop/mobile screenshots remain PENDING. No PR yet; no merge.
 
+| 2026-10-31 04:26 | **W-RESET OPEN — 30 min, deadline 04:54 EDT.** Restoration from `f01021b` (serving code `dd84886`): alt stack 4101–4107 restarted (4102–4106 had been dead — that, not the DB, caused empty `myChildren`), 4008 serving the reset route, MCP 5051 up. **Both paths verified**: router 4012 `myChildren` = `p_leo,p_max,p_nora` named=true; MCP `MyChildren` = same. Reset route returns 401 unauthenticated (present + guarded). No db:reset. | serving `dd84886` (docs HEAD `f01021b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **OPEN to W-RESET until 04:54 EDT** |
+
 ### W-RESET — live acceptance completed (2026-10-31 04:33 EDT)
 
 **UI: complete/live · backend: complete on serving move #52 (`dd84886`, equivalent code `1a51273`), merge dependency · integrated + tested: PASS, 32/32 browser checks.** W-RESET browser slice complete; broader W4 dependencies remain PENDING. UI PR **#51** depends on Bentley's **#52** putting reset on 4008. No proxy change, backend edits, automatic replay or cross-tab logout in #51.
@@ -3535,3 +3616,5 @@ Bentley restored and explicitly opened the W-RESET window until 04:54 after none
 Actual picker/Rosina card → draft/preview/photo → explicit activation → shared confirmation → **one reset POST** → successful no-cache seeded reads → cache/token/generation/Rosina/Orbit/image cleanup → success picker. The other tab kept its identical valid bearer and login count and explicitly refetched seeded no-alert data, with no logout or re-mint. Returning Kendra saw seeded children and no alert/thread. Guide reset hidden. Token/media scan PASS, no new generic-marker matches. Twelve real desktop/mobile captures: `web/evidence/reset-demo/live-07/`; safe receipt `live-07.json`; full account `docs/evidence/web-reset.md`.
 
 Offline: **255/255 web tests**, web typecheck/build, root typecheck, secret scan **0 findings**, guard test PASS. Failed receipts 01–06 remain unchanged (zero resets): harness baseline-read, initial-state and preview-readiness assumptions were corrected; a reservation interruption blocked requests. None counts as a pass. A separate `WebVillage` authorization refusal was observed; its live integration remains outside this slice.
+
+| 2026-10-31 04:33 | **W-RESET RELEASED — live COMPLETE (PASS), before the 04:54 deadline.** Actual picker/Rosina card → preview/photo → explicit Orbit activate → **one** reset on 4008 → seeded reads → local picker. Second tab kept an **identical token and login count** and an explicit Orbit refetch saw the seeded no-alert state — **no logout, no re-mint**. Kendra re-picked seeded / no alert / no old thread. Guide reset hidden. Live07 receipt + safe screenshots saved; token/media scan PASS. No db:reset, seeds, restarts or real sends by web. Failed receipts 01–06 preserved; no reset occurred before 07. **Dependency: #52 (route move, CI green observed) must ship with UI #51.** Serving `dd84886` unchanged. | serving `dd84886` (docs HEAD `dd9d03b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **RELEASED — restored/available** |
