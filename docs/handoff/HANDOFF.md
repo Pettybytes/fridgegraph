@@ -1697,6 +1697,9 @@ BLOCKERS: none for this fix. Follow-up for Bentley: a `MyChildren`/`myVillages` 
 `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
 checks pass: `typecheck + secret scan` (17s), `web build` (25s). Not merged — Bryan merges.
 
+**Update:** PR #30 merged to `main` as `4f57c97` (confirmed while resolving Task R-TOOLS-1's
+merge conflict below). "Not merged" above is stale as of that commit.
+
 ## Task R-TOOLS-1 — Attempts + JobTimeline added to Rosina's allowlist (2026-10-30)
 
 Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §11.
@@ -1760,7 +1763,20 @@ BLOCKERS: none for this task. CarePlan, village-directory and the Group-3 trio r
 
 **Final state (2026-10-30):** PR #34 head `4c3da49`. `gh pr ready 34` run; `gh pr view 34` →
 `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
-checks pass: `typecheck + secret scan` (17s), `web build` (25s). Diff vs `origin/main` legitimately
-includes R-LEAK's files (`roster.ts`, `outputGuard.ts`, PR #30, not yet merged) since this task's
-code hard-depends on them — will shrink to just this task's own changes once #30 merges. Not
+checks pass: `typecheck + secret scan` (17s), `web build` (25s). Diff vs `origin/main` at that
+point legitimately included R-LEAK's files (`roster.ts`, `outputGuard.ts`, PR #30, not yet
+merged) since this task's code hard-depends on them.
+
+**Sync (2026-10-30):** #30 merged to `main` as `4f57c97` while #34 was open, carrying the exact
+same `roster.ts`/`outputGuard.ts` content this branch already had — so `git merge origin/main`
+on `feat/rosina-tools-1` produced conflicts ONLY in the four files this task's own commit also
+touched (`src/rosina/model.ts`, `src/rosina/systemPrompt.ts`, `docs/evidence/
+35-rosina-service.md`, this handoff), every one resolved by keeping this task's own addition
+(R-LEAK's side of each conflict was empty — #30 never touched the Mission-Control bullet,
+the allowlist, or the import list this task added). No conflict in `roster.ts`/`outputGuard.ts`/
+`model.test.ts` themselves — confirming they are now byte-identical to `main`. Full re-verification
+after resolving: `npm run typecheck` clean; `npm run check:rosina-catalog` PASS; `npm run
+test:rosina` **24/24 PASS**; `npm run check` PASS; `npm --prefix web test` **168 PASS**.
+`git diff origin/main...HEAD --stat` confirmed to contain ONLY this task's own files. Pushed;
+`gh pr view 34` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, both CI checks pass. Not
 merged — Bryan merges.
