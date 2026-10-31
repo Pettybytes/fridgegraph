@@ -3163,3 +3163,10 @@ mid-activation switch, token/media-handle scan and live desktop/mobile captures 
 Reconciled #47 tree: root typecheck PASS; secret scan zero findings; 229/229 web tests PASS;
 web typecheck/build PASS; catalog parity 8 ids PASS; 75/75 Rosina tests PASS. Both handoff
 workstreams retained. Live window/restoration coordination in progress; no live call yet.
+CORRECTION to the immediately preceding Rosina count: **74/75 PASS, 1 FAIL**, not 75/75.
+The original output in /tmp/orbit-main47-checks.txt shows the merged enabled handler correctly
+returns prepareOrbitAlert, while src/rosina/orbit.test.ts still asserts actions:[] with the
+message "the catalog marks it implemented: false". The prior checkpoint was recorded before
+reading that result and is incorrect. Original assertion is unchanged; server-test correction
+requested from Claude Code under Bryan's ownership instruction. #44 stays draft; readiness is
+blocked until this test is corrected in the owning layer and all required checks actually pass.
