@@ -52,9 +52,11 @@ const DOC_ACTIVATE = `mutation OrbitActivate($d: ID!, $v: Int!, $h: String!) {
   }
 }`;
 
-const DOC_RESPOND = `mutation OrbitRespond($a: ID!, $r: String!) {
-  orbitRespond(alertId: $a, response: $r) {
-    ok
+const DOC_RESPOND = `mutation Respond($alertId: ID!, $response: String!) {
+  orbitRespond(alertId: $alertId, response: $response) {
+    alertId
+    responseId
+    guidance
   }
 }`;
 
@@ -85,19 +87,24 @@ if (draft?.draftId) {
     if (alert?.id) {
       // an eligible audience member responds
       const dad = await tokenForPersonId('p_dad');
-      const r = await gql(dad, DOC_RESPOND, { a: alert.id, r: 'WITH_ME' });
-      check('orbitRespond recorded a response', !r.errors, r.errors?.[0]?.message ?? JSON.stringify(r.data?.orbitRespond));
+      const r = await gql(dad, DOC_RESPOND, { alertId: alert.id, response: 'WITH_ME' });
+      const responseId = r.data?.orbitRespond?.responseId ?? null;
+      check('orbitRespond returned a responseId', Boolean(responseId), r.errors?.[0]?.message ?? String(responseId));
 
       const c = new pg.Client({ connectionString: env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
       await c.connect();
-      check('the response is persisted', (await c.query(`select count(*)::int n from orbit_responses where orbit_alert_id=$1`, [alert.id])).rows[0].n === 1);
+      check('the response row EXISTS before reset (by responseId)',
+        responseId ? (await c.query(`select count(*)::int n from orbit_responses where id=$1`, [responseId])).rows[0].n === 1 : false,
+        String(responseId));
       check('the alert is sandbox', (await c.query(`select sandbox from orbit_alerts where id=$1`, [alert.id])).rows[0]?.sandbox === true);
 
       console.log('=== reset ===');
       const { resetDemo } = await import('../src/demo/reset.ts');
       await resetDemo('api-proof');
       check('reset removed the API-origin alert', (await c.query(`select count(*)::int n from orbit_alerts where id=$1`, [alert.id])).rows[0].n === 0);
-      check('reset removed its response', (await c.query(`select count(*)::int n from orbit_responses where orbit_alert_id=$1`, [alert.id])).rows[0].n === 0);
+      check('the response row is GONE after reset (by responseId)',
+        responseId ? (await c.query(`select count(*)::int n from orbit_responses where id=$1`, [responseId])).rows[0].n === 0 : false,
+        String(responseId));
 
       console.log('=== seeded consumer reads ===');
       const kids = await gql(mom, `{ myChildren { child { id } scopes } }`);
@@ -108,9 +115,9 @@ if (draft?.draftId) {
       check('checkInStatus answers', !ci.errors, ci.errors?.[0]?.message ?? 'ok');
       const voc = await gql(mom, `{ orbitVocabulary { kind value } }`);
       check('orbitVocabulary answers', (voc.data?.orbitVocabulary ?? []).length >= 1, `${(voc.data?.orbitVocabulary ?? []).length}`);
-      const sched = await gql(mom, `{ effectiveScheduleFor(childId: "p_nora", day: "2026-11-26") { source } }`);
+      const sched = await gql(mom, `{ effectiveScheduleFor(childId: "p_nora", date: "2026-11-26") { source } }`);
       check('effectiveScheduleFor (Thanksgiving) answers', !sched.errors, sched.errors?.[0]?.message ?? 'ok');
-      const job = await gql(mom, `{ jobTimeline(jobId: "job_emma_nov05") { type } }`);
+      const job = await gql(mom, `{ jobTimeline(jobId: "job_emma_nov05") { kind attemptId detail candidate { id displayName } } }`);
       check('jobTimeline answers', !job.errors, job.errors?.[0]?.message ?? 'ok');
       await c.end();
     }
