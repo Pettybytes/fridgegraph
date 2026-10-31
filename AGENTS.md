@@ -113,6 +113,9 @@ Each agent has a role, a definition of done, skills it must use, and forbidden m
 - **Apollo / GraphQL** — `apollo-federation`, `apollo-router`, `graphql-schema`, `graphql-operations`, `apollo-mcp-server`
 - **Playwright** — `playwright-cli` for every browser or visual check
 - **frontend-design** — for any `web/` visual work
+- **Design toolkit** (installed 2026-10-31) — `impeccable` (slop detector + polish/audit/critique), Emil Kowalski's motion/interaction skills (`animate`, `review-animations`, `improve-animations`, `remove-animations`, `animation-performance`, `apple-design`, `emil-design-eng`, `break-ui`, and the rest), `ui-skills` (`baseline-ui`, `fixing-accessibility`, `fixing-motion-performance`), and `humanizer` (strip AI-writing tells, keep the meaning)
+
+**All `web/` visual work is bound by `docs/contracts/design.md`; it wins over any skill. Read it before any `web/` change.**
 
 ---
 
