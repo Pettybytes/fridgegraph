@@ -36,7 +36,7 @@ async page=>{
   demand(calendar.unavailableAdults.every(row=>row.outcome==='ready'&&row.data?.adultAvailability?.length===0),id+': adult hidden/nonexistent/malformed must be the same empty read')
   demand(!JSON.stringify(calendar.adults).includes('reason'),id+': availability contains private reason')
   const job=legacy.jobs.data?.coordinationJobs?.[0]
-  if(id==='kendra')parentJob=job?.id
+  if(id==='kendra'){parentJob=job?.id;demand(!!job,'Kendra sample job missing: check shared HANDOFF/restoration first')}
   if(id==='andre')demand(job?.id===parentJob,'Andre and Kendra see different stored jobs')
   await page.evaluate(async({origin,partial})=>{await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(partial)})},{origin,partial:{passed:false,incomplete:true,rows,active:{persona:id,legacy,calendar},errors}})
   await pair(page,id+'-landing')

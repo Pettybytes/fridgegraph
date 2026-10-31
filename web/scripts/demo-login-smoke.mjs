@@ -7,9 +7,12 @@ import {fileURLToPath} from 'node:url'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {createServer as viteServer} from 'vite'
+import {liveWindowClear} from './live-window.mjs'
 const exec=promisify(execFile),web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=dirname(web)
 const visual=process.env.DEMO_SMOKE_VISUAL_ONLY==='1',jobBoundary=process.env.DEMO_SMOKE_JOB_BOUNDARY_ONLY==='1'
 const current=!visual&&!jobBoundary
+// Before any browser, login or live API request, read the current shared checkout's reservation.
+try{if(!await liveWindowClear(resolve(repo,'../fridgegraph/docs/handoff/HANDOFF.md'))){console.error('Live run deferred: shared HANDOFF has an active test reservation. Wait for restoration.');process.exit(2)}}catch{console.error('Live run deferred: shared HANDOFF could not be checked. No live requests made.');process.exit(2)}
 const prefix=String.fromCharCode(101,121,74),tokens=new Set(),baseline=new Map()
 async function files(root){const result=[];async function walk(dir){for(const name of await readdir(dir)){
  if(['.git','node_modules','data','.demo-credentials'].includes(name)||name.startsWith('.env'))continue

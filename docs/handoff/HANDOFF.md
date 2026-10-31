@@ -2073,3 +2073,16 @@ base remains 0d80f003c722e009897b1790c461952cd0de6f66. HANDOFF conflict resolved
 upstream Task R/Orbit evidence and the W4b packets. Task O backend is now on this base; Orbit
 screens remain a separate queued UI task, not implemented or silently enabled here. No remaining
 live checks were retried after Bryan said to finish with them pending.
+
+Standing shared-stack rule (Bryan): before every live run, read the current main checkout's
+HANDOFF reservations; wait if active. After a 503 or unexpected empty fixture result, check HANDOFF
+first, then rerun only after Bentley marks restoration complete. Treat those as environment/test-
+window interruptions, not product defects. The live harness now checks the shared HANDOFF's
+operations table BEFORE any browser/login/API request and defers if any booking lacks explicit
+restoration. No reservation commands are executed from documentation. Offline guard tests cover
+active/restored/unknown states. At the last check, the **Group 4 reservation (2026-10-30 21:40,
+4101–4107 / 4012 / 5051) was in progress**; no live retry was started. The preceding outage/empty
+run classifications remain environment interruptions with unverified cause, not product bugs.
+Final reservation-guard verification: **3/3 offline Node tests PASS**; final staged secret scan
+**477 files / 0 findings**. Web suite remains **206/206 PASS**, web typecheck/build and root
+checks PASS on final integration base 27fb5a4. Live checks remain paused, not failed product claims.

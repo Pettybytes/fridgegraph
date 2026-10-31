@@ -116,3 +116,9 @@ missing event metadata/holiday reads; live child enumeration; Cast v2 seed for f
 six-family guide breadth; Village v2 live reads; Orbit screens after Bentley's Task O; public judge
 access and the Try FridgeGraph landing button in Task H. Group 5 reset/create-family services remain
 queued in W4. This task does not merge.
+
+Standing reservation rule: the default live harness now reads the current shared main checkout's
+HANDOFF operations table before any browser/login/API request. An active/unknown restoration state
+defers the run. On 503 or unexpected empty fixture data, check that HANDOFF first and retry only
+once Bentley marks restoration complete. The last check found Group 4's 21:40 window in progress;
+no further live run was started. These interruptions are not classified as product bugs.
