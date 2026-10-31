@@ -7,6 +7,9 @@ query MyChildren {
   myChildren {
     child {
       id
+      person {
+        displayName
+      }
     }
     scopes
   }
