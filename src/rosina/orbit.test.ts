@@ -380,7 +380,7 @@ test('scenario instant: garbage is ignored rather than throwing', () => {
 });
 
 test('overdue proof: dueAt 20:00Z is FUTURE at 19:55Z and OVERDUE at 20:05Z — same fixture, different instant', async () => {
-  const run = async (iso) => {
+  const run = async (iso: string) => {
     const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: false, dueAt: '2026-10-31T20:00:00Z' }) });
     const { fn: chatFn, seenMessages } = recordingChat([
       chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' })] }),
@@ -388,7 +388,8 @@ test('overdue proof: dueAt 20:00Z is FUTURE at 19:55Z and OVERDUE at 20:05Z — 
     ]);
     await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp, scenarioNow: new Date(iso) });
     const toolMessage = seenMessages[1].find((m) => m.role === 'tool');
-    return JSON.parse(toolMessage.content).checkInStatus.overdue;
+    assert.ok(toolMessage, 'the CheckInStatus result must be present before round 2');
+    return (JSON.parse(String(toolMessage.content)) as { checkInStatus: { overdue: boolean } }).checkInStatus.overdue;
   };
 
   assert.equal(await run('2026-10-31T19:55:00Z'), false, 'five minutes BEFORE the due time: not overdue');
