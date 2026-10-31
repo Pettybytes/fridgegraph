@@ -16,6 +16,8 @@ operations:
     - ./ops/ChildEvents.graphql
     - ./ops/AdultAvailability.graphql
     - ./ops/EffectiveSchedule.graphql
+    - ./ops/OrbitStatus.graphql
+    - ./ops/CheckInStatus.graphql
 introspection:
   introspect:
     enabled: false

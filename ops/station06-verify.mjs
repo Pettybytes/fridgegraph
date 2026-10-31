@@ -77,7 +77,11 @@ const direct = await fetch(`${URL}/rest/v1/candidate_evaluations`, {
 })
 rec('authenticated cannot INSERT candidate_evaluations', direct.status === 401 || direct.status === 403, `status=${direct.status}`)
 
-const userConsume = await rpc('consume_real_call_authorization', { p_id: 'x', p_attempt: 'x', p_recipient: 'x', p_request_version: 1 }, asUser(mom))
+// 0022 replaced the four-arg signature (0013/0014) with (p_attempt, p_contact). Calling the old
+// shape returns 404 "function not found", which proves nothing about permission. The CURRENT
+// function exists and `authenticated` has no EXECUTE on it (verified with has_function_privilege),
+// so the refusal must be 401/403.
+const userConsume = await rpc('consume_real_call_authorization', { p_attempt: 'x', p_contact: 'x' }, asUser(mom))
 rec('authenticated cannot consume an authorization', userConsume.status === 401 || userConsume.status === 403, `status=${userConsume.status}`)
 
 // ---------------------------------------------------------------- B. transition gating
@@ -129,8 +133,14 @@ rec('Loretta ends AVAILABLE_NO_TRANSPORT and is never costed',
     && gmaEval.rows[0]?.cost_basis === null,
   `code=${gmaEval.rows[0]?.reason_code} cost=${gmaEval.rows[0]?.estimated_ride_cost_usd} basis=${gmaEval.rows[0]?.cost_basis}`)
 
+// 0021 D2: once the first delivery closed the attempt, a replay is refused as rejected_closed
+// BEFORE the event id is claimed. The guarantee is "no mutation", not a particular word.
+const evtCountBefore = (await db.query(`select count(*)::int n from webhook_events`)).rows[0].n
 const replay = await hook('p_gma', true, null)
-rec('duplicate delivery changes nothing', replay.body === 'duplicate', `body=${JSON.stringify(replay.body)}`)
+const evtCountAfter = (await db.query(`select count(*)::int n from webhook_events`)).rows[0].n
+rec('duplicate delivery changes nothing',
+  replay.body === 'rejected_closed' && evtCountAfter === evtCountBefore,
+  `body=${JSON.stringify(replay.body)} events=${evtCountBefore}->${evtCountAfter}`)
 
 const tashaReply = await hook('p_tasha', true, null)
 rec('webhook records Tasha available', tashaReply.status < 300, `body=${JSON.stringify(tashaReply.body)}`)
@@ -183,10 +193,25 @@ rec('exactly one confirmation, naming candidate and approver',
   conf.rowCount === 1 && conf.rows[0].candidate_id === 'p_tasha' && conf.rows[0].approved_by === 'p_mom',
   `${conf.rows[0]?.candidate_id}/${conf.rows[0]?.approved_by}`)
 
+// 0021 D2 again: the attempt is closed, so the guard fires first — rejected_closed, and the event
+// id is NOT claimed (delta 0). This is the proven no-mutation rule, not a state rejection.
 const lateReply = await hookOn(attempts.p_tasha, false, 'BUSY', 1, 'p_tasha-late')
-rec('terminal job rejects a late accept', lateReply.status < 300 && /rejected_state/.test(String(lateReply.body)), `body=${String(lateReply.body)}`)
 const lateEvt = await db.query(`select outcome from webhook_events where id=$1`, [evtFor('p_tasha-late')])
-rec('state rejection recorded as REJECTED_STATE', lateEvt.rows[0]?.outcome === 'REJECTED_STATE', `outcome=${lateEvt.rows[0]?.outcome}`)
+rec('a closed attempt on a terminal job is rejected without mutating',
+  lateReply.status < 300 && /rejected_closed/.test(String(lateReply.body)) && lateEvt.rowCount === 0,
+  `body=${String(lateReply.body)} event_rows=${lateEvt.rowCount}`)
+
+// The STATE branch is only reachable with an OPEN attempt on a terminal job. Build exactly that:
+// a fresh candidate id that has no attempt anywhere, on the now-confirmed job.
+await db.query(`insert into attempts (id, job_id, channel, at, candidate_id, destination_mode)
+  select 'att_state_open', job_id, channel, now(), 'p_priya', 'TEST_RESPONDER' from attempts where id=$1`,
+  [attempts.p_tasha])
+const stateReply = await hookOn('att_state_open', true, null, 1, 'state-open')
+const stateEvt = await db.query(`select outcome from webhook_events where id=$1`, [evtFor('state-open')])
+rec('an OPEN attempt on a terminal job records REJECTED_STATE',
+  /rejected_state/.test(String(stateReply.body)) && stateEvt.rows[0]?.outcome === 'REJECTED_STATE',
+  `body=${String(stateReply.body)} outcome=${stateEvt.rows[0]?.outcome}`)
+await db.query(`delete from attempts where id='att_state_open'`)
 rec('second approval refused',
   err(await rpc('approve_pickup', { p_job: jobId, p_version: v + 1, p_request_version: 1, p_decision: 'APPROVED', p_reason: null, p_accept_over_limit: false }, asUser(mom)), 'JOB_TERMINAL'))
 

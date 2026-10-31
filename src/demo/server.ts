@@ -20,6 +20,57 @@ import { DEMO_PERSONAS, personaById, type DemoLoginResponse } from './personas';
 import { isReady } from './personas';
 import { MintError } from './session';
 import { getPersonaSession, publicPersonaSession } from './persona-sessions';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { verifyBearer } from '../auth/verify';
+import { dbFor } from '../db';
+import type { Ctx } from '../authz';
+
+/**
+ * Orbit photos live in a PRIVATE directory that is never served statically. The only way to a byte is
+ * GET /api/orbit/photo/:photoId, which re-checks the caller's CURRENT authority on every request.
+ */
+/**
+ * Drops APPn (EXIF/XMP/IPTC) and COM segments from a JPEG before it is re-encoded. Re-encoding alone
+ * is not a guarantee: some encoders copy an APP1 block straight through. This walks the segment
+ * markers and keeps only what is needed to decode the image.
+ */
+function stripJpegMetadata(input: Buffer): Buffer {
+  if (input.length < 4 || input[0] !== 0xff || input[1] !== 0xd8) return input;
+  const parts: Buffer[] = [input.subarray(0, 2)];
+  let i = 2;
+  while (i + 4 <= input.length) {
+    if (input[i] !== 0xff) {
+      parts.push(input.subarray(i));
+      break;
+    }
+    const marker = input[i + 1];
+    if (marker === 0xda) {            // start of scan: copy the remainder verbatim
+      parts.push(input.subarray(i));
+      break;
+    }
+    const len = input.readUInt16BE(i + 2);
+    const end = i + 2 + len;
+    const isMetadata = (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe;
+    if (!isMetadata) parts.push(input.subarray(i, Math.min(end, input.length)));
+    i = end;
+  }
+  return Buffer.concat(parts);
+}
+
+const ORBIT_PHOTO_DIR = process.env.ORBIT_PHOTO_DIR ?? join(process.cwd(), 'var', 'orbit-photos');
+
+function bearerToken(header?: string): string | undefined {
+  if (!header) return undefined;
+  const m = header.match(/^Bearer\s+(.+)$/i);
+  return m?.[1];
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 /** Sliding-window counters. Small, pruned, and only ever used for refusals. */
 type Window = { hits: number[]; };
@@ -172,6 +223,102 @@ export function createDemoLoginApp() {
       res.status(503).json({ status: 'UNAVAILABLE', personaId, reason: code });
     }
   });
+
+  // ---------------------------------------------------------------- Orbit media
+  // Cache-Control: no-store on EVERY response, including refusals: a cached copy would outlive the
+  // authority check. No signed URL is ever minted or returned.
+  app.get('/api/orbit/photo/:photoId', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = bearerToken(req.headers.authorization);
+    if (!token) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+    const identity = await verifyBearer(req.headers.authorization);
+    if (!identity.ok) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+    const ctx: Ctx = { today: todayIso(), token };
+    try {
+      const { data, error } = await dbFor(ctx).rpc('orbit_photo_access', { p_photo: req.params.photoId });
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { access?: string | null; storage_path?: string | null }
+        | null;
+      // No access and no such photo are the SAME answer: 404, no hint either way.
+      if (error || !row?.access || !row?.storage_path) {
+        res.status(404).json({ error: 'NOT_FOUND' });
+        return;
+      }
+      const file = join(ORBIT_PHOTO_DIR, basename(row.storage_path));
+      if (!existsSync(file)) {
+        res.status(404).json({ error: 'NOT_FOUND' });
+        return;
+      }
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('X-Orbit-Access', String(row.access));
+      res.send(readFileSync(file));
+    } catch {
+      res.status(404).json({ error: 'NOT_FOUND' });
+    }
+  });
+
+  // Upload: parent/guardian only. Metadata is stripped by re-encoding BEFORE the bytes are stored;
+  // the content hash written to the database is the hash of the stored bytes.
+  app.post(
+    '/api/orbit/photo',
+    express.raw({ type: ['image/jpeg', 'image/png'], limit: '8mb' }),
+    async (req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store');
+      const token = bearerToken(req.headers.authorization);
+      const childId = typeof req.query.childId === 'string' ? req.query.childId : '';
+      if (!token || !childId) {
+        res.status(401).json({ error: 'UNAUTHENTICATED' });
+        return;
+      }
+      const identity = await verifyBearer(req.headers.authorization);
+      if (!identity.ok) {
+        res.status(401).json({ error: 'UNAUTHENTICATED' });
+        return;
+      }
+      const body = req.body as Buffer;
+      if (!Buffer.isBuffer(body) || body.length === 0) {
+        res.status(400).json({ error: 'EMPTY_BODY' });
+        return;
+      }
+      mkdirSync(ORBIT_PHOTO_DIR, { recursive: true });
+      const stamp = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const rawPath = join(ORBIT_PHOTO_DIR, `.raw-${stamp}`);
+      const strippedPath = join(ORBIT_PHOTO_DIR, `orbit-${stamp}.jpg`);
+      try {
+        writeFileSync(rawPath, stripJpegMetadata(body));
+        // Re-encoding drops EXIF/GPS. If the tool is unavailable we REFUSE rather than store
+        // unstripped metadata and claim otherwise.
+        execFileSync('sips', ['-s', 'format', 'jpeg', rawPath, '--out', strippedPath], { stdio: 'ignore' });
+        // sips writes its own APP1 block on output, so the segment strip runs on BOTH sides of the
+        // re-encode. Re-encoding alone is not a guarantee; the byte strip is.
+        const cleaned = stripJpegMetadata(readFileSync(strippedPath));
+        writeFileSync(strippedPath, cleaned);
+        const stored = cleaned;
+        const sha = createHash('sha256').update(stored).digest('hex');
+        const ctx: Ctx = { today: todayIso(), token };
+        const { data, error } = await dbFor(ctx).rpc('register_orbit_photo', {
+          p_child: childId,
+          p_sha256: sha,
+          p_path: basename(strippedPath),
+        });
+        if (error) {
+          res.status(error.code === '42501' ? 403 : 400).json({ error: 'REFUSED' });
+          return;
+        }
+        res.json({ photoId: String(data), bytes: stored.length, sha256: sha });
+      } catch {
+        res.status(400).json({ error: 'METADATA_STRIP_UNAVAILABLE' });
+      } finally {
+        if (existsSync(rawPath)) unlinkSync(rawPath);
+      }
+    },
+  );
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: 'NOT_FOUND' });

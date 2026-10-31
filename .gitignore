@@ -8,3 +8,4 @@ dist
 *.key
 *.pem
 .DS_Store
+var/

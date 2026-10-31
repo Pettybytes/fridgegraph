@@ -4,6 +4,107 @@ _Last updated: Oct 30, 2026. Merged origin/main `cccbbd2` (E0 #23) into this bra
 
 ---
 
+## Task O — Orbit Alert (2026-10-30, priority change)
+
+Branch `feat/o-orbit` off `main` **`0d80f00`**. Step 0 of the previous plan (guide-seam audit +
+cancelled event) was already done in #31 — evidence 41.
+
+| Sub-task | State |
+|---|---|
+| 1 Coordination types (0031) | **DONE — applied** |
+| 2 Orbit tables + actions (0032) | **DONE — applied, dry run 30/30** |
+| 3 Policy seed (`orbit_notify_eligible`) | PENDING (dry run seeds it in-transaction only) |
+| 4 GraphQL draft/preview/activate/respond/close + reads | PENDING |
+| 5 Authenticated photo endpoint + private bucket | PENDING |
+| 6 MCP `OrbitStatus` / `CheckInStatus` | PENDING |
+| 7 Check-in fixture + live proofs + evidence/PR | PENDING |
+
+**0033 (applied)** hardening: SHA-256 binding over fields + photo **content hash** + the **resolved**
+audience (the frozen-table hash was a real defect — it bound an empty list, so an audience change went
+unnoticed); `orbit_photos` with immutable content and owner/child binding; helper functions are
+caller-scoped (`_orbit_can_see_alert` replaces `_orbit_is_active`) so direct RPC leaks nothing. Dry runs
+`ops/0033-dry-run.mjs` **14/14**, `ops/orbit-concurrency.mjs` **5/5** (two simultaneous activations on
+separate connections → one ACTIVE, loser `ORBIT_ALREADY_ACTIVE`).
+
+**0034 (applied)** replaces free-text share fields with **controlled vocabulary** (55 values across
+WEAR_COLOR / WEAR_GARMENT / HAIR / CARRY_COLOR / CARRY_ITEM). The notification is generated only from
+validated values; unmapped text is **refused** (`ORBIT_VALUE_NOT_IN_VOCAB`) so Rosina asks, and
+`distinctive` is retired from the message, payload and hash. `_orbit_has_location()` is now **defence in
+depth only, not the privacy guarantee**. `orbit_audience_for(childId)` is caller-scoped: parent/guardian
+(or guide on sandbox) gets the list; Dana, a non-parent audience member, the guide on a non-sandbox
+child, and a nonexistent child all get **0 rows, identical**. Dry runs `ops/0034-dry-run.mjs` **14/14**,
+`ops/0033-dry-run.mjs` (replays the 0034 delta) PASS, `ops/orbit-concurrency.mjs` **5/5**.
+
+**Two separate results:** (a) "no location columns" — **PASS**; (b) "audience-facing payloads tested
+for location leakage" (GraphQL, MCP, media endpoint, free-text fields, error responses) — **PENDING,
+and it is the acceptance result**. #33 goes ready only when (b), the GraphQL contract, audience
+isolation, the media access rules and the pickup regression all pass — never on database hardening
+alone.
+
+**Data layer as built:** `orbit_alerts` (draft/ACTIVE/CLOSED, `message_hash`, `draft_version`, share
+fields, `photo_id` identity only), `orbit_audience_members` (frozen at activation, `notification_outcome
+= SIMULATED`), `orbit_responses` (append-only; current = latest row). Actions are SECURITY DEFINER with
+**no write grants** to `authenticated`: `draft_orbit_share`, `preview_orbit_share`,
+`activate_orbit_alert`, `respond_to_orbit_alert`, `close_orbit_alert`. **No location column exists**;
+`_orbit_has_location()` refuses place-like text at draft and activation, and confirmation cannot
+override it.
+
+Two defects the dry run caught and fixed: **42P17** policy recursion between `orbit_alerts` and
+`orbit_audience_members` (replaced with SECURITY DEFINER helpers) and **42501** because a policy is
+evaluated with the caller's privileges, so those helpers must be granted to `authenticated`.
+
+**Audience regression check (2026-10-30).** The `p_dad` "disappearance" was a test fixture
+difference (`0032` dry run seeded `p_dad,p_gma,p_bryan`, `0034` seeded `p_gma,p_bryan`, the concurrency
+script seeded `p_dad,p_gma` then deleted it), not a code path — the live DB had **no** policy row at
+all. `orbit_audience_for()` has no co-parent exclusion. Fixed under the fixture rule:
+`createSimulatedOrbit()` seeds the Ellison policy `h_a → p_dad,p_gma,p_bryan`; cleanup removes exactly
+that rule and the baseline is byte-identical. `ops/orbit-audience-proof.mjs` **12/12** — Andre is a
+frozen audience member with `SIMULATED` + timestamp on activation, Loretta (non-parent) sees only her
+own row, Dana gets the no-oracle empty result.
+
+**GraphQL layer (built, live on the alt stack):** `orbitDraft`, `orbitPreview`, `orbitActivate`,
+`orbitRespond`, `orbitClose`; reads `orbitAlert`, `orbitStatus`, `checkInStatus`; 911 guidance on every
+parent-facing response. Smoke-tested end to end as Kendra: draft → preview (message + SHA-256 hash +
+audience 3) → activate (ACTIVE; Andre/Loretta/Bryan `SIMULATED`) → Andre responds `WITH_ME` → status
+shows `check-in not recorded` → close. **0035** adds `expected_checkins`/`check_ins`; **0036** makes the
+selector prefer today and fall back to the latest overdue expectation (a missed check-in does not stop
+being the signal at midnight); **0037** adds `orbit_photo_access` (PARENT after closure, AUDIENCE while
+ACTIVE, otherwise the same empty answer as a missing photo) and `register_orbit_photo`.
+
+**Media endpoints (built):** `GET /api/orbit/photo/:photoId` (per-request authority via
+`orbit_photo_access`, `Cache-Control: no-store`, 404 for no-access *and* no-such-photo) and
+`POST /api/orbit/photo?childId=` (raw body, re-encode via `sips` to drop EXIF/GPS, SHA-256 of stored
+bytes, refuses rather than storing unstripped metadata). One real bug found and fixed: the routes had
+been registered **after** the catch-all 404 middleware, so every request 404'd; they now sit above it
+and `no-token → 401` with `no-store`, unknown route → 404.
+
+**0038+ / media / MCP done:** GraphQL actions + reads with 911 guidance; `ops/orbit-media-proof.mjs`
+16/16 (upload → strip → serve-while-ACTIVE → refuse-after-close → parent-still-served → no-store → no
+URL); `ops/orbit-leakage-proof.mjs` **19/19** (the acceptance result, including Priya as an audience
+member who independently holds `schedule.read`); MCP `OrbitStatus` + `CheckInStatus` live (8 tools, no
+mutations).
+
+**BLOCKING: pickup regression 24 PASS / 4 FAIL** after a clean reset — "authenticated cannot consume an
+authorization" (404), "duplicate delivery changes nothing" (`rejected_closed`), "terminal job rejects a
+late accept" (`rejected_closed`, test expects `rejected_state`), "state rejection recorded as
+REJECTED_STATE" (`undefined`). Orbit does not touch the pickup path, but "unchanged" is unproven: the
+`main` comparison worktree could not resolve `pg`. Investigate or fix on their merits before marking
+#33 ready.
+
+**Host dependency:** photo stripping uses macOS `sips` (re-encode) plus a JPEG segment walk (APP1–APPn,
+COM). The server must run on the Mac for Task H's tunnel hosting; if it moves, swap in a portable image
+library.
+
+**STILL PENDING (do not claim green):** the media proof with real personas (served while ACTIVE,
+refused after close, non-audience refused, SHA/EXIF assertions), MCP `OrbitStatus` + `CheckInStatus`,
+the audience-payload leakage acceptance test, the pickup regression run, and the final evidence file.
+#33 stays draft.
+
+**Next:** wire GraphQL + the media endpoint + MCP tools, seed the check-in fixture under the additive
+rule, then run the live proofs (audience leakage, isolation, demo refusal, pickup suite unchanged).
+
+---
+
 ## Task E-NEXT progress — personas, Rosina tools, Groups 3–5 (2026-10-30)
 
 Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none merged.

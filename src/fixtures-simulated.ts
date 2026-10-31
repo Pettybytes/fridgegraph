@@ -231,3 +231,55 @@ export function createSimulatedCalendar(): SimulatedCalendar {
     ],
   };
 }
+
+// ---------------------------------------------------------------- orbit (Task O)
+
+/**
+ * The Ellison `orbit_notify_eligible` policy — Scenario 8 requires Andre (the co-parent) in the
+ * audience. It is a FIXTURE row: `household_policies` has no marker column, so this rule name is the
+ * handle, and cleanup removes exactly this rule (Group 4 will take ownership of the canonical seed).
+ */
+export type SimulatedOrbit = {
+  label: typeof SIMULATED_LABEL;
+  household_policies: Record<string, unknown>[];
+  policy_rule: string;
+};
+
+export function createSimulatedOrbit(): SimulatedOrbit {
+  return {
+    label: SIMULATED_LABEL,
+    policy_rule: 'orbit_notify_eligible',
+    household_policies: [
+      // h_a is the Ellison household where Nora's record is anchored.
+      { household_id: 'h_a', rule: 'orbit_notify_eligible', value: 'p_dad,p_gma,p_bryan' },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------- expected check-in (Orbit trigger)
+
+/**
+ * "Nora home by 4:00" with NOTHING recorded: the signal Rosina notices and offers Orbit for.
+ * The read reports "check-in not recorded" — never missing, never in danger — and only to parents.
+ */
+export type SimulatedCheckIn = {
+  label: typeof SIMULATED_LABEL;
+  expected_checkins: Record<string, unknown>[];
+};
+
+export function createSimulatedCheckIn(): SimulatedCheckIn {
+  return {
+    label: SIMULATED_LABEL,
+    expected_checkins: [
+      {
+        id: 'fx_chk_nora_home_by_four',
+        child_id: 'p_nora',
+        label: 'home by 4:00',
+        due_at: '2026-10-31T20:00:00Z',
+        active: true,
+        sandbox: true,
+        fixture: true,
+      },
+    ],
+  };
+}

@@ -162,6 +162,19 @@ type CarePlan
   text: String!
 }
 
+type CheckInStatus
+  @join__type(graph: COORDINATION)
+{
+  child: Child!
+  recorded: Boolean!
+  label: String!
+  dueAt: String
+
+  """Either "check-in recorded" or "check-in not recorded"."""
+  text: String!
+  guidance: String!
+}
+
 type Child
   @join__type(graph: ACCESS, key: "id")
   @join__type(graph: ACTIVITIES, key: "id")
@@ -395,9 +408,134 @@ type Mutation
   approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String, acceptOverLimit: Boolean = false): CoordinationJob! @join__field(graph: COORDINATION)
 
   """
+  Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing.
+  """
+  orbitDraft(childId: ID!, wearColor: String, wearGarment: String, hair: String, carryColor: String, carryItem: String, photoId: ID): OrbitDraft! @join__field(graph: COORDINATION)
+
+  """
+  The exact notification the village would receive, plus the binding version and hash.
+  """
+  orbitPreview(draftId: ID!): OrbitPreview! @join__field(graph: COORDINATION)
+
+  """
+  The parent's explicit confirmation. Refuses a stale version, a changed preview or a changed audience.
+  """
+  orbitActivate(draftId: ID!, draftVersion: Int!, messageHash: String!): OrbitAlert! @join__field(graph: COORDINATION)
+
+  """
+  A frozen audience member responds. Appends history; never closes the alert.
+  """
+  orbitRespond(alertId: ID!, response: String!): OrbitResponseResult! @join__field(graph: COORDINATION)
+
+  """Parent/guardian only. No response closes the alert by itself."""
+  orbitClose(alertId: ID!): OrbitAlert! @join__field(graph: COORDINATION)
+
+  """
   DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later.
   """
   approveRelationship(relationshipId: ID!): Relationship @join__field(graph: VILLAGE)
+}
+
+type OrbitAlert
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  status: String!
+  child: Child!
+  message: String
+  share: OrbitShare!
+  activatedAt: String
+  closedAt: String
+  audience: [OrbitAudienceMember!]!
+  responses: [OrbitResponseEntry!]!
+  latestResponses: [OrbitResponseEntry!]!
+
+  """Emergency guidance, present on every parent-facing Orbit response."""
+  guidance: String!
+}
+
+type OrbitAudienceMember
+  @join__type(graph: COORDINATION)
+{
+  person: Person!
+  notifyOrder: Int!
+
+  """
+  When the SIMULATED notification event was recorded. Not proof of delivery.
+  """
+  notifiedAt: String
+  outcome: String
+  eligible: Boolean!
+}
+
+type OrbitDraft
+  @join__type(graph: COORDINATION)
+{
+  draftId: ID!
+  draftVersion: Int!
+  status: String!
+  guidance: String!
+}
+
+type OrbitPreview
+  @join__type(graph: COORDINATION)
+{
+  draftId: ID!
+  draftVersion: Int!
+  message: String!
+  messageHash: String!
+  audienceSize: Int!
+  guidance: String!
+}
+
+type OrbitResponseCount
+  @join__type(graph: COORDINATION)
+{
+  response: String!
+  count: Int!
+}
+
+type OrbitResponseEntry
+  @join__type(graph: COORDINATION)
+{
+  person: Person!
+  respondedAt: String!
+  response: String!
+}
+
+type OrbitResponseResult
+  @join__type(graph: COORDINATION)
+{
+  alertId: ID!
+  responseId: ID!
+  guidance: String!
+}
+
+type OrbitShare
+  @join__type(graph: COORDINATION)
+{
+  wearColor: String
+  wearGarment: String
+  hair: String
+  carryColor: String
+  carryItem: String
+  photoId: ID
+
+  """Generated ONLY from controlled vocabulary values."""
+  description: String!
+}
+
+type OrbitStatus
+  @join__type(graph: COORDINATION)
+{
+  child: Child!
+  alertId: ID
+  status: String
+  audienceCount: Int!
+  notifiedCount: Int!
+  responseCounts: [OrbitResponseCount!]!
+  latestResponses: [OrbitResponseEntry!]!
+  guidance: String!
 }
 
 type ParentingSchedule
@@ -472,6 +610,24 @@ type Query
   stranger that a job id exists.
   """
   jobTimeline(jobId: ID!): [TimelineEntry!]! @join__field(graph: COORDINATION)
+
+  """
+  One Orbit alert. A caller who may not see it receives null — identical to a nonexistent id, so
+  the read is not an existence oracle.
+  """
+  orbitAlert(alertId: ID!): OrbitAlert @join__field(graph: COORDINATION)
+
+  """
+  Orbit state for a child. A parent/guardian sees the full view; an audience member sees only their
+  own row; everyone else sees an empty status, never an error that would reveal the alert.
+  """
+  orbitStatus(childId: ID!, alertId: ID): OrbitStatus! @join__field(graph: COORDINATION)
+
+  """
+  The expected-check-in signal, parent view only: reports "check-in not recorded" — never
+  "missing", never "in danger". Carries the 911 guidance text.
+  """
+  checkInStatus(childId: ID!): CheckInStatus! @join__field(graph: COORDINATION)
   events(childId: ID!, date: String!): [Event!]! @join__field(graph: SCHEDULE)
 
   """
