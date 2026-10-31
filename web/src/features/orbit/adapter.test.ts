@@ -25,3 +25,10 @@ it('media reads the current bearer each time and never replays an upload',async(
  expect(request.mock.calls.map(c=>(c[1]?.headers as Record<string,string>).Authorization)).toEqual(['Bearer test-only-first','Bearer test-only-second','Bearer test-only-second'])
  expect(request.mock.calls.every(c=>c[1]?.cache==='no-store')).toBe(true);client.stop();vi.unstubAllGlobals()
 })
+
+it('an authenticated photo read renews once and reads the new bearer, without replaying writes',async()=>{
+ let token='test-only-first';const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('',{status:401})).mockResolvedValueOnce(new Response(new Uint8Array([1]),{status:200}));vi.stubGlobal('fetch',request)
+ const client=createGraphClient(async()=>token),renew=vi.fn(async()=>{token='test-only-second';return {}})
+ const adapter=createOrbitAdapter(client,fn=>retryReadOnce('query',fn,renew,()=>true),()=>token)
+ await adapter.photo('ph_test',new AbortController().signal);expect(renew).toHaveBeenCalledTimes(1);expect(request.mock.calls.map(c=>(c[1]?.headers as Record<string,string>).Authorization)).toEqual(['Bearer test-only-first','Bearer test-only-second']);client.stop();vi.unstubAllGlobals()
+})

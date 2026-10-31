@@ -13,15 +13,22 @@ export class OrbitController{
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener)}}
  current=()=>this.alive&&this.generation()===this.scope.generation
  private patch(change:Partial<OrbitState>){if(!this.current())return;this.state={...this.state,...change};for(const notify of this.listeners)notify()}
- canPrepare=()=>this.current()&&this.state.phase!=='loading'&&this.state.authority&&!this.scope.readOnly&&this.state.vocabulary.length>0&&!this.state.busy&&this.state.alert?.status!=='ACTIVE'&&!(this.state.status?.status==='ACTIVE'&&!this.state.alert)
+ canPrepare=()=>this.current()&&['idle','editing','preview','closed'].includes(this.state.phase)&&this.state.authority&&!this.scope.readOnly&&this.state.vocabulary.length>0&&!this.state.busy&&this.state.alert?.status!=='ACTIVE'&&!(this.state.status?.status==='ACTIVE'&&!this.state.alert)
  mayRespond=()=>this.current()&&!this.scope.readOnly&&this.state.alert?.status==='ACTIVE'&&this.state.alert.audience.some(m=>m.person.id===this.scope.personId&&m.eligible)
  load=()=>{
   if(this.loadFlight)return this.loadFlight
   this.loadFlight=(async()=>{
    try{
-    const [status,check,vocabulary]=await Promise.all([this.adapter.status(this.scope.childId),this.scope.parent&&!this.scope.readOnly?this.adapter.check(this.scope.childId):Promise.resolve(null),this.scope.parent&&!this.scope.readOnly?this.adapter.vocabulary():Promise.resolve([])])
+    const [statusResult,checkResult,vocabularyResult]=await Promise.allSettled([this.adapter.status(this.scope.childId),this.scope.parent&&!this.scope.readOnly?this.adapter.check(this.scope.childId):Promise.resolve(null),this.scope.parent&&!this.scope.readOnly?this.adapter.vocabulary():Promise.resolve([])])
     if(!this.current())return
-    this.patch({status,check,vocabulary,authority:!!check,guidance:check?.guidance||status.guidance,error:''})
+    const check=checkResult.status==='fulfilled'?checkResult.value:null
+    const guidance=check?.guidance||(statusResult.status==='fulfilled'?statusResult.value.guidance:'')
+    this.patch({check,guidance,authority:!!check})
+    if(statusResult.status==='rejected')throw statusResult.reason
+    if(checkResult.status==='rejected')throw checkResult.reason
+    if(vocabularyResult.status==='rejected')throw vocabularyResult.reason
+    const status=statusResult.value,vocabulary=vocabularyResult.value
+    this.patch({status,vocabulary,error:''})
     if(status.alertId){const alert=await this.adapter.alert(status.alertId);if(!this.current())return;this.record(alert)}else if(!this.state.started)this.patch({phase:'idle',alert:null,photoId:undefined})
    }catch(error){this.patch({phase:'unavailable',error:orbitError(error)})}
    finally{this.loadFlight=null}

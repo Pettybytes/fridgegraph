@@ -59,4 +59,8 @@ describe('Orbit state machine',()=>{
   expect(controller.confirmable()).toBe(true);expect(adapter.preview).toHaveBeenCalledTimes(1)
  })
 
+ it('keeps returned emergency guidance visible when another read fails, without permitting preparation',async()=>{
+  const {adapter,controller}=fixture();adapter.vocabulary.mockRejectedValueOnce(Error('READ_UNAVAILABLE'));await controller.load();expect(controller.getSnapshot().guidance).toBe(guidance);expect(controller.getSnapshot().phase).toBe('unavailable');expect(controller.canPrepare()).toBe(false);await controller.prepare({childId:'p_nora'});expect(adapter.draft).not.toHaveBeenCalled()
+ })
+
 })

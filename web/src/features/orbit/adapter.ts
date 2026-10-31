@@ -37,7 +37,7 @@ export function createOrbitAdapter(client:ReturnType<typeof createGraphClient>,r
   check:childId=>query(CHECK,{childId},'checkInStatus'),vocabulary:()=>query(VOCABULARY,{},'orbitVocabulary'),status:(childId,alertId)=>query(STATUS,{childId,alertId},'orbitStatus'),alert:alertId=>query(READ_ALERT,{alertId},'orbitAlert'),
   draft:(childId,values,photoId)=>mutate(DRAFT,{childId,...values,...(photoId?{photoId}:{})},'orbitDraft'),preview:draftId=>mutate(PREVIEW,{draftId},'orbitPreview'),activate:p=>mutate(ACTIVATE,{draftId:p.draftId,draftVersion:p.draftVersion,messageHash:p.messageHash},'orbitActivate'),respond:async(alertId,response)=>{await mutate(RESPOND,{alertId,response},'orbitRespond')},close:alertId=>mutate(CLOSE,{alertId},'orbitClose'),
   upload:async(childId,file,signal)=>{if(!['image/jpeg','image/png'].includes(file.type)||file.size>8*1024*1024)throw Error('PHOTO_FILE_INVALID');const r=await media(`/api/orbit/photo?childId=${encodeURIComponent(childId)}`,{method:'POST',body:file,headers:{'Content-Type':file.type},signal});const body=await r.json() as {photoId?:unknown};if(typeof body.photoId!=='string')throw Error('PHOTO_UNAVAILABLE');return body.photoId},
-  photo:async(id,signal)=>{const r=await media(`/api/orbit/photo/${encodeURIComponent(id)}`,{signal});return r.blob()},
+  photo:(id,signal)=>read(async()=>{const r=await media(`/api/orbit/photo/${encodeURIComponent(id)}`,{signal});return r.blob()}),
  }
 }
 export function orbitError(error:unknown):string{
