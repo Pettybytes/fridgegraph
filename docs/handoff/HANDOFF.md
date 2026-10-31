@@ -3306,3 +3306,16 @@ and diff check all PASS. Staged secret scan: **548 text files / 0 findings**. Fi
 W-ORBIT browser acceptance: **DONE — UI complete · backend serving verified · integrated + tested
 PASS** on the recorded runtime. Final-head CI must pass before #44 is marked ready; Bryan alone
 merges. Broad W4 and runtime rollout dependencies above are not included in this DONE state.
+
+## Task H — demo preflight must probe the MCP tool layer (finding, 2026-10-31)
+
+`ops/my-children-proof.mjs` failed with **`ECONNREFUSED` on 5051** while the router answered GraphQL
+normally: the MCP server had died and nothing above it noticed. **GraphQL health alone is insufficient**
+— a dead tool service looks healthy from the router.
+
+Required preflight, before any visitor run:
+- one **authenticated MCP tool call** (e.g. `MyChildren`) with a real persona token, asserting a
+  structured result — not merely that the port accepts a connection;
+- the token is minted in-process and **never logged** (no token, no `Authorization` header, no payload
+  echo in output);
+- treat a non-JSON / error / empty result as **preflight FAIL**, not as an empty answer.
