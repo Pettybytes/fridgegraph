@@ -14,7 +14,17 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 | 2 Rosina read tools | `feat/e-next-rosina-tools` | **DONE — evidence `40-rosina-read-tools.md`, proof 23/23 on MCP 5051** |
 | 3 Group 3 (events + adult schedules) | | not started |
 | 4 Group 4 (care + Cast v2 seed) | | not started |
-| 5 Group 5 (reset, demo family, consent) | | not started |
+| 5 Group 5 (reset, demo family, consent) | | not started — **resetDemo must restore v1 baseline + SIMULATED coordination fixture (later + Cast v2 seed); prove Kendra's Mission Control and Rosina's JobTimeline still show the sample job after a reset** |
+
+
+### Group 5 requirement (recorded 2026-10-30, from the operator)
+
+`resetDemo` restores the **demo-ready** state, not a bare baseline: **v1 baseline + the SIMULATED
+coordination fixture** (`npx tsx scripts/db.ts seed:simulated`) and, once it exists, the Cast v2 seed.
+`db:reset` alone is NOT sufficient any more — it removes the fixture by design. After any reset the
+evidence must show that **Kendra's Mission Control** still lists the sample job and **Rosina's
+`JobTimeline`** still returns its entries. Prove both in Group 5's evidence (planned `4x-group5`),
+and keep the fixture additive and `TEST_RESPONDER`-only.
 
 ### 2 Rosina read tools — DONE
 
