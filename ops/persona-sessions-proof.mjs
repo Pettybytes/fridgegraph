@@ -37,6 +37,7 @@ const {
   __setPersonaSessionClock,
   __resetPersonaSessionClock,
   __cachedAccessToken,
+  __setSessionGate,
 } = sessions;
 
 let failed = 0;
@@ -193,6 +194,109 @@ check('b9 only one mint occurred across the whole endpoint run', personaSessionS
 
 await new Promise((resolve) => server.close(resolve));
 dropPersonaSessionCache();
+
+// ---------------------------------------------------------------- f) reset during a mint
+// Held mid-flight with the test-only gate, so no timing race decides the result.
+dropPersonaSessionCache();
+let releaseMint;
+let mintReached;
+const mintArrived = new Promise((resolve) => { mintReached = resolve; });
+const mintHold = new Promise((resolve) => { releaseMint = resolve; });
+let staleMintToken;
+__setSessionGate(async (kind, _id, token) => { if (kind === 'mint') { staleMintToken = token; mintReached(); await mintHold; } });
+
+const pendingMint = getPersonaSession(kendra);
+await mintArrived;
+dropPersonaSessionCache();            // the reset lands while the mint is in flight
+releaseMint();
+const afterMint = await pendingMint;
+__setSessionGate(null);
+
+// dropPersonaSessionCache() also zeroes the counters, so post-drop values are the whole story:
+// exactly one discarded stale mint, then exactly one fresh mint.
+const mintStats = personaSessionStats();
+check('f1 the session minted before the drop was discarded, not cached as-is',
+  mintStats.staleDiscards === 1, `staleDiscards=${mintStats.staleDiscards}`);
+// Supabase can return byte-identical access tokens for the same user minted in the same second, so
+// token inequality is not a freshness signal. The counters are: exactly one stale result discarded,
+// exactly one fresh mint after the drop, and the served entry is the cached one.
+check('f2 the caller was served by a FRESH mint after the drop, and it is the cached entry',
+  mintStats.mints === 1 &&
+  staleMintToken !== undefined &&
+  __cachedAccessToken('kendra') === afterMint.session.access_token,
+  `mints=${mintStats.mints} staleDiscards=${mintStats.staleDiscards}`);
+check('f3 the cached token resolves to the persona', (await identityOf(__cachedAccessToken('kendra'))) === 'p_mom');
+const mintWarm = await getPersonaSession(kendra);
+check('f4 the next request is a cache hit on the fresh entry', mintWarm.source === 'cache' && mintWarm.session.access_token === afterMint.session.access_token);
+
+// ---------------------------------------------------------------- g) reset during a refresh
+dropPersonaSessionCache();
+let fake2 = Date.now();
+__setPersonaSessionClock(() => fake2);
+const g0 = await getPersonaSession(kendra);
+fake2 = g0.session.expires_at * 1000 - 60 * 1000;   // inside the renewal safety window
+
+let releaseRefresh;
+let refreshReached;
+const refreshArrived = new Promise((resolve) => { refreshReached = resolve; });
+const refreshHold = new Promise((resolve) => { releaseRefresh = resolve; });
+__setSessionGate(async (kind) => { if (kind === 'refresh') { refreshReached(); await refreshHold; } });
+
+const pendingRefresh = getPersonaSession(kendra);
+await refreshArrived;
+dropPersonaSessionCache();
+releaseRefresh();
+const afterRefresh = await pendingRefresh;
+__setSessionGate(null);
+__resetPersonaSessionClock();
+
+const refreshStats = personaSessionStats();
+check('g1 the refreshed session from before the drop was discarded',
+  refreshStats.staleDiscards === 1, `staleDiscards=${refreshStats.staleDiscards}`);
+check('g2 the caller was served a fresh mint after the drop, and it is cached',
+  refreshStats.mints === 1 && __cachedAccessToken('kendra') === afterRefresh.session.access_token,
+  `mints=${refreshStats.mints}`);
+check('g3 the token still resolves to Kendra', (await identityOf(__cachedAccessToken('kendra'))) === 'p_mom');
+
+// ---------------------------------------------------------------- h) reset during a created family's first login
+// The case #54 exists for: the persona is DELETED by the reset while its mint is in flight.
+const { createDemoFamily, familyPersona } = await import('../src/demo/family.ts');
+const { resetDemo } = await import('../src/demo/reset.ts');
+
+dropPersonaSessionCache();
+const family = await createDemoFamily({ parentName: 'Race Parent', childName: 'Race Child' });
+const familyP = await familyPersona(family.id);
+check('h1 created family is pickable', familyP !== null && familyP.personId.startsWith('p_family_'));
+
+// A real token for this persona, minted BEFORE the reset: this is the "old token" the reset must
+// make worthless. It is held in memory only.
+const firstFamilySession = await getPersonaSession(familyP);
+const oldFamilyToken = firstFamilySession.session.access_token;
+check('h2 the created persona can sign in before the reset', (await identityOf(oldFamilyToken)) === familyP.personId);
+
+dropPersonaSessionCache();
+let releaseFamily;
+let familyReached;
+const familyArrived = new Promise((resolve) => { familyReached = resolve; });
+const familyHold = new Promise((resolve) => { releaseFamily = resolve; });
+__setSessionGate(async (kind) => { if (kind === 'mint') { familyReached(); await familyHold; } });
+
+const pendingFamily = getPersonaSession(familyP).then((r) => ({ ok: true, r }), (e) => ({ ok: false, e }));
+await familyArrived;
+const resetReport = await resetDemo('proof-session-race');   // deletes the persona and drops the cache
+releaseFamily();
+const familyOutcome = await pendingFamily;
+__setSessionGate(null);
+
+check('h3 reset removed the created family', resetReport.createdFamiliesRemoved >= 1);
+check('h4 no session is served for the deleted persona', familyOutcome.ok === false,
+  familyOutcome.ok ? 'a session was served' : String(familyOutcome.e?.code ?? familyOutcome.e?.message ?? 'error'));
+check('h5 nothing is cached for the deleted persona', __cachedAccessToken(family.id) === undefined);
+check('h6 the stale mint was discarded', personaSessionStats().staleDiscards >= 1,
+  `staleDiscards=${personaSessionStats().staleDiscards}`);
+check('h7 the deleted persona no longer resolves as a picker entry', (await familyPersona(family.id)) === null);
+check('h8 the old token for the deleted persona is UNAUTHENTICATED',
+  (await identityOf(oldFamilyToken)) === 'ERR:unmapped', await identityOf(oldFamilyToken));
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} — ${failed} failure(s)`);
 process.exit(failed === 0 ? 0 : 1);

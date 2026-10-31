@@ -15,6 +15,7 @@ import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
 import { createCastV2 } from '../fixtures-cast-v2';
 import { dropPersonaSessionCache } from './persona-sessions';
+import { deleteCreatedFamilies, purgeFamilyArtifacts, type FamilyRow } from './family';
 
 const LOCK_KEY = 918_273_645; // arbitrary but stable: one reset at a time, cluster-wide
 
@@ -107,7 +108,12 @@ async function upsertRows(c: pg.Client, table: string, rows: Row[]): Promise<num
   return n;
 }
 
-export type ResetReport = { restored: Record<string, number>; cleared: Record<string, number>; droppedSessionCache: true };
+export type ResetReport = {
+  restored: Record<string, number>;
+  cleared: Record<string, number>;
+  createdFamiliesRemoved: number;
+  droppedSessionCache: true;
+};
 
 export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   const data = fixtures();
@@ -115,6 +121,7 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   await c.connect();
   const cleared: Record<string, number> = {};
   const restored: Record<string, number> = {};
+  let familyRows: FamilyRow[] = [];
 
   try {
     await c.query('begin');
@@ -171,6 +178,11 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
 
     // Disposable Orbit records go through the privileged, database-authorised path (0042).
     // Deleting them here directly would hit the append-only guard, which is the point of the split.
+    // Created families are not fixture rows, so the id-scoped loops above never touch them. Their
+    // data goes in the SAME transaction; the identity mapping and auth users are purged after commit
+    // (a mapping that never lands is safer than a mapping to deleted rows).
+    familyRows = await deleteCreatedFamilies(c);
+
     const orbit = await c.query('select reset_demo_orbit($1) as r', [actor]);
     const removed = orbit.rows[0]?.r ?? {};
     for (const [k, v] of Object.entries(removed)) if (Number(v) > 0) cleared[k] = Number(v);
@@ -183,7 +195,11 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     await c.end();
   }
 
+  // After the commit: a created family's persona must stop resolving, so the identity mapping is
+  // removed before anything can mint or verify it again.
+  await purgeFamilyArtifacts(familyRows);
+
   // Only after a committed restore: a stale session cache would otherwise serve pre-reset reads.
   dropPersonaSessionCache();
-  return { restored, cleared, droppedSessionCache: true };
+  return { restored, cleared, createdFamiliesRemoved: familyRows.length, droppedSessionCache: true };
 }
