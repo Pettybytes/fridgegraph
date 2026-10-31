@@ -50,3 +50,31 @@ export function scopedRoster(personId: string, isGuide: boolean): RosterChild[] 
   const persona = DEMO_PERSONAS.find((p) => p.personId === personId);
   return persona ? [childOf(persona)] : [];
 }
+
+/**
+ * TASK R-CARE: `src/demo/personas.ts` maps each caller to exactly ONE child — a simplification
+ * that `scopedRoster` has always carried (see its own header comment) and that this file still
+ * must not change, since that table is also the shared source for the web demo-login response.
+ * A real `grants` row can give a caregiver `careplan.read` on a child OUTSIDE that one mapping —
+ * Priya now holds it for both Nora (her documented child) AND Malik (a real, live grant this task
+ * found on the shared stack; evidence 35 §14) — and there is still no caller-scoped "which
+ * children can I see" MCP read to discover that dynamically (same gap `scopedRoster` documents).
+ *
+ * This is a narrow, explicit, CARE-ONLY supplement: it grows the set of childIds a caller may ask
+ * `CareFacts` about (never any other tool — those still use `scopedRoster` alone), and lets the
+ * model know the real name for a real id so it isn't forced to call the generic scope refusal for
+ * someone it genuinely, if narrowly, has access to. One entry, for the one grant this task was
+ * told about — never speculatively extended. Record for Bentley: the same `MyChildren`/grants-by-
+ * caller read that would replace `scopedRoster` would also replace this.
+ */
+const CARE_ONLY_CHILDREN: Readonly<Record<string, readonly RosterChild[]>> = {
+  p_priya: [{ id: 'p_malik', name: 'Malik' }],
+};
+
+/** Extra CareFacts-only children for this caller, beyond their own `scopedRoster`. Always `[]` for
+ * the Demo guide (she already sees every sandbox child via `scopedRoster`) and for anyone with no
+ * documented extra grant. */
+export function careOnlyChildren(personId: string, isGuide: boolean): RosterChild[] {
+  if (isGuide) return [];
+  return [...(CARE_ONLY_CHILDREN[personId] ?? [])];
+}
