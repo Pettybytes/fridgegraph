@@ -95,3 +95,48 @@ silently.
 **Result:** **32/32 PASS** — the removal assertions plus every pre-existing assertion (seed checksum
 identical, audit +1 per reset across five resets, protected records unchanged, Malik 3 care facts,
 Priya's care-plan read, Dwayne's views, six consumer reads, authenticated MCP, `my-children-proof`).
+
+## 2026-10-31 17:40 — DEMO decisions reset, REAL decisions never do (0050)
+
+**The gap f8 exposed.** Reset never deletes `approvals`, and 0047 makes a consent decision unique per
+slip. So the first visitor to approve a sandbox slip locked it: everyone after them got "already
+approved". Demo repeatability was broken for consent — and would break the same way for relationship
+("Add a Villager") and grant approvals.
+
+**Fix (inside reset's existing transaction and advisory lock).** A decision is cleared only when BOTH
+hold, and each is enforced independently:
+
+| Condition | How it is decided |
+|---|---|
+| made by a **demo** caller | `approvals.demo_caller`, set by a BEFORE INSERT trigger from `is_demo_caller()` (the verified token) — a client cannot forge it, the same trusted marker 0025 already uses for `attempts` |
+| the **subject** is a sandbox record | `is_sandbox_approval_subject(type, id)`: sandbox child's slip / grant / holiday arrangement, or a relationship into a sandbox person; unknown types are never sandbox |
+
+`reset_demo_decisions()` deletes exactly those rows, returns the count, and puts the subject back to its
+seed state (`permission_slips.signed = false` when no decision remains on a sandbox slip). Everything
+else is untouched: a real caller's approval, and any approval on a non-sandbox subject.
+
+The audit trace stays **one row per reset** — `reset_demo_orbit` gained an optional payload so the same
+row now carries `removed.approvals` as a number (no ids, no names).
+
+### Proof — `ops/reset-demo-decisions-proof.mjs`: **15/15 PASS**
+
+| # | Assertion | Result |
+|---|---|---|
+| 1 | the first approval is recorded (1 row) | PASS |
+| 2 | a second approval is locked to the existing decision — **the repeatability bug reproduces** | PASS |
+| 3 | the approval is marked as made by a demo caller | PASS |
+| 4 | two controls exist before reset: non-sandbox subject; non-demo caller on a sandbox subject | PASS |
+| 5 | the reset reports exactly one demo decision cleared | PASS |
+| 6 | that demo decision is gone | PASS |
+| 7 | the slip is back to its seed state (unsigned) | PASS |
+| 8 | the **non-sandbox** control survives | PASS |
+| 9 | the **non-demo** approval on a sandbox subject survives | PASS |
+| 10 | the single audit row carries `approvals: 1`, counts only | PASS |
+| 11 | after reset the same approver approves again — no "already approved" | PASS |
+| 12 | six consumer reads answer | PASS |
+| 13 | Malik still has 3 care facts (the #57 fix still holds) | PASS |
+| 14 | authenticated MCP call succeeds | PASS |
+| 15 | `my-children-proof` PASS — 0 failures | PASS |
+
+Controls were deliberately made to need their own slip: a second approval on the *same* slip is a
+`23505` against 0047's one-decision index, which is exactly the invariant the lock assertion relies on.

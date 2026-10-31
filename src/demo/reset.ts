@@ -107,7 +107,13 @@ async function upsertRows(c: pg.Client, table: string, rows: Row[]): Promise<num
   return n;
 }
 
-export type ResetReport = { restored: Record<string, number>; cleared: Record<string, number>; droppedSessionCache: true };
+export type ResetReport = {
+  restored: Record<string, number>;
+  cleared: Record<string, number>;
+  /** Demo decisions cleared (0050). Real decisions are never counted here, because none are cleared. */
+  demoDecisionsCleared: number;
+  droppedSessionCache: true;
+};
 
 export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   const data = fixtures();
@@ -115,6 +121,7 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   await c.connect();
   const cleared: Record<string, number> = {};
   const restored: Record<string, number> = {};
+  let demoDecisionsCleared = 0;
 
   try {
     await c.query('begin');
@@ -171,7 +178,15 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
 
     // Disposable Orbit records go through the privileged, database-authorised path (0042).
     // Deleting them here directly would hit the append-only guard, which is the point of the split.
-    const orbit = await c.query('select reset_demo_orbit($1) as r', [actor]);
+    // Demo decisions are reset; real decisions are never touched (0050). The count rides in the
+    // SINGLE audit row this reset writes, as a number with no ids or names.
+    const decisions = await c.query('select reset_demo_decisions() as n');
+    demoDecisionsCleared = Number(decisions.rows[0]?.n ?? 0);
+
+    const orbit = await c.query('select reset_demo_orbit($1, $2::jsonb) as r', [
+      actor,
+      JSON.stringify({ approvals: demoDecisionsCleared }),
+    ]);
     const removed = orbit.rows[0]?.r ?? {};
     for (const [k, v] of Object.entries(removed)) if (Number(v) > 0) cleared[k] = Number(v);
 
@@ -185,5 +200,5 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
 
   // Only after a committed restore: a stale session cache would otherwise serve pre-reset reads.
   dropPersonaSessionCache();
-  return { restored, cleared, droppedSessionCache: true };
+  return { restored, cleared, demoDecisionsCleared, droppedSessionCache: true };
 }
