@@ -3564,3 +3564,29 @@ process.
 Piece 3 also still owes its HANDOFF record (the earlier commit was skipped) and its resolver/proof.
 Piece 2 after that. Nothing merged.
 | 2026-10-31 08:19 | **RESERVED: W-RESET window (~30 min)** — restart 4008 from authoritative move `dd84886`, restore MCP 5051, confirm authenticated MyChildren (Task H), GraphQL + reset route ready. Then actual-UI shared reset + two-tab valid-token explicit-refetch. No db:reset. Window starts on restoration confirmation. | `piece3-consent` @ `dd84886` | 4008 / 4012 / 4200 / 5051 | **reserved** |
+
+### W-RESET restoration receipt — FAILED, window stays CLOSED (2026-10-31 04:22)
+
+| Check | Result |
+|---|---|
+| 4008 restarted from `dd84886` (`npm run start` → `src/main.ts`) | up, PID 28366 |
+| `POST /api/demo/reset` | **401** unauthenticated — route present and guarded (not 404) |
+| MCP 5051 | restored, PID 28180 |
+| **Task H: authenticated `MyChildren` for Kendra** | **0 children — expected 3 (`p_leo,p_max,p_nora`)** |
+
+`named=true` on that result is vacuous over an empty array; it proves nothing. A tool that returns an
+empty list while every port is listening is exactly the failure Task H exists to catch.
+
+**DB truth is intact** (this is not data loss): `p_mom` is `parent` in `h_a`; totals
+`people=40, children=9, household_members=25`. So the defect is in the **serving layer**, not the data.
+
+Likely cause: `npm run start` brought up a **second full subgraph set on 4001–4007**. The restarted
+processes are not resolving the same identity/DB context the router and MCP expect, so authorization
+returns an empty set instead of an error.
+
+**Next step (backend owner only):** restore the stack to its previous topology — start 4008 from
+`src/main.ts` without standing up a duplicate subgraph set, then compare `myChildren` at router 4012
+GraphQL against the MCP `MyChildren` call. Both must return `p_leo,p_max,p_nora` **with displayName**
+before the window opens. No identity substitution to make the check pass.
+
+Bryan input: **not required** — this is a restore/config issue, not a decision.
