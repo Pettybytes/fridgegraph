@@ -89,3 +89,70 @@ no location-shaped columns.
 - Metadata stripping does not prove an arbitrary image contains no visual location clues — the demo
   photo will be a curated fictional illustration, and that is stated in the UI copy.
 - `notification_outcome = SIMULATED` is bookkeeping, not delivery proof.
+
+---
+
+## Hardening (migration 0033, applied)
+
+| Change | Why |
+|---|---|
+| `message_hash` is **SHA-256** (64 hex) over share fields + the photo's **content hash** + the **resolved** audience | binds the parent's confirmation to the exact preview they saw |
+| `orbit_photos(id, child_id, owner_person_id, content_sha256)` + immutable trigger | a photo id is only usable by the parent who uploaded it, for that parent's child; bytes cannot change under the same id |
+| `_orbit_can_see_alert()` replaces `_orbit_is_active()` | the helper answers only about the CALLER's own access, so a direct RPC cannot learn that an alert exists |
+| policy `orbit_audience_own` recreated on the caller-scoped helper | dropping the old function first is required (2BP01) — the policy depends on it |
+
+**Hash binding defect found by the dry run:** hashing the *frozen* audience table made every draft
+bind an empty list (nothing is frozen before activation), so an audience change after preview went
+unnoticed. The hash now covers the audience **resolved from policy**, and the proof catches the change.
+
+### Location detection — how it works, and its limits
+
+`_orbit_has_location(text)` is a conservative keyword detector, run at **draft** and again at
+**activation** (so it does not depend on what the model produced, and a parent confirmation cannot
+override it):
+
+- **Street/route words:** street, st., avenue, ave., road, rd., boulevard, blvd, lane, drive, highway, freeway
+- **Place types:** park, playground, plaza, mall, library, church/chapel/mosque/temple, center/centre, station/depot, hospital, clinic, pharmacy, market, grocery, cafe, restaurant, field, court, downtown
+- **School types:** school, elementary, middle, academy, college, university, preschool, daycare, campus
+- **Proximity/"last seen" phrasing:** near, nearby, "usually near", "last seen", "across from", "next to"
+- **Address shapes:** block, apartment, apt., suite, zip, corner, intersection
+
+Tricky cases asserted: **"grey Lincoln hoodie" is not flagged** (a brand/garment use), while
+**"near Lincoln School"**, **"walking down Main Street"** and **"Lincoln Elementary"** are refused.
+
+**Known limits (stated, not glossed):** a keyword list cannot catch every place name — a novel
+landmark or an unusual spelling passes. The structural guarantee is that **no location field exists**
+in the schema and no read path has a location source. When extraction is unsure, Rosina asks a
+clarifying question and nothing ambiguous is activated — the activation path refuses only what it can
+detect, so the detector is a safety net, not the primary control.
+
+### Helper exposure — direct RPC calls, caller-supplied ids
+
+| Call (as Dana, a non-audience adult) | Result |
+|---|---|
+| `_orbit_is_audience_member(<Kendra's alert>)` | `false` |
+| `_orbit_can_see_alert(<Kendra's alert>)` | `false` |
+| `_orbit_is_parent_of_alert(<Kendra's alert>)` | `false` |
+| `_orbit_is_audience_member('oa_does_not_exist')` | `false` — **identical** to the hidden case, no oracle |
+| direct row read of that alert | **0 rows** |
+| as a real audience member | `true` only for their own membership |
+
+### Photo binding
+
+Own photo for own child → accepted; the other parent's photo → `ORBIT_PHOTO_NOT_YOURS`; another
+child's photo → `ORBIT_PHOTO_NOT_YOURS`; changing bytes under the same id → `ORBIT_PHOTO_IMMUTABLE`;
+the content hash is part of `message_hash`. Description-only Orbit stays available (photo is optional).
+
+### Real concurrency — `node ops/orbit-concurrency.mjs` — 5/5 PASS
+
+Two activations fired **simultaneously on separate connections** (committed state, tracked cleanup):
+exactly one succeeded, the loser got `ORBIT_ALREADY_ACTIVE` (23505), exactly one `ACTIVE` alert existed
+for the child, exactly one `ORBIT_ALERT` job was created, and cleanup left no orbit rows behind.
+
+## Two results, reported separately
+
+1. **No location columns.** PASS — `information_schema` scan across every `orbit_*` table returns no
+   location-shaped column. This is the *structural* result.
+2. **Audience-facing payloads tested for location leakage** (GraphQL, MCP, media endpoint, free-text
+   fields, error responses). **NOT YET TESTED — this is the acceptance result and it is PENDING.**
+   Those surfaces do not exist yet in this PR. The PR must not be marked ready until it passes.

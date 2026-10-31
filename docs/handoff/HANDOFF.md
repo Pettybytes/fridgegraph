@@ -19,6 +19,17 @@ cancelled event) was already done in #31 — evidence 41.
 | 6 MCP `OrbitStatus` / `CheckInStatus` | PENDING |
 | 7 Check-in fixture + live proofs + evidence/PR | PENDING |
 
+**0033 (applied)** hardening: SHA-256 binding over fields + photo **content hash** + the **resolved**
+audience (the frozen-table hash was a real defect — it bound an empty list, so an audience change went
+unnoticed); `orbit_photos` with immutable content and owner/child binding; helper functions are
+caller-scoped (`_orbit_can_see_alert` replaces `_orbit_is_active`) so direct RPC leaks nothing. Dry runs
+`ops/0033-dry-run.mjs` **14/14**, `ops/orbit-concurrency.mjs` **5/5** (two simultaneous activations on
+separate connections → one ACTIVE, loser `ORBIT_ALREADY_ACTIVE`).
+
+**Two separate results:** (a) "no location columns" — PASS; (b) "audience-facing payloads tested for
+location leakage" — **PENDING, and it is the acceptance result**. Those surfaces (GraphQL, MCP, media
+endpoint, error responses) do not exist yet; #33 must not go ready until (b) passes.
+
 **Data layer as built:** `orbit_alerts` (draft/ACTIVE/CLOSED, `message_hash`, `draft_version`, share
 fields, `photo_id` identity only), `orbit_audience_members` (frozen at activation, `notification_outcome
 = SIMULATED`), `orbit_responses` (append-only; current = latest row). Actions are SECURITY DEFINER with
