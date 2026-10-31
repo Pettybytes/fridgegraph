@@ -103,8 +103,16 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
       if (n) cleared[table] = n;
     }
 
-    // 2. Restore the fixture set (upsert keeps this idempotent).
-    for (const [table, rows] of Object.entries(data)) {
+    // 2. Restore the fixture set (upsert keeps this idempotent) in FK-safe order: people and
+    // households before children, children before everything that references them, events LAST
+    // (the fixture's audit event references the audit child).
+    const RESTORE_ORDER = [
+      'people', 'households', 'children', 'household_members', 'holidays', 'routines',
+      'adult_availability', 'holiday_arrangements', 'coordination_jobs', 'attempts',
+      'expected_checkins', 'care_facts', 'household_policies', 'events',
+    ];
+    for (const table of RESTORE_ORDER) {
+      const rows = data[table] ?? [];
       if (!rows.length) continue;
       const keys = pkOf(table);
       const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
@@ -118,9 +126,14 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
         const action = updatable.length
           ? `do update set ${updatable.map((x) => `${x} = excluded.${x}`).join(', ')}`
           : 'do nothing';
-        const r = await c.query(
-          `insert into ${table} (${cols.join(',')}) values (${valueRow(row)}) on conflict (${conflict}) ${action}`,
-          params);
+        // valueRow() already yields "(...)" — wrapping it again makes a nested row expression.
+        const sql = `insert into ${table} (${cols.join(',')}) values ${valueRow(row)} on conflict (${conflict}) ${action}`;
+        // Diagnostics carry SHAPE only: table, column names, counts. Never bound values.
+        if (process.env.RESET_DEMO_DEBUG === '1') {
+          const placeholders = (sql.match(/\$\d+/g) ?? []).length;
+          console.log(`[reset] ${table} cols=${cols.length} placeholders=${placeholders} params=${params.length} names=${cols.join(',')}`);
+        }
+        const r = await c.query(sql, params);
         n += r.rowCount ?? 0;
       }
       restored[table] = n;

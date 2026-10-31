@@ -24,12 +24,14 @@ language sql stable security definer set search_path = public as $$
     select 1 from orbit_alerts a
      where a.id = p_alert_id
        and a.sandbox is true
-       -- sandbox alone is insufficient: a sandbox job may participate in the consented real-call path
-       and (a.job_id is null or not exists (
-             select 1 from coordination_jobs j
-              where j.id = a.job_id and coalesce(j.demo_caller, false) is true))
+       -- sandbox alone is insufficient. Protect REAL-CONSENTED records by their own explicit markers.
+       -- `demo_caller = true` is NOT such a marker: it means "originated in a demo session, real outreach
+       -- refused", i.e. exactly the disposable case. Excluding it here inverted the guard.
        and (to_regclass('public.real_call_authorizations') is null or not exists (
              select 1 from real_call_authorizations r where r.job_id = a.job_id))
+       and not exists (
+             select 1 from attempts x
+              where x.job_id = a.job_id and x.real_consent_authorization_id is not null)
        and not exists (
              select 1 from orbit_audience_members m
               where m.orbit_alert_id = a.id
