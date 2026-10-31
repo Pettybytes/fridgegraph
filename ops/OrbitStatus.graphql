@@ -1,0 +1,30 @@
+# Rosina tool: OrbitStatus — an Orbit alert's state and responses.
+#
+# Parent/guardian: full view (audience names, the full response history, guidance).
+# Audience member: only their own row and their own responses; guidance is empty.
+# Everyone else: an empty status, identical to a child with no alert — no existence oracle.
+# No photo and no location of any kind are returned here.
+query OrbitStatus($childId: ID!, $alertId: ID) {
+  orbitStatus(childId: $childId, alertId: $alertId) {
+    child {
+      id
+    }
+    alertId
+    status
+    audienceCount
+    notifiedCount
+    responseCounts {
+      response
+      count
+    }
+    latestResponses {
+      person {
+        id
+        displayName
+      }
+      response
+      respondedAt
+    }
+    guidance
+  }
+}

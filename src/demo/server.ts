@@ -32,6 +32,34 @@ import type { Ctx } from '../authz';
  * Orbit photos live in a PRIVATE directory that is never served statically. The only way to a byte is
  * GET /api/orbit/photo/:photoId, which re-checks the caller's CURRENT authority on every request.
  */
+/**
+ * Drops APPn (EXIF/XMP/IPTC) and COM segments from a JPEG before it is re-encoded. Re-encoding alone
+ * is not a guarantee: some encoders copy an APP1 block straight through. This walks the segment
+ * markers and keeps only what is needed to decode the image.
+ */
+function stripJpegMetadata(input: Buffer): Buffer {
+  if (input.length < 4 || input[0] !== 0xff || input[1] !== 0xd8) return input;
+  const parts: Buffer[] = [input.subarray(0, 2)];
+  let i = 2;
+  while (i + 4 <= input.length) {
+    if (input[i] !== 0xff) {
+      parts.push(input.subarray(i));
+      break;
+    }
+    const marker = input[i + 1];
+    if (marker === 0xda) {            // start of scan: copy the remainder verbatim
+      parts.push(input.subarray(i));
+      break;
+    }
+    const len = input.readUInt16BE(i + 2);
+    const end = i + 2 + len;
+    const isMetadata = (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe;
+    if (!isMetadata) parts.push(input.subarray(i, Math.min(end, input.length)));
+    i = end;
+  }
+  return Buffer.concat(parts);
+}
+
 const ORBIT_PHOTO_DIR = process.env.ORBIT_PHOTO_DIR ?? join(process.cwd(), 'var', 'orbit-photos');
 
 function bearerToken(header?: string): string | undefined {
@@ -263,11 +291,15 @@ export function createDemoLoginApp() {
       const rawPath = join(ORBIT_PHOTO_DIR, `.raw-${stamp}`);
       const strippedPath = join(ORBIT_PHOTO_DIR, `orbit-${stamp}.jpg`);
       try {
-        writeFileSync(rawPath, body);
+        writeFileSync(rawPath, stripJpegMetadata(body));
         // Re-encoding drops EXIF/GPS. If the tool is unavailable we REFUSE rather than store
         // unstripped metadata and claim otherwise.
         execFileSync('sips', ['-s', 'format', 'jpeg', rawPath, '--out', strippedPath], { stdio: 'ignore' });
-        const stored = readFileSync(strippedPath);
+        // sips writes its own APP1 block on output, so the segment strip runs on BOTH sides of the
+        // re-encode. Re-encoding alone is not a guarantee; the byte strip is.
+        const cleaned = stripJpegMetadata(readFileSync(strippedPath));
+        writeFileSync(strippedPath, cleaned);
+        const stored = cleaned;
         const sha = createHash('sha256').update(stored).digest('hex');
         const ctx: Ctx = { today: todayIso(), token };
         const { data, error } = await dbFor(ctx).rpc('register_orbit_photo', {

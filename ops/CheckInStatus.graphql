@@ -1,0 +1,17 @@
+# Rosina tool: CheckInStatus — the parent view of the expected check-in.
+#
+# Returns "check-in not recorded" (never "missing", never "in danger") plus the 911 guidance, so
+# Rosina can notice the signal and OFFER Orbit. It never activates anything, and a non-parent
+# receives the same refusal as a nonexistent child.
+query CheckInStatus($childId: ID!) {
+  checkInStatus(childId: $childId) {
+    child {
+      id
+    }
+    recorded
+    label
+    dueAt
+    text
+    guidance
+  }
+}

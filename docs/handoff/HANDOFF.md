@@ -78,6 +78,23 @@ bytes, refuses rather than storing unstripped metadata). One real bug found and 
 been registered **after** the catch-all 404 middleware, so every request 404'd; they now sit above it
 and `no-token → 401` with `no-store`, unknown route → 404.
 
+**0038+ / media / MCP done:** GraphQL actions + reads with 911 guidance; `ops/orbit-media-proof.mjs`
+16/16 (upload → strip → serve-while-ACTIVE → refuse-after-close → parent-still-served → no-store → no
+URL); `ops/orbit-leakage-proof.mjs` **19/19** (the acceptance result, including Priya as an audience
+member who independently holds `schedule.read`); MCP `OrbitStatus` + `CheckInStatus` live (8 tools, no
+mutations).
+
+**BLOCKING: pickup regression 24 PASS / 4 FAIL** after a clean reset — "authenticated cannot consume an
+authorization" (404), "duplicate delivery changes nothing" (`rejected_closed`), "terminal job rejects a
+late accept" (`rejected_closed`, test expects `rejected_state`), "state rejection recorded as
+REJECTED_STATE" (`undefined`). Orbit does not touch the pickup path, but "unchanged" is unproven: the
+`main` comparison worktree could not resolve `pg`. Investigate or fix on their merits before marking
+#33 ready.
+
+**Host dependency:** photo stripping uses macOS `sips` (re-encode) plus a JPEG segment walk (APP1–APPn,
+COM). The server must run on the Mac for Task H's tunnel hosting; if it moves, swap in a portable image
+library.
+
 **STILL PENDING (do not claim green):** the media proof with real personas (served while ACTIVE,
 refused after close, non-audience refused, SHA/EXIF assertions), MCP `OrbitStatus` + `CheckInStatus`,
 the audience-payload leakage acceptance test, the pickup regression run, and the final evidence file.
