@@ -36,6 +36,8 @@ export type PersonaSessionStats = {
   refreshFallbacks: number;
   cacheHits: number;
   inflightJoins: number;
+  /** Results thrown away because a reset happened while they were in flight. */
+  staleDiscards: number;
 };
 
 const zeroStats = (): PersonaSessionStats => ({
@@ -44,9 +46,24 @@ const zeroStats = (): PersonaSessionStats => ({
   refreshFallbacks: 0,
   cacheHits: 0,
   inflightJoins: 0,
+  staleDiscards: 0,
 });
 
 const cache = new Map<string, Entry>();
+
+/**
+ * Bumped by every drop. A mint or refresh captures it before awaiting and refuses to cache a result
+ * that belongs to an older world: with created families, a reset can delete the persona while its
+ * mint is still in flight, and writing that session back would serve a deleted identity.
+ */
+let generation = 0;
+
+/** Test-only gate so a proof can hold a mint mid-flight without timing races. Never set in prod. */
+let gate: ((kind: 'mint' | 'refresh', personaId: string, accessToken: string) => Promise<void>) | null = null;
+
+async function passGate(kind: 'mint' | 'refresh', personaId: string, accessToken: string): Promise<void> {
+  if (gate) await gate(kind, personaId, accessToken);
+}
 const mintInFlight = new Map<string, Promise<Entry>>();
 const refreshInFlight = new Map<string, Promise<Entry>>();
 let stats = zeroStats();
@@ -63,8 +80,16 @@ function assertNotProduction(hook: string): void {
 }
 
 async function mintEntry(persona: DemoPersona): Promise<Entry> {
+  const gen = generation;
   bump('mints');
   const session = await mintSession(persona);
+  await passGate('mint', persona.id, session.access_token);
+  if (gen !== generation) {
+    // A reset ran during the mint. This session belongs to the world before it: discard it and
+    // mint again against the current generation (which fails if the persona no longer exists).
+    bump('staleDiscards');
+    return mintEntry(persona);
+  }
   const entry: Entry = { personId: persona.personId, session };
   cache.set(persona.id, entry);
   return entry;
@@ -77,15 +102,26 @@ function mintOnce(persona: DemoPersona): Promise<Entry> {
     bump('inflightJoins');
     return inFlight;
   }
-  const promise = mintEntry(persona).finally(() => mintInFlight.delete(persona.id));
+  // Delete only if the map still holds THIS promise: a drop clears the map, and a newer operation
+  // may already have taken the slot. Deleting blindly would erase the newer entry.
+  let promise: Promise<Entry>;
+  promise = mintEntry(persona).finally(() => {
+    if (mintInFlight.get(persona.id) === promise) mintInFlight.delete(persona.id);
+  });
   mintInFlight.set(persona.id, promise);
   return promise;
 }
 
 async function refreshEntry(persona: DemoPersona, entry: Entry): Promise<Entry> {
+  const gen = generation;
   bump('refreshes');
   try {
     const session = await refreshCachedSession(persona, entry.session.refresh_token);
+    await passGate('refresh', persona.id, session.access_token);
+    if (gen !== generation) {
+      bump('staleDiscards');
+      return mintEntry(persona);
+    }
     const next: Entry = { personId: persona.personId, session };
     cache.set(persona.id, next);
     return next;
@@ -93,6 +129,10 @@ async function refreshEntry(persona: DemoPersona, entry: Entry): Promise<Entry> 
     // A rejected refresh means the cached refresh token is no longer usable (rotated by another
     // process, revoked user, clock skew). Drop the dead entry and mint once rather than serve a
     // token we know is wrong. The failure code stays MINT_* so the client retries.
+    if (gen !== generation) {
+      bump('staleDiscards');
+      return mintEntry(persona);
+    }
     cache.delete(persona.id);
     bump('refreshFallbacks');
     return await mintOnce(persona);
@@ -106,7 +146,10 @@ function refreshOnce(persona: DemoPersona, entry: Entry): Promise<Entry> {
     bump('inflightJoins');
     return inFlight;
   }
-  const promise = refreshEntry(persona, entry).finally(() => refreshInFlight.delete(persona.id));
+  let promise: Promise<Entry>;
+  promise = refreshEntry(persona, entry).finally(() => {
+    if (refreshInFlight.get(persona.id) === promise) refreshInFlight.delete(persona.id);
+  });
   refreshInFlight.set(persona.id, promise);
   return promise;
 }
@@ -163,6 +206,7 @@ export function publicPersonaSession(session: MintedSession): {
 
 /** Drops every cached session. Called by a restart (implicitly) and by resetDemo. */
 export function dropPersonaSessionCache(): void {
+  generation += 1;
   cache.clear();
   mintInFlight.clear();
   refreshInFlight.clear();
@@ -178,6 +222,12 @@ export function personaSessionStats(): PersonaSessionStats {
 export function __setPersonaSessionClock(fn: () => number): void {
   assertNotProduction('__setPersonaSessionClock');
   clock = fn;
+}
+
+/** Test-only gate: hold a mint or refresh mid-flight so a proof can drop the cache deterministically. */
+export function __setSessionGate(fn: typeof gate): void {
+  assertNotProduction('__setSessionGate');
+  gate = fn;
 }
 
 export function __resetPersonaSessionClock(): void {
