@@ -19,6 +19,7 @@ operations:
     - ./ops/OrbitStatus.graphql
     - ./ops/CheckInStatus.graphql
     - ./ops/OrbitVocabulary.graphql
+    - ./ops/CareFacts.graphql
 introspection:
   introspect:
     enabled: false

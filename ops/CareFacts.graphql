@@ -1,0 +1,20 @@
+# Rosina tool: CareFacts — snack, TV, bedtime, allergies, each WITH its source and verification.
+#
+# Rosina answers a caregiver's question from these rows and can say whether a fact is CONFIRMED or
+# PROVISIONAL. Read-only: there is no tool to write a care fact.
+query CareFacts($childId: ID!) {
+  careFacts(childId: $childId) {
+    id
+    key
+    value
+    source {
+      kind
+      ref
+    }
+    verifiedBy {
+      id
+    }
+    verifiedAt
+    confidence
+  }
+}

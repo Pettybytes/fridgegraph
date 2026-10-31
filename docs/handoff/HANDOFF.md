@@ -352,6 +352,20 @@ be probed. `ops/e3-proof.mjs` **21/21**: parent 4 attempts (`p_bryan, p_gma, p_m
 router restarted — a stale supergraph had made the new fields fail validation. Guardian authority is
 inherited from 0024 but **no guardian persona is seeded, so it is not exercised** and not claimed.
 
+## 🤝 SHARED STACK — RESERVE THE WINDOW (standing rule, 2026-10-30)
+
+The alt stack (subgraphs 4101–4107, router 4012, MCP 5051) and the database are SHARED with the other
+active agent. Before changing either:
+
+1. Note the reservation here (what, which checkout, ports, expected duration) and check the other
+   agent is not mid live run — active exec sessions / subagents / recent task list.
+2. If a live run is underway: wait, or use a fully isolated environment (separate ports + separate
+   database). Never improvise a checkout switch under someone else's run.
+3. Afterward restore: expected checkout, ports, **baseline reference data** (seed) and **additive demo
+   fixtures** (simulated coordination job, calendar fixtures, Orbit policy + check-in fixture), then
+   verify the affected consumer reads — Kendra's `jobTimeline`, Nora's Thanksgiving
+   `effectiveScheduleFor`, `orbitVocabulary`, `checkInStatus` — before declaring restoration complete.
+
 ## ⚠️ Stack/database operations — ANNOUNCE BEFORE RUNNING (2026-10-30)
 
 Codex's live tests share the alt stack (subgraphs 4101–4107, router 4012) **and the same database**.
@@ -368,6 +382,34 @@ Then run it, then say it is restored. Never leave the stack pointed at a differe
 | 2026-10-30 ~21:2x | killed subgraphs, ran `db:reset` + `seed`, tests | `/tmp/fg-main` (origin/main) | 4101–4107 / 4012 | yes — back on `feat/o-orbit` |
 | 2026-10-30 21:35 | alt-stack restart (NO reset, NO seed) + supergraph recompose + MCP restart, for the vocabulary API | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored** |
 | 2026-10-30 21:40 | `db:reset` + `seed` + `seed:simulated` to restore the baseline vocabulary (0034's insert is wiped by reset) | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored, 55 values** |
+| 2026-10-30 21:40 | **Group 4 window** — 0039 (CareFact) applied; stack + MCP restarted; `seed:simulated` re-applied. Codex: no live run at reservation. | `feat/group4-care-facts` | 4101–4107 / 4012 / 5051 | **restored** |
+
+## Group 4 — CareFact (2026-10-30)
+
+**0039** adds `care_facts(child_id, key, value, source_kind, source_ref, verified_by, verified_at,
+confidence, sandbox, fixture)` with a shape constraint: a CONFIRMED fact must name who verified it and
+when; PROVISIONAL carries no such claim. Visibility: parent/guardian, a caregiver whose grant holds
+`careplan.read` (date-bounded), or the Demo guide on sandbox rows. RLS on, one SELECT policy.
+
+Seeded (additive fixture, `fixture=true`): snack (peanut-free only), TV (30 min after homework, screens
+off by 8pm), bedtime (8:30pm school nights) — each with `source_kind=PARENT_CONVERSATION`,
+`source_ref='Kendra, care conversation 2026-10-12'`, verified by `p_mom`.
+
+API: GraphQL `careFacts(childId)` → `{id,key,value,source{kind,ref},verifiedBy{id},verifiedAt,confidence}`;
+MCP `CareFacts` (read-only). Both listed under **Rosina tools available**.
+
+`ops/care-facts-proof.mjs` **13/13**: three facts with sources and a named verifier; co-parent 3;
+caregiver with `careplan.read` 3; Dana 0; nonexistent child the same `[]`; no phone digits in a source
+ref; MCP parity; rows marked `fixture=true`.
+
+**Restoration verified** after the window: Kendra `jobTimeline` 5 entries · Nora
+`effectiveScheduleFor(2026-11-26)` → `p_dad` / `ARRANGEMENT` / `ha_nora_thanksgiving` ·
+`orbitVocabulary` 55 · `checkInStatus` "check-in not recorded".
+
+**Remaining Group 4 pieces (not started):** Cast v2 seed across six networks with idempotent demo auth
+users so rosa/felicia/simone/dwayne become READY; guardian timeline access via Rosa; per-household
+approval policies (`BOTH_PARENTS`, guardians-approve-each-other, single approver, `ANY_PARENT`, Marcus
+never an approver) with proofs.
 
 ### Rosina tools available
 

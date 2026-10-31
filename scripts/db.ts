@@ -17,6 +17,7 @@ import { pathToFileURL } from 'node:url';
 import { createSeed } from '../src/fixtures';
 import {
   createSimulatedCalendar,
+  createSimulatedCareFacts,
   createSimulatedCheckIn,
   createSimulatedCoordination,
   createSimulatedOrbit,
@@ -187,6 +188,7 @@ const CONFLICT: Record<string, string | undefined> = {
   capabilities: 'person_id,name', contact_methods: 'person_id,channel,value',
   locations: 'id',
   orbit_vocabulary: 'kind,value',
+  care_facts: 'child_id,key',
 };
 
 export async function seedDatabase() {
@@ -228,6 +230,8 @@ export async function seedSimulated(): Promise<Record<string, number | string>> 
   counts.household_policies = await upsert('household_policies', o.household_policies, 'household_id,rule');
   const ci = createSimulatedCheckIn();
   counts.expected_checkins = await upsert('expected_checkins', ci.expected_checkins, 'id');
+  const cf = createSimulatedCareFacts();
+  counts.care_facts = await upsert('care_facts', cf.care_facts, 'child_id,key');
   return counts;
 }
 
@@ -246,6 +250,7 @@ export async function cleanupSimulated(): Promise<Record<string, number>> {
     ['events', 'fixture=eq.true'],
     ['expected_checkins', 'fixture=eq.true'],
     ['check_ins', 'fixture=eq.true'],
+    ['care_facts', 'fixture=eq.true'],
     ['attempts', 'fixture=eq.true'],
     ['coordination_jobs', 'fixture=eq.true'],
     ['holiday_arrangements', 'fixture=eq.true'],
@@ -279,6 +284,7 @@ export async function checksumSimulated() {
     holiday_arrangements: c.holiday_arrangements.map((r) => String(r.id)),
     household_policies: ['orbit_notify_eligible'],
     expected_checkins: createSimulatedCheckIn().expected_checkins.map((r) => String(r.id)),
+    care_facts: createSimulatedCareFacts().care_facts.map((r) => String(r.id)),
     check_ins: [],
   };
   for (const t of Object.keys(ids)) {

@@ -155,6 +155,29 @@ type Capability
   conditions: String
 }
 
+type CareFact
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  key: String!
+  value: String!
+  source: CareFactSource!
+  verifiedBy: Person
+  verifiedAt: String
+
+  """
+  CONFIRMED (verified by a person) or PROVISIONAL (visible, explicitly unverified).
+  """
+  confidence: String!
+}
+
+type CareFactSource
+  @join__type(graph: COORDINATION)
+{
+  kind: String!
+  ref: String!
+}
+
 type CarePlan
   @join__type(graph: VILLAGE)
 {
@@ -642,6 +665,12 @@ type Query
   Public and versioned: an authenticated read, no oracle concern.
   """
   orbitVocabulary(version: Int): [OrbitVocabularyEntry!]! @join__field(graph: COORDINATION)
+
+  """
+  Care facts for a child, each with its source and its verification. RLS decides visibility:
+  parent/guardian, a caregiver holding careplan.read, or the guide on sandbox rows.
+  """
+  careFacts(childId: ID!): [CareFact!]! @join__field(graph: COORDINATION)
   events(childId: ID!, date: String!): [Event!]! @join__field(graph: SCHEDULE)
 
   """
