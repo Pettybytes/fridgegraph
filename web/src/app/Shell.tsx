@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, MessagesSquare, Network, ArrowUpRight, Sprout, CalendarDays } from 'lucide-react'
+import { LayoutDashboard, MessagesSquare, Network, ArrowUpRight, Sprout, CalendarDays, Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit'
+export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit'
 const routes = [
+  { path: 'today', label: 'Today', icon: Home },
   { path: 'mission-control', label: 'Mission Control', icon: LayoutDashboard },
   { path: 'orbit', label: 'Orbit', icon: MessagesSquare },
   { path: 'calendar', label: 'Family Calendar', icon: CalendarDays },
@@ -12,7 +13,7 @@ const routes = [
   { path: 'care-information', label: 'Care information', icon: MessagesSquare },
   { path: 'village', label: 'Living Village', icon: Network },
 ] as const
-function readRoute(): string { const route = window.location.hash.slice(2).split('?')[0]; return route === 'parent-chat' ? 'ask-rosina' : route || 'mission-control' }
+function readRoute(): string { const route = window.location.hash.slice(2).split('?')[0]; return route === 'parent-chat' ? 'ask-rosina' : route || 'today' }
 export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>> }) {
   const [route, setRoute] = useState(readRoute)
   const { scope, mode } = useDataContext()
@@ -25,7 +26,7 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
     <aside className="sidebar">
-      <a href="#/mission-control" className="brand"><Sprout size={26} aria-hidden="true" />FridgeGraph</a>
+      <a href="#/today" className="brand"><Sprout size={26} aria-hidden="true" />FridgeGraph</a>
       <p className="village-caption">A little more village.</p>
       <nav aria-label="Main navigation">{routes.map(({ path, label, icon: Icon }) =>
         <a key={path} href={`#/${path}`} className={cn('nav-link', route === path && 'active')} aria-current={route === path ? 'page' : undefined}><Icon size={19} aria-hidden="true" />{label}</a>
