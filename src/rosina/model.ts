@@ -10,16 +10,17 @@
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { catalog, validateActions, type CatalogAction } from './catalog';
-import { decideOrbitAction } from './orbit';
-
-/** The app handler (orbitDraft + orbitPreview + confirm UI) ships with this server code. Until it is
- *  present, the catalog flag cannot enable the action — that pairing is what the tests pin. */
-export const ORBIT_HANDLER_PRESENT = true;
+import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
 import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
-import { checkInStatusFrom, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
-import { careOnlyChildren, scopedRoster } from './roster';
+import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
+
+/** The app handler (orbitDraft + orbitPreview + the confirm UI) this server build ships with.
+ * Paired with the catalog's own `implemented` flag in `decideOrbitAction()` — neither alone is
+ * enough; a metadata flip with no handler present still answers UNIMPLEMENTED. Flip this to
+ * `false` only if this build is ever deployed without Codex's W-ORBIT handler. */
+export const ORBIT_HANDLER_PRESENT = true;
 
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -32,8 +33,9 @@ export type RosinaTurnOptions = {
   currentRoute: string;
   history: HistoryMessage[];
   bearer: string;
-  /** The caller's own verified identity (src/auth/verify.ts) — used ONLY to look up this
-   * caller's own scoped roster (src/rosina/roster.ts). Never used to act as anyone else. */
+  /** The caller's own verified identity (src/auth/verify.ts) — used ONLY to resolve this
+   * caller's own fresh child access via `MyChildren` (src/rosina/childAccess.ts). Never used to
+   * act as anyone else. */
   personId: string;
   /** From the verified token's app_metadata.demo_guide claim — never guessed from personId. */
   isGuide: boolean;
@@ -85,7 +87,10 @@ export type RosinaTurnResult = {
  * and `OrbitVocabulary` added in TASK R-ORBIT (evidence 42/43/44) — still no activate/draft/
  * preview tool exists or ever will; Orbit's mutations are never exposed here. `CareFacts` added
  * in TASK R-CARE (evidence 35 §14): read-only, no oracle (an unauthorized, nonexistent, and
- * genuinely-empty child all return the identical `[]`). */
+ * genuinely-empty child all return the identical `[]`). `MyChildren` (TASK R-MYCHILDREN) is
+ * deliberately NOT in this list: it is never offered to the model as a callable tool at all —
+ * `runRosinaTurn` calls it itself, exactly once, at the start of every turn, so the model always
+ * has fresh, correct access info already baked into its system prompt and never has to ask. */
 const ALLOWED_MCP_TOOL_NAMES = new Set([
   'PickupCandidates',
   'Attempts',
@@ -100,11 +105,12 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
 ]);
 
 /**
- * TASK R-TOOLS-2: "ID authorization is a code rule." For these three tools, the id argument
- * (child or person) is checked against `permittedIds` BEFORE the tool is ever called — never
- * trust a browser route, message history, or a model-supplied argument. A permitted id is either
- * the caller's own child/self (seeded from R-LEAK's roster), or an id an authorized tool result
- * already handed back THIS turn (e.g. EffectiveSchedule's parent, or a candidate from
+ * TASK R-TOOLS-2: "ID authorization is a code rule." For these tools, the id argument (child or
+ * person) is checked against `permittedIds` BEFORE the tool is ever called — never trust a
+ * browser route, message history, or a model-supplied argument. A permitted id is either one of
+ * THIS TURN's own fresh `MyChildren` ids (TASK R-MYCHILDREN — replaced the old static roster),
+ * the caller's own personId (always safe to ask about yourself), or an id an authorized tool
+ * result already handed back THIS turn (e.g. EffectiveSchedule's parent, or a candidate from
  * Attempts/JobTimeline/PickupCandidates) — never an id invented from outside the conversation.
  */
 const ID_ARG_BY_TOOL: Record<string, string> = {
@@ -115,6 +121,22 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   OrbitStatus: 'childId',
   CareFacts: 'childId',
   // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
+};
+
+/**
+ * TASK R-MYCHILDREN: beyond "is this id one you may ask about at all," these three childId-keyed
+ * tools additionally require the EXACT scope `MyChildren` reported for that child this turn — a
+ * `careplan.read`-only grant (e.g. Priya on Malik) may use `CareFacts` but never `ChildEvents` or
+ * `EffectiveSchedule` for that same child. `CheckInStatus`/`OrbitStatus` have no corresponding
+ * scope in the enum at all — MyChildren only proves the id is KNOWN; the backend's own parent-
+ * only check (src/rosina/orbit.ts's `verifiedParentOf`) remains the real authority for those two,
+ * exactly as before this task. `AdultAvailability` is keyed by personId, not a child, and is
+ * untouched by scopes entirely.
+ */
+const REQUIRED_SCOPE_BY_TOOL: Record<string, string> = {
+  ChildEvents: SCOPE.schedule,
+  EffectiveSchedule: SCOPE.schedule,
+  CareFacts: SCOPE.careplan,
 };
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
@@ -153,41 +175,79 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const mcp: McpClientLike = options.mcpClientFactory
     ? options.mcpClientFactory(options.mcpUrl, options.bearer)
     : new McpToolClient(options.mcpUrl, options.bearer);
+  const started = Date.now();
   await mcp.initialize();
+
+  // TASK R-MYCHILDREN: discovery happens HERE, once, fresh, before anything else — never a
+  // static roster, never cached across requests. This is a service-initiated call, not a tool
+  // the model chooses to make (or skip): every turn gets exactly one, unconditionally.
+  const myChildrenResult = await mcp.callTool('MyChildren', {}).catch((error: unknown): McpToolCall => ({
+    data: null,
+    errors: [{ message: (error as Error).message }],
+    isError: true,
+    raw: null,
+  }));
+  const childList = myChildrenResult.isError ? null : parseMyChildren(myChildrenResult.data);
+  if (childList === null) {
+    // Discovery failed or came back in a shape this service doesn't recognize — fail the WHOLE
+    // turn closed. Never fall back to a static roster; never let the model run with no ground
+    // truth about who it may discuss.
+    const errorCodes = myChildrenResult.errors.map((e) => e.extensions?.code ?? e.message ?? 'ERROR').filter((c): c is string => Boolean(c));
+    return {
+      reply: "I couldn't check that just now.",
+      actions: [],
+      provider: options.provider,
+      model: config.model,
+      rounds: 0,
+      toolCalls: [{ round: 0, kind: 'mcp', name: 'MyChildren', argsPreview: {}, isError: true, errorCodes: errorCodes.length ? errorCodes : ['DISCOVERY_FAILED'] }],
+      usage: { prompt: 0, completion: 0, total: 0 },
+      latencyMs: Date.now() - started,
+      outputGuardTriggered: false,
+    };
+  }
+  const childAccessById = new Map(childList.map((c) => [c.id, c]));
+
   const mcpTools = await mcp.listTools();
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), ...ACTION_TOOLS];
 
-  const roster = scopedRoster(options.personId, options.isGuide);
-  // TASK R-CARE: a narrow, CareFacts-only supplement to the roster above — see
-  // src/rosina/roster.ts#careOnlyChildren. Never used by any other tool.
-  const careRoster = careOnlyChildren(options.personId, options.isGuide);
-
-  const started = Date.now();
   const messages: ModelMessage[] = [
-    { role: 'system', content: buildSystemPrompt(roster, options.isGuide, options.personId, careRoster) },
+    { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId) },
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
   ];
 
   const maxRounds = options.maxRounds ?? 4;
-  const toolCallEvidence: ToolCallEvidence[] = [];
+  const toolCallEvidence: ToolCallEvidence[] = [{ round: 0, kind: 'mcp', name: 'MyChildren', argsPreview: {}, isError: false, errorCodes: [] }];
   const proposedActions: unknown[] = [];
   const rounds: ChatResult[] = [];
   // Every real MCP result's raw JSON this turn — the output guard's only "this name is grounded"
-  // signal besides the caller's own roster. Never sent to the model a second time; it already has
-  // these in `messages` as tool-role content.
+  // signal now that there is no static roster at all. A displayName MyChildren itself reported
+  // (TASK R-MYCHILDREN; null on the currently-deployed contract — see childAccess.ts) is pushed
+  // in below, exactly like any other tool result: a name is only ever safe to say if THIS turn's
+  // own authorized read actually said it.
   const toolResultTexts: string[] = [];
+  for (const child of childAccessById.values()) {
+    if (child.displayName) toolResultTexts.push(child.displayName);
+  }
   // Catalog presence never implies permission. The ONLY proof this service has that the caller
   // has real standing over a given child is a PickupCandidates call for that exact childId that
   // came back without error, in THIS turn. start-pickup — the one consequential, data-changing
   // action — requires that proof; every other proposeAction_* is navigation/explanation only and
   // carries no such requirement.
   const verifiedChildIds = new Set<string>();
-  // ID authorization is a code rule, not a prompt suggestion: seeded with the caller's own
-  // scoped child(ren) and their own personId (always safe to ask about yourself), then grown as
-  // authorized tool results hand back ids this turn. Gates ChildEvents/EffectiveSchedule/
-  // AdultAvailability's child/person-id arguments — see ID_ARG_BY_TOOL.
-  const permittedIds = new Set<string>([...roster.map((c) => c.id), ...careRoster.map((c) => c.id), options.personId]);
+  // ID authorization is a code rule, not a prompt suggestion: seeded with THIS turn's own fresh
+  // MyChildren ids (TASK R-MYCHILDREN) and the caller's own personId (always safe to ask about
+  // yourself), then grown as authorized tool results hand back ids this turn. Gates
+  // ChildEvents/EffectiveSchedule/AdultAvailability/CheckInStatus/OrbitStatus/CareFacts's
+  // child/person-id arguments — see ID_ARG_BY_TOOL. The Demo guide is the one documented
+  // exception: her read access to sandbox rows is enforced entirely by the backend's own
+  // `demo_guide_*` RLS policies (independent of MyChildren, which — verified live — reports
+  // zero children for her; she holds no household membership or grant anywhere). Skipping the
+  // pre-call gate for her is not a static child mapping: no id is ever assumed permitted, the
+  // backend's own per-row, sandbox-only check is the real (and only) authority for what she can
+  // see, exactly as CheckInStatus/OrbitStatus already rely on the backend's parent-only check
+  // for everyone else.
+  const permittedIds = new Set<string>([...childAccessById.keys(), options.personId]);
   // Orbit-specific gates (src/rosina/orbit.ts): CheckInStatus throws UNAUTHORIZED for anyone who
   // is not the child's parent, so a SUCCESSFUL call is proof of parent authority — never an
   // assumption. vocabularyByKind accumulates every value THIS turn's own OrbitVocabulary call(s)
@@ -238,13 +298,27 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       }
 
       const idArgKey = ID_ARG_BY_TOOL[call.name];
-      if (idArgKey) {
+      // The Demo guide's childId-keyed reads bypass the MyChildren-derived gate below — see the
+      // long comment above `permittedIds` for why this is a backend-enforced exception, not a
+      // static mapping. AdultAvailability (personId-keyed) is never part of this bypass.
+      const isGuideChildBypass = options.isGuide && idArgKey === 'childId';
+      if (idArgKey && !isGuideChildBypass) {
         const idValue = args[idArgKey];
         if (typeof idValue !== 'string' || !permittedIds.has(idValue)) {
           // Never executed: this is the pre-call gate, not a backend denial. No hint is given
           // either way about whether the id exists — the model gets the same refusal regardless.
           toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'OUT_OF_SCOPE_ID' }) });
+          continue;
+        }
+        // TASK R-MYCHILDREN: known is not enough for these three — the EXACT scope MyChildren
+        // reported for this child must cover what the tool actually reads. A careplan.read-only
+        // grant (e.g. Priya on Malik) may use CareFacts but never ChildEvents/EffectiveSchedule
+        // for that same child, even though the id itself is perfectly well-known.
+        const requiredScope = REQUIRED_SCOPE_BY_TOOL[call.name];
+        if (requiredScope && !(childAccessById.get(idValue)?.scopes.has(requiredScope))) {
+          toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['SCOPE_NOT_GRANTED'] });
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'SCOPE_NOT_GRANTED' }) });
           continue;
         }
       }
@@ -299,8 +373,11 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       const id = call.name.slice(ACTION_TOOL_PREFIX.length);
 
       if (id === 'prepareOrbitAlert') {
-        // Gate first, then the catalog flag, then the app handler — see decideOrbitAction().
-        // Metadata alone never enables the action: with the handler absent the flag is ignored.
+        // Gate first — parent authority + vocabulary membership — and that gate is NEVER
+        // overridden by the catalog flag or the handler-present flag below; only once it passes
+        // does metadata get a say at all. See decideOrbitAction() in src/rosina/orbit.ts for why
+        // the catalog's `implemented` flag and this server's own ORBIT_HANDLER_PRESENT must BOTH
+        // agree before anything is ever proposed — a metadata flip alone can never enable it.
         const shapeArgs = catalog.prepareOrbitAlert.argsSchema.parse(args);
         const semantic = shapeArgs ? validatePrepareOrbitAlert(shapeArgs as OrbitAlertArgs, verifiedParentOf, vocabularyByKind) : null;
         const decision = decideOrbitAction({
@@ -309,14 +386,12 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
           enabled: catalog.prepareOrbitAlert.implemented === true,
           handlerPresent: ORBIT_HANDLER_PRESENT,
         });
-
         if (decision.propose) {
           proposedActions.push({ id, args: shapeArgs as Record<string, unknown> });
           toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: false, errorCodes: [] });
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: true }) });
           continue;
         }
-
         toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: true, errorCodes: [decision.errorCode] });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: false, error: 'Orbit alerts are not available through this app yet.' }) });
         continue;
@@ -355,7 +430,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     { prompt: 0, completion: 0, total: 0 },
   );
 
-  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", [...roster, ...careRoster], toolResultTexts.join('\n'));
+  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", toolResultTexts.join('\n'));
 
   return {
     reply: guarded.reply,

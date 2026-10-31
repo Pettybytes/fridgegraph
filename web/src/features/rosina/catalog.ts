@@ -58,12 +58,9 @@ export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
   'start-pickup': { id: 'start-pickup', label: 'Review pickup request', argsSchema: { parse: pickupArgs }, routeOrHandler: 'pickup', changesData: true, implemented: true },
   'explain-screen': { id: 'explain-screen', label: 'Explain this screen', argsSchema: { parse: value => screenArgs(value) ?? (record(value, ['screen']) && value.screen === 'calendar' ? { screen: 'calendar' } : null) }, routeOrHandler: 'explain', changesData: false, implemented: true },
   'explain-recommendation': { id: 'explain-recommendation', label: 'Explain the recommendation', argsSchema: { parse: value => record(value, []) ? {} : null }, routeOrHandler: 'explain', changesData: false, implemented: true },
-  // UNIMPLEMENTED: no app handler exists yet. "Prepare" means the app calls orbitDraft +
-  // orbitPreview and shows the exact preview; only the parent's confirmation of THAT preview
-  // (orbitActivate with draftVersion + messageHash) activates anything. Returning this card,
-  // even once implemented, performs nothing by itself — same rule as start-pickup. Dependency:
-  // Codex's app handler (draft/preview/activate wiring + the confirm-dialog detail view).
-  'prepareOrbitAlert': { id: 'prepareOrbitAlert', label: 'Prepare Orbit alert', argsSchema: { parse: orbitAlertArgs }, routeOrHandler: 'orbit', changesData: true, implemented: false },
+  // Explicit card click prepares a preview; activation always needs the parent's separate confirm.
+  // Permission also requires the live controller's verified parent read (actionAllowed below).
+  'prepareOrbitAlert': { id: 'prepareOrbitAlert', label: 'Prepare Orbit alert', argsSchema: { parse: orbitAlertArgs }, routeOrHandler: 'orbit', changesData: true, implemented: true },
 }
 export function validateActions(input: unknown): CatalogAction[] {
   if (!Array.isArray(input)) return []
@@ -82,11 +79,12 @@ export function actionRoute(action: CatalogAction): string | null {
   if (action.id === 'open-person') return `#/village?person=${encodeURIComponent(action.args.personId)}`
   return null
 }
-export function actionAllowed(action: CatalogAction, context: { childId: string | null; parent: boolean; visiblePeople: ReadonlySet<string>; readOnly?: boolean; canReadCare?: boolean; calendarChildIds?: ReadonlySet<string>; calendarEventIds?: ReadonlySet<string> }): boolean {
+export function actionAllowed(action: CatalogAction, context: { childId: string | null; parent: boolean; visiblePeople: ReadonlySet<string>; readOnly?: boolean; canReadCare?: boolean; canPrepareOrbit?:boolean; calendarChildIds?: ReadonlySet<string>; calendarEventIds?: ReadonlySet<string> }): boolean {
   if(context.readOnly && catalog[action.id].changesData)return false
   if (action.id === 'open-calendar') return context.calendarChildIds?.has(action.args.childId) === true
   if (action.id === 'open-event') return context.calendarEventIds?.has(action.args.id) === true
   if (action.id === 'open-screen' && action.args.screen === 'care-information') return context.canReadCare === true
+  if (action.id === 'prepareOrbitAlert') return context.canPrepareOrbit===true && action.args.childId===context.childId
   if (action.id === 'start-pickup') return context.parent && action.args.childId === context.childId
   if (action.id === 'open-person') return context.visiblePeople.has(action.args.personId)
   return true

@@ -20,9 +20,9 @@
  * can actually ground go here. See docs/evidence/35-rosina-service.md for the live/blocked table
  * and the Bentley follow-up each blocked row needs.
  */
+import type { ChildAccess } from './childAccess';
 import type { ModelTool } from '../muse/providers';
 import { SCOPED_REFUSAL } from './outputGuard';
-import type { RosterChild } from './roster';
 
 export const ACTION_TOOL_PREFIX = 'proposeAction_';
 
@@ -292,25 +292,46 @@ WHILE AN ALERT IS ACTIVE — \`OrbitStatus(childId, alertId?)\`
   as any other out-of-scope request — nothing about Orbit changes that boundary.`;
 }
 
-/** TASK R-LEAK: this roster is built per request, scoped to exactly the caller, by
- * src/rosina/roster.ts#scopedRoster — never a hard-coded global list. An empty roster means this
- * caller has no recorded child on this service; the model must ask rather than name anyone.
- * `selfPersonId` is the caller's OWN verified id (src/auth/verify.ts) — not a secret, just the
- * id their own token already proves; told to the model only so "am I free" / "my own schedule"
- * questions have an id to use. It grants nothing beyond what the caller's own token already
- * authorizes downstream. `careRoster` (TASK R-CARE, src/rosina/roster.ts#careOnlyChildren) is a
- * narrow, CareFacts-ONLY supplement — a real `careplan.read` grant this caller holds on a child
- * outside their one documented child, e.g. Priya on Malik. Always `[]` for everyone else. */
-export function buildSystemPrompt(roster: RosterChild[], isGuide: boolean, selfPersonId: string, careRoster: RosterChild[] = []): string {
-  const rosterText = roster.length
-    ? roster.map((c) => `${c.name} (${c.id})`).join(', ')
-    : 'none recorded for this account';
-  const rosterLabel = isGuide
-    ? 'SANDBOX CHILDREN (Demo guide only — your role is documented as seeing the whole fictional ecosystem; names only, not a grant of access)'
-    : "YOUR CHILD ON THIS ACCOUNT (names only, not a grant of access — this is the only child you may ever name)";
-  const careRosterText = careRoster.length
-    ? `\n\nFOR CARE QUESTIONS ONLY (snack, TV, bedtime, allergy, routine-care — never schedule, pickups, or anything else): you may ALSO discuss ${careRoster.map((c) => `${c.name} (${c.id})`).join(', ')}. You have NO other knowledge about them at all — not their schedule, not who has them, not anything outside recorded care facts.`
-    : '';
+/** TASK R-MYCHILDREN: `children` is resolved fresh, THIS turn, by `runRosinaTurn` calling the
+ * `MyChildren` MCP tool once before anything else — never a static list, never cached across
+ * requests (src/rosina/childAccess.ts). It replaces both the old `scopedRoster` AND the old
+ * `careOnlyChildren` CareFacts-only supplement with ONE mechanism: each child comes with EXACTLY
+ * the scopes `MyChildren` reported for that child (a parent/guardian gets the full set; a grant
+ * gets only the scopes it names) — never union them, never assume a broader scope from a
+ * narrower one. `displayName` is only ever non-null if MyChildren's own result supplied one
+ * (today's deployed contract does not yet select it — see childAccess.ts's header comment); when
+ * it is null, this service genuinely does not know that child's name, and must say so rather
+ * than guess. `selfPersonId` is the caller's OWN verified id (src/auth/verify.ts) — not a secret,
+ * just the id their own token already proves; told to the model only so "am I free" / "my own
+ * schedule" questions have an id to use. */
+export function buildSystemPrompt(children: ChildAccess[], isGuide: boolean, selfPersonId: string): string {
+  const childLines = children.map((c) => `- ${c.displayName ?? '(name not disclosed by this read)'} (${c.id}): scopes = ${[...c.scopes].join(', ') || 'none'}`);
+
+  const guideBlock = `SANDBOX CHILDREN — Demo guide only
+Your own \`MyChildren\` read reports NO children (you hold no household membership or grant
+anywhere) — that is correct and expected, not an error. Your documented role is different: you
+may attempt a read-only tool call (CheckInStatus, OrbitStatus, CareFacts, ChildEvents,
+EffectiveSchedule) for ANY child id you are given or already know from this conversation, and the
+graph's own sandbox-only, read-only rules decide what comes back — never assume, invent, or guess
+an id yourself; it must come from the person's own message or a tool result this turn. You have
+no pre-listed roster of names at all. Never claim, suggest, or attempt any data-changing action —
+your role is read-only, full stop.`;
+
+  const callerBlock = `YOUR CHILDREN AND WHAT YOU MAY ASK — refreshed this turn via MyChildren, never assumed
+${children.length ? childLines.join('\n') : 'none recorded for this account right now'}
+
+This list is not a static fact about you — it is exactly what THIS turn's own MyChildren call
+returned, and it can change between turns if a grant is added, narrowed, or expires. A scope
+grants ONLY what it names: careplan.read on a child never implies you may read their calendar,
+request pickup, or approve anything for them — never infer a broader scope from a narrower one,
+even for a child you also hold other scopes for under a separate entry. If a child's name was
+not disclosed by this read, you do not know their name — never guess it, never invent one. If the
+person names a child and more than one of your children could plausibly be meant, ask which one
+rather than guessing; if only one of your children is even possible for the kind of question
+asked, there is nothing to guess. You have NO knowledge of any child, family or person not on
+this list — not their name, not their count, not whether they exist at all. If asked about one,
+or about "another family," do not confirm, deny, count, or give an example of who else might be
+in the system. Reply with exactly this sentence and nothing else about scope: "${SCOPED_REFUSAL}"`;
 
   return `You are Rosina, FridgeGraph's village coordinator, speaking directly to a signed-in family member.
 
@@ -321,11 +342,7 @@ access, not yours; a tool call about a family you cannot see will fail or come b
 is the graph protecting the family, not a bug — explain it plainly and never guess what the
 hidden data might say.
 
-${rosterLabel}
-${rosterText}. ${isGuide
-    ? 'Do not invent a child beyond this list.'
-    : 'This is the ONLY child you know by name. You have NO knowledge that any other named child, family or person exists — not their name, not their count, not whether they exist at all. If the user names a different child, or any child not on this list, or asks about "another family," do not confirm, deny, count, or give an example of who else might be in the system. Reply with exactly this sentence and nothing else about scope: "' + SCOPED_REFUSAL + '"'
-  }${careRosterText}
+${isGuide ? guideBlock : callerBlock}
 If you are not sure which child a request means, ASK — do not guess an id.
 
 GROUNDING — MANDATORY
