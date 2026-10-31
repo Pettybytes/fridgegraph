@@ -3344,3 +3344,27 @@ Required preflight, before any visitor run:
 
 Pieces 2–3 untouched. No merges.
 | 2026-10-31 07:12 | **RESERVED: resetDemo proof window (~15 min)** — destructive demo reset cycle (mutate → reset → verify) on the idle stack; loopback route calls only, no real sends. | `feat/reset-demo` | 4200/34734 · 5051/91606 · 4008/10834 | **in progress** |
+
+## Group 5 Piece 1 — REAL CONFLICT found (2026-10-31 03:20), needs a decision
+
+`resetDemo` deletes sandbox `orbit_alerts`; that cascades to `orbit_responses`, whose trigger
+`_orbit_responses_append_only()` raises `ORBIT_RESPONSES_APPEND_ONLY` **unconditionally on DELETE**
+(and UPDATE). So any demo alert that received a response **cannot be removed** — the reset aborts and
+rolls back (correctly, but it means the reset can never complete once a visitor responds).
+
+This is a deliberate safety invariant (responses are evidence), not a bug. Three options, none of which
+I will take unilaterally:
+
+1. **Controlled escape hatch** — allow DELETE only when `current_setting('app.demo_reset', true) = 'on'`
+   is set inside the reset transaction. Smallest code change, but it punches a hole in append-only and
+   needs explicit approval.
+2. **Redefine reset semantics** — keep responded alerts (close them, keep responses as audit), restore
+   only unresponded fixtures. Preserves the invariant, but "reset" no longer returns to a pristine
+   seeded state, and the checksum proof must exclude responded alerts.
+3. **Separate demo schema/tenant** — resets drop a demo-owned partition. Cleanest invariant-wise,
+   much larger change.
+
+Proof status: mutation, concurrency, non-sandbox totals and rollback logic are written; the run stops
+at the cascade. `src/demo/reset.ts` + `POST /api/demo/reset` are committed on `feat/reset-demo`.
+
+**Next step depends on the decision above.** No PR opened; no merge.
