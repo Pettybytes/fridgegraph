@@ -3175,3 +3175,10 @@ Local live-entry preparation: only the Orbit overdue predicate receives scenario
 real App and actual picker; no injected session, fixture data or intercepted service reply.
 The local proxy sends explicit scenario headers. 24 Orbit tests / 230 total web tests and build
 PASS after adding the clock injection; backend scenario support still requires owner confirmation.
+Live acceptance coordination: Bentley reserved a 45-minute window, but restoration has NOT been
+confirmed. Serving metadata/handler commit 3313ef7 supplied; backend #46 scenario support and
+MyChildren displayName selection explicitly requested. Bentley's agent then reported network
+errors; no live request was made against the old runtime. Window starts only on restoration.
+Claude Code's server-test correction is PR #48 (owned fix; no src/rosina test edit by web).
+The live harness saves each run's screenshots and receipt under a distinct run name so failures
+remain append-only. Any held mid-activation response is released in cleanup without replaying it.
