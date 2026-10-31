@@ -1,3 +1,4 @@
+<!-- Latest W4b publication: PR #32 is READY FOR REVIEW. See final readiness entry below. -->
 # FridgeGraph — HANDOFF
 
 **Current W4b:** see “W4b replacement brief — live calendar and persona sessions” below. Base #31
@@ -2666,3 +2667,12 @@ PASS. Final matcher also rejects a bare nobody-available claim when there are no
 its current captured live-reply audit passes unchanged. Staged secret scan **509 files / 0 findings**.
 Original main38-matcher-failure.json has no diff. No frontend backend-contract change from #42;
 its newly enabled care-answer behavior is not attributed to the earlier a88d613 live receipt.
+
+### W4b — ready for review (verified publication)
+
+`gh pr ready 32` succeeded after both CI checks passed on **c60975c**. GitHub reports #32 OPEN,
+isDraft:false and MERGEABLE. Authorized correction, preserved failed receipt, all negative controls
+and affected live acceptance are complete; broader W4 dependencies remain separately PENDING.
+This documentation follow-up is pushed normally; final-head CI/status are reported in the user
+response and the PR. No PR merge. W-ORBIT begins only after Bryan merges #32; do not start it on
+this worktree/branch or infer that READY means merged.
