@@ -13,6 +13,7 @@ import { createSimulatedOrbit } from '../fixtures-simulated';
 import { createSimulatedCheckIn } from '../fixtures-simulated';
 import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
+import { createCastV2 } from '../fixtures-cast-v2';
 import { dropPersonaSessionCache } from './persona-sessions';
 
 const LOCK_KEY = 918_273_645; // arbitrary but stable: one reset at a time, cluster-wide
@@ -66,6 +67,46 @@ function fixtures(): Record<string, Row[]> {
   };
 }
 
+/**
+ * Rows reset must restore from the CANONICAL seed source, per table.
+ *
+ * `fixtures()` above is only the simulated/private set. Cast v2 is demo CONTENT, not test junk, and
+ * several of its tables are sandbox-marked, so step 1 clears them and this set puts them back: the
+ * Malik care facts, the 32 Cast routines, its people/households/children/memberships and its events.
+ * Deletion stays exactly as scoped before (the `data` id lists above); these rows are upserted only,
+ * so no FK-bearing Cast row is ever deleted and re-inserted.
+ */
+function castRowsByTable(): Record<string, Row[]> {
+  const cv = createCastV2() as unknown as Record<string, Row[]>;
+  const out: Record<string, Row[]> = {};
+  for (const [table, rows] of Object.entries(cv)) if (Array.isArray(rows)) out[table] = rows;
+  return out;
+}
+
+/** Idempotent upsert of one table's rows. Column set is taken from the rows themselves. */
+async function upsertRows(c: pg.Client, table: string, rows: Row[]): Promise<number> {
+  if (!rows.length) return 0;
+  const keys = pkOf(table);
+  const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+  const conflict = keys.join(',');
+  const updatable = cols.filter((x) => !keys.includes(x));
+  const action = updatable.length
+    ? `do update set ${updatable.map((x) => `${x} = excluded.${x}`).join(', ')}`
+    : 'do nothing';
+  let n = 0;
+  for (const row of rows) {
+    const params = cols.map((k) => row[k] ?? null);
+    const placeholders = cols.map((_, i) => `$${i + 1}`).join(',');
+    const sql = `insert into ${table} (${cols.join(',')}) values (${placeholders}) on conflict (${conflict}) ${action}`;
+    if (process.env.RESET_DEMO_DEBUG === '1') {
+      console.log(`[reset] ${table} cols=${cols.length} placeholders=${cols.length} params=${params.length} names=${cols.join(',')}`);
+    }
+    const r = await c.query(sql, params);
+    n += r.rowCount ?? 0;
+  }
+  return n;
+}
+
 export type ResetReport = { restored: Record<string, number>; cleared: Record<string, number>; droppedSessionCache: true };
 
 export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
@@ -112,31 +153,20 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
       'expected_checkins', 'care_facts', 'household_policies', 'events',
     ];
     for (const table of RESTORE_ORDER) {
-      const rows = data[table] ?? [];
+      const n = await upsertRows(c, table, data[table] ?? []);
+      if (n) restored[table] = n;
+    }
+
+    // 3. Cast v2 from the SAME canonical source `db:seed` merges. Step 1 cleared every sandbox row,
+    // which includes Cast rows in sandbox-marked tables (care_facts, routines); without this pass the
+    // demo loses content on every reset — the judges' button would break the Priya/Dwayne scenes.
+    // Upsert only: no Cast row is deleted here, so no FK is ever broken mid-reset.
+    const cast = castRowsByTable();
+    for (const table of RESTORE_ORDER) {
+      const rows = cast[table] ?? [];
       if (!rows.length) continue;
-      const keys = pkOf(table);
-      const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
-      const valueRow = (r: Row) => `(${cols.map((_, i) => `$${i + 1}`).join(',')})`;
-      let n = 0;
-      for (const row of rows) {
-        const params = cols.map((k) => row[k] ?? null);
-        const conflict = keys.join(',');
-        const updatable = cols.filter((x) => !keys.includes(x));
-        // No non-key columns means the row is fully identified by its key: nothing to update.
-        const action = updatable.length
-          ? `do update set ${updatable.map((x) => `${x} = excluded.${x}`).join(', ')}`
-          : 'do nothing';
-        // valueRow() already yields "(...)" — wrapping it again makes a nested row expression.
-        const sql = `insert into ${table} (${cols.join(',')}) values ${valueRow(row)} on conflict (${conflict}) ${action}`;
-        // Diagnostics carry SHAPE only: table, column names, counts. Never bound values.
-        if (process.env.RESET_DEMO_DEBUG === '1') {
-          const placeholders = (sql.match(/\$\d+/g) ?? []).length;
-          console.log(`[reset] ${table} cols=${cols.length} placeholders=${placeholders} params=${params.length} names=${cols.join(',')}`);
-        }
-        const r = await c.query(sql, params);
-        n += r.rowCount ?? 0;
-      }
-      restored[table] = n;
+      const n = await upsertRows(c, table, rows);
+      if (n) restored[table] = (restored[table] ?? 0) + n;
     }
 
     // Disposable Orbit records go through the privileged, database-authorised path (0042).
