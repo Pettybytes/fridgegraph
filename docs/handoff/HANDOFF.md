@@ -3511,3 +3511,31 @@ Remaining failures are all in my probe documents, not the product:
 
 Next: introspect `OrbitResponseResult` and the `jobTimeline` element type, fix the three documents,
 re-run, then open the PR.
+
+## Group 5 Piece 3 — simple consent: surface inspected, design fixed (2026-10-31 04:10)
+
+Branch `piece3-consent` from `origin/main` (`c499e21`, #50 merged). No code written yet.
+
+**What exists**
+- `permission_slips(id, child_id, title, signed)` — no approver, no state machine.
+- `approvals(id, approver_id, subject_type, subject_id, decision, at)` — the audit ledger.
+- `household_policies` rules: `caregiver_approval`, `ride_cost_cap_usd`, `sibling_supervision_min_age`,
+  `schedule_swap_approval`, `orbit_notify_eligible` — **there is no consent rule yet**.
+
+**Design (Stage 1, single approver, CONSENT authority — NOT `schedule_swap_approval`)**
+1. Migration `0046`: add policy rule `consent_approval` (value = `parent` | a single person id), and a
+   partial unique index on `approvals(subject_type, subject_id, approver_id)` where
+   `subject_type='permission_slip'` so a repeated approval cannot count twice at the database level.
+2. Resolver `approveConsent(slipId: ID!)` in `school.ts` (owner of `permission_slips`):
+   - authority = CONSENT: a parent/guardian of the child, **or** the single approver named by
+     `consent_approval` for that household; never derived from parenting time, never from
+     `schedule_swap_approval`;
+   - refuse the Demo guide explicitly (read-only observer);
+   - idempotent: second approval returns the existing decision, writes no second row;
+   - sets `signed = true` and appends the `approvals` row in the same transaction.
+3. `approvals(subjectId: childId)` is the child's history view — the decision must appear there.
+
+**Proof to write**: policy approver approves; Marcus and Priya refused; Demo guide refused; repeated
+approval counted once (ledger row count stays 1); decision visible in the child's history.
+
+No PR. Piece 2 (createDemoFamily) from current main afterwards — Piece 1 is merged, so no stacking.
