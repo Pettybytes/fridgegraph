@@ -7,9 +7,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
+import type { ChildAccess } from './childAccess';
 import { runRosinaTurn, type McpClientLike } from './model';
 import { buildSystemPrompt } from './systemPrompt';
-import { scopedRoster } from './roster';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
 
@@ -39,6 +39,11 @@ const ALL_TOOLS: McpTool[] = [
   { name: 'SomeFutureMutation', description: 'not a read this service knows about', inputSchema: {} },
 ];
 
+/** TASK R-MYCHILDREN: every runRosinaTurn call makes an eager MyChildren call first; `byCall`
+ * answers it too, keyed `MyChildren:{}` like everything else. Kendra's full-scope Nora entry is
+ * the default every test in this file implicitly assumes unless overridden. */
+const MY_CHILDREN_NORA_FULL = { data: { myChildren: [{ child: { id: 'p_nora' }, scopes: ['schedule.read', 'careplan.read', 'school.read', 'contacts.read', 'transport.read', 'goals.read', 'pickup.verify', 'pickup.request'] }] }, errors: [], isError: false, raw: null };
+
 function stubMcp(byCall: Record<string, McpToolCall>): McpClientLike & { calls: Array<{ name: string; args: Record<string, unknown> }> } {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   return {
@@ -50,6 +55,7 @@ function stubMcp(byCall: Record<string, McpToolCall>): McpClientLike & { calls: 
     async callTool(name: string, args: Record<string, unknown>) {
       calls.push({ name, args });
       const key = `${name}:${JSON.stringify(args)}`;
+      if (name === 'MyChildren') return (byCall[key] ?? MY_CHILDREN_NORA_FULL) as McpToolCall;
       return byCall[key] ?? { data: null, errors: [{ message: 'NO_SUCH_FIXTURE' }], isError: true, raw: null };
     },
   };
@@ -70,8 +76,8 @@ test('the allowlist now has six tools and still rejects an unknown one without e
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 1, 'only ChildEvents reached the MCP client');
-  assert.equal(mcp.calls[0].name, 'ChildEvents');
+  assert.equal(mcp.calls.length, 2, 'MyChildren, then ChildEvents — SomeFutureMutation never reached the client');
+  assert.equal(mcp.calls[1].name, 'ChildEvents');
   const refused = result.toolCalls.find((t) => t.name === 'SomeFutureMutation');
   assert.deepEqual(refused?.errorCodes, ['TOOL_NOT_ALLOWED']);
 });
@@ -79,15 +85,15 @@ test('the allowlist now has six tools and still rejects an unknown one without e
 test('an out-of-scope personId is rejected BEFORE any tool call — no attempt ever reaches MCP', async () => {
   const mcp = stubMcp({});
   const chatFn = scriptedChat([
-    // Kendra's roster is Nora only; p_dad was never harvested this turn.
+    // Kendra's fresh MyChildren is Nora only; p_dad was never harvested this turn.
     chatResult({ toolCalls: [toolCall('c1', 'AdultAvailability', { personId: 'p_dad', from: '2026-11-25', to: '2026-11-25' })] }),
     chatResult({ content: 'I can only help with children shared with you.' }),
   ]);
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 0, 'the gate rejected it before the MCP client was ever touched');
-  assert.deepEqual(result.toolCalls[0], { round: 1, kind: 'refused', name: 'AdultAvailability', argsPreview: { personId: 'p_dad', from: '2026-11-25', to: '2026-11-25' }, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
+  const refused = result.toolCalls.find((t) => t.kind === 'refused');
+  assert.deepEqual(refused, { round: 1, kind: 'refused', name: 'AdultAvailability', argsPreview: { personId: 'p_dad', from: '2026-11-25', to: '2026-11-25' }, isError: true, errorCodes: ['OUT_OF_SCOPE_ID'] });
 });
 
 test('the caller may always ask about their OWN id without any prior discovery', async () => {
@@ -99,7 +105,7 @@ test('the caller may always ask about their OWN id without any prior discovery',
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 1);
+  assert.equal(mcp.calls.length, 2, 'MyChildren, then AdultAvailability');
   assert.equal(result.reply, 'You have recorded busy time on Nov 25.');
 });
 
@@ -116,7 +122,7 @@ test('an id harvested from an authorized EffectiveSchedule result is then permit
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 2, 'p_dad, discovered via EffectiveSchedule, was then permitted for AdultAvailability');
+  assert.equal(mcp.calls.length, 3, 'MyChildren, then EffectiveSchedule, then AdultAvailability (p_dad discovered via the first)');
   assert.equal(result.reply, 'No records are available to this view.');
 });
 
@@ -130,29 +136,42 @@ test('a never-discovered id stays rejected across rounds until a tool actually h
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(mcp.calls.length, 0, 'retrying the same unverified id never succeeds without a discovery step');
+  assert.equal(mcp.calls.length, 1, 'only the eager MyChildren call — retrying the same unverified id never succeeds without a discovery step');
   assert.equal(result.toolCalls.filter((t) => t.errorCodes.includes('OUT_OF_SCOPE_ID')).length, 2);
 });
 
 test('an empty ChildEvents result for a permitted id is "no records", not "nothing happened" (prompt wording)', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }], false, 'p_mom');
   assert.match(prompt, /No records are available to this view/);
   assert.match(prompt, /I couldn't check that just now/);
 });
 
 test('the prompt states FREE/BUSY wording and forbids "can pick up"/"available to watch"', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }], false, 'p_mom');
   assert.match(prompt, /has free time recorded/);
   assert.match(prompt, /never say "is available to watch" or "can pick up/);
 });
 
 test('the prompt distinguishes PROPOSED (no effect) from APPROVED (changes the schedule)', () => {
-  const prompt = buildSystemPrompt(scopedRoster('p_mom', false), false, 'p_mom');
+  const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }], false, 'p_mom');
   assert.match(prompt, /PROPOSED[\s\S]{0,40}only a proposal/);
   assert.match(prompt, /only an.{0,10}APPROVED.{0,10}one does/);
 });
 
-test('output guard: Andre\'s name from a real EffectiveSchedule result is grounded, not a leak', async () => {
+test('output guard: Andre\'s name from a real EffectiveSchedule result is grounded, not a leak (TASK R-MYCHILDREN: the CHILD\'s own name is not — MyChildren reports no displayName today, so the reply below deliberately never says "Nora")', async () => {
+  const mcp = stubMcp({ [`EffectiveSchedule:${JSON.stringify({ childId: 'p_nora', date: '2026-11-26' })}`]: EFFECTIVE_ARRANGEMENT });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'EffectiveSchedule', { childId: 'p_nora', date: '2026-11-26' })] }),
+    chatResult({ content: 'Andre Ellison has the child on Thanksgiving, under an approved arrangement.' }),
+  ]);
+
+  const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+
+  assert.equal(result.outputGuardTriggered, false, 'Andre Ellison came from this turn\'s own EffectiveSchedule result');
+  assert.match(result.reply, /Andre Ellison/);
+});
+
+test('output guard (TASK R-MYCHILDREN): saying the CALLER\'S OWN child\'s name with no grounding still trips the guard — MyChildren reports no name for her today', async () => {
   const mcp = stubMcp({ [`EffectiveSchedule:${JSON.stringify({ childId: 'p_nora', date: '2026-11-26' })}`]: EFFECTIVE_ARRANGEMENT });
   const chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('c1', 'EffectiveSchedule', { childId: 'p_nora', date: '2026-11-26' })] }),
@@ -161,6 +180,28 @@ test('output guard: Andre\'s name from a real EffectiveSchedule result is ground
 
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
 
-  assert.equal(result.outputGuardTriggered, false, 'Andre Ellison came from this turn\'s own EffectiveSchedule result');
-  assert.match(result.reply, /Andre Ellison/);
+  assert.equal(result.outputGuardTriggered, true, 'no static roster exists to pre-approve "Nora" any more, and no tool this turn supplied that name');
+});
+
+test('output guard: a MyChildren displayName (future-correct contract) grounds the child\'s own name', async () => {
+  const mcp: McpClientLike & { calls: unknown[] } = {
+    calls: [],
+    async initialize() {},
+    async listTools() {
+      return ALL_TOOLS;
+    },
+    async callTool(name: string, args: Record<string, unknown>) {
+      if (name === 'MyChildren') return { data: { myChildren: [{ child: { id: 'p_nora', person: { displayName: 'Nora Ellison' } }, scopes: ['schedule.read'] }] }, errors: [], isError: false, raw: null };
+      if (name === 'EffectiveSchedule' && args.childId === 'p_nora') return EFFECTIVE_ARRANGEMENT;
+      return { data: null, errors: [{ message: 'NO_SUCH_FIXTURE' }], isError: true, raw: null };
+    },
+  };
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'EffectiveSchedule', { childId: 'p_nora', date: '2026-11-26' })] }),
+    chatResult({ content: 'Andre Ellison has Nora Ellison on Thanksgiving, under an approved arrangement.' }),
+  ]);
+
+  const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+
+  assert.equal(result.outputGuardTriggered, false, 'MyChildren\'s own displayName this turn grounds "Nora Ellison"');
 });

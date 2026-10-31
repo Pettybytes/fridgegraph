@@ -125,3 +125,27 @@ export function injectOverdueFlag(data: unknown, overdue: boolean): unknown {
   if (!row || typeof row !== 'object') return data;
   return { ...(data as Record<string, unknown>), checkInStatus: { ...row, overdue } };
 }
+
+/**
+ * Whether a `prepareOrbitAlert` action may be PROPOSED this turn. Order matters, and is the
+ * whole point: the gate (parent authority + vocabulary membership) is checked first and is NEVER
+ * overridden by the catalog flag or anything else; only once it passes does the catalog's own
+ * `implemented` flag get a say; only once BOTH agree does the server's own `handlerPresent` claim
+ * matter. A metadata flip alone can never enable the action — flipping `implemented: true` with
+ * no handler shipped in this build still answers `UNIMPLEMENTED`, on purpose: the flag describes
+ * the web catalog's readiness to RENDER a card, not this server's readiness to mean it.
+ */
+export type OrbitActionDecision = { propose: true } | { propose: false; errorCode: 'NOT_PARENT' | 'VALUE_NOT_IN_VOCABULARY' | 'INVALID_ACTION' | 'UNIMPLEMENTED' };
+
+export function decideOrbitAction(input: {
+  shapeOk: boolean;
+  gate: 'OK' | 'NOT_PARENT' | 'VALUE_NOT_IN_VOCABULARY';
+  enabled: boolean;
+  handlerPresent: boolean;
+}): OrbitActionDecision {
+  if (!input.shapeOk) return { propose: false, errorCode: 'INVALID_ACTION' };
+  if (input.gate !== 'OK') return { propose: false, errorCode: input.gate };
+  if (!input.enabled) return { propose: false, errorCode: 'UNIMPLEMENTED' };
+  if (!input.handlerPresent) return { propose: false, errorCode: 'UNIMPLEMENTED' };
+  return { propose: true };
+}
