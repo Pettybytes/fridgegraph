@@ -14,7 +14,9 @@
     "db:seed": "tsx scripts/db.ts seed",
     "db:reset": "tsx scripts/db.ts reset",
     "db:checksum": "tsx scripts/db.ts checksum",
-    "verify:station06": "tsx ops/station06-verify.mjs"
+    "verify:station06": "tsx ops/station06-verify.mjs",
+    "suite": "node --import tsx ops/run-suite.mjs",
+    "db:restore-demo": "tsx scripts/db.ts restore:demo"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
