@@ -3058,6 +3058,26 @@ BLOCKERS: Bentley follow-up — `ops/MyChildren.graphql` should select `child.pe
 checks pass: `typecheck + secret scan` (20s), `web build` (28s). `git diff origin/main...HEAD
 --stat` confirmed scoped to this task's own 13 files only. Not merged — Bryan merges.
 
+**Merged to `main` as `cb3dd68`.**
+
+## Fix: Orbit test assumed the ambient catalog flag was false (2026-10-31)
+
+Full detail: `docs/evidence/35-rosina-service.md` §17. W-ORBIT reported 74/75 after rebasing PR
+#44 (the `prepareOrbitAlert` catalog flip) onto `main` with #47 merged. Root cause: one test in
+`src/rosina/orbit.test.ts` (the DISABLED negative control) never explicitly controlled
+`catalog.prepareOrbitAlert.implemented` itself — it silently relied on the real flag happening to
+be `false`, unlike the two ENABLED-state tests beside it which already monkey-patch-and-restore.
+Reproduced the exact failure by flipping the real flag on disk, confirmed `decideOrbitAction()`
+itself is correct (honoring the flag exactly as designed — the defect was in the test, not the
+server logic), then fixed the test to explicitly set/restore `implemented = false` for its own
+duration. Re-verified 75/75 PASS both with the real flag at its current `false` and with it
+flipped to `true` on disk (standing in for #44 having landed). No catalog file touched by this
+fix — `src/rosina/catalog.ts` / `web/src/features/rosina/catalog.ts` carry zero diff. PR #48 head
+`1f2a39a`, branch `fix/orbit-test-disabled-flag`, worktree `../fridgegraph-orbit-test-fix`.
+`gh pr ready 48` run; `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`,
+`mergeStateStatus: CLEAN`. Both CI checks pass: `typecheck + secret scan` (27s), `web build`
+(21s). Not merged — Bryan merges.
+
 ## W-ORBIT — browser flow (in progress)
 
 BASE: fetched origin/main **2e6e869cd22e369249b121ff9988451488a9bc7e**; includes #32, #33, #36,
@@ -3182,3 +3202,20 @@ errors; no live request was made against the old runtime. Window starts only on 
 Claude Code's server-test correction is PR #48 (owned fix; no src/rosina test edit by web).
 The live harness saves each run's screenshots and receipt under a distinct run name so failures
 remain append-only. Any held mid-activation response is released in cleanup without replaying it.
+
+
+### W-ORBIT — #48 reconciliation during the reserved window
+
+Bryan authorized merging current origin/main **d8e7b63** (#48) into this branch with a merge
+commit. Both HANDOFF workstreams retained. The original 74/75 failed receipt remains preserved;
+Claude Code's owned test correction is inherited from main, not reimplemented by web.
+Window confirmed OPEN on composed runtime 8504f4d until 02:05 EDT (06:05 UTC).
+Live receipts are append-only: live-01 stopped at missing guidance note semantics on Mission
+Control (role added, original assertion retained); live-02 reached exact server preview and
+stopped at the descriptor control. Actual held-token/media-handle scans on both receipts pass.
+Live-03 is diagnosing the descriptor control without raw errors, headers or photo URLs.
+After inheriting #48: **75/75 Rosina tests PASS**, **230/230 web tests PASS**, root typecheck and
+secret scan PASS, web typecheck/build PASS, catalog 8 ids PASS, reservation guard 6/6 PASS.
+Live-03 preserved the failed descriptor interaction: browser labels included the entire options
+list. Added explicit accessible labels to the real selects; the live assertion is unchanged.
+No server test assertion changed by web; #48's owned correction arrived through the main merge.
