@@ -15,7 +15,7 @@ import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
 import { createCastV2 } from '../fixtures-cast-v2';
 import { dropPersonaSessionCache } from './persona-sessions';
-import { deleteCreatedFamilies, purgeFamilyArtifacts, type FamilyRow } from './family';
+import { deleteCreatedFamilies, purgeFamilyArtifacts, reconcileAbandonedFamilies, type FamilyRow } from './family';
 
 const LOCK_KEY = 918_273_645; // arbitrary but stable: one reset at a time, cluster-wide
 
@@ -115,6 +115,8 @@ export type ResetReport = {
   demoDecisionsCleared: number;
   /** Created (sandbox) families removed; they are not fixture rows. */
   createdFamiliesRemoved: number;
+  /** Abandoned family accounts reconciled (0051): deleted with their rows and markers. */
+  abandonedFamiliesReconciled: number;
   droppedSessionCache: true;
 };
 
@@ -214,6 +216,10 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   // removed before anything can mint or verify it again.
   await purgeFamilyArtifacts(familyRows);
 
+  // Then reconcile anything the registry could not name: an aborted run left a `pending` marker and,
+  // possibly, an auth account with no mapping at all. This is the sweep that closes that leak.
+  const reconciled = await reconcileAbandonedFamilies();
+
   // Only after a committed restore: a stale session cache would otherwise serve pre-reset reads.
   dropPersonaSessionCache();
   return {
@@ -221,6 +227,7 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     cleared,
     demoDecisionsCleared,
     createdFamiliesRemoved: familyRows.length,
+    abandonedFamiliesReconciled: reconciled.reconciled + reconciled.markersCleared,
     droppedSessionCache: true,
   };
 }
