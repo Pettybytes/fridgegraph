@@ -1621,7 +1621,7 @@ MCP (5051) with real Supabase password-grant tokens for Kendra/Priya/Dana, never
 | `PickupCandidates` (access subgraph) | **AVAILABLE** — proven 4/4 (evidence 31), wired into the live service |
 | `Attempts` / `JobTimeline` (coordination subgraph) | **AVAILABLE** — shipped by `#29` (evidence 40), wired into the allowlist by TASK R-TOOLS-1 (evidence 35 §11): Mission Control's job status, "what happened with this pickup," and the full chronological story are now answerable live |
 | `ChildEvents` / `EffectiveSchedule` / `AdultAvailability` (schedule subgraph, Group 3 `#31`) | **AVAILABLE** — wired into the allowlist by TASK R-TOOLS-2 (evidence 35 §12): a child's calendar, who has the child on a date (WEEKLY vs an APPROVED holiday ARRANGEMENT — PROPOSED never changes it), and recorded Busy/Free (never a reason, never "can pick up") are now answerable live. Child/person-id arguments are gated by a new pre-call `permittedIds` check in `src/rosina/model.ts` — never trust a browser route, history, or a model argument; an id must come from the caller's own roster/self or a tool result already returned this turn. |
-| CarePlan read | not yet exposed via MCP — needed for any allergy/medical/snack question |
+| `CareFacts` (coordination subgraph, Group 4 `#36`) | **AVAILABLE** — wired into the allowlist by TASK R-CARE (evidence 35 §14): snack, TV, bedtime, allergy and routine-care questions are answerable live, citing `source.ref` and distinguishing CONFIRMED/PROVISIONAL. An empty result (no access, no such child, or genuinely no facts — identical by design) always gets "I can't see a recorded rule for that," never the harsher generic scope refusal, for care questions specifically. `src/rosina/roster.ts#careOnlyChildren` is a narrow, CareFacts-only supplement for a real grant outside a caller's one documented child (today: Priya on Malik) — never used by any other tool, and never a substitute for the `MyChildren`/grants-by-caller read that would still replace both it and `scopedRoster`. |
 | Village directory read (people/relationships) | not yet exposed via MCP — needed for `open-person`; also needed for a proper `MyChildren`/`myVillages` caller-scoped read (R-LEAK's fallback, evidence 35 §10, uses `src/demo/personas.ts` in the meantime) |
 | `CheckInStatus` / `OrbitStatus` / `OrbitVocabulary` | **AVAILABLE** — wired into the allowlist by TASK R-ORBIT (evidence 35 §13): notice (server-computed `overdue`, never inferred from `recorded` alone), suggest (only when asked or genuinely overdue), gather (vocabulary-only, never free text/place), and a `prepareOrbitAlert` preparation card are all live. `prepareOrbitAlert` is gated and tested but `implemented: false` in the catalog — pending Codex's app-side draft/preview/confirm handler; no activate tool exists or is exposed. |
 
@@ -2112,3 +2112,86 @@ BLOCKERS: `prepareOrbitAlert` needs Codex's app-side draft/preview/confirm handl
 `state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
 checks pass: `typecheck + secret scan` (21s), `web build` (21s). `git diff origin/main...HEAD
 --stat` confirmed scoped to this task's own 9 files only. Not merged — Bryan merges.
+
+## Task R-CARE — CareFacts ENABLED + TESTED (2026-10-31)
+
+Full detail and live transcripts: `docs/evidence/35-rosina-service.md` §14.
+
+BRANCH: feat/rosina-care; WORKTREE: /Users/user/Desktop/bentley/fridgegraph-rosina-care
+BASE: origin/main `a88d613` (#36 Group 4 CareFact and #38 R-ORBIT both merged — confirmed via
+`gh pr view 36,38 --json state,mergedAt` before branching).
+
+**Live premise verified before building on it (not assumed):** the task's own CONTEXT line said
+Priya now holds `careplan.read` on both Nora and Malik. Confirmed directly against the shared
+alt-stack MCP (read-only) before writing any code: real, non-empty `CareFacts` results for both,
+`[]` for Emma. This became load-bearing — see the roster gap below.
+
+**A real gap this premise exposed:** `src/rosina/roster.ts#scopedRoster` maps each caller to
+exactly ONE child (from `src/demo/personas.ts`, which also backs the web demo-login response and
+was deliberately left untouched). Left alone, this would have silently broken the task's own
+required Priya/Malik scenario twice: the pre-call id gate would refuse `CareFacts(p_malik)`
+before it ever reached MCP, and — even if it had reached MCP — the output guard would have
+replaced the whole reply the moment the model said "Malik," since `CareFacts`'s own response
+shape carries no human name anywhere (`verifiedBy` is a bare id) and "Malik" is in neither
+Priya's roster nor any tool-result text this turn. Fixed with a new, narrow, CareFacts-ONLY
+supplement: `src/rosina/roster.ts#careOnlyChildren` — one explicit entry (`p_priya -> Malik`)
+unioned into `permittedIds` and the output guard's roster argument, never into the general
+roster used by any other tool (Priya's real grant is care-plan only; she still has no standing
+for Malik's schedule, pickups, or anything else).
+
+**A second design question CareFacts' own "no oracle" shape raised:** the task's Priya/Emma
+example wants the SAME graceful "I can't see a recorded rule for that" (not the generic scope
+refusal) for a care question about a child she has no grant for. Since Priya has no known id for
+Emma at all, the model can't call the tool for her without inventing an id (forbidden). Solved as
+a prompt-only rule: for CARE questions specifically, an out-of-roster child gets the graceful
+empty-result sentence instead of rule 9's refusal — narrowly scoped to care topics only, verified
+live that the same out-of-scope child still gets the ordinary harsh refusal for any other kind of
+question.
+
+**Shipped:**
+- `src/rosina/roster.ts`: new `careOnlyChildren(personId, isGuide)` (see above).
+- `src/rosina/model.ts`: `CareFacts` added to `ALLOWED_MCP_TOOL_NAMES` (ten tools total);
+  `ID_ARG_BY_TOOL.CareFacts = 'childId'`; `permittedIds` and the output guard's roster both union
+  in `careOnlyChildren(...)`. No new verified-id set needed — RLS alone decides visibility.
+- `src/rosina/systemPrompt.ts`: new `CARE FACTS` section (answer only from `value`; cite
+  `source.ref` directly, never `source.kind`'s code or a bare `verifiedBy.id`; CONFIRMED vs
+  PROVISIONAL are distinct sentences; the empty-result sentence doubles as the narrow care-
+  specific non-answer described above). Removed care/snack/allergy from the `still NOT
+  connected` list; school and village-directory remain blocked. `buildSystemPrompt` gained an
+  optional fourth `careRoster` parameter, default `[]` (every existing call site/test unchanged).
+
+**Tests:** `npm run test:rosina` **66/66 PASS** (53 existing regressions, still green, + 13 new
+in `src/rosina/careFacts.test.ts`). `npm run check:rosina-catalog` PASS (8 ids, unchanged — no
+catalog/action touched). `npm run check` PASS (455 files, 0 findings). `npm --prefix web run
+build` PASS; `npm --prefix web test` **168 PASS** (unchanged).
+
+**Live, real alt-stack MCP + real Meta Spark 1.3 calls, inside Bentley's read-only window (no
+reset/seed/restart/checkout-switch; told explicitly when done):** Kendra and Dwayne each get
+their own child's cited, confirmed snack rule; Priya gets BOTH Nora's and Malik's correctly
+(Malik's name reaching the reply without tripping the output guard — the actual proof the roster
+fix worked); Priya asking about Emma (no grant) gets the graceful care-specific sentence, no
+names, no tool call attempted; Dana's own child (genuinely empty) gets the identical wording by
+design; Dana asking about Nora gets the same graceful sentence for a care question but the
+ordinary harsh refusal for a non-care question about the same child; the Demo guide sees sandbox
+facts read-only.
+
+BRANCH/WORKTREE as above.
+TASK: enable CareFacts; answer snack/TV/bedtime/allergy/routine questions with source citation
+  and CONFIRMED/PROVISIONAL distinction; fix a real roster gap a live multi-child grant exposed.
+LAYER: server (src/rosina/ only; no schema/auth/DB change, no web/ file touched).
+TOUCHED: src/rosina/roster.ts, src/rosina/model.ts, src/rosina/systemPrompt.ts,
+  src/rosina/careFacts.test.ts (new), docs/evidence/35-rosina-service.md (append), this handoff.
+DONE WHEN: npm run typecheck; npm run check; npm run check:rosina-catalog; npm run test:rosina
+  (66/66); npm --prefix web run build; npm --prefix web test (168); live CareFacts probes for
+  Kendra/Dwayne/Priya/Dana/Demo-guide against the alt stack, inside Bentley's window — all
+  actually run above, not just described.
+NOT DOING: schema/auth/DB changes, any db:reset/seed/restart/checkout-switch (read-only window),
+  any mutation tool, any new catalog action/card, broadening Priya's general roster (care-plan-
+  only grant stays care-plan-only), touching src/demo/personas.ts, merging.
+BLOCKERS: none for this task. The `MyChildren`/grants-by-caller MCP read that would replace
+  `scopedRoster` would also replace `careOnlyChildren` — still not shipped.
+
+**Final state (2026-10-31):** PR #42 head `3bf8fb0`. `gh pr ready 42` run; `gh pr view 42` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (19s), `web build` (27s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 6 files only. Not merged — Bryan merges.

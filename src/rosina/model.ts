@@ -13,7 +13,7 @@ import { catalog, validateActions, type CatalogAction } from './catalog';
 import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
 import { checkInStatusFrom, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
-import { scopedRoster } from './roster';
+import { careOnlyChildren, scopedRoster } from './roster';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string };
@@ -75,7 +75,9 @@ export type RosinaTurnResult = {
  * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40). `ChildEvents`, `EffectiveSchedule`
  * and `AdultAvailability` added in TASK R-TOOLS-2 (evidence 41). `CheckInStatus`, `OrbitStatus`
  * and `OrbitVocabulary` added in TASK R-ORBIT (evidence 42/43/44) — still no activate/draft/
- * preview tool exists or ever will; Orbit's mutations are never exposed here. */
+ * preview tool exists or ever will; Orbit's mutations are never exposed here. `CareFacts` added
+ * in TASK R-CARE (evidence 35 §14): read-only, no oracle (an unauthorized, nonexistent, and
+ * genuinely-empty child all return the identical `[]`). */
 const ALLOWED_MCP_TOOL_NAMES = new Set([
   'PickupCandidates',
   'Attempts',
@@ -86,6 +88,7 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'CheckInStatus',
   'OrbitStatus',
   'OrbitVocabulary',
+  'CareFacts',
 ]);
 
 /**
@@ -102,6 +105,7 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   AdultAvailability: 'personId',
   CheckInStatus: 'childId',
   OrbitStatus: 'childId',
+  CareFacts: 'childId',
   // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
 };
 
@@ -146,10 +150,13 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), ...ACTION_TOOLS];
 
   const roster = scopedRoster(options.personId, options.isGuide);
+  // TASK R-CARE: a narrow, CareFacts-only supplement to the roster above — see
+  // src/rosina/roster.ts#careOnlyChildren. Never used by any other tool.
+  const careRoster = careOnlyChildren(options.personId, options.isGuide);
 
   const started = Date.now();
   const messages: ModelMessage[] = [
-    { role: 'system', content: buildSystemPrompt(roster, options.isGuide, options.personId) },
+    { role: 'system', content: buildSystemPrompt(roster, options.isGuide, options.personId, careRoster) },
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
   ];
@@ -172,7 +179,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // scoped child(ren) and their own personId (always safe to ask about yourself), then grown as
   // authorized tool results hand back ids this turn. Gates ChildEvents/EffectiveSchedule/
   // AdultAvailability's child/person-id arguments — see ID_ARG_BY_TOOL.
-  const permittedIds = new Set<string>([...roster.map((c) => c.id), options.personId]);
+  const permittedIds = new Set<string>([...roster.map((c) => c.id), ...careRoster.map((c) => c.id), options.personId]);
   // Orbit-specific gates (src/rosina/orbit.ts): CheckInStatus throws UNAUTHORIZED for anyone who
   // is not the child's parent, so a SUCCESSFUL call is proof of parent authority — never an
   // assumption. vocabularyByKind accumulates every value THIS turn's own OrbitVocabulary call(s)
@@ -330,7 +337,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     { prompt: 0, completion: 0, total: 0 },
   );
 
-  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", roster, toolResultTexts.join('\n'));
+  const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", [...roster, ...careRoster], toolResultTexts.join('\n'));
 
   return {
     reply: guarded.reply,

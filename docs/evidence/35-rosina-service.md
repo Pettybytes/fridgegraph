@@ -996,3 +996,175 @@ field exists anywhere in the new catalog entry, the gather instructions, or the 
 tested but **pending Codex's app handler** before it can ever actually render. Acceptance is
 explicitly scoped to "up to the preparation card" — no activate path exists to test, by design.
 Not merged.
+
+## 14. TASK R-CARE (2026-10-31) — CareFacts ENABLED + TESTED
+
+Branch `feat/rosina-care`, worktree `../fridgegraph-rosina-care`, from `origin/main` at `a88d613`
+(#36 Group 4 CareFact and #38 R-ORBIT both merged — confirmed via `gh pr view 36,38 --json
+state,mergedAt` before branching). Contract: `#36`'s evidence (`care_facts` shape, visibility
+rule) and `docs/handoff/HANDOFF.md`'s Group 4 section.
+
+### A real premise the task asked me to verify, not assume (reported before building on it)
+
+The task's CONTEXT line — "Priya holds careplan.read for BOTH Nora (existing, valid) and Malik
+(added)" — is a live DB fact, not something derivable from any file in this checkout. Verified it
+directly against the shared alt-stack MCP (read-only, before writing any code): `CareFacts` as
+Priya returns three real facts for `p_nora`, three real facts for `p_malik` (verified by Dwayne),
+and `[]` for `p_emma`. This is true and became load-bearing for the design below.
+
+### The gap this premise exposed, and the fix
+
+`src/rosina/roster.ts#scopedRoster` (R-LEAK's own documented design) maps each caller to exactly
+ONE child, from `src/demo/personas.ts`. Priya's persona entry only names Nora. Left alone, this
+would have broken the task's own required scenario twice over:
+1. **Pre-call id gate**: `CareFacts(p_malik)` would be refused before ever reaching MCP —
+   `permittedIds` wouldn't contain `p_malik` for Priya, since it is seeded only from `scopedRoster`.
+2. **Output guard**: even if the call reached MCP and returned real facts, `CareFacts`'s own
+   response shape carries no human name anywhere (`id, key, value, source{kind,ref},
+   verifiedBy{id}, verifiedAt, confidence` — `verifiedBy` is a bare id, not a display name). If
+   the model said "Malik" in its reply (which it must, since the question was about Malik), the
+   guard's `toolResultText.includes(candidate)` check would find no literal "Malik" anywhere in
+   this turn's tool JSON, Malik is not in Priya's roster, and the WHOLE reply would be replaced
+   with the scoped refusal — silently breaking a scenario the task explicitly requires to work.
+
+Fix: a new, narrow, CareFacts-ONLY supplement — `src/rosina/roster.ts#careOnlyChildren` — a tiny,
+explicit, one-entry table (`p_priya -> [Malik]`) reflecting exactly the one real grant the task's
+CONTEXT confirmed, documented as the same category of fallback `scopedRoster` already is ("no
+MyChildren/grants-by-caller MCP read exists yet"). It is unioned into `permittedIds` and into the
+roster passed to the output guard, but **never** into the roster used for anything else — Priya's
+real grant is care-plan only, and extending her general roster would have (wrongly) let her
+pre-call-gate past `ChildEvents`/`EffectiveSchedule`/`AdultAvailability` for Malik too, which she
+has no grant for. `src/demo/personas.ts` itself — the shared source the web demo-login response
+also reads — was deliberately left untouched: that file's one-child-per-persona shape ripples
+into the picker and login response, well outside this task's scope.
+
+### A second, more surprising design question CareFacts' own "no oracle" shape raised
+
+CareFacts is explicitly specified (by #36, by the task) to return the SAME empty `[]` for an
+unauthorized caller, a nonexistent child, and a genuinely empty child — on purpose, so the tool
+itself can never be used to learn which case applies. The task's own Priya/Emma example— "a child
+she has no grant for → 'I can't see a recorded rule for that', no names" — asks for that EXACT
+graceful sentence, not the harsher generic scope refusal rule 9 already uses for every other tool.
+Since Priya has no known id for Emma at all (not in her roster, not in `careOnlyChildren`, no tool
+gave it to her this turn), the model structurally cannot call `CareFacts(p_emma)` without
+inventing an id — forbidden by the existing id-authorization rule. So the fix is a PROMPT-ONLY
+rule, not a new code path: for a care-specific question (snack/TV/bedtime/allergy/routine) about
+anyone not on the caller's list, use the same graceful empty-result sentence instead of rule 9's
+refusal — never naming or confirming who is or isn't known, exactly matching the tool's own no-
+oracle design one layer up. This exception is scoped narrowly to care questions only; verified
+live below that the SAME caller, asked a non-care question about the SAME out-of-scope child,
+still gets the ordinary harsh scope refusal.
+
+### What shipped
+
+- `src/rosina/roster.ts`: new `careOnlyChildren(personId, isGuide)` (see above).
+- `src/rosina/model.ts`: `CareFacts` added to `ALLOWED_MCP_TOOL_NAMES` (ten tools total);
+  `ID_ARG_BY_TOOL.CareFacts = 'childId'`; `permittedIds` and the output guard's roster argument
+  both now union in `careOnlyChildren(...)` alongside `scopedRoster(...)`. No new verified-id set
+  was needed beyond the existing pre-call gate — CareFacts has no secondary runtime proof to grow
+  (unlike `verifiedChildIds`/`verifiedParentOf`), since RLS alone decides visibility and the tool
+  is safe to attempt for any id already on the caller's list.
+- `src/rosina/systemPrompt.ts`: new `CARE FACTS` section — answer only from a fact's own `value`
+  (never invented severity, medical conclusions, or TV titles); cite `source.ref` directly, never
+  the raw `source.kind` code or a bare `verifiedBy.id`; CONFIRMED vs PROVISIONAL are distinct
+  sentences; the exact empty-result sentence ("I can't see a recorded rule for that") doubles as
+  the care-specific non-answer for an out-of-roster child, narrowly scoped as described above.
+  Removed care/snack/allergy from the `still NOT connected` list (school and village-directory
+  stay blocked, unchanged). `buildSystemPrompt` gained an optional fourth `careRoster` parameter
+  (default `[]`, so every existing call site and test stays valid unchanged) that adds one clear
+  paragraph — "FOR CARE QUESTIONS ONLY... you have NO other knowledge about them at all" — only
+  when non-empty.
+
+### Tests — `npm run test:rosina`, 66/66 PASS (53 existing regressions + 13 new in `src/rosina/careFacts.test.ts`)
+
+```
+ok - careOnlyChildren: Priya has exactly one extra care-only child, Malik
+ok - careOnlyChildren: everyone else gets none, including the Demo guide
+ok - a known own-child CareFacts call reaches MCP
+ok - an out-of-scope child id is refused BEFORE MCP is ever called
+ok - Priya's care-only grant lets CareFacts(p_malik) actually reach MCP
+ok - the SAME p_malik id is still refused pre-call for a caller with no care-only grant for him
+ok - an authorized-but-empty CareFacts result is answered plainly, no false claim
+ok - output guard: Malik is NOT flagged for Priya, but WOULD be for someone with no such grant
+ok - the system prompt states the exact CONFIRMED / PROVISIONAL / empty-result wording
+ok - the system prompt forbids inventing severity, medical conclusions or TV titles
+ok - care is no longer in the NOT-connected list; school and directory still are
+ok - Priya's system prompt lists Malik as a care-only exception, framed narrowly
+ok - a caller with no care-only grant gets no such paragraph at all
+```
+Zero network calls, zero Meta API cost. `npm run typecheck` PASS. `npm run check` PASS (455
+files, 0 findings). `npm run check:rosina-catalog` PASS (8 ids, unchanged — no catalog/action
+touched this task). `npm --prefix web run build` PASS; `npm --prefix web test` **168 PASS**
+(unchanged — no `web/` file touched).
+
+### Live confirmation — real alt-stack MCP (5051), real Meta Spark 1.3 calls, real tokens, inside Bentley's read-only window
+
+Checked the stack with `ops/alt-stack.sh --check` (PASS) and three direct `ops/mcp-probe.mjs`
+`CareFacts` reads as Priya — confirmed the real premise above — before writing or running any
+Rosina code against it. No `db:reset`, seed, restart, or checkout switch was run; ran my own
+Rosina process on a second, unused port (4202, this worktree only) against the already-running
+alt-stack MCP (5051); stopped it the moment the probes below were done and told Bentley the
+window was clear to close or continue.
+
+```
+Kendra (p_mom), "Can Nora have a peanut butter snack?":
+  reply: "No — Nora can't have peanut butter. The care notes record 'Peanut-free snack only — no
+  nuts, no shared utensils,' confirmed by Kendra's care instructions from Oct 12." actions: []
+  tools=mcp:CareFacts
+
+Dwayne (p_dwayne), "Can Malik have a PB snack?":
+  reply: "No — Malik shouldn't have peanut butter. The care records show 'No peanut butter —
+  peanut-free snacks only, no shared utensils,' confirmed by Dwayne's care instructions from Oct
+  20." actions: [] tools=mcp:CareFacts
+
+Priya (p_priya), "Can Nora have a PB snack?":
+  reply: "No — Nora needs a peanut-free snack only, no nuts and no shared utensils. That's
+  confirmed by Kendra's care instructions from Oct 12." actions: [] tools=mcp:CareFacts
+
+Priya (p_priya), "Can Malik have a PB snack?":
+  reply: "No — no peanut butter for Malik. The recorded snack rule is peanut-free snacks only
+  with no shared utensils, confirmed by Dwayne in his care instructions from Oct 20."
+  actions: [] tools=mcp:CareFacts outputGuardTriggered=false
+  — Malik's name reached the reply without tripping the guard, proving the `careOnlyChildren`
+  fix: the id gate let the call through, and the guard's roster argument included his name.
+
+Priya (p_priya), "Can Emma have a PB snack?" (a child she has no grant for):
+  reply: "I can't see a recorded rule for that." actions: [] tools=none
+  — no id for Emma exists anywhere in Priya's scope this turn, so no call was even attempted; the
+  care-specific graceful wording was used instead of the generic scope refusal, and Emma's name
+  never appeared.
+
+Dana (p_dana), "Can my kid have a peanut butter snack?" (her own child, Jax — genuinely no facts):
+  reply: "I can't see a recorded rule for that." actions: [] tools=mcp:CareFacts
+  — authorized call, genuinely empty result; identical wording to the out-of-scope case above, by
+  design (CareFacts has no oracle either way).
+
+Dana (p_dana), "Can Nora have a peanut butter snack?" (out of scope, CARE question):
+  reply: "I can't see a recorded rule for that." actions: [] tools=none
+  — the narrow care-specific exception, not the generic refusal; no name leaked.
+
+Dana (p_dana), "What's on Nora's calendar today?" (out of scope, NON-care question):
+  reply: "I can only help with children shared with you." actions: [] tools=none
+  — confirms the exception above is scoped to care questions only; the ordinary harsh refusal
+  still applies to everything else.
+
+Demo guide (p_demo_guide), "Can Malik have a peanut butter snack?":
+  reply: "No — Malik should not have peanut butter. The care facts record peanut-free snacks only
+  with no shared utensils, confirmed by Dwayne's care instructions from Oct 20." actions: []
+  tools=mcp:CareFacts — sandbox read, nothing proposed (read-only, as every CareFacts answer is).
+```
+
+Every `tools=`/`outputGuardTriggered=` log line and reply above was asserted against directly
+from the running server's own log and the probe's own HTTP response; `grep -nE
+'[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}'` over the server log found no phone digit or token.
+
+### Scope discipline
+
+No schema, auth, or DB change — read-only the entire task, inside Bentley's stated window; no
+`db:reset`, seed, restart, or checkout switch was run, and Bentley was told explicitly when the
+live checks finished. No service-role read in this task's own code path. No mutation tool added —
+`CareFacts` is a pure read, and no action/card was introduced (this task proposes no new
+catalog entry). `TESTED + ENABLED`: `CareFacts`. The `careOnlyChildren` supplement is intentionally
+narrow — one entry, CareFacts-only, reflecting exactly the one real grant this task was told
+about and verified; record for Bentley that the same `MyChildren`/grants-by-caller MCP read that
+would replace `scopedRoster` would also replace this. Not merged.
