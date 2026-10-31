@@ -1,7 +1,7 @@
 # 26 — EXECUTE posture after 0012 (anon refused, authenticated intact)
 
 - endpoint: `https://<project>.supabase.co/rest/v1/rpc/…` (PostgREST, publishable key; no service role)
-- run: 2026-10-31T20:01:36.650Z
+- run: 2026-10-30T23:16:27.062Z
 - identity: real Supabase password-grant JWTs per caller; tokens redacted, never stored
 - migration under test: `supabase/migrations/0012_revoke_public_execute.sql`
 
