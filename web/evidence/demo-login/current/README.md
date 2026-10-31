@@ -1,6 +1,8 @@
 # W4b replacement brief — current evidence
 
 Base: fetched origin/main **0d80f003c722e009897b1790c461952cd0de6f66** (#31), including #27/#28/#29.
+Final local rebase: **27fb5a44d575bf7683063516ddbe08ecf321bdea**, adding the concurrently merged
+Task R and Task O work; the initial fetched base above is preserved.
 Existing draft #32 is being reconciled to the replacement brief. Previous evidence in the parent
 folder is historical; it does not prove this replacement run complete.
 
