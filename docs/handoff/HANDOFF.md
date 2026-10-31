@@ -3590,9 +3590,130 @@ GraphQL against the MCP `MyChildren` call. Both must return `p_leo,p_max,p_nora`
 before the window opens. No identity substitution to make the check pass.
 
 Bryan input: **not required** — this is a restore/config issue, not a decision.
+
+## Task W-RESET — browser reset (in progress)
+
+Branch `feat/web-demo-reset`, base `origin/main` **c499e217a1455e8053646beb0d554d11b76e0f1c** (#50). Web and docs only. Evidence 51's completed API-origin proof supersedes the earlier unfinished Group 5 checkpoint above; its original failed receipt is preserved.
+
+**UI: implemented, offline tested · backend: #50 complete; moving route to demo server · integrated + tested: PENDING.** Not DONE. Bentley owns the serving move and restoration. The existing `/api/demo` proxy targets 4008; no reset-specific proxy is added. Before live calls, inspect the shared checkout's reservation and require explicit restoration plus an OPEN W-RESET window. At this checkpoint the window is reserved but CLOSED: Bentley's authenticated Kendra MyChildren preflight returned an empty array. No browser live requests or resets have been made by this workstream.
+
+Reset confirms its shared scope, then sends exactly one POST. Confirmed success is followed by caller-scoped, no-cache `myChildren` and `orbitVocabulary` reads before this tab discards its session, generation, private caches, Rosina conversation, Orbit/controller state, photo rendering handles and private route selections. Read verification neither renews nor replays the reset. The picker says “Demo reset. Choose a perspective.” The second tab is deliberately untouched: it keeps its valid token and sees seeded state on its next explicit refetch, with no forced logout, cache broadcast or re-mint.
+
+An explicit server failure retains “Couldn't reset just now; nothing was changed.” Bryan approved distinct uncertainty copy for a lost connection, timeout, malformed response or failed post-reset verification: “Couldn't confirm the reset. Choose a perspective again.” This path clears local state without retrying. Cooldown permits only a later manual click; guide reset controls are hidden and the handler also refuses them.
+
+Visual direction follows the existing family demo: Geist type, white #ffffff, ink #26344c, muted #62708a, violet #7559a1 and pale #f0ebf6. A focused shared-state confirmation has one primary action and a separate cancel; mobile stacks the actions with generous touch targets. Reviewed real component screenshots in `web/evidence/reset-demo/design/` are explicitly labeled offline sample fixtures, not live evidence.
+
+Offline checkpoint: **253/253 web tests**, web typecheck/build, root typecheck and `npm run check` (**0 findings**) passed. New cases cover confirm/cancel, one request, verification ordering, cleanup/generation/token disposal, explicit failure, cooldown, uncertainty, stale completion, guide protection, independent tabs, transport timeout/cancellation and no read retry. Existing privacy/image lifecycle tests remain green. Baseline before changes: 231/231. The initial new test red receipt is retained outside tracked evidence in the local check log; no historical result was rewritten. Live acceptance, token/media scan and live desktop/mobile screenshots remain PENDING. No PR yet; no merge.
+
 | 2026-10-31 04:26 | **W-RESET OPEN — 30 min, deadline 04:54 EDT.** Restoration from `f01021b` (serving code `dd84886`): alt stack 4101–4107 restarted (4102–4106 had been dead — that, not the DB, caused empty `myChildren`), 4008 serving the reset route, MCP 5051 up. **Both paths verified**: router 4012 `myChildren` = `p_leo,p_max,p_nora` named=true; MCP `MyChildren` = same. Reset route returns 401 unauthenticated (present + guarded). No db:reset. | serving `dd84886` (docs HEAD `f01021b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **OPEN to W-RESET until 04:54 EDT** |
+
+### W-RESET — live acceptance completed (2026-10-31 04:33 EDT)
+
+**UI: complete/live · backend: complete on serving move #52 (`dd84886`, equivalent code `1a51273`), merge dependency · integrated + tested: PASS, 32/32 browser checks.** W-RESET browser slice complete; broader W4 dependencies remain PENDING. UI PR **#51** depends on Bentley's **#52** putting reset on 4008. No proxy change, backend edits, automatic replay or cross-tab logout in #51.
+
+Bentley restored and explicitly opened the W-RESET window until 04:54 after nonempty named MyChildren proofs through router and MCP. Completion and release were explicitly sent at about 04:33. No web-agent stack switches, restarts, seeds, db:reset or real sends.
+
+Actual picker/Rosina card → draft/preview/photo → explicit activation → shared confirmation → **one reset POST** → successful no-cache seeded reads → cache/token/generation/Rosina/Orbit/image cleanup → success picker. The other tab kept its identical valid bearer and login count and explicitly refetched seeded no-alert data, with no logout or re-mint. Returning Kendra saw seeded children and no alert/thread. Guide reset hidden. Token/media scan PASS, no new generic-marker matches. Twelve real desktop/mobile captures: `web/evidence/reset-demo/live-07/`; safe receipt `live-07.json`; full account `docs/evidence/web-reset.md`.
+
+Offline: **255/255 web tests**, web typecheck/build, root typecheck, secret scan **0 findings**, guard test PASS. Failed receipts 01–06 remain unchanged (zero resets): harness baseline-read, initial-state and preview-readiness assumptions were corrected; a reservation interruption blocked requests. None counts as a pass. A separate `WebVillage` authorization refusal was observed; its live integration remains outside this slice.
+
 | 2026-10-31 04:33 | **W-RESET RELEASED — live COMPLETE (PASS), before the 04:54 deadline.** Actual picker/Rosina card → preview/photo → explicit Orbit activate → **one** reset on 4008 → seeded reads → local picker. Second tab kept an **identical token and login count** and an explicit Orbit refetch saw the seeded no-alert state — **no logout, no re-mint**. Kendra re-picked seeded / no alert / no old thread. Guide reset hidden. Live07 receipt + safe screenshots saved; token/media scan PASS. No db:reset, seeds, restarts or real sends by web. Failed receipts 01–06 preserved; no reset occurred before 07. **Dependency: #52 (route move, CI green observed) must ship with UI #51.** Serving `dd84886` unchanged. | serving `dd84886` (docs HEAD `dd9d03b`) | 4008/28366 · 4012/18859 · 4200/34734 · 5051/28180 · 4101–4107 | **RELEASED — restored/available** |
 
+## Group 5 Piece 3 — consent decisions implemented and proven (2026-10-31 14:58)
+
+Branch `piece3-consent`, merged with `origin/main` (`f6aafcc`, #52) — one merge commit, no rebase, no
+force-push. `HANDOFF.md` was the only conflict (the #52 side added the 04:33 W-RESET RELEASED row);
+both sides kept, chronological, no rows dropped. `src/demo/server.ts` and `src/rosina/server.ts` were
+byte-identical to main after the merge; the only edit to the latter is deleting the orphaned
+"One reset per demo session per 30s…" doc comment that #52 left above `createRosinaApp`.
+
+### 0047 — one decision per permission slip (applied)
+
+0046's index was unique per **(slip, approver)**, so two different approvers could each record an
+approval for the same slip. Stage 1 records the decision once per slip, so 0047:
+
+1. widens `approvals.subject_type` to include `permission_slip`. **Required and missing from 0046**:
+   0028 restricted the check to `('Relationship','Grant','HolidayArrangement')`, and a `NOT VALID`
+   constraint is still enforced on new rows — without this, a permission-slip approval could not be
+   inserted at all;
+2. adds the partial unique index `approvals_permission_slip_decision` on
+   `(subject_type, subject_id) WHERE subject_type='permission_slip'`;
+3. drops `approvals_permission_slip_once`, which the new index strictly supersedes.
+
+**Pre-flight before applying (live project):** `approvals` had **0 rows total, 0 permission_slip rows**,
+so no existing data could violate the new index — nothing to stop and report.
+
+**Verification after applying:**
+
+| Query | Result |
+|---|---|
+| `pg_indexes` on `approvals` | only `approvals_pkey` + `approvals_permission_slip_decision (subject_type,subject_id) WHERE subject_type='permission_slip'`; the 0046 index is **gone** |
+| `pg_constraint` on `approvals` | `subject_type in ('Relationship','Grant','HolidayArrangement','permission_slip')` |
+| rolled-back probe: approver A then **approver B**, same slip | first insert OK, second **rejected 23505 `approvals_permission_slip_decision`**; `approvals` rows back to 0 after rollback |
+
+### 0048 — decision visibility + demo sandbox (applied, needed by the resolver)
+
+0047 alone leaves the second half of idempotency unreadable: `approvals_read` (0003) exposes a row only
+to its own approver, or when the subject is a Grant/Relationship of the caller's child. A permission-slip
+row would be visible to the approver alone, so "return the existing decision **with who made it**" and
+"the decision appears in the slip's history" would both return nothing. 0048 adds exactly:
+
+- `approvals_permission_slip_read` (permissive SELECT): `subject_type='permission_slip'` and the caller
+  is a parent/guardian of the slip's child;
+- `approvals_permission_slip_demo_insert` (**restrictive** INSERT): a demo caller may write a
+  permission-slip approval only for a **sandbox** child. Scoped to `subject_type='permission_slip'`, so
+  grant/relationship approvals keep their existing behaviour. Guide writes stay refused by 0025's
+  restrictive policies.
+
+### `approveConsent(slipId: ID!)` — `src/subgraphs/school.ts`
+
+Authority is **CONSENT**, resolved from the child's household `consent_approval` policy:
+
+| Policy value | Who may decide |
+|---|---|
+| `parent` | any parent or guardian of the child (the authority fact, 0024) |
+| a person id | **ONLY** that person. Not "parent OR the named approver": naming someone takes the decision away from every other parent |
+| **no `consent_approval` rule** | **parent or guardian of the child — this is the explicit default, not a rejection** |
+| more than one *different* named approver across the child's households | ambiguous configuration: refuses everyone |
+
+Never derived from parenting time, `schedule_swap_approval`, a `resident_adult` membership or a
+care-plan grant. The Demo guide is refused (`DEMO_GUIDE_READ_ONLY`) and again in the database.
+
+Idempotency trusts the **database**, not a pre-check: insert, and on `23505` read the existing row and
+return it. Same approver gets the same decision; a different eligible approver gets the existing
+decision **with who made it** and changes nothing.
+
+No existence oracle: the slip is read through the caller's own RLS client, so a hidden slip, a
+nonexistent id and a malformed id all produce the same `UNAUTHORIZED` as an unauthorized-but-visible
+slip.
+
+`PermissionSlip.history` returns the recorded decision(s) for that slip.
+
+### Proof — `ops/consent-approval-proof.mjs`, evidence `docs/evidence/52-consent-approval.md`
+
+Runs only the **school subgraph on spare port 4315**; the demo stack was not restarted. Real JWTs per
+caller; the owner DB connection is used for proof fixtures only (four fictional slips + one
+`consent_approval` row, removed afterwards — verified back to `permission_slips=0, approvals=0,
+consent_approval rows=0`).
+
+**20/20 PASS**: default-rule parent approves (1 row); same approver repeats (1 row, same decision);
+second eligible parent after the decision (1 row, existing decision with `p_mom`, `approver`/`at`
+unchanged); Marcus `resident_adult` refused; Priya `careplan.read` grant refused; Demo guide refused;
+named-approver household refuses the other parent and accepts the named one; hidden / nonexistent /
+malformed ids give an **identical** refusal; the decision appears in the slip history for both parents.
+
+Also run on this branch: `npm run typecheck` clean; graph suite **114 checks across 32 cases PASS** via
+router **4012** (alt stack, generated from `router.yaml`, no edge JWT — refusals surface downstream as
+`UNAUTHENTICATED`, which is why this is 114 and not 115); `npm run test:rosina` **86/86 pass**.
+
+### STANDING NOTE for Task H — the 4008 reset route's LOOPBACK_ONLY guard is not a real gate
+
+**Do not build now; recorded so it is not forgotten.** The reset route checks
+`req.socket.remoteAddress`, but behind cloudflared or the Vite proxy **every request arrives from
+127.0.0.1**, so the guard cannot distinguish public traffic from local. Before demo login or reset goes
+public, reset needs a real gate: (1) a server-side check of the demo/sandbox session, (2) a rate limit
+per IP from a **trusted forwarded header**, and (3) the existing guide refusal. The loopback check may
+stay as defence in depth, but it must not be the only gate.
 ## Group 5 Piece 2 — createDemoFamily implemented and proven (2026-10-31 15:12)
 
 Branch `feat/create-demo-family` from `origin/main` (`f6aafcc`, #52). A created family is a sandbox

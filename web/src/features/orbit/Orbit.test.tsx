@@ -58,3 +58,14 @@ it('leaving a perspective clears and revokes its rendered photo',async()=>{
  const {controller}=fixture();const revoke=vi.fn();vi.stubGlobal('URL',class extends URL{static createObjectURL=()=> 'temporary-private-handle';static revokeObjectURL=revoke})
  render(<Wrapper controller={controller}><Photo controller={controller} id="ph_test"/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'));await screen.findByAltText('Shared photo');fireEvent.click(screen.getByText('Leave test perspective'));expect(screen.queryByAltText('Shared photo')).not.toBeInTheDocument();expect(revoke).toHaveBeenCalledWith('temporary-private-handle');expect(controller.getSnapshot().photoId).toBeUndefined()
 })
+
+it('confirmed reset unmounts the real Rosina thread and photo, disposes Orbit and revokes the handle',async()=>{
+ const {controller}=fixture(),revoke=vi.fn();vi.stubGlobal('URL',class extends URL{static createObjectURL=()=> 'temporary-reset-private-handle';static revokeObjectURL=revoke})
+ const {ResetDemoControl}=await import('@/features/personas/ResetDemoControl')
+ const service={mode:'mock' as const,send:vi.fn(async()=>({reply:'Private reset test answer',actions:[]}))}
+ function ResetPage(){const {session,notice}=useSession();return <><Login/>{notice&&<p>{notice}</p>}{session&&<OrbitProvider controller={controller}><Photo controller={controller} id="ph_reset"/><RosinaPanel service={service}/><ResetDemoControl/></OrbitProvider>}</>}
+ render(<SessionProvider adapter={createMockAuthAdapter()}><ResetPage/></SessionProvider>);fireEvent.click(screen.getByText('Enter test perspective'));await screen.findByAltText('Shared photo')
+ fireEvent.change(screen.getByLabelText('Message Rosina'),{target:{value:'Private reset question'}});fireEvent.submit(screen.getByLabelText('Message Rosina').closest('form')!);await screen.findByText('Private reset test answer')
+ fireEvent.click(screen.getByRole('button',{name:'Reset demo'}));expect(revoke).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Reset demo for everyone'}));await screen.findByText('Demo reset. Choose a perspective.')
+ expect(screen.queryByAltText('Shared photo')).not.toBeInTheDocument();expect(screen.queryByText('Private reset test answer')).not.toBeInTheDocument();expect(screen.queryByText('Private reset question')).not.toBeInTheDocument();expect(revoke).toHaveBeenCalledWith('temporary-reset-private-handle');expect(controller.current()).toBe(false)
+})

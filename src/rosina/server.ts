@@ -108,8 +108,6 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
   res.status(200).json({ reply: outcome.reply, actions: outcome.actions });
 }
 
-/** One reset per demo session per 30s. In-process and per-person: a reset is expensive and
- *  destructive, so a double click must not queue a second one. */
 export function createRosinaApp() {
   const app = express();
   app.use(express.json({ limit: '64kb' }));

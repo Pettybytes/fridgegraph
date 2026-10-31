@@ -32,7 +32,7 @@ export interface AuthAdapter {
   readonly mode: 'mock' | 'live'
   signInAsPersona(personaId: PersonaId, signal?: AbortSignal): Promise<Omit<AuthSession, 'generation'>>
   unavailablePersonas?(signal:AbortSignal):Promise<PersonaId[]>
-  resetDemo(): Promise<void>
+  resetDemo(accessToken?:string,signal?:AbortSignal): Promise<void>
   createDemoFamily(input: DemoFamilyInput): Promise<DemoFamily>
 }
 export function createMockAuthAdapter(): AuthAdapter {
