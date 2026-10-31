@@ -121,6 +121,39 @@ function writeMap(map: Record<string, string>): void {
   renameSync(tmp, path);
 }
 
+/**
+ * Test-only fault injection. There is no production flag: the hook is null in every normal run, and
+ * setting it is refused under NODE_ENV=production, exactly like the other test hooks.
+ *
+ * The stages mirror the real ordering, so a proof can fail each boundary and assert the end state:
+ *   before-auth    nothing exists yet
+ *   before-commit  auth user exists, rows are uncommitted (rollback)
+ *   after-commit   rows + identity_map + registry committed, JSON map not yet written
+ *   after-file     everything written, then the caller fails
+ */
+export type FamilyStage = 'before-auth' | 'before-commit' | 'after-commit' | 'after-file';
+let faultHook: ((stage: FamilyStage) => void | Promise<void>) | null = null;
+
+function assertNotProduction(hook: string): void {
+  if (process.env.NODE_ENV === 'production') throw new Error(`${hook} is unavailable in production`);
+}
+
+export function __setFamilyFaultHook(fn: ((stage: FamilyStage) => void | Promise<void>) | null): void {
+  assertNotProduction('__setFamilyFaultHook');
+  faultHook = fn;
+}
+
+async function passStage(stage: FamilyStage): Promise<void> {
+  if (faultHook) await faultHook(stage);
+}
+
+function removeMapEntry(authUserId: string): void {
+  const map = readMap();
+  if (!(authUserId in map)) return;
+  delete map[authUserId];
+  writeMap(map);
+}
+
 export async function createDemoFamily(input: { parentName: unknown; childName: unknown }): Promise<CreatedFamily> {
   const parentName = cleanName(input.parentName);
   const childName = cleanName(input.childName);
@@ -138,11 +171,36 @@ export async function createDemoFamily(input: { parentName: unknown; childName: 
   await c.connect();
   let authUserId = '';
   let committed = false;
+
+  /**
+   * Idempotent undo. Every step is safe when its row is absent, so a failure at ANY stage leaves the
+   * same end state: no rows, no identity_map row, no registry row (so no picker entry and no login),
+   * no JSON mapping and no auth user. A half-created family is never merely "unusable" — it is gone.
+   */
+  const compensate = async (): Promise<void> => {
+    if (committed) {
+      await c.query(`delete from identity_map where user_id = $1`, [authUserId]).catch(() => undefined);
+      await c.query(`delete from household_members where household_id = $1`, [householdId]).catch(() => undefined);
+      await c.query(`delete from children where person_id = $1`, [childId]).catch(() => undefined);
+      await c.query(`delete from households where id = $1`, [householdId]).catch(() => undefined);
+      await c.query(`delete from people where id in ($1,$2)`, [personId, childId]).catch(() => undefined);
+      await c.query(`delete from villages where id = $1`, [villageId]).catch(() => undefined);
+      await c.query(`delete from demo_families where id = $1`, [personaId]).catch(() => undefined);
+    } else {
+      await c.query('rollback').catch(() => undefined);
+    }
+    if (authUserId) {
+      try { removeMapEntry(authUserId); } catch { /* a failed write leaves no entry: nothing to undo */ }
+      await deleteAuthUser(authUserId);
+    }
+  };
+
   try {
     // Cap first: a runaway loop in a kiosk must not mint unlimited identities.
     const count = await c.query(`select count(*)::int n from demo_families`);
     if (Number(count.rows[0]?.n ?? 0) >= MAX_FAMILIES) throw new FamilyError('FAMILY_LIMIT', 429);
 
+    await passStage('before-auth');
     authUserId = await createAuthUser(email);
 
     await c.query('begin');
@@ -163,9 +221,8 @@ export async function createDemoFamily(input: { parentName: unknown; childName: 
     await c.query(`insert into household_members (person_id, household_id, role) values ($1, $2, 'child')`, [
       childId, householdId,
     ]);
-    // TWO identity mappings, both required: RLS's current_person() reads this TABLE, and the
-    // bearer verifier reads the JSON file. Writing only one leaves a persona that signs in and then
-    // sees nothing (proven by the proof run before this line existed).
+    // TWO identity mappings, both required: RLS's current_person() reads this TABLE, the bearer
+    // verifier reads the JSON file. Writing only one gives a persona that signs in and is denied.
     await c.query(`insert into identity_map (user_id, person_id) values ($1, $2)`, [authUserId, personId]);
     await c.query(
       `insert into demo_families
@@ -173,30 +230,22 @@ export async function createDemoFamily(input: { parentName: unknown; childName: 
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [personaId, personaId, personId, childId, householdId, villageId, email, authUserId, parentName, childName],
     );
+
+    await passStage('before-commit');
     await c.query('commit');
     committed = true;
 
-    // Mapping LAST: a family without a mapping is invisible to the verifier, which is the safe
-    // direction. If it fails, nothing created here may survive.
+    // Mapping LAST. The file cannot join the transaction, so it is written after commit and every
+    // failure after this point (including one after the write) unwinds the committed rows too.
+    await passStage('after-commit');
     const map = readMap();
     map[authUserId] = personId;
     writeMap(map);
 
+    await passStage('after-file');
     return { id: personaId, childId, parentName, childName };
   } catch (error) {
-    if (committed) {
-      // Mapping failed after the rows landed: undo the rows so nothing half-created remains.
-      await c.query(`delete from identity_map where user_id = $1`, [authUserId]).catch(() => undefined);
-      await c.query(`delete from household_members where household_id = $1`, [householdId]).catch(() => undefined);
-      await c.query(`delete from children where person_id = $1`, [childId]).catch(() => undefined);
-      await c.query(`delete from households where id = $1`, [householdId]).catch(() => undefined);
-      await c.query(`delete from people where id in ($1,$2)`, [personId, childId]).catch(() => undefined);
-      await c.query(`delete from villages where id = $1`, [villageId]).catch(() => undefined);
-      await c.query(`delete from demo_families where id = $1`, [personaId]).catch(() => undefined);
-    } else {
-      await c.query('rollback').catch(() => undefined);
-    }
-    if (authUserId) await deleteAuthUser(authUserId);
+    await compensate();
     throw error instanceof FamilyError ? error : new FamilyError('FAMILY_CREATE_FAILED', 500);
   } finally {
     await c.end();
@@ -243,10 +292,40 @@ export async function familyPersona(personaId: string): Promise<DemoPersona | nu
  */
 export async function deleteCreatedFamilies(c: pg.Client): Promise<FamilyRow[]> {
   const r = await c.query(`select * from demo_families`);
-  const rows = r.rows as FamilyRow[];
+  const rows = (r.rows as FamilyRow[]).map((x) => ({ ...x }));
+
+  // Reconciling sweep for a crash that left ONE of the two mappings behind. Created-family ids are
+  // namespaced (`p_family_*`), so an orphan is identifiable without guessing.
+  const orphanMap = await c.query(
+    `select user_id, person_id from identity_map
+      where person_id like 'p_family_%'
+        and person_id not in (select person_id from demo_families)`,
+  );
+  for (const o of orphanMap.rows) {
+    const member = await c.query(`select household_id from household_members where person_id = $1 limit 1`, [o.person_id]);
+    const householdId = member.rows[0]?.household_id as string | undefined;
+    // The whole household goes, not just the orphaned parent: its child person and the village it
+    // sits in are part of the same half-created family.
+    let childIds: string[] = [];
+    let villageId: string | undefined;
+    if (householdId) {
+      const members = await c.query(`select person_id, role from household_members where household_id = $1`, [householdId]);
+      childIds = members.rows.filter((r) => r.role === 'child').map((r) => String(r.person_id));
+      villageId = (await c.query(`select village_id from households where id = $1`, [householdId])).rows[0]?.village_id;
+    }
+    await c.query(`delete from identity_map where user_id = $1`, [o.user_id]);
+    await c.query(`delete from household_members where person_id = $1`, [o.person_id]);
+    if (householdId) await c.query(`delete from household_members where household_id = $1`, [householdId]);
+    for (const childId of childIds) await c.query(`delete from children where person_id = $1`, [childId]);
+    await c.query(`delete from children where person_id = $1`, [o.person_id]);
+    if (householdId) await c.query(`delete from households where id = $1`, [householdId]);
+    if (villageId) await c.query(`delete from villages where id = $1`, [villageId]);
+    await c.query(`delete from people where id = any($1)`, [[o.person_id, ...childIds]]);
+    rows.push({ auth_user_id: String(o.user_id), person_id: String(o.person_id) } as FamilyRow);
+  }
+
   for (const f of rows) {
-    // The DB mapping goes with the data: an old token must stop being a person, not just a member.
-    await c.query(`delete from identity_map where user_id = $1`, [f.auth_user_id]);
+    if (!f.household_id) continue;
     await c.query(`delete from household_members where household_id = $1`, [f.household_id]);
     await c.query(`delete from children where person_id = $1`, [f.child_id]);
     await c.query(`delete from households where id = $1`, [f.household_id]);
@@ -257,11 +336,41 @@ export async function deleteCreatedFamilies(c: pg.Client): Promise<FamilyRow[]> 
   return rows;
 }
 
+
 /** After the reset transaction commits: drop the mappings, then best-effort delete the users. */
 export async function purgeFamilyArtifacts(rows: FamilyRow[]): Promise<void> {
-  if (!rows.length) return;
   const map = readMap();
-  for (const f of rows) delete map[f.auth_user_id];
-  writeMap(map);
-  for (const f of rows) await deleteAuthUser(f.auth_user_id);
+  let changed = false;
+  for (const f of rows) {
+    if (f.auth_user_id && f.auth_user_id in map) { delete map[f.auth_user_id]; changed = true; }
+  }
+  // The reverse orphan: a FILE entry that maps to a `p_family_*` persona the registry does not have.
+  // Only namespaced ids are considered, so no seeded persona can ever be swept away.
+  const registry = await registryPersonIds();
+  const sweptSubs: string[] = [];
+  for (const [sub, person] of Object.entries(map)) {
+    if (typeof person !== 'string' || !person.startsWith('p_family_')) continue;
+    if (registry.has(person)) continue;
+    delete map[sub];
+    sweptSubs.push(sub);
+    changed = true;
+  }
+  if (changed) writeMap(map);
+  for (const f of rows) if (f.auth_user_id) await deleteAuthUser(f.auth_user_id);
+  // A swept file entry names its own auth user, so that orphan is deleted too rather than lingering.
+  for (const sub of sweptSubs) await deleteAuthUser(sub);
+}
+
+/** personIds currently registered. Read after the reset commit, so the sweep sees the end state. */
+async function registryPersonIds(): Promise<Set<string>> {
+  const c = client();
+  await c.connect();
+  try {
+    const r = await c.query(`select person_id from demo_families`);
+    return new Set(r.rows.map((x) => String(x.person_id)));
+  } catch {
+    return new Set();
+  } finally {
+    await c.end();
+  }
 }

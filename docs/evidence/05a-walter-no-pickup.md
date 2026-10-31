@@ -1,6 +1,6 @@
 # As Walter: pickupCandidates -> UNAUTHORIZED (no pickup.verify)
 
-- endpoint: `http://127.0.0.1:4010/`
+- endpoint: `http://127.0.0.1:4012/`
 - identity: Bearer eyJhbG…<redacted, 823 chars>  (verified Supabase JWT; token redacted, never stored)
 - x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - note: Walter holds schedule.read and goals.read only, so he may not read the candidate list at all.
@@ -39,10 +39,10 @@ query { pickupCandidates(childId: "p_nora", asOf: "2026-10-26") { person { displ
         "code": "UNAUTHORIZED",
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
-          "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
-          "    at requirePickupAccess (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/access.ts:177:9)",
+          "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:46:10)",
+          "    at requirePickupAccess (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/access.ts:189:9)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
-          "    at async pickupCandidates (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/access.ts:274:7)"
+          "    at async pickupCandidates (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/access.ts:286:7)"
         ],
         "service": "access"
       }

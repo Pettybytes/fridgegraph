@@ -1,6 +1,6 @@
 # As Daniel: goals denied
 
-- endpoint: `http://127.0.0.1:4010/`
+- endpoint: `http://127.0.0.1:4012/`
 - identity: Bearer eyJhbG…<redacted, 822 chars>  (verified Supabase JWT; token redacted, never stored)
 - x-demo-date: `2026-10-26`  (test clock; honoured only while DEMO_CLOCK=1)
 - HTTP status: 200
@@ -38,8 +38,8 @@ query { goals(childId: "p_nora") { title } }
         "code": "UNAUTHORIZED",
         "stacktrace": [
           "GraphQLError: UNAUTHORIZED",
-          "    at deny (/Users/user/Desktop/bentley/fridgegraph-level-b/src/authz.ts:46:10)",
-          "    at goals (/Users/user/Desktop/bentley/fridgegraph-level-b/src/subgraphs/village.ts:309:13)",
+          "    at deny (/Users/user/Desktop/bentley/fridgegraph/src/authz.ts:46:10)",
+          "    at goals (/Users/user/Desktop/bentley/fridgegraph/src/subgraphs/village.ts:309:13)",
           "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
         ],
         "service": "village"

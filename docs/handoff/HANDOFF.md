@@ -3784,3 +3784,33 @@ the Vite proxy every request arrives from 127.0.0.1, so it cannot tell public tr
 Before demo login or reset goes public, reset needs a real gate: a server-side check of the
 demo/sandbox session, a rate limit per IP from a trusted forwarded header, and the existing guide
 refusal. **Not built now.**
+| 2026-10-31 15:58 | **RESERVED: W-P2 window (~30 min)** — persona-sessions proof case h calls `resetDemo()` (created family deleted mid-mint), then restore + verify. No db:reset, no seeds, no restarts planned; the suite will run later in its own window. Restore check: consumer reads (jobTimeline, effectiveScheduleFor, orbitVocabulary, checkInStatus, careFacts, myChildren) + one authenticated MCP call + `my-children-proof` PASS. | `feat/create-demo-family` @ `911433d` | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
+
+### createDemoFamily — exact ordering and every compensation path (2026-10-31 16:02)
+
+The JSON identity file cannot join the Postgres transaction, so the order is fixed and every boundary is
+compensated. `compensate()` is idempotent: each step is safe when its row is absent.
+
+| # | Step | Failure here ⇒ |
+|---|---|---|
+| 0 | count check (`< 8` registered families) | `FAMILY_LIMIT` (429), nothing written |
+| 1 | **auth user create** (admin API, service role, `app_metadata.demo=true`) | `FAMILY_CREATE_FAILED`; nothing exists to undo |
+| 2 | **Postgres transaction**: village → people(parent,child) → children → household(sandbox) → memberships → `identity_map` → `demo_families`; `pg_advisory_xact_lock` | rollback; the step-1 auth user is deleted; no mapping on either path |
+| 3 | **commit** | as step 2 |
+| 4 | **JSON identity file** (`data/identity-map.json`, temp file + rename) | undo the committed rows, `identity_map`, registry; delete the auth user; remove any file entry |
+| 5 | return | same undo as step 4 — **nothing after the write may leave a usable trace** |
+
+**Rule:** a family is usable only when **both** mappings exist (DB `identity_map` for RLS
+`current_person()`, JSON for `verifyBearer()`). A half-created family is never merely "unusable": it is
+removed from `demo_families` (so it can never be a picker entry or log in), from `identity_map`, from the
+JSON map, and its auth user is deleted.
+
+**Reset reconciliation.** A crash can also leave exactly one mapping behind. Created-family ids are
+namespaced (`p_family_*`), so reset sweeps both directions: a DB mapping with no registry row (and its
+household, child, people and village) and a file entry whose persona the registry does not have (and its
+auth user). No seeded persona can match this sweep.
+
+Proof: `ops/create-demo-family-faults-proof.mjs` — **31/31 PASS**, evidence 53. Orphan audit: **2**
+`family.*` auth accounts left by earlier crashed runs, both unmapped on both paths (they resolve to
+nobody; counts only, no ids or emails recorded).
+| 2026-10-31 16:08 | **W-P2 RELEASED — restored and verified.** Runs inside the window: persona-sessions proof (3 `resetDemo` calls: two race scenarios + the deleted-persona case), fault proof (4 `resetDemo` calls), create-family proof, and the graph suite (114 checks / 32 cases PASS via router **4012**, alt stack `4101–4107`; its `/__reset` ran as its final step). Post-run: Cast v2 rows the suite dropped were restored from `src/fixtures-cast-v2.ts` (`g_priya_malik`, `r_priya_malik`, Malik's three care facts) — root cause fixes in the separate `fix/suite-reset-cast-v2` PR. Consumer reads all PASS via 4012 (`myChildren`, `careFacts`, `checkInStatus`, `orbitVocabulary`, `effectiveScheduleFor` Thanksgiving, `jobTimeline`); authenticated MCP `MyChildren` = 2 children, matches GraphQL exactly; `my-children-proof` **PASS — 0 failures**. No db:reset, no seeds, no restarts. | `feat/create-demo-family` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |

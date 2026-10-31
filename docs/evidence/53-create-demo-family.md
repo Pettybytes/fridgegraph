@@ -12,12 +12,12 @@
 | 3 | empty parent name refused | PASS | 400 INVALID_NAME |
 | 4 | over-long name refused | PASS | 400 INVALID_NAME |
 | 5 | refused creates wrote no registry row | PASS |  |
-| 6 | demo parent creates a family | PASS | 201 {"id":"family-a2d6927f","childId":"p_family_child_a2d6927f","parentName":"Proof Parent","childName":"Proof Child"} |
+| 6 | demo parent creates a family | PASS | 201 {"id":"family-d010412b","childId":"p_family_child_d010412b","parentName":"Proof Parent","childName":"Proof Child"} |
 | 7 | registry has exactly one row | PASS |  |
 | 8 | DB identity mapping written (RLS current_person) | PASS |  |
 | 9 | sandbox household created | PASS |  |
 | 10 | parent person + child person + memberships created | PASS |  |
-| 11 | picker entry present and ready | PASS | {"personaId":"family-a2d6927f","ready":true} |
+| 11 | picker entry present and ready | PASS | {"personaId":"family-d010412b","ready":true} |
 | 12 | created persona signs in | PASS | 200 READY  |
 | 13 | created persona is marked demo, not guide | PASS |  |
 | 14 | session was minted and cached by the owning process | PASS |  |
@@ -31,6 +31,6 @@
 | 22 | DB identity mapping removed | PASS |  |
 | 23 | cached session for the persona is gone | PASS |  |
 | 24 | old token exposes nothing (UNAUTHENTICATED, not a denial) | PASS | UNAUTHENTICATED |
-| 25 | picker entry no longer resolves | PASS | {"status":"UNAVAILABLE","personaId":"family-a2d6927f","reason":"UNKNOWN_PERSONA"} |
+| 25 | picker entry no longer resolves | PASS | {"status":"UNAVAILABLE","personaId":"family-d010412b","reason":"UNKNOWN_PERSONA"} |
 
 **25/25 PASS**
