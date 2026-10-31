@@ -1,46 +1,136 @@
 {
   "proof": {
-    "passed": true,
-    "scope": "Refreshed desktop and mobile Rosina evidence; full acceptance receipt remains results.json",
+    "passed": false,
+    "incomplete": true,
     "rows": [
       {
         "persona": "kendra",
         "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nPer the pickup records, authorization means they have permission — availability is unknown for all four, so I can't confirm who is actually free."
+        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today.\n\nThe pickup records show them as authorized, with no availability recorded — so this is permission, not confirmed free time.",
+        "result": "live answer",
+        "actualCandidates": [
+          {
+            "person": {
+              "id": "p_gma",
+              "displayName": "Loretta Brooks"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_bryan",
+              "displayName": "Bryan Brooks"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_tasha",
+              "displayName": "Tasha Ellison"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_monique",
+              "displayName": "Monique Davis"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          }
+        ]
       },
       {
         "persona": "andre",
         "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized for Nora today — availability is unknown for all four.\n\nThat's from the pickup records for today."
+        "reply": "Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis are authorized to pick up Nora today — availability is not recorded for any of them.\n\nPer the pickup records, all four are listed as authorized for today with unknown availability. Authorization is permission, not free time.",
+        "result": "live answer",
+        "actualCandidates": [
+          {
+            "person": {
+              "id": "p_gma",
+              "displayName": "Loretta Brooks"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_bryan",
+              "displayName": "Bryan Brooks"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_tasha",
+              "displayName": "Tasha Ellison"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          },
+          {
+            "person": {
+              "id": "p_monique",
+              "displayName": "Monique Davis"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          }
+        ]
       },
       {
         "persona": "loretta",
         "question": "Can Nora have a peanut-butter snack?",
-        "reply": "I can't confirm that yet."
+        "reply": "I can't confirm that yet.",
+        "result": "correct refusal",
+        "actualCandidates": []
       },
       {
         "persona": "priya",
         "question": "Can Nora have a peanut-butter snack?",
-        "reply": "I can't confirm that yet."
+        "reply": "I can't confirm that yet.",
+        "result": "correct refusal",
+        "actualCandidates": []
       },
       {
         "persona": "dana",
         "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Evelyn Carter is authorized to pick up Jax today.\nThe pickup records list her as authorized, with availability unknown — authorization is confirmed, availability is not."
-      },
-      {
-        "persona": "jax-family",
-        "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "Evelyn Carter is authorized to pick up Jax today, but her availability is unknown.\n\nThe pickup records list her as grandmother with permission valid today."
-      },
-      {
-        "persona": "demo-guide",
-        "question": "Who is authorized to pick up Nora today? Distinguish authorization from availability. Do not include contact details.",
-        "reply": "4 people are authorized to pick up Nora today: Loretta Brooks, Bryan Brooks, Tasha Ellison, and Monique Davis. All 4 are authorized, but availability is unknown for all of them.\n\nPer the pickup candidates list for today."
+        "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nAuthorization means permission for today; availability is recorded as unknown, so it doesn't confirm she is free — per the pickup records.",
+        "result": "live answer",
+        "actualCandidates": [
+          {
+            "person": {
+              "id": "p_evelyn",
+              "displayName": "Evelyn Carter"
+            },
+            "authorization": "AUTHORIZED",
+            "availability": "UNKNOWN"
+          }
+        ]
       }
-    ]
+    ],
+    "active": {
+      "persona": "jax-family",
+      "question": "Who is authorized to pick up Jax today? Distinguish authorization from availability. Do not include contact details.",
+      "reply": "Evelyn Carter is authorized to pick up Jax today.\n\nThe pickup records show her as authorized for today, with no availability recorded — authorization is permission, not a promise she is free.",
+      "actualCandidates": [
+        {
+          "person": {
+            "id": "p_evelyn",
+            "displayName": "Evelyn Carter"
+          },
+          "authorization": "AUTHORIZED",
+          "availability": "UNKNOWN"
+        }
+      ]
+    }
   },
-  "lastStage": "Rosina capture demo-guide",
+  "lastStage": "Rosina capture jax-family",
   "scan": {
     "pass": true,
     "files": [

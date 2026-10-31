@@ -15,7 +15,7 @@ async page=>{
   for(let i=0;i<50&&sessions.get(p)?.persona.id!==id;i++)await p.waitForTimeout(20)
   demand(sessions.get(p)?.persona.id===id,id+': mismatched response identity');return sessions.get(p)?.persona.id===id
  }
- await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.getAttribute('aria-label')==='Explore as Rosa Castellano'&&b.disabled));await pair(page,'picker')
+ if(!await page.getByRole('button',{name:'Explore as Rosa Castellano',exact:true}).isEnabled())throw Error('Seeded Rosa perspective incorrectly disabled');await pair(page,'picker')
  const initialReady=await choose(page,'kendra','Kendra');let contextResult='pending: Kendra login unavailable'
  if(initialReady){const first=sessions.get(page).token,contextB=await page.context().browser().newContext({viewport:{width:1440,height:1000}}),b=await contextB.newPage();watch(b);await b.goto(base);const danaReady=await choose(b,'dana','Dana');if(danaReady&&await choose(b,'andre','Andre')){const same=await page.getByText('Exploring as Kendra',{exact:true}).isVisible()&&sessions.get(page).token===first;demand(same,'Context B changed context A identity');contextResult=same?'pass':'failed'}else contextResult='pending: second context login unavailable';await contextB.close()}
  let parentJob
@@ -86,7 +86,7 @@ async page=>{
   }
 
  }
- const proof={calendarRosina,passed:errors.length===0&&rows.every(row=>row.picker==='READY'),errors,directoryReads,directoryPolicy:'Bryan confirmed evidence 37: directory identities are readable; private records remain permission-gated',graphEndpoint:'4012, explicit local smoke override; default app proxy remains 4010',contexts:contextResult,rosa:'Coming soon, disabled; no substitute',rows,recording:'No trace/HAR/video/storage-state/header logging'}
+ const proof={calendarRosina,passed:errors.length===0&&rows.every(row=>row.picker==='READY'),errors,directoryReads,directoryPolicy:'Bryan confirmed evidence 37: directory identities are readable; private records remain permission-gated',graphEndpoint:'4012, explicit local smoke override; default app proxy remains 4010',contexts:contextResult,rosa:'Cast v2 seeded; picker READY verified separately in current-main affected receipt',rows,recording:'No trace/HAR/video/storage-state/header logging'}
  await page.evaluate(async({origin,proof})=>{const response=await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(proof)});if(!response.ok)throw Error('Unsafe proof rejected')},{origin,proof})
  return {passed:proof.passed,personas:rows.length,errors}
 }

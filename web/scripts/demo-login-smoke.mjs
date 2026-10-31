@@ -9,6 +9,7 @@ import {promisify} from 'node:util'
 import {createServer as viteServer} from 'vite'
 import {liveWindowClear} from './live-window.mjs'
 const exec=promisify(execFile),web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=dirname(web)
+const pickerOnly=process.env.DEMO_SMOKE_PICKER_ONLY==='1'
 const rosinaDiagnose=process.env.DEMO_SMOKE_ROSINA_DIAGNOSE_ONLY==='1'
 const diagnose=process.env.DEMO_SMOKE_DIAGNOSE_ONLY==='1',captures=process.env.DEMO_SMOKE_CAPTURE_ONLY==='1',isolation=process.env.DEMO_SMOKE_ISOLATION_ONLY==='1'
 const visual=process.env.DEMO_SMOKE_VISUAL_ONLY==='1',jobBoundary=process.env.DEMO_SMOKE_JOB_BOUNDARY_ONLY==='1'
@@ -39,8 +40,8 @@ try{
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve))
  const port=server.address().port
  const run=async args=>{const result=await exec('playwright-cli',['-s=demo-login',...args],{cwd:repo,maxBuffer:2*1024*1024});if([...tokens].some(t=>(result.stdout+result.stderr).includes(t.slice(0,12))))throw Error('Unsafe CLI output');return result.stdout}
- await run(['open',`http://127.0.0.1:5185/?harnessPort=${port}`])
- const output=await run(['run-code','--filename=web/scripts/'+(rosinaDiagnose?'demo-login-rosina-diagnose.js':diagnose?'demo-login-diagnose.js':captures?'demo-login-captures.js':isolation?'demo-login-isolation.js':current?'demo-login-w4b-current.js':visual?'demo-login-visual.js':jobBoundary?'demo-login-job-boundary.js':'demo-login-w4b-current.js')])
+ await run(['open',`http://127.0.0.1:5185/?harnessPort=${port}${process.env.DEMO_SMOKE_PERSONA?'&onlyPersona='+encodeURIComponent(process.env.DEMO_SMOKE_PERSONA):''}`])
+ const output=await run(['run-code','--filename=web/scripts/'+(pickerOnly?'demo-login-picker.js':rosinaDiagnose?'demo-login-rosina-diagnose.js':diagnose?'demo-login-diagnose.js':captures?'demo-login-captures.js':isolation?'demo-login-isolation.js':current?'demo-login-w4b-current.js':visual?'demo-login-visual.js':jobBoundary?'demo-login-job-boundary.js':'demo-login-w4b-current.js')])
  if(output.includes('### Error')){const line=output.match(/### Error\n([^\n]*)/)?.[1]??'Browser assertion failed';if(!line.includes(prefix)&&![...tokens].some(t=>line.includes(t.slice(0,12))))console.error(line.slice(0,240));throw Error('Browser assertion failed')}
  await run(['close'])
 }catch(error){const output=typeof error?.stdout==='string'?error.stdout:'';const line=output.match(/### Error\n([^\n]*)/)?.[1];if(line&&!line.includes(prefix)&&![...tokens].some(t=>line.includes(t.slice(0,12))))console.error('Safe check failure: '+line.slice(0,260));process.exitCode=1;console.error('Local browser smoke incomplete. Raw errors and network output suppressed.')}
@@ -57,7 +58,7 @@ finally{
  const receipt={proof:proof??null,lastStage,scan:current?currentScan:scan};const safe=JSON.stringify(receipt,null,2)
  if(!scan.pass||!proof?.passed)process.exitCode=1
  if(![...tokens].some(t=>safe.includes(t.slice(0,12)))&&!safe.includes(prefix)){
-  await writeFile(join(web,'evidence/demo-login/'+(rosinaDiagnose?'current/rosina-diagnosis.json':diagnose?'current/picker-diagnosis.json':captures?'current/rosina-captures.json':isolation?'current/isolation.json':current?'current/results.json':visual?'visual-results.json':jobBoundary?'job-boundary-results.json':'results.json')),safe+'\n');console.log(safe)
+  await writeFile(join(web,'evidence/demo-login/'+(pickerOnly?'current/picker-ready.json':rosinaDiagnose?'current/rosina-diagnosis.json':diagnose?'current/picker-diagnosis.json':captures?'current/rosina-captures.json':isolation?'current/isolation.json':current?'current/results.json':visual?'visual-results.json':jobBoundary?'job-boundary-results.json':'results.json')),safe+'\n');console.log(safe)
  }
  tokens.clear();if(server)await new Promise(resolve=>server.close(resolve));if(vite)await vite.close()
 }

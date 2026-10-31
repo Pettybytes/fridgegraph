@@ -2500,3 +2500,34 @@ persona Rosina flows, current tool grounding, calendar/boundary follow-ups and c
 GraphQL schema/session/cache code did not change in #38. Existing full graph/isolation proof is
 retained. Newly seeded Cast v2 identities, if any, are a separately pending broader-W4 integration,
 not forced into the earlier Coming-soon fixture expectation.
+
+### W4b — all eleven READY (Bryan's updated live state)
+
+Cast v2 is seeded in the shared runtime. **Actual picker checks PASS for all eleven personas**,
+including Rosa/Felicia/Simone/Dwayne, with fresh desktop/mobile picker + landing captures and a clean
+eleven-session token scan (`current/picker-ready.json`). Live scripts no longer expect Coming soon
+for these seeded identities. UNAVAILABLE remains tested through controlled response fixtures in
+liveAuth/livePicker unit tests. Expanded Cast v2 private-read/Rosina breadth remains separately
+PENDING; picker readiness is not claimed as that integration.
+
+#38 scoped Rosina run stopped on a newly added wording matcher. Captured Jax reply, verbatim:
+“Evelyn Carter is authorized to pick up Jax today.
+
+The pickup records show her as authorized for today, with no availability recorded — authorization
+is permission, not a promise she is free.”
+Actual tool result: AUTHORIZED / UNKNOWN. The reply preserves the distinction; the matcher only
+recognizes “unknown”, “not recorded”, “not confirmed”, “can't confirm” and wrongly rejects “no
+availability recorded”. `current/main38-matcher-failure.json` preserves the failing assertion and
+reply; no result is relabeled. Under AGENTS §1.4 the check is stopped; Bryan was asked to authorize
+correcting this new matcher with a negative control rejecting confirmed-availability claims.
+Matcher is unchanged pending that reply. Independent all-eleven picker checks completed meanwhile.
+Current #32 remains draft until this specific acceptance gate is resolved; CI on db6938d is green.
+
+QUEUE: **W-ORBIT — the Orbit browser flow is next AFTER Bryan merges #32**, on its own task branch.
+No Orbit handler or activation UI is built here; prepareOrbitAlert remains implemented:false.
+
+All-eleven verification publication: controlled UNAVAILABLE tests remain unchanged; live Coming-soon
+expectations removed. Final staged scan **506 files / 0 findings**. Current read-only window explicitly
+released to Bentley after independent checks completed, with the stopped matcher gate reported.
+No more live requests until a new coordinated window if needed. #32 remains draft pending Bryan's
+specific authorization; no PR merge. W-ORBIT remains queued after #32 is merged.

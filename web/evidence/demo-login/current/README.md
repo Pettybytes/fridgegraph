@@ -1,3 +1,7 @@
+**Latest runtime: all eleven picker sessions READY and verified.** See picker-ready.json.
+Earlier Coming-soon observations below are historical; live scripts no longer require them.
+#38 wording-matcher gate is pending Bryan's authorization; see the final section.
+
 # W4b replacement brief — current evidence
 
 Base: fetched origin/main **0d80f003c722e009897b1790c461952cd0de6f66** (#31), including #27/#28/#29.
@@ -215,3 +219,15 @@ No production behavior, 45-second limit or acceptance assertion was changed.
 W4b's stated slice: UI complete · backend documented session/delivered reads complete ·
 integrated + tested PASS. Broader W4 read-contract/seed/hosting dependencies remain separately
 PENDING and do not block this slice's review, per Bryan. No PR merge.
+
+## All-eleven picker update and pending wording matcher
+
+`picker-ready.json`: PASS, all eleven actual picker sessions; desktop/mobile picker and eleven
+landings refreshed, token scan PASS. UNAVAILABLE behavior stays in controlled unit responses.
+Rosa/Felicia/Simone/Dwayne's expanded private-read and Rosina integration is separately pending.
+
+`main38-matcher-failure.json` captures a matcher defect: Jax's reply correctly says “no availability
+recorded — authorization is permission, not a promise she is free,” matching the tool's UNKNOWN
+value. The new matcher does not recognize that equivalent phrase. AGENTS §1.4 stop applies;
+authorization to correct the matcher with a rejecting negative control is pending. No assertion
+was weakened or failing receipt relabeled. W-ORBIT is queued after #32 is merged by Bryan.

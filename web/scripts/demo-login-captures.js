@@ -7,8 +7,9 @@ async page=>{
  if(!blocked)throw Error('Unimplemented Orbit preparation became usable')
  async function graph(query,variables){return await page.evaluate(async({token,query,variables})=>{const response=await fetch('/graphql',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({query,variables})});const body=await response.json();return {ok:response.ok&&!body.errors?.length,data:body.data}},{token:currentSession.session.access_token,query,variables})}
  async function followup(message){const launch=page.getByRole('button',{name:'Ask Rosina',exact:true});if(await launch.isVisible())await launch.click();const count=await page.locator('.rosina-message:not(.from-person)>p').count();await page.getByLabel('Message Rosina').fill(message);await page.getByRole('button',{name:'Send',exact:true}).click();const node=page.locator('.rosina-message:not(.from-person)>p').nth(count);await node.waitFor({timeout:45000});return await node.innerText()}
+ const onlyPersona=new URL(page.url()).searchParams.get('onlyPersona')
  const sequence=[['kendra','Kendra'],['andre','Andre'],['loretta','Loretta'],['priya','Priya'],['dana','Dana'],['jax-family',"Jax's family"],['demo-guide','the Demo guide']]
- for(const [id,name] of sequence){
+ for(const [id,name] of sequence.filter(([id])=>!onlyPersona||id===onlyPersona)){
   await progress('Rosina capture '+id)
   const sw=page.getByRole('button',{name:'Switch perspective',exact:true});if(await sw.isVisible())await sw.click()
   await page.getByRole('button',{name:'Explore as '+name,exact:true}).click();await page.getByText('Exploring as '+(id==='demo-guide'?'Demo guide':name),{exact:true}).waitFor({timeout:20000})
@@ -24,6 +25,7 @@ async page=>{
    actualCandidates=tool.data.pickupCandidates
    const words=new Set([...new Intl.Segmenter('en',{granularity:'word'}).segment(reply)].map(x=>x.segment.toLowerCase()))
    if(!actualCandidates.every(c=>words.has(c.person.displayName.split(' ')[0].toLowerCase()))||/couldn't check|send your question again|busy, try again|give me a moment/i.test(reply))throw Error(id+': live reply not grounded in current candidates')
+   await page.evaluate(async({origin,proof})=>{await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(proof)})},{origin,proof:{passed:false,incomplete:true,rows,active:{persona:id,question,reply,actualCandidates}}})
    if(actualCandidates.some(c=>c.availability==='UNKNOWN')&&!/unknown|not recorded|not confirmed|can't confirm/i.test(reply))throw Error(id+': unknown availability distinction missing')
   }
   for(const [size,label] of [[{width:1920,height:1080},'desktop'],[{width:390,height:844},'mobile']]){
@@ -44,7 +46,18 @@ async page=>{
   }
   if(id==='dana'){const message="Show me Nora's calendar on November 26, 2026.",answer=await followup(message);if(answer!=="I can only help with children shared with you.")throw Error('Dana private-calendar refusal differs');calendarRosina.push({persona:id,question:message,reply:answer})}
  }
- const proof={passed:true,scope:'Affected #38 current-main Rosina/catalog acceptance; unchanged graph/isolation full receipt remains results.json',catalogUnimplemented:blocked,rows,calendarRosina}
+ const newPersonas=[]
+ if(!onlyPersona){
+  await page.getByRole('button',{name:'Switch perspective',exact:true}).click()
+  for(const name of ['Kendra','Andre','Loretta','Priya','Dana',"Jax's family",'the Demo guide','Rosa Castellano','Felicia Reyes','Simone Lee','Dwayne Ferris'])if(!await page.getByRole('button',{name:'Explore as '+name,exact:true}).isEnabled())throw Error('Seeded perspective incorrectly disabled')
+  for(const [size,label] of [[{width:1920,height:1080},'desktop'],[{width:390,height:844},'mobile']]){await page.setViewportSize(size);await page.screenshot({path:root+'picker-'+label+'.png'})}await page.setViewportSize({width:1920,height:1080})
+  for(const [id,name] of [['rosa','Rosa Castellano'],['felicia','Felicia Reyes'],['simone','Simone Lee'],['dwayne','Dwayne Ferris']]){
+   await progress('Seeded picker '+id);await page.getByRole('button',{name:'Explore as '+name,exact:true}).click();await page.getByText('Exploring as '+name,{exact:true}).waitFor({timeout:20000});if(currentSession?.persona.id!==id)throw Error('Seeded perspective identity mismatch')
+   for(const [size,label] of [[{width:1920,height:1080},'desktop'],[{width:390,height:844},'mobile']]){await page.setViewportSize(size);if((await page.locator('body').innerText()).includes(String.fromCharCode(101,121,74)))throw Error('Unsafe screenshot');await page.screenshot({path:root+id+'-landing-'+label+'.png'})}await page.setViewportSize({width:1920,height:1080})
+   newPersonas.push({persona:id,picker:'READY',liveReads:'pending expanded Cast v2 integration',rosina:'pending expanded Cast v2 integration'});await page.getByRole('button',{name:'Switch perspective',exact:true}).click()
+  }
+ }
+ const proof={passed:true,scope:'Affected #38 current-main Rosina/catalog acceptance; unchanged graph/isolation full receipt remains results.json',catalogUnimplemented:blocked,rows,calendarRosina,newPersonas}
  await page.evaluate(async({origin,proof})=>{await fetch(origin+'/proof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(proof)})},{origin,proof})
  return {passed:true,personas:rows.length}
 }
