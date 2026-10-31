@@ -3052,3 +3052,8 @@ NOT DOING: schema/auth/DB changes (`ops/MyChildren.graphql`, `.apollo/mcp.local.
 BLOCKERS: Bentley follow-up — `ops/MyChildren.graphql` should select `child.person.displayName`;
   this service already reads it the moment it's there. PR #45 (`feat/orbit-handler`) and this PR
   now contain equivalent, overlapping fixes — Bryan should reconcile/close one.
+
+**Final state (2026-10-31):** PR #47 head `7e1162d`. `gh pr ready 47` run; `gh pr view 47` →
+`state: OPEN`, `isDraft: false`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Both CI
+checks pass: `typecheck + secret scan` (20s), `web build` (28s). `git diff origin/main...HEAD
+--stat` confirmed scoped to this task's own 13 files only. Not merged — Bryan merges.
