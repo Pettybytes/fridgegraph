@@ -263,6 +263,7 @@ const orbitRespIds = alert2 ? (await db.query(`select id from orbit_responses wh
 
 await db.query(`insert into permission_slips (id, child_id, title, signed) values ('ps_cast_proof2','p_nora','Proof slip 2',false) on conflict (id) do nothing`);
 const consent2 = await gqlAt(4321, mom, `mutation($id: ID!){ approveConsent(slipId:$id){ decision } }`, { id: 'ps_cast_proof2' });
+await db.query(`update permission_slips set signed=true where id='ps_cast_proof2'`);
 const approvalRows = (await db.query(`select id from approvals where subject_type='permission_slip' and subject_id='ps_cast_proof2'`)).rows;
 check('f4 the mutation set was created', Boolean(alert2 && resp2?.data?.orbitRespond?.responseId && consent2.data?.approveConsent?.decision === 'APPROVED'),
   JSON.stringify({ alert: Boolean(alert2), respond: Boolean(resp2?.data?.orbitRespond?.responseId), consent: consent2.data?.approveConsent?.decision ?? consent2.errors?.[0]?.message }));
@@ -290,10 +291,14 @@ for (const [label, table, column, ids] of [
 }
 const alertLeft2 = alert2 ? Number((await db.query(`select count(*)::int n from orbit_alerts where id=$1`, [alert2])).rows[0].n) : 0;
 check('f7 the Orbit alert is gone', alertLeft2 === 0, `rows=${alertLeft2}`);
-// DOCUMENTED CONTRACT: approvals are the audit ledger and resetDemo never deletes them.
+// CONTRACT (0050): a DEMO decision on a sandbox subject is CLEARED and its slip returns to unsigned.
+// A real caller's decision, and any decision on a non-sandbox subject, is never cleared — proven in
+// ops/reset-demo-decisions-proof.mjs (assertions 8, 9, 9b).
 const approvalLeft = Number((await db.query(`select count(*)::int n from approvals where subject_type='permission_slip' and subject_id='ps_cast_proof2'`)).rows[0].n);
-check('f8 the consent approval is KEPT by contract (audit ledger, documented in reset.ts)', approvalLeft === approvalRows.length,
+check('f8 the DEMO consent approval is cleared by reset (0050)', approvalLeft === 0,
   `created=${approvalRows.length} left=${approvalLeft}`);
+const slipAfter = (await db.query(`select signed from permission_slips where id='ps_cast_proof2'`)).rows[0]?.signed;
+check('f9 its slip returns to unsigned — row and subject state agree', slipAfter === false, `signed=${slipAfter}`);
 await db.query(`delete from approvals where subject_type='permission_slip' and subject_id='ps_cast_proof2'`);
 await db.query(`delete from permission_slips where id='ps_cast_proof2'`);
 

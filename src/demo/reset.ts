@@ -111,6 +111,9 @@ async function upsertRows(c: pg.Client, table: string, rows: Row[]): Promise<num
 export type ResetReport = {
   restored: Record<string, number>;
   cleared: Record<string, number>;
+  /** Demo decisions cleared (0050). Real decisions are never counted here, because none are cleared. */
+  demoDecisionsCleared: number;
+  /** Created (sandbox) families removed; they are not fixture rows. */
   createdFamiliesRemoved: number;
   droppedSessionCache: true;
 };
@@ -121,6 +124,7 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
   await c.connect();
   const cleared: Record<string, number> = {};
   const restored: Record<string, number> = {};
+  let demoDecisionsCleared = 0;
   let familyRows: FamilyRow[] = [];
 
   try {
@@ -183,7 +187,18 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     // (a mapping that never lands is safer than a mapping to deleted rows).
     familyRows = await deleteCreatedFamilies(c);
 
-    const orbit = await c.query('select reset_demo_orbit($1) as r', [actor]);
+    // Demo decisions are reset; real decisions are never touched (0050). Both counts ride in the
+    // SINGLE audit row this reset writes, as numbers with no ids or names.
+    const decisions = await c.query('select reset_demo_decisions() as n');
+    demoDecisionsCleared = Number(decisions.rows[0]?.n ?? 0);
+
+    const orbit = await c.query('select reset_demo_orbit($1, $2::jsonb) as r', [
+      actor,
+      JSON.stringify({
+        approvals: demoDecisionsCleared,
+        createdFamiliesRemoved: familyRows.length,
+      }),
+    ]);
     const removed = orbit.rows[0]?.r ?? {};
     for (const [k, v] of Object.entries(removed)) if (Number(v) > 0) cleared[k] = Number(v);
 
@@ -201,5 +216,11 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
 
   // Only after a committed restore: a stale session cache would otherwise serve pre-reset reads.
   dropPersonaSessionCache();
-  return { restored, cleared, createdFamiliesRemoved: familyRows.length, droppedSessionCache: true };
+  return {
+    restored,
+    cleared,
+    demoDecisionsCleared,
+    createdFamiliesRemoved: familyRows.length,
+    droppedSessionCache: true,
+  };
 }
