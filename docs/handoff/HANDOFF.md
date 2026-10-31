@@ -3006,3 +3006,13 @@ in the layout phase closes that interaction gap; the assertion is unchanged and 
 Media GET uses the existing eligible-read renewal-once path; upload/preview/activation never do.
 A successful check-in read retains its returned emergency guidance if the vocabulary read fails;
 preparation stays disabled until all required reads succeed. Catalog delivery still awaits Claude.
+The live harness uses an independent, unrecorded browser context; the CLI-owned page remains
+anonymous. It holds token values/prefixes and actual authenticated photo/object handles in memory
+and scans the working tree, evidence, test-results and Playwright output; only filenames/pass-fail
+can reach receipts. No live requests have been made yet. The seed check-in timestamp is still in
+the future on the current real clock; scenario-clock setup is being clarified with Bentley rather
+than treating recorded:false alone as overdue or changing authentication's clock.
+
+CI currently cannot start from the pull-request event because main's appended HANDOFF conflicts
+with this branch's packet even after text reconciliation. Asked Bryan for a feature-branch-only
+merge commit (AGENTS §1.2 explicit permission); #44 remains draft and will never be merged by us.
