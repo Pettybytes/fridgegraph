@@ -70,3 +70,56 @@ EXECUTE on all four functions.
 
 No dialing, no SMS, no dispatch, no flag set, no new persisted authorization, no service-role read on
 behalf of a caller, no merge.
+
+---
+
+## Correction — 0027 conflated a school closure with a parenting-time arrangement
+
+Forward-only fix in **0028** (`0028_holiday_arrangements.sql`, applied). 0027 is never edited.
+
+| Concept | Where it lives now | What it does |
+|---|---|---|
+| **School closure** | `holidays` + `day_kind()` → `SCHOOL_CLOSURE` | the calendar is closed; suppresses **SCHOOL_DAY routines only** and says nothing about who has the child |
+| **HolidayArrangement** | `holiday_arrangements` (new) | an agreed, bounded change of parenting time; only `APPROVED` overrides the weekly rule, only inside its inclusive interval |
+| Routine applicability | `routines.applies_on` (`SCHOOL_DAY` \| `ANY_DAY`, default `ANY_DAY`) | bedtime survives a closure; the school run does not |
+
+`_is_approver_for` now delegates to `effective_schedule_for()` (definition inspected, not called — it
+stays revoked from `authenticated`), and `src/derive.ts#approverForChild` uses the same function via
+RPC, so pickup and the approver read follow an approved arrangement and are unchanged everywhere no
+arrangement exists.
+
+**HolidayArrangement** has exactly the contract's shape: `id, child, holidayName (nullable for a
+one-off swap), dateStart, dateEnd (both inclusive), assignedParent, pickupDutyParent,
+dropoffDutyParent, status PROPOSED/APPROVED/DECLINED, proposedBy, approvalId`, plus RLS (parent/
+guardian or `schedule.read`, guide sandbox read-only) and a **table-level trigger** so no update path
+can approve a swap on the proposer's own authority.
+
+`schedule_conflicts(child, from, to)` returns `OVERLAP` rows (two approved arrangements covering one
+day) and `GAP` rows (no rule assigns a parent). It surfaces; it never resolves.
+
+Approval follows `household_policies.schedule_swap_approval`, default **BOTH_PARENTS** — the other
+parent/guardian, never the proposer, never a grant.
+
+## Dry run — `node ops/0028-dry-run.mjs` — 20/20 PASS, rolled back
+
+| # | Check |
+|---|---|
+| 1 | closure suppresses the `SCHOOL_DAY` routine; **bedtime (`ANY_DAY`) survives**; both apply on a normal Wednesday; `day_kind` = `SCHOOL_CLOSURE` |
+| 1 | adult availability is recorded and readable **independently** of the closure |
+| 2 | `PROPOSED` arrangement does **not** override (WEEKLY/p_mom); `APPROVED` applies 25, 26 **and 27 (inclusive)**; 28 returns to WEEKLY; 24 unchanged |
+| 2 | `_is_approver_for` delegates to `effective_schedule_for` and stays internal; the approver on the arrangement day is Andre, on a normal Wednesday still Kendra |
+| 3 | overlapping approved arrangements surface as `OVERLAP`; a day no rule covers surfaces as `GAP` |
+| 4 | the proposer cannot approve her own swap; the policy defaults to `BOTH_PARENTS`; the other parent can approve |
+
+## PENDING in this PR (deliberately not claimed as implemented)
+
+- **GraphQL reads** `childEvents(childId, from, to)`, `adultAvailability(personId, from, to)`,
+  `effectiveScheduleFor(childId, date)`, `scheduleConflicts(childId, from, to)` — PENDING.
+- **MCP operations** `ChildEvents`, `AdultAvailability` (+ `EffectiveSchedule` if ready) with the
+  same no-oracle contract — PENDING.
+- **Availability wording** (required in the GraphQL field description AND the MCP tool description):
+  FREE means *recorded free time*, **not** confirmed willingness or permission to care for a child.
+  Rosina must say "has free time recorded" and never "is available to watch" / "can pick up".
+  Recorded here because the field and tool do not exist yet — it lands with them.
+- Persona-boundary proofs on both surfaces, the SIMULATED holiday/routine/availability fixture, and
+  the 0026 guide-seam re-check for any derived read — PENDING.
