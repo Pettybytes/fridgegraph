@@ -1405,3 +1405,50 @@ DB change; no mutation tool added; `ORBIT_HANDLER_PRESENT` describes this server
 readiness, never a substitute for the catalog flag or the authority/vocabulary gate. No live
 scenario-clock run performed (none requested by this piece; W-ORBIT's own future window covers
 that). Not merged.
+
+## 17. Fix: one Orbit test assumed the ambient catalog flag was false (2026-10-31)
+
+Branch `fix/orbit-test-disabled-flag`, worktree `../fridgegraph-orbit-test-fix`, from `origin/main`
+at `cb3dd68` (#47, §§15–16 above, merged). Reported by W-ORBIT after rebasing PR #44 (the catalog
+metadata flip for `prepareOrbitAlert`) onto `main`: with the real `implemented` flag now `true` on
+their branch, `npm run test:rosina` dropped to 74/75.
+
+### The actual bug, reproduced before fixing it
+
+`src/rosina/orbit.test.ts`'s `card: a valid, fully-verified prepareOrbitAlert...` test (the
+"disabled negative control" from §16) asserted `result.actions` is `[]` and the error is
+`UNIMPLEMENTED`, but — unlike the two ENABLED-state tests right below it — never actually
+controlled `catalog.prepareOrbitAlert.implemented` itself; it silently relied on the AMBIENT real
+value in `src/rosina/catalog.ts` happening to be `false`. Reproduced exactly: flipped the real
+flag to `true` on disk, reran the suite, got the identical failure W-ORBIT reported (`result.
+actions` held the proposed card instead of `[]`) — confirming `decideOrbitAction()` itself is
+correct (it is honoring the flag exactly as designed) and the defect is in the TEST, not the
+server logic. Reverted the flip immediately; `src/rosina/catalog.ts` carries no diff in this PR.
+
+### Fix
+
+The test now explicitly sets `catalog.prepareOrbitAlert.implemented = false` for its own duration
+and restores the original value in a `finally` — the same controlled, explicit pattern the two
+ENABLED-state tests already used. This makes the DISABLED case deterministic regardless of
+whatever the real catalog file says at the time the suite runs, exactly like the ENABLED case
+already was. The authority/vocabulary gate itself (`decideOrbitAction`'s own ordering — gate
+checked and can short-circuit BEFORE the catalog flag is ever consulted) was not touched; the two
+gate-failure tests (`NOT_PARENT`, `VALUE_NOT_IN_VOCABULARY`) were already correctly flag-agnostic,
+confirmed by inspection — no change needed there.
+
+### Verification
+
+Re-ran the exact repro twice more after the fix: with the real `catalog.prepareOrbitAlert.
+implemented` left at its real, current value (`false` — W-ORBIT's own PR #44 is not yet merged to
+`main`), and with it flipped to `true` on disk as a stand-in for #44 having landed. **75/75 PASS
+in both cases.** `npm run typecheck` PASS. `npm run check` PASS (519 files, 0 findings). `npm run
+check:rosina-catalog` PASS (8 ids, unchanged). `npm --prefix web run build` PASS; `npm --prefix web
+test` **206 PASS** (unchanged — no `web/` file touched by this fix).
+
+### Scope discipline
+
+No catalog file touched (`src/rosina/catalog.ts` and `web/src/features/rosina/catalog.ts` both
+carry zero diff in this PR, confirmed via `git diff` after the repro was reverted) — the flag flip
+remains exclusively W-ORBIT's own change (PR #44), as it has been throughout. No schema/auth/DB
+change. No mutation tool. No live run needed or performed (a test-suite fix, not a behavior
+change). Not merged.
