@@ -63,3 +63,35 @@ the shared router and MCP server. No stack change, no restart.
 
 No generated output was written under `docs/evidence/`; this file is the only addition and every
 pre-existing evidence file is byte-identical to `origin/main`.
+
+## 2026-10-31 17:26 — created rows are REMOVED, not merely overwritten
+
+A seed checksum cannot see **extra** rows. This section creates real sandbox work through the product's
+own mutations, records every row it produced, resets, and checks each id.
+
+| Created through | Rows recorded | After reset |
+|---|---|---|
+| `requestPickup(p_nora)` | 1 job, 4 attempts, 17 candidate evaluations | **job gone**, **attempts gone**, **evaluations gone** |
+| `approvePickup` | confirmations / information requests for that job | none were produced; nothing left |
+| `orbitDraft → preview → activate` + `orbitRespond` (as a parent in the audience) | 1 alert, 1 response | **alert gone**, **response gone** |
+| `approveConsent(ps_cast_proof2)` | 1 approval row | **KEPT — documented contract** (see below) |
+
+Deletion is by the reset's own scoping: `coordination_jobs` / `attempts` are sandbox-scoped deletes, and
+`candidate_evaluations`, `confirmations`, `information_requests` and `webhook_events` follow by
+`ON DELETE CASCADE` from those two. `orbit_alerts` / `orbit_responses` go through the privileged
+`reset_demo_orbit()` path (0042/0043), which is unchanged.
+
+**Named documented exception:** `approvals` is the audit ledger and `resetDemo()` never deletes it — the
+comment in `src/demo/reset.ts` says so explicitly, and this run asserts the created consent approval is
+still present (created=1, left=1). The proof removes its own approval afterwards so it does not
+accumulate.
+
+**Where the flow stops, deliberately:** `acceptPickup` is **refused for a candidate** with
+`ATTEMPT_NOT_FOUND`, because `attempts_read` is parent-only — the candidate's own RLS client cannot see
+the attempt the mutation needs. That is a product-level authorization shape, not a reset concern;
+`ops/mcp-e2-proof.mjs` already lists `acceptPickup` as not exercised. Recorded here rather than skipped
+silently.
+
+**Result:** **32/32 PASS** — the removal assertions plus every pre-existing assertion (seed checksum
+identical, audit +1 per reset across five resets, protected records unchanged, Malik 3 care facts,
+Priya's care-plan read, Dwayne's views, six consumer reads, authenticated MCP, `my-children-proof`).

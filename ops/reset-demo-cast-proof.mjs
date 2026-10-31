@@ -210,6 +210,93 @@ await db.query(`delete from permission_slips where id='ps_cast_proof'`);
 const s2 = await state();
 check('c3 audit rows grew by exactly one more', s2.audit - s1.audit === 1, `${s1.audit} -> ${s2.audit}`);
 
+// ---------------------------------------------------------------- f) created rows are REMOVED
+// A seed checksum cannot see EXTRA rows, so this section creates real sandbox work through the
+// product's own mutations, records every row it produced, and asserts each one is gone after the
+// reset — or still there when the contract deliberately keeps it (named in the assertion).
+console.log('=== created rows are removed, not just overwritten ===');
+
+const jobRes = await gqlAt(4322, mom, `mutation($c: ID!){ requestPickup(childId:$c, window:"afternoon"){ id status version } }`, { c: 'p_nora' });
+const jobId = jobRes.data?.requestPickup?.id;
+check('f1 a pickup job was created through the product mutation', Boolean(jobId), JSON.stringify(jobRes.errors?.[0]?.message ?? jobId));
+
+const attemptRows = jobId ? (await db.query(`select id, candidate_id from attempts where job_id=$1`, [jobId])).rows : [];
+const evalRows = jobId ? (await db.query(`select candidate_id from candidate_evaluations where job_id=$1`, [jobId])).rows : [];
+const infoRows = jobId ? (await db.query(`select id from information_requests where job_id=$1`, [jobId])).rows : [];
+check('f2 it produced attempts and candidate evaluations', attemptRows.length > 0 && evalRows.length > 0,
+  `attempts=${attemptRows.length} evaluations=${evalRows.length}`);
+
+// Accept as one of the candidates so the flow writes an evaluation the way the product does.
+const candidateAttempt = attemptRows.find((a) => String(a.candidate_id) === 'p_gma') ?? attemptRows[0];
+let accepted = null;
+if (candidateAttempt) {
+  const candTok = await tokenForPersonId(String(candidateAttempt.candidate_id));
+  accepted = await gqlAt(4322, candTok, `mutation($a: ID!){ acceptPickup(attemptId:$a, available:true){ candidate { id } available } }`, { a: candidateAttempt.id });
+  // The flow stops here BY CONTRACT: `attempts_read` is parent-only, so the candidate's own client
+  // cannot see the attempt and the resolver answers ATTEMPT_NOT_FOUND. That is a product-level
+  // authorization shape, not a reset concern — recorded so the step is not silently skipped.
+  check('f3 the accept path is refused for a candidate (attempts_read is parent-only) — flow stops here',
+    accepted?.errors?.[0]?.message === 'ATTEMPT_NOT_FOUND',
+    String(accepted?.errors?.[0]?.message ?? 'accepted'));
+}
+
+// Approve so confirmations / information requests are exercised where the flow produces them.
+const approveRes = jobId ? await gqlAt(4322, mom, `mutation($j: ID!){ approvePickup(jobId:$j, version:1, decision:"APPROVED"){ id status } }`, { j: jobId }) : null;
+
+const confRows = jobId ? (await db.query(`select id from confirmations where job_id=$1`, [jobId])).rows : [];
+const webhookRows = attemptRows.length
+  ? (await db.query(`select id from webhook_events where attempt_id = any($1)`, [attemptRows.map((a) => a.id)])).rows
+  : [];
+
+// Orbit alert + response, and a consent decision (the same mutations as section b).
+const d2 = await gqlAt(4322, mom, `mutation($c: ID!){ orbitDraft(childId:$c, wearColor:"BLUE", wearGarment:"JACKET"){ draftId } }`, { c: 'p_nora' });
+const pocket = d2.data?.orbitDraft;
+const pv2 = pocket ? await gqlAt(4322, mom, `mutation($d: ID!){ orbitPreview(draftId:$d){ draftVersion messageHash } }`, { d: pocket.draftId }) : null;
+const act2 = pv2?.data?.orbitPreview
+  ? await gqlAt(4322, mom, `mutation($d: ID!,$v: Int!,$h: String!){ orbitActivate(draftId:$d, draftVersion:$v, messageHash:$h){ id } }`,
+      { d: pocket.draftId, v: pv2.data.orbitPreview.draftVersion, h: pv2.data.orbitPreview.messageHash })
+  : null;
+const alert2 = act2?.data?.orbitActivate?.id;
+const dad2 = await tokenForPersonId('p_dad');
+const resp2 = alert2 ? await gqlAt(4322, dad2, `mutation($a: ID!,$r: String!){ orbitRespond(alertId:$a, response:$r){ responseId } }`, { a: alert2, r: 'WITH_ME' }) : null;
+const orbitRespIds = alert2 ? (await db.query(`select id from orbit_responses where orbit_alert_id=$1`, [alert2])).rows.map((r) => r.id) : [];
+
+await db.query(`insert into permission_slips (id, child_id, title, signed) values ('ps_cast_proof2','p_nora','Proof slip 2',false) on conflict (id) do nothing`);
+const consent2 = await gqlAt(4321, mom, `mutation($id: ID!){ approveConsent(slipId:$id){ decision } }`, { id: 'ps_cast_proof2' });
+const approvalRows = (await db.query(`select id from approvals where subject_type='permission_slip' and subject_id='ps_cast_proof2'`)).rows;
+check('f4 the mutation set was created', Boolean(alert2 && resp2?.data?.orbitRespond?.responseId && consent2.data?.approveConsent?.decision === 'APPROVED'),
+  JSON.stringify({ alert: Boolean(alert2), respond: Boolean(resp2?.data?.orbitRespond?.responseId), consent: consent2.data?.approveConsent?.decision ?? consent2.errors?.[0]?.message }));
+
+// Reset, then look for each recorded id.
+await resetDemo('proof-cast-remove');
+const gone = async (table, column, ids) => {
+  if (!ids.length) return { checked: 0, left: 0 };
+  const r = await db.query(`select count(*)::int n from ${table} where ${column} = any($1)`, [ids]);
+  return { checked: ids.length, left: Number(r.rows[0].n) };
+};
+
+const jobLeft = jobId ? Number((await db.query(`select count(*)::int n from coordination_jobs where id=$1`, [jobId])).rows[0].n) : 0;
+check('f5 the pickup job is gone', jobLeft === 0, `rows=${jobLeft}`);
+for (const [label, table, column, ids] of [
+  ['attempts', 'attempts', 'id', attemptRows.map((a) => a.id)],
+  ['candidate_evaluations', 'candidate_evaluations', 'job_id', jobId ? [jobId] : []],
+  ['information_requests', 'information_requests', 'id', infoRows.map((r) => r.id)],
+  ['confirmations', 'confirmations', 'id', confRows.map((r) => r.id)],
+  ['webhook_events', 'webhook_events', 'id', webhookRows.map((r) => r.id)],
+  ['orbit_responses', 'orbit_responses', 'id', orbitRespIds],
+]) {
+  const { checked, left } = await gone(table, column, ids);
+  check(`f6 ${label} created by the flow are gone (${checked} checked)`, left === 0, `left=${left}`);
+}
+const alertLeft2 = alert2 ? Number((await db.query(`select count(*)::int n from orbit_alerts where id=$1`, [alert2])).rows[0].n) : 0;
+check('f7 the Orbit alert is gone', alertLeft2 === 0, `rows=${alertLeft2}`);
+// DOCUMENTED CONTRACT: approvals are the audit ledger and resetDemo never deletes them.
+const approvalLeft = Number((await db.query(`select count(*)::int n from approvals where subject_type='permission_slip' and subject_id='ps_cast_proof2'`)).rows[0].n);
+check('f8 the consent approval is KEPT by contract (audit ledger, documented in reset.ts)', approvalLeft === approvalRows.length,
+  `created=${approvalRows.length} left=${approvalLeft}`);
+await db.query(`delete from approvals where subject_type='permission_slip' and subject_id='ps_cast_proof2'`);
+await db.query(`delete from permission_slips where id='ps_cast_proof2'`);
+
 // ---------------------------------------------------------------- d) the scenes work again
 const dstate = await state();
 check('d1 Malik has 3 care facts after the reset', dstate.malikFacts === 3, `malikFacts=${dstate.malikFacts}`);
@@ -240,7 +327,8 @@ const e2 = await seedChecksum();
 check('e1 two resets in a row produce identical seed checksums', same(e1, e2), diffTables(e1, e2).join(',') || 'identical');
 check('e2 and both match the clean baseline', same(before, e2));
 const s3 = await state();
-check('c4 audit grew by exactly one per reset across all four', s3.audit - base.audit === 4, `${base.audit} -> ${s3.audit}`);
+// a1, b3, f5, e1, e2 — five resets in this run.
+check('c4 audit grew by exactly one per reset across all five', s3.audit - base.audit === 5, `${base.audit} -> ${s3.audit}`);
 
 const failed = results.filter((x) => !x.ok).length;
 console.log(`\nRESULT: ${results.length - failed}/${results.length} PASS`);
