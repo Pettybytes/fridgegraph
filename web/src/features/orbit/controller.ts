@@ -6,7 +6,7 @@ export type OrbitScope={childId:string;personId:string;parent:boolean;readOnly:b
 export function overdue(check:CheckIn|null,now=Date.now()){return !!check&&!check.recorded&&!!check.dueAt&&Number.isFinite(Date.parse(check.dueAt))&&Date.parse(check.dueAt)<now}
 export class OrbitController{
  private state:OrbitState={phase:'loading',busy:null,check:null,vocabulary:[],values:{},preview:null,alert:null,status:null,error:'',guidance:'',authority:false,revision:0,previewRevision:-1,closeConfirm:false,started:false}
- private listeners=new Set<()=>void>();private alive=true;private operation=0;private readSequence=0;private mediaAbort=new AbortController();private loadFlight:Promise<void>|null=null
+ private listeners=new Set<()=>void>();private alive=true;private operation=0;private readSequence=0;private mediaAbort=new AbortController();private loadFlight:Promise<void>|null=null;private refreshFlight:{id?:string;promise:Promise<void>}|null=null
  readonly adapter:OrbitAdapter;readonly scope:OrbitScope;private generation:()=>number;private now:()=>number
  constructor(adapter:OrbitAdapter,scope:OrbitScope,generation:()=>number,now:()=>number=Date.now){this.adapter=adapter;this.scope=scope;this.generation=generation;this.now=now}
  checkInOverdue=()=>overdue(this.state.check,this.now())
@@ -41,12 +41,19 @@ export class OrbitController{
   const phase=alert?.status==='ACTIVE'?'active':alert?.status==='CLOSED'?'closed':this.state.started?'editing':'idle'
   this.patch({alert,phase,preview:null,closeConfirm:alert?.status==='ACTIVE'?this.state.closeConfirm:false,photoId:alert?.share.photoId??undefined,guidance:alert?.guidance||this.state.guidance})
  }
- async refresh(alertId?:string){
-  if(!this.current()||this.state.busy)return
+ refresh(alertId?:string){
+  if(!this.current()||this.state.busy)return Promise.resolve()
+  if(this.refreshFlight&&this.refreshFlight.id===alertId)return this.refreshFlight.promise
   const operation=this.operation,sequence=++this.readSequence
   const owns=()=>this.current()&&operation===this.operation&&sequence===this.readSequence
-  try{const status=await this.adapter.status(this.scope.childId,alertId);if(!owns())return;const alert=status.alertId?await this.adapter.alert(status.alertId):null;if(!owns())return;this.patch({status,error:''});this.record(alert)}catch(error){if(owns())this.patch({error:orbitError(error)})}
+  const flight={id:alertId,promise:Promise.resolve()};this.refreshFlight=flight
+  flight.promise=(async()=>{
+   try{const status=await this.adapter.status(this.scope.childId,alertId);if(!owns())return;const alert=status.alertId?await this.adapter.alert(status.alertId):null;if(!owns())return;this.patch({status,error:''});this.record(alert)}catch(error){if(owns())this.patch({error:orbitError(error)})}
+   finally{if(this.refreshFlight===flight)this.refreshFlight=null}
+  })()
+  return flight.promise
  }
+
  private valid(values:Descriptors){return descriptorKeys.every(key=>values[key]===undefined||this.state.vocabulary.some(v=>v.kind===vocabularyKinds[key]&&v.value===values[key]))}
  async prepare(args:Descriptors&{childId:string}){
   if(!this.canPrepare()||args.childId!==this.scope.childId)return

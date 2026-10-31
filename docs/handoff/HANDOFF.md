@@ -3219,3 +3219,80 @@ secret scan PASS, web typecheck/build PASS, catalog 8 ids PASS, reservation guar
 Live-03 preserved the failed descriptor interaction: browser labels included the entire options
 list. Added explicit accessible labels to the real selects; the live assertion is unchanged.
 No server test assertion changed by web; #48's owned correction arrived through the main merge.
+
+### W-ORBIT — full live proof and capture refinement
+
+On coordinated runtime **8504f4d** (web metadata + #47 handler + Bentley's #46 scenario support;
+MyChildren selection includes actual display names), **live-08 PASSED 52/52 checks**. Actual
+picker sessions: Kendra full draft/preview/approve/respond/explicit close; Loretta own history and
+decoded active photo; Dana's forced foreign-alert status yields no shared record or private detail;
+Demo guide has sandbox reads and zero mutation controls. During a second activation the server
+committed exactly once before the perspective changed: Dana rendered no old alert, the photo
+visible during activation was revoked, and returning Kendra refetched the actual committed alert
+without another activation. Leaving revoked every remaining parent photo handle.
+
+In-process scan PASS for held session bearers/prefixes and actual authenticated media/object
+handles across the working tree, evidence, test-results and Playwright output. Receipts report
+filenames/pass-fail only; existing generic encoded-token markers stayed at baseline. No tokens,
+photo URLs, traces, HAR, video, storage-state or request-header logs were produced. Twenty actual
+screenshots saved under web/evidence/orbit/live-08/; these are real App/picker/services, not the
+labeled earlier design fixture. Scenario instant affects Orbit's overdue derivation only; auth and
+persisted response timestamps remain real-clock, formatted in Detroit time.
+
+The original failed receipts live-01 through live-07 and read-only diagnoses are preserved unchanged.
+They exposed missing select names/note semantics, slow-poll starvation and a corrupt tiny test-image
+fixture; the live fixture now has correct PNG CRCs and image.decode()/naturalWidth are required.
+Navigation checks now await the rendered destination. A later capture failure remains a failed
+receipt; it was not relabeled as expected. The fresh full live-08 run passed stronger assertions,
+including a decoded photo visible during the switch and revocation on leaving.
+
+Window released at 05:43 UTC, completion explicitly sent to Bentley. Visual review found mobile
+captures framed only the tops of inner-scroll pages. Bentley explicitly REOPENED the same unchanged
+runtime at 05:44 until the SAME 02:05 EDT deadline for one final sequence with focused mobile
+captures. No live request after release until that confirmation. No reset, seed, restart, checkout
+switch or real send by web. Final capture receipt and final-head CI follow below.
+
+Rosina wording follow-up (Task R; no web text substitution): live-08 said verbatim, "I've prepared
+the preview for Nora — nothing sent." At that moment it had proposed only a catalog card: the
+browser assertions prove orbitDraft/orbitPreview had not run until the parent clicked. Prefer
+wording that offers a card to prepare a preview. It correctly left unsupported hair-color input
+unspecified and asked for a vocabulary-supported hairstyle; no descriptor was invented. Actual
+replies and action ids are preserved in the live receipts. Broader W4 exploration remains PENDING.
+
+### W-ORBIT — final focused live acceptance PASS
+
+**live-10: process exit 0 · 52/52 checks PASS · held-token/media-handle scan PASS · 21 real
+screenshots reviewed.** `web/evidence/orbit/live-manifest.json` indexes the evidence. Focused
+mobile frames show the actual exact preview/confirm, Loretta's own controls/history, and closed
+response details. Earlier capture-only failures remain unchanged (including live-09); the helper
+now brings the actual tab to the foreground for dialog actions and scrolls real elements into
+view. No screenshot-only CSS override, intercepted read response or fixture adapter was used.
+
+| Persona | Picker | Live Orbit acceptance |
+|---|---|---|
+| Kendra | READY | PASS: check-in → real Rosina card → exact preview → explicit activation → persisted responses → confirmed closure; second activation committed once across switch, then refetched correctly |
+| Loretta | READY | PASS: generated message, decoded active photo, own controls/history only; WITH_ME stays ACTIVE |
+| Dana | READY | PASS: actual forced foreign-alert status read returns no shared record, no Nora/descriptor/responder details render |
+| Demo guide | READY | PASS: sandbox read-only state; zero change/response/confirm controls |
+
+Photo visible during the delayed activation was revoked on switching; returning Kendra fetched
+actual committed state without replay; leaving revoked all remaining parent rendering handles.
+The final source stays TEXT ONLY and catalog-validated. prepareOrbitAlert enabled in both catalogs;
+card receipt causes zero mutations, card click drafts/previews once, activation uses the returned
+binding exactly once. No real sends, locations, backend/auth/schema edits by web or PR merge.
+
+Final continuation completion and RELEASE explicitly sent to Bentley at **05:50 UTC**, before
+**02:05 EDT / 06:05 UTC**. No further live calls. Runtime was the coordinated composed **8504f4d**
+(#47 handler + web metadata + #46 scenario support), with MyChildren names corrected on MCP 5051;
+this is a serving-runtime proof, not a claim that every runtime dependency is merged or deployed.
+
+Three states for this browser slice: **UI complete · backend delivered and serving verified on the
+coordinated runtime · integrated + tested PASS**. Broader W4's cross-surface/independent exploration,
+remaining service rollout, public judge access/Task H and other queued work remain separately
+PENDING. No untested backend delivery is marked DONE. Final offline checks and CI gate PR readiness.
+Final offline verification on the exact reviewed tree: **231/231 web tests**, **75/75 Rosina
+tests**, **6/6 reservation guards**, root typecheck, web typecheck/build, catalog parity **8 ids**,
+and diff check all PASS. Staged secret scan: **548 text files / 0 findings**. Final state for
+W-ORBIT browser acceptance: **DONE — UI complete · backend serving verified · integrated + tested
+PASS** on the recorded runtime. Final-head CI must pass before #44 is marked ready; Bryan alone
+merges. Broad W4 and runtime rollout dependencies above are not included in this DONE state.

@@ -7,9 +7,9 @@ import {fileURLToPath} from 'node:url'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {createServer as viteServer} from 'vite'
-import {liveWindowClear} from './live-window.mjs'
+import {orbitWindowOpen} from './live-window.mjs'
 const exec=promisify(execFile),web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=dirname(web)
-if(!await liveWindowClear(resolve(repo,'../fridgegraph/docs/handoff/HANDOFF.md'))){console.error('Deferred: shared stack has an active reservation. No live requests.');process.exit(2)}
+if(!orbitWindowOpen(await readFile(resolve(repo,'../fridgegraph/docs/handoff/HANDOFF.md'),'utf8'),{runtime:process.env.ORBIT_WINDOW_RUNTIME,until:process.env.ORBIT_WINDOW_UNTIL})){console.error('Deferred: shared stack has an active reservation. No live requests.');process.exit(2)}
 const marker=String.fromCharCode(101,121,74),secrets=new Set(),handles=new Set(),baseline=new Map()
 async function files(root){const out=[];async function walk(dir){for(const name of await readdir(dir)){if(['.git','node_modules','data','.demo-credentials'].includes(name)||name.startsWith('.env'))continue;const path=join(dir,name),stat=await lstat(path);if(stat.isSymbolicLink())continue;if(stat.isDirectory())await walk(path);else if(stat.isFile())out.push(path)}}await walk(root);return out}
 for(const path of await files(repo))baseline.set(path,(await readFile(path)).toString('utf8').split(marker).length-1)
@@ -34,7 +34,7 @@ try{
  const run=async args=>{const r=await exec('playwright-cli',['-s=orbit-live',...args],{cwd:repo,maxBuffer:2*1024*1024});browserOutput+=r.stdout+r.stderr;if(unsafe(browserOutput))throw Error('Private output detected');return r.stdout}
  // The CLI-owned page stays anonymous. Actual sessions live in an independent, unrecorded context.
  await run(['open','http://127.0.0.1:5187/?harnessPort='+bridge.address().port+'&run='+runName])
- const out=await run(['run-code','--filename=web/scripts/orbit-live.js'])
+ const out=await run(['run-code','--filename=web/scripts/'+(process.env.ORBIT_DIAGNOSE==='1'?'orbit-diagnose.js':'orbit-live.js')])
  if(out.includes('### Error'))throw Error('Browser assertion failed')
 }catch{process.exitCode=1;console.error('Orbit smoke incomplete. Raw errors, headers and media handles suppressed.')}
 finally{

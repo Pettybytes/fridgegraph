@@ -7,6 +7,8 @@ Run local live acceptance only after Bentley opens and restores the scenario-clo
 shared HANDOFF, with the corrected Rosina preparation handler serving:
 
 ```sh
+# Supply ORBIT_WINDOW_RUNTIME and ORBIT_WINDOW_UNTIL from Bentley’s current OPEN reservation.
+# Supply a unique ORBIT_RECEIPT_NAME to preserve every earlier run.
 node web/scripts/orbit-smoke.mjs
 ```
 
@@ -32,3 +34,26 @@ session or fixture response. Only Orbit's overdue derivation receives the scenar
 2026-10-31T20:05:00Z; auth, expiry and renewal keep the real clock. The local Vite proxies send the
 same explicit scenario headers to GraphQL/Rosina. The serving backend's scenario support must be
 confirmed by Bentley before the run. Persisted response timestamps are displayed exactly as read.
+
+The window guard accepts only this task’s latest explicitly OPEN/REOPENED reservation, the
+matching runtime and a future UTC deadline within 45 minutes. It rejects stale, unknown, foreign,
+reserved-but-unrestored, superseded and expired windows. Generic callers still defer to every
+active reservation. A re-opened continuation keeps the same original deadline.
+
+Live run 08 completed 52/52 checks with 20 real captures and a clean held-token/media-handle scan.
+Runs 01–07 and two read-only diagnostic receipts remain unchanged, including failures. The
+production fixes were explicit select labels, guidance note semantics, single-flight polling
+(the old poll sequence could starve a slow read), photo decode fallback and an assistant dock
+clear of Orbit controls. The final live pass requires decoded images and a photo actually present
+during the delayed activation; returning as Kendra refetches the committed state exactly once.
+
+Earlier mobile images show the top of the inner scroller. A continued, separately coordinated
+run focuses the real preview/history elements before capture; it changes no CSS or service reply
+for screenshots. Application changes and all original receipts remain independently reviewable.
+
+Final evidence: **live-10.json**, exit 0, 52/52 checks, clean scan, 21 real captures indexed by
+`live-manifest.json`. Preview and response mobile captures are focused on their actual controls.
+`live-09.json` remains a failure; no past receipt or screenshot was rewritten. The final driver
+focuses the actual browser tab before dialog actions. Both activations retain real confirmation
+clicks and exact binding checks; the race case includes a current photo, then checks revocation.
+The shared-stack continuation was explicitly released before the original deadline.

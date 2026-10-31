@@ -26,5 +26,5 @@ export function useOrbitPhoto(controller:OrbitController,id:string|undefined){
   if(id)void controller.photo(id,abort.signal).then(blob=>{if(active&&controller.current()){url=URL.createObjectURL(blob);setImage({id,url})}},()=>{if(active&&controller.current())setFailed(true)})
   return()=>{active=false;abort.abort();if(url)URL.revokeObjectURL(url)}
  },[controller,id])
- return {url:image&&image.id===id?image.url:undefined,failed}
+ return {url:!failed&&image&&image.id===id?image.url:undefined,failed,onError:()=>setFailed(true)}
 }

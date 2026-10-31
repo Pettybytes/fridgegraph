@@ -67,4 +67,12 @@ describe('Orbit state machine',()=>{
   const {adapter,controller}=fixture(),realNow=Date.now();const before=new OrbitController(adapter,controller.scope,()=>1,()=>Date.parse('2026-10-30T19:55:00Z')),after=new OrbitController(adapter,controller.scope,()=>1,()=>Date.parse('2026-10-30T20:05:00Z'));await before.load();await after.load();expect(before.checkInOverdue()).toBe(false);expect(after.checkInOverdue()).toBe(true);expect(Date.now()).toBeGreaterThanOrEqual(realNow);expect(Date.now()-realNow).toBeLessThan(1000)
  })
 
+ it('joins overlapping polls through both reads so a slow alert read cannot be starved',async()=>{
+  const {adapter,controller}=fixture();await controller.load();let statusDone!:(value:Awaited<ReturnType<OrbitAdapter['status']>>)=>void,alertDone!:(value:Alert)=>void
+  adapter.status.mockImplementationOnce(()=>new Promise(r=>{statusDone=r}));adapter.alert.mockImplementationOnce(()=>new Promise(r=>{alertDone=r}))
+  const first=controller.refresh(),second=controller.refresh();expect(second).toBe(first);expect(adapter.status).toHaveBeenCalledTimes(2)
+  statusDone({alertId:alert.id,status:'ACTIVE',audienceCount:3,notifiedCount:3,latestResponses:[response],guidance});await vi.waitFor(()=>expect(adapter.alert).toHaveBeenCalledTimes(1))
+  const third=controller.refresh();expect(third).toBe(first);alertDone({...alert,responses:[response]});await Promise.all([first,second,third]);expect(controller.getSnapshot().alert?.responses).toEqual([response]);expect(adapter.alert).toHaveBeenCalledTimes(1)
+ })
+
 })

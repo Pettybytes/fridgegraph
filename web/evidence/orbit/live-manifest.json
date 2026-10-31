@@ -1,0 +1,47 @@
+{
+  "receipt": "live-10.json",
+  "passed": true,
+  "checks": 52,
+  "scan": "PASS; filenames/pass-fail in receipt, no held values or fragments",
+  "screenshots": [
+    "live-10/active-desktop.png",
+    "live-10/active-mobile.png",
+    "live-10/check-in-desktop.png",
+    "live-10/check-in-mobile.png",
+    "live-10/closed-desktop.png",
+    "live-10/closed-mobile.png",
+    "live-10/closed-responses-mobile.png",
+    "live-10/dana-boundary-desktop.png",
+    "live-10/dana-boundary-mobile.png",
+    "live-10/guide-read-only-desktop.png",
+    "live-10/guide-read-only-mobile.png",
+    "live-10/loretta-response-desktop.png",
+    "live-10/loretta-response-mobile.png",
+    "live-10/photo-preview-desktop.png",
+    "live-10/photo-preview-mobile.png",
+    "live-10/preview-desktop.png",
+    "live-10/preview-mobile.png",
+    "live-10/recorded-responses-desktop.png",
+    "live-10/recorded-responses-mobile.png",
+    "live-10/returned-after-switch-desktop.png",
+    "live-10/returned-after-switch-mobile.png"
+  ],
+  "runtime": {
+    "sha": "8504f4d",
+    "rosina": 4200,
+    "router": 4012,
+    "demoAndMedia": 4008,
+    "mcp": 5051,
+    "scenarioInstant": "2026-10-31T20:05:00Z",
+    "authenticationClock": "real"
+  },
+  "personas": {
+    "kendra": "READY; full flow, persisted responses, confirmed closure, mid-activation switch and refetch passed",
+    "loretta": "READY; own response controls/history and active photo passed",
+    "dana": "READY; forced foreign-alert read returns no shared record; no private details rendered",
+    "demo-guide": "READY; sandbox read, no change controls"
+  },
+  "recording": "No trace/HAR/video/storage-state/header logging; independent browser context",
+  "fixtureData": false,
+  "broaderW4": "PENDING; not proven by this Orbit slice"
+}
