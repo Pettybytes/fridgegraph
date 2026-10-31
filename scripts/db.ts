@@ -24,6 +24,7 @@ import {
   createSimulatedPrivate,
   SIMULATED_LABEL,
 } from '../src/fixtures-simulated';
+import { createCastV2 } from '../src/fixtures-cast-v2';
 
 function parseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -69,7 +70,7 @@ const TABLES = [
   'contact_methods', 'capabilities', 'groups', 'memberships', 'goals', 'care_plans', 'grants',
   'approvals', 'household_policies', 'parenting_schedules', 'events', 'school_reports',
   'permission_slips', 'bus_rosters', 'vehicles', 'practices', 'locations', 'coordination_jobs', 'attempts',
-  'information_requests', 'confirmations', 'conversation_state', 'village_event',
+  'information_requests', 'confirmations', 'conversation_state', 'village_event', 'routines', 'care_facts',
   'orbit_vocabulary',
 ] as const;
 
@@ -189,15 +190,34 @@ const CONFLICT: Record<string, string | undefined> = {
   locations: 'id',
   orbit_vocabulary: 'kind,value',
   care_facts: 'child_id,key',
+  villages: 'id',
+  households: 'id',
+  relationships: 'id',
+  grants: 'id',
+  routines: 'id',
+  events: 'id',
 };
 
 export async function seedDatabase() {
   const b = baseline();
+  // Cast v2 is BASELINE data: it is demo content the personas depend on, so `db:reset` must preserve
+  // it exactly like the vocabulary. Only new rows are added — no baseline row is modified here.
+  const cv = createCastV2() as unknown as Record<string, Record<string, unknown>[]>;
+  const merged: Record<string, Record<string, unknown>[]> = { ...b };
+  for (const [key, rows] of Object.entries(cv)) {
+    if (!Array.isArray(rows)) continue;
+    merged[key] = [...(merged[key] ?? []), ...rows];
+  }
   let total = 0;
   // parents first so FKs exist
   for (const t of TABLES) {
-    const rows = b[t];
-    if (!rows) continue;
+    const raw = merged[t];
+    if (!raw) continue;
+    // PostgREST needs one key set per batch. `events.status` defaults to confirmed in the database,
+    // so rows that omit it are given the same value rather than being dropped or rewritten.
+    const rows = t === 'events'
+      ? raw.map((r) => ({ status: 'confirmed', ...r }))
+      : raw;
     total += await upsert(t, rows, CONFLICT[t]);
   }
   return total;
