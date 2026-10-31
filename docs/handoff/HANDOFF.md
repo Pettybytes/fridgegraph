@@ -3716,3 +3716,22 @@ per IP from a **trusted forwarded header**, and (3) the existing guide refusal. 
 stay as defence in depth, but it must not be the only gate.
 | 2026-10-31 16:20 | **RESERVED: W-SUITE window (~45 min)** — `ops/suite-reset-proof.mjs` runs the evidence suite TWICE through `ops/run-suite.mjs` (one passing, one forced failure), each ending in the suite's own `/__reset`, followed by `resetDemo()` for the sandbox-unaffected check. Restore = the new `restoreDemoCast()` trap (v1 baseline + ALL of Cast v2 + simulated), then consumer reads (jobTimeline, Thanksgiving effectiveScheduleFor, orbitVocabulary, checkInStatus, careFacts, myChildren) + one authenticated MCP call + `my-children-proof` PASS + full-table checksum equality. `resetDatabase()` itself is unchanged. | `fix/suite-reset-cast-v2` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
 | 2026-10-31 16:12 | **W-SUITE RELEASED — restored and verified.** Two suite runs through `ops/run-suite.mjs` (one passing **114 checks / 32 cases** via router **4012**; one forced failure, exit 1) then `resetDemo()`. Restore trap fired in BOTH cases. Full-table checksum byte-identical to the re-established baseline after each run; named cast present (Priya's grant + relationship, Malik's facts, Rosa's guardian row, 9 policies, 55 vocabulary rows); all six consumer reads PASS; authenticated MCP PASS; `my-children-proof` PASS after both runs; restoring again returns the exact baseline checksum. `resetDatabase()` unchanged; evidence 54. **Observed, not fixed:** `resetDemo()` clears Cast v2 *sandbox* care facts (Malik 3 → 0) because it restores only its own simulated set — separate defect, own PR. | `fix/suite-reset-cast-v2` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |
+
+## Evidence writer — the suite no longer overwrites the record (2026-10-31 17:05)
+
+`ops/run-evidence.mjs` used to write straight into `docs/evidence/` on every run, so any suite run on
+any router silently replaced the canonical GraphOS evidence. That is what happened when the suite ran
+against router 4012 and rewrote 31 recorded files (restored on `feat/create-demo-family`).
+
+**New behaviour**
+
+| Invocation | Writes to |
+|---|---|
+| `node ops/run-evidence.mjs` | `.runs/evidence/<timestamp>/` (gitignored) and prints the path |
+| `node ops/run-evidence.mjs --record` | `docs/evidence/`, only for a deliberate record run |
+
+`--record` checks **every** target filename before the first live call and exits 2 if any exists, so a
+refused record run mutates nothing. Every write uses exclusive creation (`flag: 'wx'`), so an existing
+file can never be overwritten even if the preflight were bypassed.
+| 2026-10-31 17:06 | **RESERVED: W-WRITER window (~25 min)** — `ops/evidence-writer-proof.mjs` runs the evidence suite ONCE (default, no `--record`) to prove it writes only to `.runs/evidence/<stamp>/`, plus a `--record` refusal that performs no live call. The suite's own `/__reset` runs as its last step; afterwards `restoreDemoCast()` puts the cast back and consumer reads are verified. | `fix/evidence-writer` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **OPEN** |
+| 2026-10-31 17:12 | **W-WRITER RELEASED — restored and verified.** `ops/evidence-writer-proof.mjs` **12/12 PASS**: `--record` refused with exit 2 **before any live call** (32 names already recorded), no evidence file changed; the default run passed (**114 checks / 32 cases**, router 4012), wrote **32 files** to `.runs/evidence/<stamp>/` and left `docs/evidence/` byte-identical (79 files, same tree SHA-256); exclusive creation refused an overwrite (`EEXIST`). Demo cast restored afterwards via `restoreDemoCast()`. Evidence 56. | `fix/evidence-writer` @ pending | 4008 · 4012 · 4200 · 5051 · 4101–4107 | **RELEASED — restored/available** |

@@ -47,7 +47,7 @@ Full branch policy: `docs/BRANCHES.md`.
 | Schema / data | `schema/`, `supabase/`, `scripts/db.ts`, `src/fixtures.ts` | senior-only | One subgraph at a time. Never rewrite a migration that is already applied. |
 | Auth / authz | `src/auth/`, `src/authz.ts`, `src/context.ts` | senior-only | Every change needs a before/after probe in `docs/evidence/`. |
 | Server / graph | `src/subgraphs/`, `src/server.ts`, `src/main.ts` | standard | Field-level authz stays per-resolver. Never enforce permissions at the router. |
-| Ops / evidence | `ops/`, `docs/evidence/` | standard | Evidence is append-only. Never rewrite a past result. |
+| Ops / evidence | `ops/`, `docs/evidence/` | standard | Evidence is append-only. Never rewrite a past result. The suite writes to `.runs/evidence/<timestamp>/` by default; only `node ops/run-evidence.mjs --record` writes `docs/evidence/`, and it refuses before any live call if a target filename already exists. |
 | Frontend | `web/` | standard | Contract: `docs/contracts/frontend.md`. Never authenticates with a service key. |
 | Docs / contracts | `docs/`, `AGENTS.md`, `*.md` | standard | Keep contracts and code in the same PR. |
 
