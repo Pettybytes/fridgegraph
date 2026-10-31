@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import type { McpTool, McpToolCall } from '../muse/mcp';
 import type { ChatResult, ModelMessage, ModelTool, ProviderConfig } from '../muse/providers';
 import { catalog } from './catalog';
+import { scenarioNowFrom } from '../context';
 import { runRosinaTurn, type McpClientLike } from './model';
 import {
   checkInStatusFrom,
@@ -374,4 +375,109 @@ test('the system prompt explicitly instructs that a routine question is not itse
   assert.match(prompt, /NOT itself a reason to bring up Orbit/);
   assert.match(prompt, /I can help notify your approved village/);
   assert.match(prompt, /never infer it from/);
+});
+
+// --- 2026-10-31: honouring the catalog flag after the gates (handler now present) ---
+
+test('decision: gate failures are never overridden by an enabled flag or a present handler', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: false, gate: 'OK', enabled: true, handlerPresent: true }),
+    { propose: false, errorCode: 'INVALID_ACTION' });
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'NOT_PARENT', enabled: true, handlerPresent: true }),
+    { propose: false, errorCode: 'NOT_PARENT' });
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'VALUE_NOT_IN_VOCABULARY', enabled: true, handlerPresent: true }),
+    { propose: false, errorCode: 'VALUE_NOT_IN_VOCABULARY' });
+});
+
+test('decision: an enabled catalog WITHOUT a handler still refuses — metadata alone can never enable it', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: true, handlerPresent: false }),
+    { propose: false, errorCode: 'UNIMPLEMENTED' });
+});
+
+test('decision: a disabled catalog refuses even when the handler is present', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: false, handlerPresent: true }),
+    { propose: false, errorCode: 'UNIMPLEMENTED' });
+});
+
+test('decision: only gate OK + enabled + handler present proposes the action', () => {
+  assert.deepEqual(decideOrbitAction({ shapeOk: true, gate: 'OK', enabled: true, handlerPresent: true }),
+    { propose: true });
+});
+
+test('card: with the catalog flag flipped and the gate clean, the action IS proposed', async () => {
+  const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: true }), OrbitVocabulary: VOCAB_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' }), toolCall('c2', 'OrbitVocabulary', {})] }),
+    chatResult({ toolCalls: [toolCall('c3', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora', wearColor: 'YELLOW', wearGarment: 'RAINCOAT' })] }),
+    chatResult({ content: 'Here is a card to prepare an Orbit alert.' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+    assert.equal(result.actions.length, 1, 'the action is returned once the gate and the flag agree');
+    assert.equal(result.actions[0].id, 'prepareOrbitAlert');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.equal(evidence?.isError, false, 'recorded as accepted, not refused');
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
+});
+
+test('card: flag flipped but the gate fails on authority — still refused, never proposed', async () => {
+  const mcp = stubOrbitMcp({ OrbitVocabulary: VOCAB_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'OrbitVocabulary', {})] }),
+    chatResult({ toolCalls: [toolCall('c2', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora', wearColor: 'YELLOW' })] }),
+    chatResult({ content: 'card' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
+    assert.deepEqual(result.actions, [], 'authority still decides — the flag cannot override it');
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.deepEqual(evidence?.errorCodes, ['NOT_PARENT']);
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
+});
+
+// --- 2026-10-31: the scenario INSTANT (time-of-day), separate from the demo DATE ---
+
+test('scenario instant: ignored entirely when DEMO_CLOCK is off', () => {
+  const at = scenarioNowFrom({ 'x-demo-now': '2026-10-31T20:05:00Z' }, false);
+  assert.equal(at, undefined, 'the real clock is authoritative outside demo mode');
+});
+
+test('scenario instant: a valid ISO instant is honoured under DEMO_CLOCK', () => {
+  const at = scenarioNowFrom({ 'x-demo-now': '2026-10-31T20:05:00Z' }, true);
+  assert.equal(at?.toISOString(), '2026-10-31T20:05:00.000Z');
+});
+
+test('scenario instant: a date-only value is NOT an instant and is ignored', () => {
+  assert.equal(scenarioNowFrom({ 'x-demo-now': '2026-10-31' }, true), undefined);
+});
+
+test('scenario instant: garbage is ignored rather than throwing', () => {
+  assert.equal(scenarioNowFrom({ 'x-demo-now': 'not-a-time' }, true), undefined);
+  assert.equal(scenarioNowFrom({ 'x-demo-now': '2026-13-45T99:99:99Z' }, true), undefined);
+});
+
+test('overdue proof: dueAt 20:00Z is FUTURE at 19:55Z and OVERDUE at 20:05Z — same fixture, different instant', async () => {
+  const run = async (iso: string) => {
+    const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: false, dueAt: '2026-10-31T20:00:00Z' }) });
+    const { fn: chatFn, seenMessages } = recordingChat([
+      chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' })] }),
+      chatResult({ content: 'ok' }),
+    ]);
+    await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp, scenarioNow: new Date(iso) });
+    const toolMessage = seenMessages[1].find((m) => m.role === 'tool');
+    assert.ok(toolMessage, 'the CheckInStatus result must be present before round 2');
+    return (JSON.parse(String(toolMessage.content)) as { checkInStatus: { overdue: boolean } }).checkInStatus.overdue;
+  };
+
+  assert.equal(await run('2026-10-31T19:55:00Z'), false, 'five minutes BEFORE the due time: not overdue');
+  assert.equal(await run('2026-10-31T20:05:00Z'), true, 'five minutes AFTER the due time: overdue');
 });

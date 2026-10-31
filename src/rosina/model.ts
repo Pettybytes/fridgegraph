@@ -44,6 +44,9 @@ export type RosinaTurnOptions = {
   maxRounds?: number;
   /** Injectable for tests — never set in production. Defaults to the real provider call. */
   chatFn?: typeof chat;
+  /** Scenario instant for time-of-day questions (overdue check-ins), set only under DEMO_CLOCK=1.
+   *  Never used for authentication — token expiry always uses the real clock. */
+  scenarioNow?: Date;
   /** Injectable for tests — never set in production. Defaults to a real McpToolClient. */
   mcpClientFactory?: (url: string, bearer: string) => McpClientLike;
   /** Injectable for tests — never set in production. Defaults to resolveProvider(options.provider),
@@ -350,7 +353,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       let overdueFlag: boolean | null = null;
       if (call.name === 'CheckInStatus' && !callResult.isError) {
         const status = checkInStatusFrom(callResult.data);
-        if (status) overdueFlag = isCheckInOverdue(status);
+        if (status) overdueFlag = isCheckInOverdue(status, options.scenarioNow ?? new Date());
       }
       // Deterministic, not a hope the model converts UTC correctly: any `at`/`closedAt` in a
       // JobTimeline/Attempts result is rewritten to the family's own local time before the
