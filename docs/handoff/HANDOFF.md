@@ -384,6 +384,7 @@ Then run it, then say it is restored. Never leave the stack pointed at a differe
 | 2026-10-30 21:40 | `db:reset` + `seed` + `seed:simulated` to restore the baseline vocabulary (0034's insert is wiped by reset) | `feat/orbit-vocabulary-api` | 4101–4107 / 4012 / 5051 | **restored, 55 values** |
 | 2026-10-30 21:40 | **Group 4 window** — 0039 (CareFact) applied; stack + MCP restarted; `seed:simulated` re-applied. Codex: no live run at reservation. | `feat/group4-care-facts` | 4101–4107 / 4012 / 5051 | **restored** |
 | 2026-10-30 22:12 | **W4b live-acceptance window (~8 min, READ-ONLY)** — Rosina 4200 reloaded from worktree `fridgegraph-main` @ **593e794** (PID 98552). PID 59207 was stale: started 21:55 **after** the 21:48 merge, but from the `feat/group4-care-facts` checkout cut before #37 (`model.ts` had **0** of the three tool names; main has **11**). Also fixed: Rosina's MCP URL defaulted to **5050** (no listener) — now `ROSINA_MCP_URL=...:5051/mcp`, which lists `ChildEvents, EffectiveSchedule, AdultAvailability`. NO reset, NO seed, no subgraph/router change. | worktree `fridgegraph-main` @ 593e794 | 4200 (stack 4101–4107 / 4012 / 5051 untouched) | **restored, verified** |
+| 2026-10-30 22:20 | **W4b post-reload 401 — fixed** (identity map missing from the worktree cwd). Rosina 4200 restarted with `IDENTITY_MAP_PATH` → owning checkout's map and `ROSINA_MCP_URL` → 5051. Probe: **200**. NO reset, NO seed. | worktree `fridgegraph-main` @ 593e794 | 4200 only | **restored, verified** |
 
 ## Group 4 — CareFact (2026-10-30)
 
@@ -1982,6 +1983,29 @@ being pre-network, and (c) the reproduced failure and fix on this checkout. If i
 serving process's environment **at failure time** (names only) before restarting.
 
 ---
+
+
+### Root cause (sanitized) — 401 on every first message after the reload
+
+`src/auth/verify.ts` resolves the caller by mapping the token's subject through
+`identityMapPath()` — and that path is **`process.cwd()/data/identity-map.json`**
+(`src/demo/personas.ts:181–183`). A git worktree has no `data/` directory: the file is a runtime
+artifact, not a tracked file. With the map absent, `mappedPersonId()` returns `undefined`,
+`verifyBearer` answers `{ ok:false, reason:'unmapped' }`, and the handler replies
+`401 {"error":"UNAUTHENTICATED"}` (`src/rosina/server.ts:61–65`) — which the frontend surfaces as the
+"send your question again" manual-resend path. Follow-ups then hit the per-person limiter, so they read
+as Busy.
+
+Why the previous 4200 worked: it ran from `/Users/user/Desktop/bentley/fridgegraph`, whose cwd *does*
+contain the map. Nothing about the tokens or credentials changed — only the process working directory.
+
+Fix applied (no file copied, no contents read): start 4200 with
+`IDENTITY_MAP_PATH=/Users/user/Desktop/bentley/fridgegraph/data/identity-map.json` and
+`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`. Verification: process cwd is the worktree, startup log
+shows `mcp=…:5051/mcp`, and a status-only probe returned **200** (no body or identity values logged).
+
+**Rule for worktrees:** tracked code may live in a worktree; runtime state (.env, `data/identity-map.json`,
+credentials) must be passed by PATH through the environment, never copied and never committed.
 
 ## QUEUED — owning read contract extension for W4b (2026-10-30)
 
