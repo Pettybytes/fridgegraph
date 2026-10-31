@@ -176,7 +176,7 @@
 
 /* ── Rosina avatar ────────────────────────────────────────────────────── */
 .fg-rosina { position: relative; display: inline-grid; place-items: center; width: var(--sz, 40px); height: var(--sz, 40px); flex: 0 0 auto; }
-.fg-rosina-art { width: 100%; height: 100%; display: block; position: relative; z-index: 1; }
+/* .fg-rosina-art is defined below as a CSS viewport crop of the concept board. */
 .fg-rosina-halo {
   position: absolute; inset: -8%; border-radius: 50%; z-index: 0;
   background: radial-gradient(circle, color-mix(in oklch, var(--rosina-violet) 40%, transparent) 0%, transparent 68%);
@@ -237,3 +237,21 @@
 @supports not (backdrop-filter: blur(1px)) {
   .fg-glass { background: var(--fg-surface); }
 }
+
+/* Rosina avatar art — a CSS viewport crop of the approved concept board.
+   Ratios of the full image (resolution-independent): Ready tile is x854/y48 of a
+   1536-wide board, so size = sz×(1536/320) and the tile's top-left maps to 0,0. */
+.fg-rosina-art {
+  position: absolute; inset: 0; z-index: 1;
+  border-radius: 50%; overflow: hidden;
+  background-color: var(--rosina-periwinkle); /* shows only if the art fails to load */
+  background-repeat: no-repeat;
+  background-size: calc(var(--sz, 40px) * 4.8) auto;
+  background-position: calc(var(--sz, 40px) * -2.66875) calc(var(--sz, 40px) * -0.15); /* Ready */
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--rosina-silver) 45%, transparent);
+}
+/* Thoughtful tile — only while a request is genuinely pending. */
+.fg-rosina[data-state='thinking'] .fg-rosina-art {
+  background-position: calc(var(--sz, 40px) * -3.078) calc(var(--sz, 40px) * -1.469);
+}
+.fg-rosina-art-img { width: 100%; height: 100%; object-fit: cover; }
