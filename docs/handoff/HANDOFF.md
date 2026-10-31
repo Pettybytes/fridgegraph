@@ -12,7 +12,7 @@ Fresh branch off `main` **`b3173b9`** (#26 merged). One PR per sub-task; none me
 |---|---|---|
 | 1 Persona sessions | `feat/e-next-persona-sessions` | **DONE** — evidence `39-persona-sessions.md`, proofs 26/26 |
 | 2 Rosina read tools | `feat/e-next-rosina-tools` | **DONE — evidence `40-rosina-read-tools.md`, proof 23/23 on MCP 5051** |
-| 3 Group 3 (events + adult schedules) | `feat/e-next-group3` | **PARTIAL — 0027 + 0028 applied (dry runs 18/18 and 20/20); read layer + MCP tools PENDING.** Evidence `41-group3-events-holidays-availability.md` |
+| 3 Group 3 (events + adult schedules) | `feat/e-next-group3` (PR **#31**) | **DONE — 0027/0028/0029 applied, dry runs 18/18 + 20/20, read layer + 3 MCP tools proven 24/24. PENDING: seeded cancelled-event fixture, 0026 seam audit.** Evidence `41-group3-events-holidays-availability.md` |
 | 4 Group 4 (care + Cast v2 seed) | | not started |
 | 5 Group 5 (reset, demo family, consent) | | not started — **resetDemo restores v1 baseline + SIMULATED coordination fixture (later + Cast v2 seed); `db:reset` alone is insufficient; prove Kendra's Mission Control still lists the sample job and Rosina's `JobTimeline` still returns its entries after a reset** |
 
@@ -48,12 +48,21 @@ explicitly — without that every caller hits `42501` before RLS (the dry run ca
 `node ops/0027-dry-run.mjs` **18/18 PASS**, one rolled-back transaction, real `request.jwt.claims`
 impersonation (guide markers included). `node ops/0027-apply.mjs` verifies the applied shape.
 
-**PENDING in this PR (never label these implemented until proven):**
-`childEvents(childId, from, to)`, `adultAvailability(personId, from, to)` (state only),
-`effectiveScheduleFor(childId, date)`, `scheduleConflicts(childId, from, to)`; MCP `ChildEvents` +
-`AdultAvailability` (+ `EffectiveSchedule` if ready) with the **same no-oracle contract**; persona
-boundary proofs on both surfaces; SIMULATED holiday/routine/availability fixture kept out of the v1
-baseline; 0026 guide-seam re-check for any derived read.
+**Read layer DONE.** GraphQL `childEvents`, `adultAvailability` (state only),
+`effectiveScheduleFor`, `scheduleConflicts`; MCP `ChildEvents`, `AdultAvailability`,
+`EffectiveSchedule` — `node ops/mcp-group3-proof.mjs` **24/24 PASS** on router **4012** and MCP
+**5051 → 4012**. The no-oracle contract holds on both surfaces (`UNAUTHORIZED` for a known
+out-of-network caller, identical to a nonexistent and a malformed id). Availability is Busy/Free
+only; the required "recorded free time, not willingness" wording is in the GraphQL description and
+the MCP operation file. SIMULATED calendar fixture (closure, two routines, Busy window, two approved
+arrangements) seeds with `seed:simulated` and has its own checksum; **no rows are written into a
+baseline table** (an earlier attempt to seed `events` was removed — that is why `events` shows only
+the 0027 column change). `0029` grants `service_role` on the four new tables (seeding failed with
+42501 otherwise).
+
+**Still PENDING:** a seeded cancelled event (cannot go in `events` without moving the baseline
+checksum) so the `includeCancelled` filter is proven by data, and the dedicated 0026 guide-seam
+audit for these reads.
 
 **Required wording (recorded, lands with the read):** FREE means *recorded free time*, NOT confirmed
 willingness or permission to care for a child — in the GraphQL field description **and** the MCP tool

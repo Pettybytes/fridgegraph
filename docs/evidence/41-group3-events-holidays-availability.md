@@ -123,3 +123,71 @@ parent/guardian, never the proposer, never a grant.
   Recorded here because the field and tool do not exist yet — it lands with them.
 - Persona-boundary proofs on both surfaces, the SIMULATED holiday/routine/availability fixture, and
   the 0026 guide-seam re-check for any derived read — PENDING.
+
+---
+
+## Read layer — DONE (GraphQL + MCP)
+
+| Surface | Reads |
+|---|---|
+| GraphQL (`schedule` subgraph) | `childEvents(childId, from, to, includeCancelled)`, `adultAvailability(personId, from, to)`, `effectiveScheduleFor(childId, date)`, `scheduleConflicts(childId, from, to)` |
+| MCP (`5051`) | `ChildEvents`, `AdultAvailability`, `EffectiveSchedule` — `tools/list` now returns six tools, none writable |
+
+**Availability wording is in the schema itself** (GraphQL field description) **and in the MCP
+operation file**: FREE means *recorded free time*, NOT confirmation of willingness, permission, or
+suitability to care for a child, and never "can pick up". The projection contains no `reason`
+column at all — the view masks it structurally, not by convention.
+
+### Proof — `node ops/mcp-group3-proof.mjs` — 24/24 PASS
+
+Surfaces: GraphQL through **router 4012** (alt stack, subgraphs 4101–4107 running this checkout) and
+**MCP 5051 → 4012**.
+
+| # | Check |
+|---|---|
+| 0 | MCP exposes `ChildEvents`, `AdultAvailability`, `EffectiveSchedule`; no mutation tool |
+| 1 | Kendra reads the calendar; no cancelled entry appears; the confirmed baseline event carries `status`; 25 Nov is `ARRANGEMENT`/`p_dad`, 24 Nov `WEEKLY`/`p_mom`, 28 Nov back to `WEEKLY`; her own Busy window is readable and the payload contains **no reason** |
+| 2 | Andre (co-parent) sees `BUSY` and still no reason; the guide reads the sandbox calendar and state only |
+| 3 | Dana is a **known** caller (`UNAUTHORIZED`, not `UNAUTHENTICATED`) and **hidden == nonexistent == malformed** child ids return identical payloads |
+| 4 | MCP: `ChildEvents` returns rows, `EffectiveSchedule` says `ARRANGEMENT`, `AdultAvailability` is Busy/Free only, no reason |
+| 5 | MCP: Dana known, hidden == nonexistent == malformed, no event rows |
+| 6 | no token → `UNAUTHENTICATED` |
+
+### SIMULATED calendar fixture (kept out of the v1 baseline)
+
+`src/fixtures-simulated.ts#createSimulatedCalendar()` — closure 25–27 Nov, `rt_nora_school_run`
+(`SCHOOL_DAY`) + `rt_nora_bedtime` (`ANY_DAY`), one Busy window with a private reason, and two
+approved arrangements (one deliberate overlap). Seeded with
+`npx tsx scripts/db.ts seed:simulated`, checksummed with `checksum:simulated`:
+
+| Table | Rows | SHA-256 (16) |
+|---|---|---|
+| `coordination_jobs` | 1 | `3e221662b46f5903` |
+| `attempts` | 2 | `8e3fbbc30dfe618d` |
+| `holidays` | 1 | `9ab32286f5018a76` |
+| `routines` | 2 | `c00c7c4b24e551f8` |
+| `adult_availability` | 1 | `ede67c9175fe4e96` |
+| `holiday_arrangements` | 2 | `37e5d0d4a26d8f06` |
+
+**Baseline impact:** the fixture writes to those six tables only. `events` is the one non-fixture
+table whose checksum moved, and it moved **because 0027 added the `status` column** — the row count
+is unchanged (1) and the row is the same baseline event (the proof reads it as `School`, `confirmed`).
+No fixture rows are written into a baseline table that already had data; an earlier attempt that did
+so was removed, which is why the fixture no longer seeds events.
+
+### 0029 — grants the seed exposed
+
+Seeding failed with `42501` on `holidays`: `0004` granted privileges before these tables existed and
+Postgres does not carry a grant forward. `0029_service_role_grants.sql` grants `service_role`
+`select/insert/update/delete` on the four new tables only. It is not an authorization change for
+callers — `authenticated` still reaches them through RLS.
+
+### Still PENDING (never claimed as implemented)
+
+- The `includeCancelled` filter is exercised by the resolver and by the absence of cancelled rows in
+  the response, but **no cancelled row is seeded** (that would touch the baseline `events` checksum).
+  Proving it needs a fixture strategy that does not write into `events` — recorded, not claimed.
+- The 0026 guide-seam re-check for these reads: `childEvents` is a direct RLS table read, while
+  `effectiveScheduleFor`/`scheduleConflicts` are SECURITY DEFINER functions that authorize through
+  `authorizeChild` first; the guide path is covered by the proof above (it reads sandbox data), but
+  a dedicated seam audit is PENDING.

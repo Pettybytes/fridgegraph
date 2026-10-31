@@ -1,0 +1,18 @@
+# Rosina tool: AdultAvailability — recorded Busy/Free windows for one person.
+#
+# FREE means RECORDED FREE TIME only. It is not confirmation of willingness, permission, or
+# suitability to care for a child, and it never means the person can pick a child up. Say "has free
+# time recorded"; never "is available to watch" or "can pick up".
+#
+# The `reason` column does not exist in this projection and must never be requested.
+query AdultAvailability($personId: ID!, $from: String!, $to: String!) {
+  adultAvailability(personId: $personId, from: $from, to: $to) {
+    person {
+      id
+      displayName
+    }
+    start
+    end
+    state
+  }
+}

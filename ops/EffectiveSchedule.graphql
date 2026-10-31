@@ -1,0 +1,14 @@
+# Rosina tool: EffectiveSchedule — who has the child on a date, and which rule produced it.
+#
+# source is ARRANGEMENT (an APPROVED holiday arrangement, its interval inclusive) or WEEKLY.
+# A child the caller cannot see behaves exactly like a nonexistent one: no parent, no arrangement.
+query EffectiveSchedule($childId: ID!, $date: String!) {
+  effectiveScheduleFor(childId: $childId, date: $date) {
+    parent {
+      id
+      displayName
+    }
+    source
+    arrangementId
+  }
+}
