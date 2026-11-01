@@ -88,9 +88,29 @@ export type ToolCallEvidence = {
   errorCodes: string[];
 };
 
+/**
+ * The structured result of a successful `ProposeSchoolDayReport` call this turn, for the app to
+ * build its own confirm UI from — NEVER parsed out of the model's own text, which is exactly what
+ * `confirmSchoolDayReport`'s version check exists to refuse if the app got it wrong anyway.
+ */
+export type SchoolReportProposalResult = {
+  id: string;
+  version: number;
+  childId: string;
+  kind: string;
+  text: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
 export type RosinaTurnResult = {
   reply: string;
   actions: CatalogAction[];
+  /** The LATEST successful ProposeSchoolDayReport result this turn, or null if none was called
+   * (or the output guard fired). A fresh proposal replaces an earlier one in the same turn, same
+   * as the database row it mirrors. This is never present unless this exact turn's own tool call
+   * produced it — never carried over from a prior turn, never invented. */
+  schoolReportProposal: SchoolReportProposalResult | null;
   provider: ProviderId;
   model: string;
   rounds: number;
@@ -102,8 +122,25 @@ export type RosinaTurnResult = {
   outputGuardTriggered: boolean;
 };
 
+/** Defensive parse of ProposeSchoolDayReport's own tool result shape — an unexpected shape
+ * returns null rather than throwing, so a malformed response never fakes a structured proposal. */
+function schoolReportProposalFrom(data: unknown): SchoolReportProposalResult | null {
+  const row = (data as { proposeSchoolDayReport?: unknown })?.proposeSchoolDayReport;
+  if (!row || typeof row !== 'object') return null;
+  const r = row as Record<string, unknown>;
+  const childId = (r.child as { id?: unknown } | undefined)?.id;
+  if (
+    typeof r.id !== 'string' || typeof r.version !== 'number' || typeof childId !== 'string' ||
+    typeof r.kind !== 'string' || typeof r.text !== 'string' ||
+    typeof r.createdAt !== 'string' || typeof r.expiresAt !== 'string'
+  ) {
+    return null;
+  }
+  return { id: r.id, version: r.version, childId, kind: r.kind, text: r.text, createdAt: r.createdAt, expiresAt: r.expiresAt };
+}
+
 /** Defense in depth, independent of .apollo/mcp*.yaml: even if MCP ever exposed a mutation, this
- * service refuses to call anything by a name it does not already know is a read. Grown one tool
+ * service refuses to call anything by a name it does not already know is safe. Grown one tool
  * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
  * available" — a new read ships in the same PR as its own persona-boundary tests). `Attempts`
  * and `JobTimeline` added in TASK R-TOOLS-1 (evidence 40). `ChildEvents`, `EffectiveSchedule`
@@ -114,7 +151,15 @@ export type RosinaTurnResult = {
  * genuinely-empty child all return the identical `[]`). `MyChildren` (TASK R-MYCHILDREN) is
  * deliberately NOT in this list: it is never offered to the model as a callable tool at all —
  * `runRosinaTurn` calls it itself, exactly once, at the start of every turn, so the model always
- * has fresh, correct access info already baked into its system prompt and never has to ask. */
+ * has fresh, correct access info already baked into its system prompt and never has to ask.
+ *
+ * `ProposeSchoolDayReport` (TASK: Rosina school-report tool) is the FIRST, and still only, mutation
+ * in this set — a deliberate, narrow exception, not a reversal of "every other name here is a
+ * read." It can only ever stage a draft in `school_report_proposals`; it structurally cannot write
+ * `school_reports` (see `.apollo/mcp.local.yaml` and `supabase/migrations/0071_*.sql`).
+ * `ConfirmSchoolDayReport` — the mutation that files the real, parent-visible report — is NOT in
+ * this set and has no MCP operation file anywhere: Rosina cannot reach it no matter what the
+ * model asks for, so a model tool call or generated text can never confirm itself. */
 const ALLOWED_MCP_TOOL_NAMES = new Set([
   'PickupCandidates',
   'Attempts',
@@ -126,6 +171,7 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'OrbitStatus',
   'OrbitVocabulary',
   'CareFacts',
+  'ProposeSchoolDayReport',
 ]);
 
 /**
@@ -144,6 +190,7 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   CheckInStatus: 'childId',
   OrbitStatus: 'childId',
   CareFacts: 'childId',
+  ProposeSchoolDayReport: 'childId',
   // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
 };
 
@@ -161,6 +208,7 @@ const REQUIRED_SCOPE_BY_TOOL: Record<string, string> = {
   ChildEvents: SCOPE.schedule,
   EffectiveSchedule: SCOPE.schedule,
   CareFacts: SCOPE.careplan,
+  ProposeSchoolDayReport: SCOPE.schoolReport,
 };
 
 function mcpToolDefinitions(tools: McpTool[]): ModelTool[] {
@@ -220,6 +268,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     return {
       reply: "I couldn't check that just now.",
       actions: [],
+      schoolReportProposal: null,
       provider: options.provider,
       model: config.model,
       rounds: 0,
@@ -279,6 +328,9 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // looks, so the model can never silently substitute a near match.
   const verifiedParentOf = new Set<string>();
   const vocabularyByKind = new Map<string, Set<string>>();
+  // The latest successful ProposeSchoolDayReport result THIS turn — overwritten, never merged, if
+  // the model proposes more than once (the database row it mirrors is also replaced, not added).
+  let schoolReportProposal: SchoolReportProposalResult | null = null;
 
   let finalContent = '';
 
@@ -392,6 +444,10 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
           vocabularyByKind.set(kind, existing);
         }
       }
+      if (call.name === 'ProposeSchoolDayReport' && !callResult.isError) {
+        const parsed = schoolReportProposalFrom(callResult.data);
+        if (parsed) schoolReportProposal = parsed;
+      }
       // "Overdue" is real-time arithmetic, not something to trust the model to compute from a
       // dueAt string — the server decides it here, against the real clock, before the result
       // ever reaches a message. Never derived from recorded=false alone (src/rosina/orbit.ts).
@@ -482,6 +538,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     // Fail closed: if the output guard caught a boundary violation in the reply text, don't trust
     // this turn's actions either — drop them rather than offer a card alongside a corrected reply.
     actions: guarded.triggered ? [] : validateActions(proposedActions),
+    schoolReportProposal: guarded.triggered ? null : schoolReportProposal,
     provider: options.provider,
     model: config.model,
     rounds: rounds.length,
