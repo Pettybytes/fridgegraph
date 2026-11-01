@@ -63,7 +63,9 @@ export function createPhotoDescriptorsHandler(deps: PhotoEndpointDeps) {
       if (!deps.vision) { log(503); res.status(503).json({ error: 'VISION_UNAVAILABLE' }); return; }
 
       const image = await deps.photoStore.load({ photoId, childId, bearer });
-      if (!image) { log(404); res.status(404).json({ error: 'PHOTO_NOT_FOUND' }); return; }
+      // No existence oracle: a missing / unloadable photo is the SAME generic 403 as an
+      // unauthorized or wrong-child one (the separate photo-GET endpoint keeps its own 404).
+      if (!image) { log(403); res.status(403).json({ error: 'NOT_AUTHORIZED' }); return; }
 
       const vocabularyByKind = await deps.vocabulary({ childId, bearer });
       const proposal = await proposePhotoDescriptors({ image, childId, vocabularyByKind, vision: deps.vision });
