@@ -1,3 +1,4 @@
+import {flushSync} from 'react-dom'
 import {createContext,useContext,useEffect,useMemo,useRef,useState,useSyncExternalStore,type ReactNode} from 'react'
 import {Dialog} from 'radix-ui'
 import {useReducedMotion} from 'motion/react'
@@ -7,7 +8,7 @@ import {createMockMapAdapter} from './mockAdapter'
 const Context=createContext<MapController|null>(null)
 export const useVillageMap=()=>useContext(Context)
 export const useMapState=(controller:MapController)=>useSyncExternalStore(controller.subscribe,controller.getSnapshot)
-export function expandMap(){const go=()=>{location.hash='#/map'};if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.startViewTransition(async()=>{go();await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())))});else go()}
+export function expandMap(){const go=()=>{flushSync(()=>{location.hash='#/map';window.dispatchEvent(new HashChangeEvent('hashchange'))})};if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.startViewTransition(go);else go()}
 export function VillageMapProvider({children}:{children:ReactNode}){
  const {session,registerPrivateCleanup}=useSession()
  const controller=useMemo(()=>session?new MapController(createMockMapAdapter(session.persona.id)):null,[session?.generation])
