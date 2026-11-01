@@ -102,7 +102,7 @@ frame budget with `animation-performance` and `fixing-motion-performance`.
 - **Purpose test.** Animate only what explains a state change, a spatial relationship, or
   feedback. Touch and keyboard interactions stay immediate.
 - **Duration and easing scale** (starting ranges; tune by watching the rendered result):
-  feedback 100–160 ms; panels and navigation 180–260 ms; a single scene entrance up to 320 ms.
+  feedback 100–160 ms; panels and navigation 180–260 ms. For the signature Village only, establish the child in 280 ms, then reveal surrounding relationships with 360 ms opacity/transform entrances staggered 45 ms after a 120 ms lead (up to 705 ms total). This is orientation, never sequential outreach; all controls work immediately. The explicit signature brief supersedes the old blanket 320 ms scene limit.
   Ease-out for enter, ease-in for exit, a standard ease for moves. No spring bounce on a serious
   or destructive action; no continuous rotation; no stagger that makes a control wait to be used.
 - **`prefers-reduced-motion`** removes spatial movement and decorative pulses and keeps the state
@@ -199,20 +199,8 @@ Required wording, carried verbatim (from the HANDOFF and the Rosina/Orbit contra
 
 ## 9. Rosina character
 
-- An **original** robot, following Bryan's concept direction (rounded enamel/ceramic head,
-  expressive violet eyes, side ear-discs with small antenna orbs that carry the orbit/connection
-  motif, a navy/periwinkle/violet/silver palette, warm and composed). Remove everything that reads
-  as a maid or as third-party IP: no cap or headpiece, no apron, no scalloped collar, no uniform,
-  no "R" brooch. Give her a plain original outfit, e.g. a navy utility tunic with a small
-  orbit-ring badge. She is a capable family coordinator, not a servant, a generic chrome robot, or
-  a baby toy. No implied Meta endorsement.
-- Build an **avatar slot** now. Until production art exists, use a tasteful robot monogram/line
-  icon in her palette, and make swapping in real art a one-line change per use. Production art is
-  generated later with **Muse Image** from a text description; record the real model and provenance
-  and never relabel art from another tool as Muse output.
-- The concept board in `~/Desktop/fridgegraph-refs/` is direction only. It never ships and never
-  enters the repo. No reference asset — board, screenshot, or avatar portrait — is committed.
-  Until Muse art exists, every person's avatar slot shows a monogram.
+- **Bryan's signature-art direction (2026-10-31) supersedes the earlier character restrictions.** Use the supplied approved blue-metal, stainless-silver, maid-inspired Rosina production character consistently; do not redesign her, remove her approved silhouette, or substitute a new robot. Bryan subsequently explicitly approved using “Rosina’s stainless-silver robot concept board.png” itself (“use that one”) as the production source. That single image is an approved exception: render its original Ready/Thoughtful artwork through a viewport crop, without redrawing or regenerating her. Other reference boards and screenshots still never ship.
+- Use the 16 supplied **fictional, ChatGPT-generated** portraits wherever the fixture person-ID mapping has been verified. These are production assets, distinct from the mood-board screenshots. Record ChatGPT image-generation provenance accurately; never call them Muse Image output. Monograms apply only to unmapped identities or missing assets. An asset mapping supplies appearance, never permission or a new identity. Reference screenshots remain outside the repository.
 - **States are real**: `ready`; `listening` only while a microphone is actually capturing;
   `thinking` only while a request is pending; `speaking` only while real audio plays; a calm,
   attentive state during Orbit. No fake waveform, no human-emotion or memory claim, no success

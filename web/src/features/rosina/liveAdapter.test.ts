@@ -49,3 +49,14 @@ it('does not short-circuit care questions or let history exceed the service limi
  await createLiveRosinaAdapter(()=> 'fictional-session',{request}).send({...input,message:'Can Nora have a snack?',history:Array.from({length:42},(_,i)=>({role:'user' as const,content:String(i)}))})
  const body=JSON.parse(String(request.mock.calls[0][1]?.body));expect(body.message).toBe('Can Nora have a snack?');expect(body.history).toHaveLength(40);expect(body.history[0].content).toBe('2')
 })
+
+it('reports only actual transport lifecycle events, never inferred tool progress',async()=>{
+ let finish!:(response:Response)=>void
+ const phases:string[]=[]
+ const request=vi.fn<typeof fetch>(()=>new Promise(resolve=>{finish=resolve}))
+ const adapter=createLiveRosinaAdapter(()=> 'test-session',{request,onProgress:phase=>phases.push(phase)})
+ const result=adapter.send({message:'Check the village',currentRoute:'#/ask-rosina',history:[]})
+ await Promise.resolve();expect(phases).toEqual(['sending','waiting']);expect(request).toHaveBeenCalledTimes(1)
+ finish(new Response(JSON.stringify({reply:'Returned evidence',actions:[]})))
+ await result;expect(phases).toEqual(['sending','waiting','reading'])
+})

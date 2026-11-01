@@ -35,3 +35,24 @@ export function resetWindowOpen(text,{runtime,until,now=Date.now()}){
  const cells=row.split('|').slice(1,-1).map(cell=>cell.replace(/\*/g,'').trim())
  return cells.length>=5&&/W-RESET (?:window )?(?:OPEN|REOPENED)\b/.test(cells[1])&&cells[2].includes('`'+runtime+'`')&&/^(?:OPEN|REOPENED) to W-RESET until /.test(cells.at(-1))
 }
+
+// Signature capture uses only Bentley's explicitly restored W-UI window.
+export function signatureWindowOpen(text,{runtime,until,now=Date.now()}){
+ if(!/^[a-f0-9]{7,40}$/.test(runtime??''))return false
+ const end=Date.parse(until??'');if(!Number.isFinite(end)||end<=now||end-now>45*60*1000)return false
+ const section=text.slice(text.lastIndexOf('## Stack reservations'))
+ const row=section.split('\n').filter(line=>line.startsWith('| ')).at(-1)
+ if(!row)return false
+ const cells=row.split('|').slice(1,-1).map(cell=>cell.replace(/\*/g,'').trim())
+ return cells.length>=5&&/restored|restoration verified/i.test(cells[1])&&!/NOT listening|BLOCKED|awaiting.*(?:restart|restoration)/i.test(cells[1])&&/W-UI (?:window )?(?:OPEN|REOPENED)\b/.test(cells[1])&&cells[2].includes('`'+runtime+'`')&&/^(?:OPEN|REOPENED) (?:to|—) W-UI until /.test(cells.at(-1))&&cells.at(-1).includes(until)
+}
+
+// Dedicated post-design capture reservation. UI head is recorded separately from backend SHA.
+export function signatureCaptureWindowOpen(text,{runtime,until,now=Date.now()}){
+ if(!/^[a-f0-9]{7,40}$/.test(runtime??''))return false
+ const end=Date.parse(until??'');if(!Number.isFinite(end)||end<=now||end-now>45*60*1000)return false
+ const row=text.slice(text.lastIndexOf('## Stack reservations')).split('\n').filter(line=>line.startsWith('| ')).at(-1)
+ if(!row)return false
+ const cells=row.split('|').slice(1,-1).map(cell=>cell.replace(/\*/g,'').trim())
+ return cells.length>=5&&/W-CAP-SIGNATURE window OPEN/.test(cells[1])&&cells[1].includes('`'+runtime+'`')&&/HEALTHY/.test(cells[1])&&cells.at(-1)==='OPEN — W-CAP-SIGNATURE until '+until
+}

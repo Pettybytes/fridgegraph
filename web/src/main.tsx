@@ -9,8 +9,16 @@ if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('focu
   document.documentElement.dataset.focus = '1'
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Dev-only PhoneFrame showcase at #/_showcase — never in production nav, never inside a
+// persona session (no real data), lazily imported so it is tree-shaken from production.
+function mount() {
+  const root = createRoot(document.getElementById('root')!)
+  if (import.meta.env.DEV && window.location.hash.startsWith('#/_showcase')) {
+    void import('./showcase/PhoneShowcase.tsx').then(({ PhoneShowcase }) => {
+      root.render(<StrictMode><PhoneShowcase /></StrictMode>)
+    })
+    return
+  }
+  root.render(<StrictMode><App /></StrictMode>)
+}
+mount()

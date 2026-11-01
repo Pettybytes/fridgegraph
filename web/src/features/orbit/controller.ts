@@ -1,10 +1,12 @@
+import {ActivityLedger} from '@/components/signature/activityLedger'
 import {descriptorKeys,vocabularyKinds,orbitError} from './adapter'
 import type {OrbitAdapter,CheckIn,Vocabulary,Descriptors,DescriptorKey,Alert,Status,Preview,ResponseChoice} from './adapter'
 export type Phase='loading'|'idle'|'editing'|'preparing'|'preview'|'activating'|'active'|'closed'|'unavailable'
-export type OrbitState={phase:Phase;busy:string|null;check:CheckIn|null;vocabulary:Vocabulary[];values:Descriptors;photoId?:string;preview:Preview|null;alert:Alert|null;status:Status|null;error:string;guidance:string;authority:boolean;revision:number;previewRevision:number;closeConfirm:boolean;started:boolean}
+export type OrbitState={phase:Phase;acknowledgedClosure?:{alertId:string;personId:string};busy:string|null;check:CheckIn|null;vocabulary:Vocabulary[];values:Descriptors;photoId?:string;preview:Preview|null;alert:Alert|null;status:Status|null;error:string;guidance:string;authority:boolean;revision:number;previewRevision:number;closeConfirm:boolean;started:boolean}
 export type OrbitScope={childId:string;personId:string;parent:boolean;readOnly:boolean;generation:number}
 export function overdue(check:CheckIn|null,now=Date.now()){return !!check&&!check.recorded&&!!check.dueAt&&Number.isFinite(Date.parse(check.dueAt))&&Date.parse(check.dueAt)<now}
 export class OrbitController{
+ readonly responseActivity=new ActivityLedger()
  private state:OrbitState={phase:'loading',busy:null,check:null,vocabulary:[],values:{},preview:null,alert:null,status:null,error:'',guidance:'',authority:false,revision:0,previewRevision:-1,closeConfirm:false,started:false}
  private listeners=new Set<()=>void>();private alive=true;private operation=0;private readSequence=0;private mediaAbort=new AbortController();private loadFlight:Promise<void>|null=null;private refreshFlight:{id?:string;promise:Promise<void>}|null=null
  readonly adapter:OrbitAdapter;readonly scope:OrbitScope;private generation:()=>number;private now:()=>number
@@ -43,7 +45,7 @@ export class OrbitController{
  }
  refresh(alertId?:string){
   if(!this.current()||this.state.busy)return Promise.resolve()
-  if(this.refreshFlight&&this.refreshFlight.id===alertId)return this.refreshFlight.promise
+  if(this.refreshFlight)return this.refreshFlight.promise
   const operation=this.operation,sequence=++this.readSequence
   const owns=()=>this.current()&&operation===this.operation&&sequence===this.readSequence
   const flight={id:alertId,promise:Promise.resolve()};this.refreshFlight=flight
@@ -82,6 +84,7 @@ export class OrbitController{
    this.patch({guidance:draft.guidance})
    const preview=await this.adapter.preview(draft.draftId)
    if(!this.current()||revision!==this.state.revision)return
+   if(preview.draftId!==draft.draftId||preview.draftVersion!==draft.draftVersion||!preview.messageHash)throw Error('ORBIT_PREVIEW_MISMATCH')
    this.patch({preview,previewRevision:revision,guidance:preview.guidance,phase:'preview'})
   }catch(error){if(revision===this.state.revision)this.patch({phase:'editing',preview:null,error:orbitError(error)})}
   finally{if(this.current()){this.patch({busy:null});if(this.state.phase==='preparing')this.patch({phase:'editing'})}}
@@ -110,7 +113,7 @@ export class OrbitController{
   if(!this.current()||!this.state.closeConfirm||!this.state.authority||this.scope.readOnly||this.state.busy||!this.state.alert)return
   ++this.operation
   const id=this.state.alert.id;this.patch({busy:'close',closeConfirm:false,error:''})
-  try{const alert=await this.adapter.close(id);this.record(alert)}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
+  try{const alert=await this.adapter.close(id);this.record(alert);if(alert.status==='CLOSED')this.patch({acknowledgedClosure:{alertId:alert.id,personId:this.scope.personId}})}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
  }
  async upload(file:File){
   if(!this.state.started||!this.canPrepare())return
@@ -120,6 +123,6 @@ export class OrbitController{
  }
  photo(id:string,signal:AbortSignal){if(!this.current())return Promise.reject(Error('SESSION_CHANGED'));return this.adapter.photo(id,signal)}
  dispose=()=>{
-  this.mediaAbort.abort();this.state={...this.state,values:{},photoId:undefined,preview:null,alert:null,status:null,check:null,authority:false,guidance:'',phase:'idle',busy:null,error:'',closeConfirm:false,started:false};for(const notify of this.listeners)notify();this.alive=false;this.listeners.clear()
+  this.responseActivity.clear();this.mediaAbort.abort();this.state={...this.state,values:{},photoId:undefined,preview:null,alert:null,status:null,check:null,authority:false,guidance:'',phase:'idle',busy:null,error:'',closeConfirm:false,started:false};for(const notify of this.listeners)notify();this.alive=false;this.listeners.clear()
  }
 }
