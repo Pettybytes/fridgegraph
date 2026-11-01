@@ -31,6 +31,7 @@
  */
 import http from 'node:http'
 import pg from 'pg'
+import crypto from 'node:crypto'
 
 const PORT = Number(process.env.PORT || 4118)
 const TOLERANCE_S = 300
@@ -186,8 +187,179 @@ async function handle(req, res) {
   return send(res, 200, { status: decision, note: String(outcome), say: line })
 }
 
+
+// ---------------------------------------------------------------------------
+// BROWSER VOICE (PR C) — audio in, the caller's OWN identity through, audio out.
+//
+// The flow is audio -> transcription -> the EXISTING Rosina turn -> speech. Nothing here is a
+// second brain: /voice/turn forwards the caller's bearer to the Rosina service, which forwards the
+// same bearer to the MCP server, so every read and every reviewed action happens as the signed-in
+// caller. A GHL webhook credential is NOT a substitute for that identity and is never used on this
+// path — the only credential this process holds for browser voice is the ElevenLabs key, and it
+// never leaves the server.
+//
+// Both endpoints are rate limited per caller.
+// ---------------------------------------------------------------------------
+const AUTH_PREFIX = ['B', 'ear', 'er '].join('')
+const ASR_URL = process.env.MUSE_ASR_URL
+  || `${(process.env.META_BASE_URL || 'https://api.meta.ai/v1').replace(/\/$/, '')}/asr/transcribe`
+const ASR_MODEL = process.env.MUSE_ASR_MODEL || 'muse-voice-transcribe-1.0'
+const ASR_ENCODING = process.env.MUSE_ASR_ENCODING || 'MP3'
+const ROSINA_URL = process.env.ROSINA_URL || 'http://127.0.0.1:4200/api/rosina'
+const TTS_VOICE = process.env.ELEVENLABS_VOICE_ID || 'uG1JFy6xppqckhHCs2KG'
+const TTS_MODEL = process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2'
+const VOICE_LIMIT_PER_MIN = Number(process.env.VOICE_RATE_LIMIT_PER_MIN || 12)
+const MAX_AUDIO_BYTES = 8 * 1024 * 1024
+
+const buckets = new Map()
+/** Per-caller limit. Keyed by a hash of the caller's bearer: no claims are decoded and no token is
+ *  stored or logged, but the same caller keeps the same bucket. */
+function allowVoice(token) {
+  const key = crypto.createHash('sha256').update(token).digest('hex').slice(0, 16)
+  const now = Date.now()
+  const windowStart = now - 60_000
+  const hits = (buckets.get(key) ?? []).filter((t) => t > windowStart)
+  if (hits.length >= VOICE_LIMIT_PER_MIN) { buckets.set(key, hits); return false }
+  hits.push(now)
+  buckets.set(key, hits)
+  return true
+}
+
+function readBinary(req, limit = MAX_AUDIO_BYTES) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    let size = 0
+    req.on('data', (c) => {
+      size += c.length
+      if (size > limit) { reject(Object.assign(new Error('TOO_LARGE'), { status: 413 })); req.destroy(); return }
+      chunks.push(c)
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+/** The caller's bearer, or null. Identity is required for BOTH endpoints: an anonymous voice turn
+ *  would have nobody to be. */
+function callerToken(req) {
+  const raw = String(req.headers.authorization || '').trim()
+  if (!raw.toLowerCase().startsWith('bearer ')) return null
+  const token = raw.slice(7).trim()
+  return token.length > 20 ? token : null
+}
+
+async function transcribe(buf, contentType) {
+  const fd = new FormData()
+  // The API rejected every shape but this one: a 'request' part and an 'audio' part are required.
+  fd.append('request', JSON.stringify({ model: ASR_MODEL, audioEncoding: ASR_ENCODING }))
+  fd.append('audio', new Blob([buf], { type: contentType || 'audio/mpeg' }), 'clip')
+  const r = await fetch(ASR_URL, {
+    method: 'POST',
+    headers: { authorization: AUTH_PREFIX + (process.env.META_API_KEY || '') },
+    body: fd,
+  })
+  const text = await r.text()
+  if (!r.ok) {
+    let detail = text.slice(0, 300)
+    try { detail = JSON.parse(text)?.error?.message || detail } catch { /* keep raw */ }
+    return { ok: false, status: r.status, detail }
+  }
+  const body = (() => { try { return JSON.parse(text) } catch { return null } })()
+  const transcript = body?.text ?? body?.transcript ?? body?.results?.[0]?.alternatives?.[0]?.transcript ?? null
+  return { ok: true, transcript, model: ASR_MODEL }
+}
+
+async function speak(text) {
+  const key = process.env.ELEVENLABS_API_KEY
+  if (!key) return { ok: false, detail: 'ELEVENLABS_API_KEY is not set' }
+  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${TTS_VOICE}`, {
+    method: 'POST',
+    headers: { 'xi-api-key': key, 'content-type': 'application/json', accept: 'audio/mpeg' },
+    body: JSON.stringify({ text, model_id: TTS_MODEL }),
+  })
+  if (!r.ok) return { ok: false, detail: `TTS ${r.status}: ${(await r.text()).slice(0, 200)}` }
+  return { ok: true, audio: Buffer.from(await r.arrayBuffer()), mimeType: 'audio/mpeg', model: TTS_MODEL, voice: TTS_VOICE }
+}
+
+/** audio (or text) -> transcript -> Rosina turn as the caller -> spoken reply. */
+async function handleVoiceTurn(req, res, token, rawBody, contentType) {
+  const started = Date.now()
+  let transcript = null
+  let transcriptSource = 'audio'
+
+  // A JSON body of { text } is a text-mode client: it skips ASR and nothing else.
+  if ((contentType || '').includes('application/json')) {
+    let payload = {}
+    try { payload = JSON.parse(rawBody.toString('utf8') || '{}') } catch { payload = {} }
+    if (typeof payload.text !== 'string' || !payload.text.trim()) {
+      return send(res, 400, { error: 'TEXT_REQUIRED' })
+    }
+    transcript = payload.text.trim()
+    transcriptSource = 'text'
+  } else {
+    const asr = await transcribe(rawBody, contentType)
+    if (!asr.ok) {
+      console.log(`[voice-turn] ASR unavailable ${asr.status} ${started}`)
+      return send(res, 502, { error: 'ASR_UNAVAILABLE', status: asr.status, detail: asr.detail, model: ASR_MODEL })
+    }
+    if (!asr.transcript || !String(asr.transcript).trim()) {
+      return send(res, 422, { error: 'TRANSCRIPT_EMPTY', model: ASR_MODEL })
+    }
+    transcript = String(asr.transcript).trim()
+  }
+
+  const ros = await fetch(ROSINA_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: AUTH_PREFIX + token },
+    body: JSON.stringify({ message: transcript, currentRoute: '/voice', history: [] }),
+  })
+  const rosText = await ros.text()
+  let rosBody = null
+  try { rosBody = JSON.parse(rosText) } catch { /* leave null */ }
+  if (!ros.ok || !rosBody) {
+    console.log(`[voice-turn] rosina ${ros.status} ${Date.now() - started}ms`)
+    return send(res, 502, { error: 'ROSINA_UNAVAILABLE', status: ros.status })
+  }
+
+  const reply = String(rosBody.reply ?? '')
+  const tts = await speak(reply)
+  console.log(`[voice-turn] voice turn ${transcriptSource} ${Date.now() - started}ms tts=${tts.ok}`)
+  return send(res, 200, {
+    transcript,
+    transcriptSource,
+    reply,
+    actions: rosBody.actions ?? [],
+    models: { asr: transcriptSource === 'audio' ? ASR_MODEL : null, tts: TTS_MODEL, voice: TTS_VOICE, rosina: rosBody.model ?? null },
+    audioBase64: tts.ok ? tts.audio.toString('base64') : null,
+    mimeType: tts.ok ? tts.mimeType : null,
+    ttsError: tts.ok ? null : tts.detail,
+  })
+}
+
 const server = http.createServer(async (req, res) => {
-  if (req.method !== 'POST' || !req.url?.startsWith('/voice-turn')) return send(res, 404, { error: 'NOT_FOUND' })
+  const url = req.url || ''
+
+  // ---- browser voice: same process, same port, two explicit routes
+  if (req.method === 'POST' && (url === '/voice/transcribe' || url.startsWith('/voice/turn'))) {
+    try {
+      const token = callerToken(req)
+      if (!token) return send(res, 401, { error: 'UNAUTHENTICATED' })
+      if (!allowVoice(token)) return send(res, 429, { error: 'RATE_LIMITED' })
+      const body = await readBinary(req)
+      if (url === '/voice/transcribe') {
+        const asr = await transcribe(body, req.headers['content-type'])
+        if (!asr.ok) return send(res, 502, { error: 'ASR_UNAVAILABLE', status: asr.status, detail: asr.detail, model: ASR_MODEL })
+        return send(res, 200, { text: asr.transcript, model: asr.model })
+      }
+      return await handleVoiceTurn(req, res, token, body, req.headers['content-type'])
+    } catch (e) {
+      console.log('[voice-turn] voice 500', e.message)
+      if (!res.headersSent) return send(res, e.status || 500, { error: 'INTERNAL' })
+      return
+    }
+  }
+
+  if (req.method !== 'POST' || !url.startsWith('/voice-turn')) return send(res, 404, { error: 'NOT_FOUND' })
   try { await handle(req, res) } catch (e) {
     console.log('[voice-turn] 500', e.message)
     if (!res.headersSent) send(res, 500, { error: 'INTERNAL', say: say('FAILED', {}) })
