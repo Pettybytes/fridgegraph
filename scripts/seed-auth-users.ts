@@ -59,6 +59,7 @@ const PEOPLE: DemoPerson[] = [
   { personId: 'p_ray', first: 'Ray', last: 'Coleman' },
   { personId: 'p_evelyn', first: 'Evelyn', last: 'Carter' },
   { personId: 'p_priya', first: 'Priya', last: 'Nair' },
+  { personId: 'p_whitfield', first: 'Margaret', last: 'Whitfield' },
   // The Demo guide is not a family member: a server-only identity whose token carries
   // app_metadata.demo_guide, and whose reads are limited to sandbox records (0025).
   { personId: 'p_demo_guide', first: 'Demo', last: 'Guide', demoGuide: true },
