@@ -226,16 +226,27 @@
    surfaces only, never every card). Solid, legible fallback when the viewer
    asks for reduced transparency. Tokens resolve light/dark via index.css. */
 .fg-glass {
-  background: color-mix(in oklch, var(--fg-surface) 72%, transparent);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid color-mix(in oklch, var(--fg-border) 80%, transparent);
+  /* Frosted material: real blur + saturation, a bright top edge-highlight where light
+     catches the pane, a faint inner rim, and a soft drop shadow for depth. Surface held
+     at 78% so body text keeps AA contrast over the busiest ambient background. */
+  background: color-mix(in oklch, var(--fg-surface) 78%, transparent);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border: 1px solid color-mix(in oklch, var(--fg-border) 85%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 48%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, white 7%, transparent),
+    0 20px 44px -26px oklch(0.2 0.03 270 / 0.5);
 }
 @media (prefers-reduced-transparency: reduce) {
-  .fg-glass { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .fg-glass { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 10px 30px -22px oklch(0.2 0.03 270 / 0.4); }
 }
-@supports not (backdrop-filter: blur(1px)) {
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .fg-glass { background: var(--fg-surface); }
+}
+@media (forced-colors: active) {
+  /* System colours own the palette; keep it a solid, bordered surface. */
+  .fg-glass { background: Canvas; border: 1px solid CanvasText; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
 }
 
 /* Rosina avatar art — a CSS viewport crop of the approved concept board.
