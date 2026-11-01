@@ -251,3 +251,18 @@ AMBER Alert. No siren audio. Use the shared material and semantic colors; no sep
   the existing bearer. Clear private alert/photo state on perspective switch; revoke object URLs.
 - Rosina progress reflects actual request/tool lifecycle only, never fabricated stages. Source
   labels reflect returned provenance. Shared glass must have a legible solid fallback.
+
+### Orbit climax polish — Bryan's follow-up, 2026-11-01
+
+Use the shared `--fg-danger` / `--fg-safe` tokens for full-bleed recipient alert/payoff.
+A bold ORBIT ALERT banner and one 1 Hz flashing edge establish the alert; a slow photo ring
+changes geometry only (no second luminance flash). Reduced motion makes both static.
+Name, recorded place/time and descriptors have a clear hierarchy; response targets are at
+least 70px with immediate pressed feedback. A response confirmation appears only from the
+returned persisted own response, never optimistically on tap or from a delivery assumption.
+
+A newly observed FOUND_SAFE close fades the red layer across the whole recipient screen into
+green, draws the check and releases visible one-shot confetti. The thank-you stays exact and
+large. Historical closed reads remain static; the existing closure ledger and recipient
+sanitizer are unchanged. Parent ring chips enter once for newly observed persisted responses.
+The new direction permits these specific effects; no extra background motion or siren audio.

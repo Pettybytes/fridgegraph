@@ -1,0 +1,15 @@
+### Result
+{"activationExplicit":true,"ownResponseRecorded":true,"parentResponseObserved":true,"parentCloseExplicit":true,"recipientPrivacy":true,"backendCalls":0,"elapsedMs":17771}
+### Ran Playwright code
+```js
+await (async page=>{
+ const started=Date.now();let backendCalls=0;page.on('request',r=>{if(/\/(api|graphql)(\/|$)/.test(new URL(r.url()).pathname))backendCalls++});
+ const parent=page.frameLocator('iframe[title="Parent view"]'),recipient=page.frameLocator('iframe[title="Recipient view"]');
+ const beat=async ms=>{const remaining=started+ms-Date.now();if(remaining>0)await page.waitForTimeout(remaining)};
+ await parent.getByRole('button',{name:'Confirm and activate Orbit',exact:true}).scrollIntoViewIfNeeded();await beat(1500);await parent.getByRole('button',{name:'Confirm and activate Orbit',exact:true}).click();await recipient.getByRole('dialog').waitFor();await parent.locator('.sg-rollcall').scrollIntoViewIfNeeded();
+ await beat(5000);await recipient.getByRole('button',{name:"I'm on my way",exact:true}).click();await recipient.getByRole('status').filter({hasText:'Your response is recorded'}).waitFor();await parent.locator('.sg-person[data-response="ON_WAY"]').waitFor();await page.waitForTimeout(250);await page.screenshot({path:'web/evidence/orbit-climax/take-03/sequence-response.png'});
+ await beat(9500);await parent.getByRole('button',{name:'Found safe',exact:true}).click();await parent.getByRole('button',{name:'Confirm found safe',exact:true}).click();await recipient.getByText('Found safe',{exact:true}).waitFor();await parent.getByRole('region',{name:'Found safe',exact:true}).scrollIntoViewIfNeeded();await page.waitForTimeout(900);await page.screenshot({path:'web/evidence/orbit-climax/take-03/sequence-payoff.png'});
+ if(await recipient.locator('img').count())throw Error('Closed recipient retains photo');if(await recipient.getByText('Recorded Park',{exact:true}).count())throw Error('Closed recipient retains place');await beat(17500);if(backendCalls)throw Error('Unexpected backend call');return {activationExplicit:true,ownResponseRecorded:true,parentResponseObserved:true,parentCloseExplicit:true,recipientPrivacy:true,backendCalls,elapsedMs:Date.now()-started};
+}
+)(page);
+```

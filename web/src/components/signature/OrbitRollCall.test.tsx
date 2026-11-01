@@ -1,4 +1,4 @@
-import {fireEvent,render,screen} from '@testing-library/react'
+import {fireEvent,render,screen,waitFor} from '@testing-library/react'
 import {expect,it,vi} from 'vitest'
 import type {Alert} from '@/features/orbit/adapter'
 import {ActivityLedger} from './activityLedger'
@@ -22,4 +22,12 @@ it('the accessible list exposes persisted response state without enlarging recip
  const {container}=render(<OrbitRollCall alert={record} child={{id:'child',name:'Authorized child'}} parent personId="parent" ledger={new ActivityLedger()}/>);
  fireEvent.click(container.querySelector<HTMLButtonElement>('.sg-view-toggle')!)
  expect(screen.getByRole('list',{name:'People shared with you'})).toHaveTextContent('Reported “With me”')
+})
+
+
+it('marks only newly persisted parent responses fresh, never the same record on refetch or remount',async()=>{
+ const ledger=new ActivityLedger();const props={child:{id:'child',name:'Authorized child'},parent:true,personId:'parent',ledger};
+ const view=render(<OrbitRollCall {...props} alert={{...record,latestResponses:[]}}/>);expect(view.container.querySelector('[data-fresh=true]')).toBeNull();
+ view.rerender(<OrbitRollCall {...props} alert={record}/>);expect(view.container.querySelector('[data-fresh=true]')).toHaveTextContent('Reported “With me”');
+ await waitFor(()=>expect(view.container.querySelector('[data-fresh=true]')).toBeNull());view.rerender(<OrbitRollCall {...props} alert={{...record}}/>);expect(view.container.querySelector('[data-fresh=true]')).toBeNull();view.unmount();const remount=render(<OrbitRollCall {...props} alert={record}/>);expect(remount.container.querySelector('[data-fresh=true]')).toBeNull()
 })
