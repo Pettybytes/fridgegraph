@@ -74,13 +74,16 @@ const CORE = [
  * FILE PRESENCE IS NOT APPLIED STATE. A file in the tree says only that the migration exists. What
  * the database has is probed separately, per migration, after the apply step.
  */
-const TEACHER_SOURCE_SHA = 'db7dc5739c87276d6810fea42021e0b6e172f859';
+// Historical record: db7dc5739c87276d6810fea42021e0b6e172f859 was the first verified teacher source.
+// The default is now resolved at run time from origin/main, so the manifest tracks the branch it is
+// rehearsing instead of drifting behind it; REHEARSAL_TEACHER_SHA still pins a specific commit.
+const TEACHER_SOURCE_SHA = null;
 const TEACHER_FILE = /(^|\/)007[0-9]_.*\.sql$/;
 
 const git = (args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 
 function teacherMigrations() {
-  const sha = process.env.REHEARSAL_TEACHER_SHA ?? TEACHER_SOURCE_SHA;
+  const sha = process.env.REHEARSAL_TEACHER_SHA ?? TEACHER_SOURCE_SHA ?? git(['rev-parse', 'origin/main']);
 
   try {
     git(['cat-file', '-e', `${sha}^{commit}`]);
@@ -317,7 +320,48 @@ try {
 
   // ---- behaviour owned by the focused scripts: run them if the runner was asked to
   const runFocus = process.env.REHEARSAL_RUN_FOCUS === '1';
-  console.log(`\nFOCUSED CHECKS: ${runFocus ? 'running' : 'not run (set REHEARSAL_RUN_FOCUS=1)'}`);
+  // ---------------------------------------------------------------------------------------------
+// MANIFEST — one place that says what this window would apply and what it must not assume. Everything
+// is resolved at the CURRENT origin/main SHA, so the printout cannot silently describe an older main.
+// 0071/0072 and the MCP config are conditional: they only exist once #96 is merged.
+// ---------------------------------------------------------------------------------------------
+{
+  const sha = git(['rev-parse', 'origin/main']);
+  const has = (p) => { try { git(['cat-file', '-e', `${sha}:${p}`]); return true; } catch { return false; } };
+  const mark = (ok) => (ok ? 'present' : 'MISSING');
+
+  console.log(`\nMANIFEST at origin/main ${sha}`);
+  console.log('  migrations in this window (order matters):');
+  for (const f of CORE) console.log(`    ${mark(has(`supabase/migrations/${f}`))}  ${f}`);
+
+  const teacherRows = [];
+  try {
+    for (const f of git(['ls-tree', '--name-only', sha, 'supabase/migrations/']).split('\n')) {
+      if (TEACHER_FILE.test(f)) teacherRows.push(f);
+    }
+  } catch { /* reported below by the teacher probe */ }
+  console.log(`  teacher: ${teacherRows.length ? teacherRows.join(', ') : 'none in the 007x range at this SHA'}`);
+  console.log(`           files come from ${sha}; applied state is probed separately`);
+
+  const m71 = has('supabase/migrations/0071_rosina_service.sql') ||
+    git(['ls-tree', '--name-only', sha, 'supabase/migrations/']).split('\n').some((f) => /^0071_/.test(f));
+  const m72 = git(['ls-tree', '--name-only', sha, 'supabase/migrations/']).split('\n').some((f) => /^0072_/.test(f));
+  console.log(`  0071: ${m71 ? 'PRESENT — include it' : 'NOT PRESENT — #96 is not merged; do not invent it'}`);
+  console.log(`  0072: ${m72 ? 'PRESENT — include it' : 'NOT PRESENT — #96 is not merged; do not invent it'}`);
+
+  const mcp = has('.apollo/mcp.local.yaml');
+  console.log(`  MCP restart: ${mcp
+    ? 'REQUIRED — .apollo/mcp.local.yaml is at this SHA; restart 5051 after recompose'
+    : 'not applicable — .apollo/mcp.local.yaml is absent (#96 not merged)'}`);
+  console.log('  schema composition: GraphQL changes only (school.reportSchoolDay, 0070). Recompose the');
+  console.log('    supergraph and restart the router; REST routes on 4008 restart that listener only.');
+  console.log('  teacher seed steps: seed-auth-users first, then the teacher persona seed, then reseed;');
+  console.log('    a session that may file a report is proven separately from 0070 being applied.');
+  console.log('  cast checksum: measure before and after this window and report the change deliberately;');
+  console.log('    do not update the published value without the measurement.');
+}
+
+console.log(`\nFOCUSED CHECKS: ${runFocus ? 'running' : 'not run (set REHEARSAL_RUN_FOCUS=1)'}`);
   if (runFocus) {
     for (const script of ['ops/0063-road-pricing-proof.mjs']) {
       try {

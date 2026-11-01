@@ -20,6 +20,7 @@
  * Exit: 0 all PASS · 1 any FAIL · 3 any BLOCKED and no FAIL · 2 preflight could not run at all.
  */
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 
 const BASE = (process.env.SERVED_BASE ?? 'http://127.0.0.1:4008').replace(/\/$/, '');
 const ROUTER = process.env.SERVED_ROUTER ?? 'http://127.0.0.1:4010/';
@@ -174,6 +175,26 @@ if (dana.token) {
   blocked('cross-family route (404)', dana.error);
 }
 
+// 409 GEOMETRY_UNAVAILABLE: an authorized place with no recorded coordinates is its own answer —
+// neither a refusal nor a route. The canonical seed gives every place coordinates on purpose, so this
+// case needs one fictional coordinate-less place in Nora's household, named by the operator.
+const NOGEOM = process.env.PROOF_NOGEOM_PLACE;
+if (NOGEOM) {
+  const absent = await rest('/api/village/route', kendra.token, { childId: 'p_nora', fromPlaceId: NOGEOM, toPlaceId: TO });
+  check('an authorized place with no coordinates is 409 GEOMETRY_UNAVAILABLE',
+    absent.status === 409 && absent.json?.error === 'GEOMETRY_UNAVAILABLE', `HTTP ${absent.status}`);
+  check('a geometry-unavailable answer carries no distance or geometry',
+    absent.json?.distanceMeters === undefined && !absent.json?.geometry);
+  const absentDana = dana.token
+    ? await rest('/api/village/route', dana.token, { childId: 'p_nora', fromPlaceId: NOGEOM, toPlaceId: TO })
+    : null;
+  check('the no-coordinate place is not an existence oracle for an unrelated caller',
+    absentDana === null || absentDana.status === 404, absentDana ? `HTTP ${absentDana.status}` : 'no dana session');
+} else {
+  blocked('authorized place with no coordinates (409)',
+    'seeded places all carry coordinates; name a fictional coordinate-less place with PROOF_NOGEOM_PLACE — a 404 here would prove nothing');
+}
+
 const walk = await rest('/api/village/route', kendra.token, {
   childId: 'p_nora', fromPlaceId: FROM, toPlaceId: TO, profile: 'foot-walking',
 });
@@ -185,21 +206,57 @@ if (walk.status === 200 && route.status === 200) {
   blocked('profile separation', `walking HTTP ${walk.status}`);
 }
 
-console.log('\n3. PRICING — decision, stored amount and basis agree');
-const jobId = process.env.PROOF_PRICING_JOB;
+console.log('\n3. PRICING — the job through the graph, then the row through a read-only database check');
+const jobId = process.env.PROOF_JOB_ID ?? process.env.PROOF_PRICING_JOB;
 if (!jobId) {
   blocked('paid-ride estimate agreement',
-    'needs a job with a paid-ride evaluation; set PROOF_PRICING_JOB (created through the real request+reply path)');
+    'needs a job with a paid-ride evaluation; set PROOF_JOB_ID (created through the real request+reply path)');
 } else {
   const q = `query($job: ID!) { job(id: $job) { id status overLimitCandidateId } }`;
   const job = await gql(kendra.token, q, { job: jobId });
   check('the job is readable through the graph', job.status === 200 && Boolean(job.body?.data?.job), `HTTP ${job.status}`);
-  blocked('evaluation row agreement (amount == miles × rate, basis matches)',
-    'the graph does not expose candidate_evaluations yet; read it in the window with the owner connection and attach the output');
+
+  // OPERATOR EVIDENCE — a separate instrument with a separate claim. It reads candidate_evaluations
+  // in a read-only transaction; it is NOT a caller-authorization assertion and is reported apart.
+  console.log('  — OPERATOR EVIDENCE: evaluation row agreement (read-only database inspection)');
+  try {
+    const out = execFileSync('node', ['ops/evaluation-agreement.mjs'], {
+      env: { ...process.env, PROOF_JOB_ID: jobId },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    process.stdout.write(out.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n'));
+    pass('operator evidence — evaluation row agreement', 'see the inspection above');
+  } catch (e) {
+    const out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    process.stdout.write(out.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n'));
+    if (e.status === 3) blocked('operator evidence — evaluation row agreement', 'inspection BLOCKED (see above)');
+    else fail('operator evidence — evaluation row agreement', `exit ${e.status ?? e.message}`);
+  }
 }
 
-console.log('\n4. TIMEOUT / LATE-WRITE BOUNDARY');
-blocked('ranking after the pre-step bound', 'requires an injected slow provider; covered offline by the gate tests, not claimable from HTTP');
+console.log('\n4. TIMEOUT / LATE-WRITE BOUNDARY — CONTROLLED EVIDENCE, isolated process');
+if (!process.env.PROOF_DB_URL) {
+  blocked('timeout / late-write ordering',
+    'controlled harness needs PROOF_DB_URL (disposable) + PROOF_JOB_ID; it is not claimable from HTTP');
+} else if (!jobId) {
+  blocked('timeout / late-write ordering', 'no PROOF_JOB_ID');
+} else {
+  try {
+    const out = execFileSync('node', ['ops/late-write-proof.mjs'], {
+      env: { ...process.env, PROOF_JOB_ID: jobId },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    process.stdout.write(out.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n'));
+    pass('controlled evidence — timeout / late-write ordering', 'see the isolated run above');
+  } catch (e) {
+    const out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    process.stdout.write(out.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n'));
+    if (e.status === 3) blocked('controlled evidence — timeout / late-write ordering', 'BLOCKED (see above)');
+    else fail('controlled evidence — timeout / late-write ordering', `exit ${e.status ?? e.message}`);
+  }
+}
 
 console.log('\n5. CROSS-FAMILY');
 if (kendraDay.status === 200) {
