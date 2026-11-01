@@ -3,9 +3,8 @@ export type NoticeInput =
   | { kind: 'text'; text: string }
   | { kind: 'image'; mimeType: 'image/png' | 'image/jpeg' | 'image/webp'; dataBase64: string }
   | { kind: 'pdf'; mimeType: 'application/pdf'; dataBase64: string }
-export type NoticeRequest =
-  | { childId: string; notice: NoticeInput }
-  | { childId: string; resume: { proposalId: string; version: number; answer: string } }
+// The merged handler's parseNotice requires notice on clarification resume too.
+export type NoticeRequest = { childId: string; notice: NoticeInput; resume?: { proposalId: string; version: number; answer: string } }
 export type NoticeSource =
   | { type: 'verified_quote'; quote: string; startOffset: number; endOffset: number }
   | { type: 'transcription'; text: string; ref: 'image' | 'pdf:p1' }
@@ -49,12 +48,13 @@ export type NoticeErrorCode =
   | 'UNAUTHENTICATED' | 'UNAUTHORIZED' | 'INVALID_PROPOSAL' | 'PROPOSAL_EXPIRED'
   | 'PROPOSAL_STALE' | 'NO_ACTION_AVAILABLE' | 'UNSUPPORTED_MEDIA_TYPE'
   | 'PAYLOAD_TOO_LARGE' | 'PDF_NOT_SUPPORTED' | 'RATE_LIMITED' | 'UNAVAILABLE'
+  | 'INVALID_REQUEST' | 'EXTRACTION_FAILED' | 'PICKUP_FAILED'
 export class NoticeFailure extends Error {
   readonly code: NoticeErrorCode
   constructor(code: NoticeErrorCode) { super(code); this.code = code }
 }
 export interface NoticeAdapter {
-  readonly mode: 'mock'
+  readonly mode: 'mock' | 'live'
   prepare(request: NoticeRequest, signal: AbortSignal): Promise<NoticeProposal>
   confirm(proposal: NoticeProposal, signal: AbortSignal): Promise<NoticeConfirmResult>
 }

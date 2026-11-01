@@ -86,3 +86,21 @@ root typecheck and web typecheck/build PASS; staged secret scan 856 files,
 0 findings. Full-suite first pass was 368/369 because the new 429 assertion
 incorrectly expected the button to remain disabled; the corrected explicit
 manual-retry assertion passed in the final 369/369 run.
+
+## Merged-service transport continuation — PR #90 draft
+
+`origin/main` at `29887dd` includes #89. Merge commit `8507a43` preserves both HANDOFF
+workstreams and takes #89's canonical sample PDF. Its bytes changed, so the mock content
+digest was updated and tested against the merged asset. The merged handler requires
+`notice` even on clarification resume; confirm sends `{ claims, signature }` verbatim;
+success is `{ job: { id, status } }`. Exact differences from the contract examples were
+posted on #89 for a docs correction.
+
+The real adapter is implemented and tested with controlled responses. It stays behind
+`VITE_NOTICE_PLAN_LIVE`; the default remains **Mock**. No live request or pickup write
+has been made, and the prior mock capture does not prove the endpoint is deployed.
+The first canonical-PDF test used a URL form that Vite did not expose as a file URL;
+the test now reads the published asset from the web test root without changing its
+content assertion. Targeted notice suite then passed 41/41.
+Final merged-code offline check: 386/386 web tests in 64 files, root typecheck,
+web typecheck/build and staged secret scan (884 files, 0 findings) PASS.

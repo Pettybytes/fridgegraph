@@ -1,4 +1,6 @@
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react'
+import {readFileSync} from 'node:fs'
+import {resolve} from 'node:path'
 import {expect,it,vi} from 'vitest'
 import {NoticeDraftBoundary} from './NoticeComposer'
 import {NoticeReview} from './NoticeReview'
@@ -31,7 +33,7 @@ it('answers one question by resuming the same proposal and bumped version',async
  await screen.findByLabelText('Which date do you mean?');fireEvent.change(screen.getByLabelText('Which date do you mean?'),{target:{value:'October 26'}});fireEvent.click(screen.getByRole('button',{name:'Answer and continue'}))
  await screen.findByText('Early dismissal')
  expect(prepare).toHaveBeenCalledTimes(2)
- expect(prepare.mock.calls[1][0]).toEqual({childId:'p_nora',resume:{proposalId:'test-proposal',version:1,answer:'October 26'}})
+ expect(prepare.mock.calls[1][0]).toEqual({childId:'p_nora',notice:{kind:'text',text:'Dismissal at 12:30.'},resume:{proposalId:'test-proposal',version:1,answer:'October 26'}})
 })
 it.each(['PROPOSAL_STALE','PROPOSAL_EXPIRED','UNAUTHORIZED','RATE_LIMITED'] as const)('renders %s distinctly and never auto-retries',async code=>{
  const prepare=vi.fn<NoticeAdapter['prepare']>().mockRejectedValue(new NoticeFailure(code))
@@ -68,6 +70,13 @@ it('uses Claude’s exact pasted sample in the mock without network or writes',a
   expect(request).not.toHaveBeenCalled()
  }finally{vi.unstubAllGlobals()}
 })
+it('recognizes #89’s merged canonical sample PDF by content, not filename',async()=>{
+ const bytes=readFileSync(resolve(process.cwd(),'public/samples/notice-plan/notice-a-early-dismissal.pdf'))
+ const adapter=createMockNoticeAdapter('Nora','p_mom',true)
+ const result=await adapter.prepare({childId:'p_nora',notice:{kind:'pdf',mimeType:'application/pdf',dataBase64:bytes.toString('base64')}},new AbortController().signal)
+ expect(result.changes[0].onConfirm).toEqual({action:'requestPickup',params:{asOf:'2026-10-26',window:'afternoon'}})
+ expect(result.changes[0].source.type).toBe('transcription')
+})
 it('sample selection and manual drop submit the same file through the same prepare path',async()=>{
  const bytes='controlled PNG bytes',prepare=vi.fn<NoticeAdapter['prepare']>().mockResolvedValue(proposal)
  const request=vi.fn<typeof fetch>(async()=>new Response(bytes,{status:200,headers:{'Content-Type':'image/png'}}));vi.stubGlobal('fetch',request)
@@ -96,6 +105,31 @@ it('shows the parent-only confirm step, calls once on click, then shows a mock r
  expect(screen.getByText(/No real record was created, and pickup is not arranged yet/)).toBeVisible()
  expect(screen.getByRole('link',{name:'View Mission Control'})).toHaveAttribute('href','#/mission-control')
  expect(screen.queryByRole('button',{name:'Confirm mock pickup request'})).not.toBeInTheDocument()
+})
+it('keeps live review read-only until click and never presents its result as a mock',async()=>{
+ const prepare=vi.fn<NoticeAdapter['prepare']>().mockResolvedValue(confirmable)
+ const doConfirm=vi.fn<NoticeAdapter['confirm']>().mockResolvedValue({job:{id:'persisted-job',status:'discovering'}})
+ await reviewConfirmable({mode:'live',prepare,confirm:doConfirm})
+ expect(screen.getByText('Live')).toBeVisible()
+ expect(screen.getByText('Review only · No changes yet')).toBeVisible()
+ expect(doConfirm).not.toHaveBeenCalled()
+ expect(screen.queryByText('Mock review · No records created')).not.toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Confirm pickup request'}))
+ expect(await screen.findByText('Pickup request created')).toBeVisible()
+ expect(screen.getByText(/Pickup is not arranged yet/)).toBeVisible()
+ expect(screen.queryByText('Mock pickup request shown')).not.toBeInTheDocument()
+ expect(doConfirm).toHaveBeenCalledTimes(1)
+})
+it('a live prepare failure stays live and never substitutes a scripted mock answer',async()=>{
+ const prepare=vi.fn<NoticeAdapter['prepare']>().mockRejectedValue(new NoticeFailure('EXTRACTION_FAILED'))
+ const doConfirm=vi.fn<NoticeAdapter['confirm']>()
+ open({mode:'live',prepare,confirm:doConfirm},true)
+ fireEvent.change(screen.getByLabelText('Or paste notice text'),{target:{value:'Dismissal at 12:30.'}})
+ fireEvent.click(screen.getByRole('button',{name:'Review notice'}))
+ expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t review this notice just now.')
+ expect(screen.getByText('Live')).toBeVisible()
+ expect(screen.queryByText('Mock review · No records created')).not.toBeInTheDocument()
+ expect(doConfirm).not.toHaveBeenCalled()
 })
 it('keeps Priya and review-only field trips without a confirm button',async()=>{
  const prepare=vi.fn<NoticeAdapter['prepare']>().mockResolvedValue(confirmable)

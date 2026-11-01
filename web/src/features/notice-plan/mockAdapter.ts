@@ -36,8 +36,9 @@ export function createMockNoticeAdapter(childName:string,callerId='mock-parent',
   return {job:{id:`mock-pickup:${proposal.childId}:${action.params.asOf}:${action.params.window}`,status:'discovering'}}
  }}
 }
-export function noticeErrorMessage(error:unknown){
- if(!(error instanceof NoticeFailure))return 'Couldn’t review this notice just now.'
+export function noticeErrorMessage(error:unknown,mode:'mock'|'live'='mock',phase:'prepare'|'confirm'='prepare'){
+ const uncertain=phase==='confirm'&&mode==='live'?'Couldn’t confirm whether the request was created. Check Mission Control before trying again.':'Couldn’t review this notice just now.'
+ if(!(error instanceof NoticeFailure))return uncertain
  const messages:Record<NoticeFailure['code'],string>={
   UNAUTHENTICATED:'Your session ended. Choose a perspective again.',
   UNAUTHORIZED:'This notice isn’t shared with you.',
@@ -48,8 +49,11 @@ export function noticeErrorMessage(error:unknown){
   UNSUPPORTED_MEDIA_TYPE:'Use a PNG, JPEG, WebP or PDF file, or paste plain text.',
   PAYLOAD_TOO_LARGE:'Use a file up to 8 MB or paste up to 20,000 characters.',
   PDF_NOT_SUPPORTED:'PDF review isn’t available yet. Paste the notice text instead.',
-  RATE_LIMITED:'Give it a moment before reviewing another notice.',
-  UNAVAILABLE:'This mock can hold the file, but image and PDF review aren’t connected yet.',
+  RATE_LIMITED:'Give it a moment before trying again.',
+  UNAVAILABLE:mode==='live'?uncertain:'This mock can hold the file, but image and PDF review aren’t connected yet.',
+  INVALID_REQUEST:'That notice couldn’t be reviewed. Check the input and try again.',
+  EXTRACTION_FAILED:'Couldn’t review this notice just now.',
+  PICKUP_FAILED:uncertain,
  }
  return messages[error.code]
 }
