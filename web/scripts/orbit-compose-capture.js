@@ -1,0 +1,10 @@
+async page=>{
+ const results=[];const calls=[];page.on('request',r=>{if(/\/(api|graphql)(\/|$)/.test(new URL(r.url()).pathname))calls.push('backend')});
+ for(const width of [1440,390]){
+  await page.setViewportSize({width,height:width===390?844:900});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('http://127.0.0.1:5195/scripts/orbit-alert-review.html?mode=compose');await page.getByLabel('Choose photo').waitFor();await page.getByLabel('Choose photo').setInputFiles('web/src/assets/portraits/Nora.png');await page.getByText('Photo suggestions. Confirm or edit every detail.').waitFor();
+  await page.getByLabel('Last known place').selectOption('controlled-place');await page.getByLabel('Last seen time (Detroit)').fill('2026-11-01T14:00');await page.getByRole('button',{name:'Review message',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:`web/evidence/orbit-alert/offline-03/${width}-photo-review.png`});
+  await page.getByRole('button',{name:'Review message',exact:true}).click();await page.getByText("Here's the exact preview",{exact:true}).waitFor();await page.locator('.orbit-message').scrollIntoViewIfNeeded();await page.screenshot({path:`web/evidence/orbit-alert/offline-03/${width}-exact-preview.png`});
+  await page.getByLabel('Last seen time (Detroit)').fill('2026-11-01T14:05');if(await page.getByRole('button',{name:'Confirm and activate Orbit',exact:true}).isEnabled())throw Error('Time change left confirmation enabled');results.push({width,photoReviewedInRosina:true,exactPreview:true,staleTimeDisablesConfirm:true});
+ }
+ if(calls.length)throw Error('Unexpected live call');return {results,backendCalls:0};
+}

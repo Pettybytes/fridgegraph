@@ -8,7 +8,7 @@ export function useActivePolling(controller:OrbitController,active:boolean){
   async function tick(){
    if(stopped||flight||!visible()||controller.getSnapshot().phase!=='active')return
    flight=true
-   try{await controller.refresh();delay=controller.getSnapshot().error?Math.min(delay*2,16000):2000}
+   try{await controller.refresh(controller.getSnapshot().alert?.id);delay=controller.getSnapshot().error?Math.min(delay*2,16000):2000}
    catch{delay=Math.min(delay*2,16000)}
    finally{flight=false;if(!stopped&&visible()&&controller.getSnapshot().phase==='active')timer=setTimeout(tick,delay)}
   }

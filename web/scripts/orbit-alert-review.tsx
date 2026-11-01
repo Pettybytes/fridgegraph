@@ -1,0 +1,26 @@
+// Offline review only. Not imported by production; no auth/backend calls or real outreach.
+import {createRoot} from 'react-dom/client'
+import {useEffect,useState} from 'react'
+import {SessionProvider,useSession} from '../src/features/personas/Session'
+import {createMockAuthAdapter} from '../src/features/personas/auth'
+import {OrbitController} from '../src/features/orbit/controller'
+import {OrbitProvider} from '../src/features/orbit/runtime'
+import {OrbitView} from '../src/features/orbit/Orbit'
+import {RosinaPanel} from '../src/features/rosina/RosinaPanel'
+import {portraitFor} from '../src/components/fg/portraits'
+import type {Alert,OrbitAdapter} from '../src/features/orbit/adapter'
+import '../src/index.css'
+import '../src/components/fg/fg.css'
+const mode=new URLSearchParams(location.search).get('mode')??'recipient',parent=mode==='parent'||mode==='compose'
+if(mode==='compose'){location.hash='#/ask-rosina';document.documentElement.dataset.focus='1'}
+const guidance='If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village; it does not replace emergency services.'
+const active:Alert={id:'controlled-alert',child:{id:'p_nora'},status:'ACTIVE',message:"FridgeGraph Orbit: check-in not recorded for Nora. Wearing: blue shirt. Last seen: Recorded Park at 2:00 PM. Reply 1 = With me, 2 = On my way, 3 = Can't help.",share:{photoId:'controlled-photo',wearColor:'blue',wearGarment:'shirt',carryItem:'backpack'},activatedAt:'2026-11-01T20:00:00Z',closedAt:null,closeOutcome:null,thankyou:null,lastSeenPlace:{id:'controlled-place',kind:'PARK',label:'Recorded Park'},lastSeenAt:'2026-11-01T19:00:00Z',guidance,audience:(parent?['p_gma','p_dad','p_priya']:['p_gma']).map(id=>({person:{id,displayName:({p_gma:'Loretta Brooks',p_dad:'Andre Ellison',p_priya:'Priya Nair'} as Record<string,string>)[id]},eligible:true})),responses:[],latestResponses:[]}
+function Review(){const {session,switchPerson}=useSession();const [controller]=useState(()=>{
+ let record:Alert|null=mode==='compose'?null:mode==='recipient-closed'?{...active,status:'CLOSED',closeOutcome:'FOUND_SAFE',closedAt:'2026-11-01T20:10:00Z',thankyou:'Nora has been found safe. Thank you for being part of her village.'}:active
+ const adapter:OrbitAdapter={check:async()=>({recorded:false,label:'Check-in',text:'Check-in not recorded.',dueAt:'2026-11-01T20:00:00Z',guidance}),vocabulary:async()=>[{kind:'WEAR_COLOR',value:'blue',version:1},{kind:'WEAR_GARMENT',value:'shirt',version:1},{kind:'CARRY_ITEM',value:'backpack',version:1}],places:async()=>[{id:'controlled-place',kind:'PARK',label:'Recorded Park'}],status:async()=>({alertId:record?.id??null,status:record?.status??null,audienceCount:3,notifiedCount:3,latestResponses:record?.latestResponses??[],guidance}),alert:async()=>record,draft:async()=>({draftId:active.id,draftVersion:1,status:'PENDING_ACTIVATION',guidance}),preview:async()=>({draftId:active.id,draftVersion:1,message:active.message!,messageHash:'controlled-binding',audienceSize:3,guidance}),activate:async()=>{record=active;return active},respond:async(_id,response)=>{const entry={person:{id:'p_gma',displayName:'Loretta Brooks'},respondedAt:'2026-11-01T20:05:00Z',response};record={...record!,responses:[entry],latestResponses:[entry]}},close:async()=>{record={...record!,status:'CLOSED',closeOutcome:'FOUND_SAFE',closedAt:'2026-11-01T20:10:00Z',thankyou:'Nora has been found safe. Thank you for being part of her village.'};return record},upload:async()=>'controlled-photo',photo:async()=>{const response=await fetch(portraitFor({personId:'p_nora'})!);return response.blob()}}
+ const c=new OrbitController(adapter,{childId:'p_nora',personId:parent?'p_mom':'p_gma',parent,readOnly:false,generation:1},()=>1,()=>Date.parse('2026-11-01T21:00:00Z'),{propose:async()=>({modelId:'controlled-stub',source:'live',descriptors:{wearColor:'blue',wearGarment:'shirt',carryItem:'backpack'},dropped:[],textInImage:[]})})
+ window.addEventListener('controlled:close',()=>{record={...record!,status:'CLOSED',closeOutcome:'FOUND_SAFE',closedAt:'2026-11-01T20:10:00Z',thankyou:'Nora has been found safe. Thank you for being part of her village.'};void c.refresh()});return c
+ });useEffect(()=>{const timer=setTimeout(()=>{void switchPerson(parent?'kendra':'loretta')},0);return()=>clearTimeout(timer)},[])
+ return <><p style={{position:'fixed',zIndex:200,top:0,left:0,right:0,textAlign:'center',background:'var(--fg-surface)',color:'var(--fg-ink)',fontSize:12}}>Controlled offline fixture · descriptor API mocked · no live requests</p>{session&&<OrbitProvider controller={controller}><main style={{maxWidth:1120,margin:'auto',padding:'60px 24px'}}>{mode==='compose'?<RosinaPanel service={{mode:'mock',send:async()=>({reply:'Controlled reply',actions:[]})}}/>:<OrbitView controller={controller}/>}</main></OrbitProvider>}</>
+}
+const root=createRoot(document.getElementById('root')!);import.meta.hot?.dispose(()=>root.unmount());root.render(<SessionProvider adapter={createMockAuthAdapter()}><Review/></SessionProvider>)
