@@ -38,3 +38,5 @@ Impeccable source scan: one pre-existing care-information border finding in rosi
 Bryan directed Claude's read-only Today capture first. Codex must report “ready for live captures” after offline completion, then wait for Bentley's dedicated confirmed window. Freeze UI during the two real picker-issued focus-mode recordings, verify actual closure, scan observed tokens in-process, and append new evidence. PR #61 remains draft until that acceptance passes.
 
 Final recheck after simulation-label placement: **82/82 tests, 13 files PASS**; root typecheck, web typecheck/build, catalog parity PASS; staged secret scan **662 files, zero findings**; diff whitespace check clean. No live request was made.
+
+Final visual refinement: ON_WAY, WITH_ME and CANNOT_HELP also color the corresponding portrait border using the existing semantic tokens, alongside their text/icon. `orbit-response-color-controlled.png` records the fixture after HMR reset (no response applied); `orbit-response-color-applied-controlled.png` records the explicitly reapplied controlled response. Neither is a live response.

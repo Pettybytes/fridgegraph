@@ -91,3 +91,7 @@
 .sg-overflow-controls .sg-overflow{position:static;translate:none;display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:16px;border-radius:var(--radius-control,12px)}
 .sg-overflow-controls .sg-overflow span{max-width:none;font-size:14px}
 .sg-ring-notice{position:absolute;top:8px;left:8px;font-size:13px;color:var(--fg-muted);z-index:1}
+/* Response state belongs to the portrait as well as its text/icon; it is not delivery proof. */
+.sg-rollcall .sg-village .sg-person[data-response=ON_WAY] .sg-portrait{box-shadow:0 0 0 4px var(--fg-surface),0 0 0 6px var(--fg-onway)}
+.sg-rollcall .sg-village .sg-person[data-response=WITH_ME] .sg-portrait{box-shadow:0 0 0 4px var(--fg-surface),0 0 0 6px var(--fg-withme)}
+.sg-rollcall .sg-village .sg-person[data-response=CANNOT_HELP] .sg-portrait{box-shadow:0 0 0 4px var(--fg-surface),0 0 0 6px var(--fg-muted)}
