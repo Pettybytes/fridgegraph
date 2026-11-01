@@ -1,10 +1,24 @@
 # Caregiver Briefing — notes, gaps, and the Codex card
 
 "What do I need to know for today?" answered ONLY from what the signed-in caller may read. The caller
-is never impersonated; every read runs as their own bearer. Loretta (schedule + care) sees more;
-Priya (care only) sees less; an unrelated caller is refused. The boundary is enforced in code
-(`briefingGather.ts` only issues a read the caller's scope permits; `briefing.ts` can only word what
-the context carries), not in a prompt — see `briefing.test.ts` / `briefingTool.test.ts`.
+is never impersonated; every read runs as their own bearer. Each caregiver's briefing is exactly
+their own grant — on p_nora, per the seed (`0002_seed.sql`, `src/fixtures.ts`):
+
+- **Priya** (sitter, `g_priya` = `supervise.request, schedule.read, careplan.read`) → schedule **and**
+  care notes.
+- **Loretta** (grandmother, `g_loretta` = `pickup.request, schedule.read, goals.read`) → schedule but
+  **no** care notes (she lacks `careplan.read`). Her `pickup.request` would add an approved-pickup
+  role line once the confirmation read exists (gap 1); `goals.read` isn't surfaced in the briefing
+  yet.
+- **A parent** (e.g. Kendra) additionally sees the **check-in** (parent-only) and the parenting-time
+  role.
+- An **unrelated caller** is refused.
+
+So neither Loretta nor Priya strictly dominates — the on-camera contrast is that **Priya sees care
+notes and Loretta does not**, while both see the schedule (and a parent sees the check-in on top).
+The boundary is enforced in code (`briefingGather.ts` only issues a read the caller's scope permits;
+`briefing.ts` can only word what the context carries), not in a prompt — see `briefing.test.ts` /
+`briefingTool.test.ts`.
 
 Files: `briefing.ts` (deterministic composer), `briefingGather.ts` (scope-gating gatherer, injected
 readers), `briefingTool.ts` (prod readers from live MCP tools + `runCaregiverBriefing`), wired as the
@@ -27,7 +41,8 @@ local `CaregiverBriefing` tool in `model.ts`, with a BRIEFING instruction in `sy
    + its own persona test.
 3. **Parent-side "what will Loretta see?" variant (task #4) — SKIPPED, on purpose.** The clean,
    non-impersonating implementation is to describe a recipient's grant SCOPES (e.g. "Loretta can see
-   schedule and care notes"), never a copy of her data. The read for that is `grants(childId,
+   the schedule and request pickup; Priya can see the schedule and care notes"), never a copy of
+   their data. The read for that is `grants(childId,
    actorId)` in the access subgraph — but it is **not** exposed as a Rosina tool, and wiring it needs
    an MCP-config change (backend lane) plus its own persona-boundary tests. Out of this
    `src/rosina`-only task; left as a clean follow-up rather than impersonating anyone.
