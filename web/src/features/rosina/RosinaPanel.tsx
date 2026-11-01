@@ -1,3 +1,4 @@
+import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
 import {OrbitPhotoChat} from '@/features/orbit/OrbitPreparation'
 import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
 import type {OrbitController} from '@/features/orbit/controller'
@@ -82,6 +83,9 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
     const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions }
     setMessages(items => [...items, message])
   }
+  // /voice/turn already ran the turn. Insert its output; never call ask/send here.
+  function appendUserMessage(text:string) { append('PARENT',text) }
+  function appendRosinaReply(reply:string,actions:unknown[]) { accept({reply,actions}) }
   function accept(response: RosinaResponse) {
     const actions=validateActions(response.actions)
     // Keep validated cards until their live dependencies settle; execution still rechecks permission.
@@ -153,7 +157,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
         {busy && <div className="rosina-progress" role="status"><strong>{adapter.mode==='live'?(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…'):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
-      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button></div></form>
+      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply}/>}</div></form>
     </section>
     <Dialog.Root open={!!pending} onOpenChange={value => { if (!value) setPending(null) }}><Dialog.Portal><Dialog.Overlay className="rosina-confirm-overlay" /><Dialog.Content className="rosina-confirm"><Dialog.Title>Confirm pickup request</Dialog.Title><Dialog.Description>Review the child, date and window. {adapter.mode === 'mock' ? 'This is a demo request. It doesn’t arrange a pickup.' : 'Pickup requests aren’t available here yet.'}</Dialog.Description>{pending?.action.id === 'start-pickup' && <dl><dt>Child</dt><dd>{session?.scope.childName}</dd><dt>Date</dt><dd>{pending.action.args.date}</dd><dt>Window</dt><dd>{pending.action.args.window}</dd></dl>}<button type="button" onClick={() => { if (pending) void execute(pending.action, pending.key, true) }}>Confirm {adapter.mode === 'mock' ? 'demo ' : ''}pickup request</button><Dialog.Close>Cancel</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
   </>
