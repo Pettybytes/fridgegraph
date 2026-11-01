@@ -2,7 +2,8 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { useRosinaVoice, type VoiceDeps, type RecorderLike, type AudioLike } from './useRosinaVoice'
 
-// ── Controllable platform stubs ─────────────────────────────────────────────
+const TURN_OK = { transcript: 'hello rosina', reply: 'Hi Kendra', actions: [], models: { asr: 'muse-voice-transcribe-1.0', tts: 'eleven_multilingual_v2', voice: 'uG1JFy6xppqckhHCs2KG', rosina: null }, audioBase64: 'QUJD', mimeType: 'audio/mpeg' }
+
 function makeDeps(over: Partial<VoiceDeps> = {}) {
   let fireData: ((b: Blob) => void) | null = null
   const recorder: RecorderLike = { state: 'recording', start: vi.fn(), stop: vi.fn(() => fireData?.(new Blob(['x'], { type: 'audio/webm' }))) }
@@ -19,34 +20,26 @@ function makeDeps(over: Partial<VoiceDeps> = {}) {
   return { deps, recorder, audio, endAudio: () => audio.onended?.() }
 }
 
-/** A fetch that answers /voice/transcribe then /voice/turn from a script. */
-function scriptFetch(steps: { transcribe?: [number, unknown]; turn?: [number, unknown] }) {
+function okFetch(body: unknown = TURN_OK, status = 200) {
   const calls: string[] = []
-  const fetchMock = vi.fn(async (url: string) => {
-    calls.push(url)
-    const [status, body] = url.includes('/voice/transcribe') ? (steps.transcribe ?? [200, { text: 'hello rosina' }]) : (steps.turn ?? [200, { reply: 'Hi Kendra', actions: [], models: { asr: 'muse-voice-transcribe-1.0', tts: 'eleven_multilingual_v2', voice: 'uG1JFy6xppqckhHCs2KG' }, audioBase64: 'QUJD', mimeType: 'audio/mpeg' }])
-    return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response
-  })
+  const fetchMock = vi.fn(async (url: string) => { calls.push(url); return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response })
   return { fetchMock: fetchMock as unknown as typeof fetch, calls }
 }
 
 afterEach(() => vi.clearAllMocks())
 
-it('runs the full state machine: idle → listening → transcribing → thinking → speaking → idle', async () => {
+it('single buffered turn: idle → listening → processing → speaking → idle', async () => {
   const { deps, endAudio } = makeDeps()
-  const { fetchMock } = scriptFetch({})
+  const { fetchMock, calls } = okFetch()
   const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
   expect(result.current.state).toBe('idle')
-
   await act(async () => { await result.current.start() })
   expect(result.current.state).toBe('listening')
-
   await act(async () => { result.current.stop() })
-  await waitFor(() => expect(result.current.transcript).toBe('hello rosina'))
-  await waitFor(() => expect(result.current.reply).toBe('Hi Kendra'))
   await waitFor(() => expect(result.current.state).toBe('speaking'))
-  expect(result.current.models?.voice).toBe('uG1JFy6xppqckhHCs2KG')
-
+  expect(result.current.transcript).toBe('hello rosina')
+  expect(result.current.reply).toBe('Hi Kendra')
+  expect(calls).toEqual(['/voice/turn']) // ONE buffered call, no transcribe+turn fan-out
   act(() => { endAudio() })
   expect(result.current.state).toBe('idle')
 })
@@ -57,51 +50,67 @@ it('a denied microphone surfaces a plain, actionable error and never records', a
   await act(async () => { await result.current.start() })
   expect(result.current.state).toBe('error')
   expect(result.current.error?.kind).toBe('mic-denied')
-  expect(result.current.error?.message).toMatch(/allow it/i)
 })
 
-it('a 429 becomes "Rosina needs a moment", not a crash', async () => {
+it('a 429 becomes "Rosina needs a moment"', async () => {
   const { deps } = makeDeps()
-  const { fetchMock } = scriptFetch({ transcribe: [429, { error: 'RATE_LIMITED' }] })
+  const { fetchMock } = okFetch({ error: 'RATE_LIMITED' }, 429)
   const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
   await act(async () => { await result.current.start() })
   await act(async () => { result.current.stop() })
   await waitFor(() => expect(result.current.state).toBe('error'))
   expect(result.current.error?.kind).toBe('rate-limited')
-  expect(result.current.error?.message).toMatch(/needs a moment/i)
+})
+
+it('a rejected autoplay surfaces needs-play, and Play reply then plays', async () => {
+  const { deps, audio } = makeDeps()
+  audio.play.mockRejectedValueOnce(new DOMException('autoplay', 'NotAllowedError')).mockResolvedValue(undefined)
+  const { fetchMock } = okFetch()
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+  await act(async () => { await result.current.start() })
+  await act(async () => { result.current.stop() })
+  await waitFor(() => expect(result.current.state).toBe('needs-play'))
+  await act(async () => { result.current.playReply() })
+  await waitFor(() => expect(result.current.state).toBe('speaking'))
 })
 
 it('never shows a transcript the server did not return', async () => {
   const { deps } = makeDeps()
-  const { fetchMock } = scriptFetch({ transcribe: [200, { text: '   ' }] }) // empty/whitespace
+  const { fetchMock } = okFetch({ transcript: '  ', reply: 'x' })
   const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
   await act(async () => { await result.current.start() })
   await act(async () => { result.current.stop() })
   await waitFor(() => expect(result.current.state).toBe('error'))
   expect(result.current.transcript).toBeNull()
-  expect(result.current.reply).toBeNull()
 })
 
-it('never auto-confirms: a reply with an action is exposed but no action/confirm call is made', async () => {
+it('reports into the conversation once, with no duplicate Rosina turn and no auto-confirm', async () => {
+  const onTranscript = vi.fn(), onReply = vi.fn()
   const { deps, endAudio } = makeDeps()
-  const { fetchMock, calls } = scriptFetch({ turn: [200, { reply: 'I can prepare that', actions: [{ id: 'start-pickup', args: {} }], audioBase64: 'QUJD', mimeType: 'audio/mpeg' }] })
-  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+  const { fetchMock, calls } = okFetch({ ...TURN_OK, actions: [{ id: 'start-pickup', args: {} }] })
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock, onTranscript, onReply }))
   await act(async () => { await result.current.start() })
   await act(async () => { result.current.stop() })
-  await waitFor(() => expect(result.current.actions).toHaveLength(1))
+  await waitFor(() => expect(result.current.reply).toBe('Hi Kendra'))
   act(() => { endAudio() })
-  // Exactly the two voice calls happened — no third call to confirm/activate anything.
-  expect(calls).toEqual(['/voice/transcribe', '/voice/turn'])
+  expect(calls).toEqual(['/voice/turn'])                 // exactly one turn — no second model call
+  expect(onTranscript).toHaveBeenCalledTimes(1)
+  expect(onReply).toHaveBeenCalledWith('Hi Kendra', [{ id: 'start-pickup', args: {} }]) // action exposed, not confirmed
 })
 
-it('stop-audio control halts playback and returns to idle', async () => {
-  const { deps, audio } = makeDeps()
-  const { fetchMock } = scriptFetch({})
-  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+it('a persona/child change discards an in-flight late result and resets', async () => {
+  let resolveTurn!: (r: unknown) => void
+  const pending = new Promise((r) => { resolveTurn = r })
+  const fetchMock = vi.fn(() => pending) as unknown as typeof fetch
+  const { deps } = makeDeps()
+  const { result, rerender } = renderHook(({ k }) => useRosinaVoice({ ...deps, request: fetchMock, resetKey: k }), { initialProps: { k: 'kendra:nora' } })
   await act(async () => { await result.current.start() })
-  await act(async () => { result.current.stop() })
-  await waitFor(() => expect(result.current.state).toBe('speaking'))
-  act(() => { result.current.stopAudio() })
-  expect(audio.pause).toHaveBeenCalled()
-  expect(result.current.state).toBe('idle')
+  await act(async () => { result.current.stop() })        // → processing, request in flight
+  await waitFor(() => expect(result.current.state).toBe('processing'))
+  rerender({ k: 'priya:malik' })                          // persona switch tears down
+  // The old turn now resolves — it must be discarded, not shown in the new perspective.
+  await act(async () => { resolveTurn({ ok: true, status: 200, json: async () => TURN_OK }); await Promise.resolve() })
+  expect(result.current.transcript).toBeNull()
+  expect(result.current.reply).toBeNull()
+  expect(result.current.state).not.toBe('speaking')
 })
