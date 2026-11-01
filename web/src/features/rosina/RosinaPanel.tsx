@@ -8,25 +8,31 @@ import type { FormEvent, ReactNode } from 'react'
 import { Dialog } from 'radix-ui'
 import { MessageCircle, X } from 'lucide-react'
 import { useSession } from '@/features/personas/Session'
+import { useChildAccess } from '@/features/personas/childContext'
 import type { ChatMessage, FrontendAdapter } from '@/lib/frontendData/types'
 import { actionAllowed, actionLabel, actionRoute, catalog, validateActions } from './catalog'
 import type { CatalogAction, ExplainableScreen } from './catalog'
 import { createLiveRosinaAdapter, LIVE_FALLBACK, RosinaCancelled } from './liveAdapter'
 import { createMockRosinaAdapter } from './adapter'
 import type { RosinaAdapter, RosinaResponse } from './adapter'
+import { SchoolReportCard } from './SchoolReportCard'
+import { createLiveSchoolReportConfirm, createMockSchoolReportConfirm, parseSchoolReportProposal } from './schoolReport'
+import type { ConfirmSchoolReport, SchoolReportProposal } from './schoolReport'
 import type {RosinaProgress} from './liveAdapter'
 import {RosinaAvatar} from '@/components/fg/RosinaAvatar'
 import './rosina.css'
-type ThreadMessage = ChatMessage & { actions: CatalogAction[] }
-type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:RosinaAdapter}
+type ThreadMessage = ChatMessage & { actions: CatalogAction[]; schoolReportProposal?: SchoolReportProposal | null }
+type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:RosinaAdapter;confirmSchoolReport?:ConfirmSchoolReport}
 export function RosinaPanel(props:PanelProps){
   const {session,getSessionGeneration}=useSession()
-  return <PersonaRosinaPanel key={session?.generation??`signed-out:${getSessionGeneration()}`} {...props}/>
+  const child = useChildAccess()
+  return <PersonaRosinaPanel key={`${session?.generation??`signed-out:${getSessionGeneration()}`}:${child?.selectedChildId??session?.scope.childId??''}`} {...props}/>
 }
 function PersonaRosinaPanel(props:PanelProps){const orbit=useOrbit();return orbit?<ConnectedOrbitPanel {...props} orbit={orbit}/>:<RosinaConversation {...props}/> }
 function ConnectedOrbitPanel(props:PanelProps&{orbit:OrbitController}){useOrbitState(props.orbit);return <RosinaConversation {...props}/> }
-function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{orbit?:OrbitController}){
+function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchoolReport}:PanelProps&{orbit?:OrbitController}){
   const { session, registerPrivateCleanup, getSessionGeneration, renewSession, authMode } = useSession()
+  const child = useChildAccess()
   const calendarScope = useCalendarActionScope(session?.persona.personId)
   const [progress,setProgress]=useState<RosinaProgress>('sending')
   const [elapsed,setElapsed]=useState(0)
@@ -35,6 +41,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
   const adapter = useMemo(() => service ?? (session?.accessToken
     ? createLiveRosinaAdapter(() => sessionRef.current?.accessToken, {getGeneration:getSessionGeneration,onProgress:setProgress})
     : createMockRosinaAdapter(session, dataAdapter)), [session, dataAdapter, service, getSessionGeneration])
+  const confirmReport = useMemo(() => confirmSchoolReport ?? (adapter.mode === 'mock' ? createMockSchoolReportConfirm() : child?.client ? createLiveSchoolReportConfirm(child.client) : null), [confirmSchoolReport, adapter.mode, child?.client])
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
@@ -78,9 +85,9 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
   }, [])
   useEffect(()=>{const reopen=()=>{setOpen(true);setDismissed(false)};window.addEventListener('rosina:open',reopen);return()=>window.removeEventListener('rosina:open',reopen)},[])
   useEffect(()=>{const prepare=(event:Event)=>{const text=(event as CustomEvent<unknown>).detail;if(typeof text==='string'){setDraft(text);setOpen(true);setDismissed(false)}};window.addEventListener('orbit:ask',prepare);return()=>window.removeEventListener('orbit:ask',prepare)},[])
-  function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = []) {
+  function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = [], schoolReportProposal?: SchoolReportProposal | null) {
     if (!active.current) return
-    const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions }
+    const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions, schoolReportProposal }
     setMessages(items => [...items, message])
   }
   // /voice/turn already ran the turn. Insert its output; never call ask/send here.
@@ -90,7 +97,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
     const actions=validateActions(response.actions)
     // Keep validated cards until their live dependencies settle; execution still rechecks permission.
     const orbitOffer=actions.some(action=>action.id==='prepareOrbitAlert')
-    append('ROSINA', orbitOffer&&orbit ? 'I can prepare an Orbit message for you to review. Nothing has been activated.' : response.reply, actions)
+    append('ROSINA', orbitOffer&&orbit ? 'I can prepare an Orbit message for you to review. Nothing has been activated.' : response.reply, actions, parseSchoolReportProposal(response.schoolReportProposal))
   }
   useEffect(()=>{const close=()=>closePanel();window.addEventListener('rosina:close',close);return()=>window.removeEventListener('rosina:close',close)},[])
   function closePanel() {
@@ -144,6 +151,19 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
     }
   }
   const screen: ExplainableScreen = currentRoute.startsWith('#/calendar') ? 'calendar' : currentRoute.startsWith('#/village') ? 'village' : currentRoute.startsWith('#/care-information') ? 'care-information' : currentRoute.startsWith('#/ask-rosina') ? 'ask-rosina' : 'mission-control'
+  const focusedChildId = child?.selectedChildId ?? session?.scope.childId
+  const latestReport = [...messages].reverse().find(message => message.schoolReportProposal)?.schoolReportProposal
+  const reportAccessLoading = adapter.mode === 'live' && child?.authorized.status === 'loading'
+  const mayReport = (proposal:SchoolReportProposal) => !!session && !session.marks?.demoGuide && proposal.childId === focusedChildId &&
+    (adapter.mode === 'mock' ? session.persona.grants.includes('school.report') : child?.authorized.status === 'ready' && child.authorized.children.some(item => item.id === proposal.childId && item.scopes.includes('school.report')))
+  function reportCard(message:ThreadMessage) {
+    const proposal=message.schoolReportProposal
+    if(!proposal||proposal!==latestReport)return null
+    if(reportAccessLoading)return <p role="status">Checking reporting access…</p>
+    if(!mayReport(proposal))return <p role="status">This report proposal is not shared with your role.</p>
+    if(!confirmReport)return <p role="status">Confirmation is unavailable right now.</p>
+    return <SchoolReportCard proposal={proposal} childName={child?.selectedChildName??session?.scope.childName??'Child'} canConfirm accessLoading={false} mode={adapter.mode} confirm={confirmReport}/>
+  }
   return <>
     <button type="button" ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>
     <section onKeyDown={event => { if (event.key === 'Escape') { closePanel(); launcherRef.current?.focus() } }} hidden={dismissed} className={`rosina-panel fg-glass ${open ? 'is-open' : ''}`} aria-label="Ask Rosina" data-state={adapter.mode === 'mock' ? 'unavailable' : 'live'}>
@@ -152,7 +172,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
         {contextCard}
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
-        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
+        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
         {orbit&&<OrbitPhotoChat controller={orbit}/>}
         {busy && <div className="rosina-progress" role="status"><strong>{adapter.mode==='live'?(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…'):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
       </div>
