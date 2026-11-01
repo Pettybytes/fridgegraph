@@ -13,8 +13,10 @@
 # Why a pidfile and not a pattern kill: the same ports may be served by a stack
 # someone started by hand. `--down` must never take those down.
 #
-# STATUS: --check is PROVEN against the running stack. --up and --down are UNTESTED
-# as of 2026-10-30, because proving them requires stopping the live stack.
+# STATUS: --check, --up and --down are PROVEN. --up was proven end to end on a SPARE port range
+# (ALT_STACK_SUFFIX + ALT_*_PORT overrides) so the shared stack did not have to be stopped to test
+# it; see docs/handoff/STACK-LAUNCH.md. `--up` also generates and validates the MCP config, so the
+# hand-rebased copy that used to be assembled by hand is no longer needed.
 #
 # No secret is read, printed or passed here. The .env file is only checked for existence.
 set -euo pipefail
@@ -22,13 +24,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PIDFILE="$ROOT/.alt-stack.pids"
-ROUTER_CONFIG="${TMPDIR:-/tmp}/fridgegraph-alt-router.yaml"
-MCP_CONFIG="${TMPDIR:-/tmp}/fridgegraph-alt-mcp.yaml"
-SUBGRAPH_BASE=4101
-ROUTER_PORT=4012
-HEALTH_PORT=8092
-MCP_PORT=5051
+# Every port and every artefact name is overridable, so a spare copy of the stack can be proven
+# without stopping the one someone else is using. Defaults are the shared alt stack.
+SUFFIX="${ALT_STACK_SUFFIX:-}"
+PIDFILE="$ROOT/.alt-stack${SUFFIX}.pids"
+ROUTER_CONFIG="${TMPDIR:-/tmp}/fridgegraph-alt-router${SUFFIX}.yaml"
+MCP_CONFIG="${TMPDIR:-/tmp}/fridgegraph-alt-mcp${SUFFIX}.yaml"
+export ALT_MCP_CONFIG="$MCP_CONFIG"
+SUBGRAPH_BASE="${ALT_SUBGRAPH_BASE:-4101}"
+ROUTER_PORT="${ALT_ROUTER_PORT:-4012}"
+HEALTH_PORT="${ALT_HEALTH_PORT:-8092}"
+MCP_PORT="${ALT_MCP_PORT:-5051}"
+# The check probes the stack this script just started, so it must be told the MCP port too.
+export ALT_MCP_URL="${ALT_MCP_URL:-http://127.0.0.1:${MCP_PORT}/mcp}"
 ROUTER_BIN="$HOME/.rover/bin/router-v2.18.0"
 MCP_BIN="$HOME/.rover/bin/apollo-mcp-server-v2.1.0"
 
@@ -102,20 +110,49 @@ PY
 gen_mcp_config() {
   MCP_SRC="$ROOT/.apollo/mcp.local.yaml" OUT="$MCP_CONFIG" \
   ROUTER_PORT="$ROUTER_PORT" MCP_PORT="$MCP_PORT" ROOT="$ROOT" python3 - <<'PY'
-import os
+import os, re, sys
+
 src = open(os.environ['MCP_SRC'], encoding='utf-8').read()
-out = src.replace('http://127.0.0.1:4010/', f"http://127.0.0.1:{os.environ['ROUTER_PORT']}/")
-out = out.replace('port: 5050', f"port: {os.environ['MCP_PORT']}")
-if f":{os.environ['MCP_PORT']}" not in out or f":{os.environ['ROUTER_PORT']}/" not in out:
-    raise SystemExit('could not rebase mcp.local.yaml ports; its shape changed')
-# The repo file uses relative schema/operation paths; make them absolute so the
-# server does not depend on the caller's cwd.
+mcp_port = os.environ['MCP_PORT']
+router_port = os.environ['ROUTER_PORT']
+
+out = src.replace('http://127.0.0.1:4010/', f"http://127.0.0.1:{router_port}/")
+out = out.replace('port: 5050', f"port: {mcp_port}")
+
+# The old guard tested ":5051", which never occurs — the file says "port: 5051" with a space — so
+# it fired on every run and `--up` aborted even when the rebase had worked. Test the exact strings.
+if f"port: {mcp_port}" not in out:
+    sys.exit('mcp.local.yaml: could not rebase the transport port; its shape changed')
+if f"endpoint: http://127.0.0.1:{router_port}/" not in out:
+    sys.exit('mcp.local.yaml: could not rebase the endpoint to the alt router; its shape changed')
+
+# The repo file uses relative schema/operation paths; make every one absolute so the server does
+# not depend on the caller's cwd. EVERY operation file is rewritten, not just the first one, and
+# a path that does not exist is a hard error: a missing operation file silently removes a tool.
 root = os.environ['ROOT']
 out = out.replace('path: ./supergraph.graphql', f'path: {root}/supergraph.graphql')
-out = out.replace('- ./ops/PickupCandidates.graphql', f'- {root}/ops/PickupCandidates.graphql')
+out = re.sub(r'(?m)^(\s*-\s+)\./ops/([^\s]+\.graphql)\s*$',
+             lambda m: f'{m.group(1)}{root}/ops/{m.group(2)}', out)
+
+paths = [p for p in re.findall(r'(?m)^\s*path:\s*(\S+)\s*$', out)]
+paths += [p for p in re.findall(r'(?m)^\s*-\s*(\S+\.graphql)\s*$', out)]
+missing = [p for p in paths if not os.path.exists(p)]
+if missing:
+    sys.exit('mcp config refers to missing files: ' + ', '.join(missing))
+if len([p for p in paths if p.endswith('.graphql') and '/ops/' in p]) != 11:
+    sys.exit(f'expected 11 operation files to be rewritten, got {len(paths)} paths total')
+
 open(os.environ['OUT'], 'w', encoding='utf-8').write(out)
-print(f'alt-stack: mcp config -> {os.environ["OUT"]}')
+print(f'alt-stack: mcp config -> {os.environ["OUT"]} (endpoint {router_port}, port {mcp_port}, 11 operations)')
 PY
+}
+
+# Fails loudly if --up did not actually leave a usable MCP config behind.
+assert_mcp_config() {
+  [ -s "$MCP_CONFIG" ] || die "MCP config was not generated at $MCP_CONFIG"
+  grep -q "port: ${MCP_PORT}$" "$MCP_CONFIG" || die "MCP config does not carry port ${MCP_PORT}: $MCP_CONFIG"
+  grep -q "endpoint: http://127.0.0.1:${ROUTER_PORT}/" "$MCP_CONFIG" \
+    || die "MCP config does not point at the alt router on ${ROUTER_PORT}: $MCP_CONFIG"
 }
 
 # ---------------------------------------------------------------------------
@@ -132,19 +169,21 @@ up() {
 
   gen_router_config
   gen_mcp_config
+  assert_mcp_config
   : > "$PIDFILE"
 
-  DEMO_CLOCK="${DEMO_CLOCK:-0}" nohup "$ROOT/node_modules/.bin/tsx" "$ROOT/ops/stack-alt.mjs" \
-    > "${TMPDIR:-/tmp}/fridgegraph-alt-subgraphs.log" 2>&1 &
+  DEMO_CLOCK="${DEMO_CLOCK:-0}" ALT_PORT_BASE="$SUBGRAPH_BASE" \
+    nohup "$ROOT/node_modules/.bin/tsx" "$ROOT/ops/stack-alt.mjs" \
+    > "${TMPDIR:-/tmp}/fridgegraph-alt-subgraphs${SUFFIX}.log" 2>&1 &
   echo "subgraphs $!" >> "$PIDFILE"
 
   sleep 10
   nohup "$ROUTER_BIN" --supergraph "$ROOT/supergraph.graphql" --config "$ROUTER_CONFIG" --log error \
-    > "${TMPDIR:-/tmp}/fridgegraph-alt-router.log" 2>&1 &
+    > "${TMPDIR:-/tmp}/fridgegraph-alt-router${SUFFIX}.log" 2>&1 &
   echo "router $!" >> "$PIDFILE"
 
   sleep 8
-  nohup "$MCP_BIN" "$MCP_CONFIG" > "${TMPDIR:-/tmp}/fridgegraph-alt-mcp.log" 2>&1 &
+  nohup "$MCP_BIN" "$MCP_CONFIG" > "${TMPDIR:-/tmp}/fridgegraph-alt-mcp${SUFFIX}.log" 2>&1 &
   echo "mcp $!" >> "$PIDFILE"
 
   sleep 6
@@ -205,5 +244,11 @@ case "${1:-}" in
   --up) up ;;
   --check) check ;;
   --down) down ;;
-  *) printf 'usage: %s --up | --check | --down\n' "$0" >&2; exit 2 ;;
+  --gen)
+    gen_router_config
+    gen_mcp_config
+    assert_mcp_config
+    printf 'alt-stack: configs generated and validated (no process started)\n'
+    ;;
+  *) printf 'usage: %s --up | --check | --down | --gen\n' "$0" >&2; exit 2 ;;
 esac
