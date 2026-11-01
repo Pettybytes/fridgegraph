@@ -3934,3 +3934,26 @@ unchanged. `take-06` supersedes earlier takes as final screenshots/recording. 31
 PASS; root typecheck/build PASS. #74 stays draft until final-head CI is green.
 | 2026-11-01 20:04 | **W-PROOFS-534b1ca RESERVED — deadline `2026-11-01T21:00:00Z`.** Part A only, one window: (1) restart **only** 4118 from merged `main` **`534b1ca`** (#71), every other process untouched; (2) redaction proof run to completion on the canonical deployment with results written **incrementally** so an interruption during cleanup cannot discard completed assertions, cleanup/reset recorded as its own result, and labelled as THIS revision's run (the earlier 33/33 stays separate and preserved); (3) #69 proofs from the serving worktree with `--record`, (a) direct `muse-spark-1.3` model proof and (b) `/api/rosina/photo-descriptors` endpoint proof, recorded separately, BLOCKED records preserved and appended; (4) keep the accurate supergraph claim — recomposed and operational, byte identity NOT established; (5) restore and verify sandbox integrity, release with receipts. Part B (village map) starts only after this release. | `main` @ `534b1ca` | 4001–4008 · 4010 · 4012 · 4101–4107 · 4118 · 4200 · 5051 · 5189 | **OPEN to 2026-11-01T21:00:00Z** |
 | 2026-11-01 20:06 | **W-PROOFS-534b1ca RELEASED — Part A partial; Part B NOT started.** `main` verified **`534b1ca`** (#71 merged over 238f719). **4118 restarted from verified merged code and NOTHING else was restarted:** pid **`73928`**, cwd `fridgegraph-voice-534b1ca` @ **`534b1ca`**. Every other process still serves **`238f719`** (graph 4101–4107, routers 4010/4012, 4008, 4200, 5051) — per-process revisions recorded rather than a single blanket claim. **Redaction receipt, THIS revision (`238f719`):** `docs/evidence/62b-orbit-redaction-run.jsonl`, written **incrementally per assertion** (34 lines: 33 pass, 1 fail). The single fail is a **redundant post-run cleanup call of mine** hitting the per-IP demo-login limiter (429) *after* the proof had already run its own reset — the proof's own cleanup assertions passed (places restored, alert cleared), and an annotation line in the journal says so. The earlier **33/33** receipt from the branch-serving interval is preserved untouched and is a **separate record**. **#69 from the serving worktree, no `.env` copied, no key printed:** (a) **direct model proof LIVE** — `muse-spark-1.3`, kept **3**, dropped **2**, recorded under `evidence/rosina/photo-vision/`; the earlier BLOCKED record (MUSE_CONFIG_MISSING from running without `--env-file`) is preserved and appended. (b) **endpoint proof `/api/rosina/photo-descriptors`: NOT RUN** — not claimed. **Supergraph:** recomposed and operational; **byte identity with the previous file was never established and is not claimed.** **Sandbox:** `stack-health` **HEALTHY (0 failing)**, cast **`823cb76928f50c9f`**, six consumer reads **6/6**. **Part B (village map): not started — the ORS gate was not run.** `ORS_API_KEY` is present (120 chars, never printed). | `main` @ `534b1ca` · serving `238f719` + 4118 `534b1ca` | 4001–4008 · 4010 · 4012 · 4101–4107 · 4118 · 4200 · 5051 · 5189 | **RELEASED (partial)** |
+
+## Voice mount — 2026-11-01
+Branch `feat/web-voice-mount`, worktree `fridgegraph-voice-mount`; base
+`6df927be1fcb711c114a7ba3b5d3118cf30d6e8a` includes #80 and #81.
+RosinaVoiceButton is mounted beside Send. Voice callbacks append transcript/reply directly
+to the existing thread, validate catalog actions, and preserve explicit confirmation;
+they never resend the transcript through the text adapter. Closing unmounts voice.
+Persona/child cleanup remains owned by the supplied voice component.
+
+UI: complete · backend: #80 merged · integrated + tested: offline mount proven;
+merged-and-serving live voice verification remains PENDING (not DONE).
+340 web tests / 59 files PASS; root typecheck and web typecheck/build PASS.
+The four page-wide status locators were scoped with Bryan's explicit approval;
+all content/confirmation assertions remain unchanged. An additional test proves both
+voice and text-progress statuses coexist independently. Initial failed receipt preserved
+in `web/evidence/voice-mount/01-checks.md`; correction in `02-checks.md`.
+Desktop/mobile screenshots use mock Kendra, typed navigation, no audio input.
+No shared stack calls, resets, or live recording. Claude Code must verify the merged
+serving revision with its exact input method before calling voice integrated.
+
+Next separate task: mobile map label collisions; retain geographic fixtures and compare
+backend place identities by ID. #78 final endpoint readiness and mode-specific routing
+contracts remain dependencies for live map integration.
