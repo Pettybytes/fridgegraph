@@ -1,7 +1,11 @@
+import {orbitDestination} from './features/orbit/deepLink'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+
+const orbitLink=orbitDestination(location.pathname,location.search)
+if(orbitLink)location.hash=orbitLink
 
 // Dev-only recording focus mode (?focus): centres a single zoomed column with the app
 // chrome hidden, so body text clears 16px at 1280×720. Styling in index.css [data-focus].

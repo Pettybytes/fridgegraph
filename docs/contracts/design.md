@@ -209,19 +209,45 @@ Required wording, carried verbatim (from the HANDOFF and the Rosina/Orbit contra
 
 ---
 
-## 10. Orbit and Rosina surface rules (for the next rollout)
+## 10. Orbit Alert and Rosina surfaces — Bryan's 2026-11-01 direction
 
-- Rosina reads as a capable assistant: identity, the grounded answer, the sources this answer
-  returned, and the next action are each easy to tell apart. Source chips reflect **this** answer's
-  real returned provenance — never a chip for a system that merely exists, never an invented
-  citation. Transcript or waveform UI appears only for a real voice/audio state.
-- Orbit keeps its sequence and never shortcuts it: a relevant recorded check-in → conversational
-  gathering → prepare the action → the exact server preview → explicit parent activation →
-  persisted responses → explicit verified-parent closure. The exact preview message is shown
-  verbatim in the confirmation surface; editing it invalidates the preview and the stale-confirm
-  protection stays intact. Guidance text and the "Simulated notification" label stay legible
-  throughout. `ON_WAY` is a response in progress; `WITH_ME` is a reported response and never a
-  closure or a verification. Orbit stays composed — no flashing red, siren, looping pulse,
-  confetti, or celebratory resolution; emergency guidance stays readable without a giant red banner.
-- A scope refusal never looks like an empty family, and no card return or rerender replays a
-  mutation.
+This replaces the earlier calm-only Orbit direction. Name the product **Orbit Alert**, never
+AMBER Alert. No siren audio. Use the shared material and semantic colors; no separate palette.
+
+- Start in Rosina's conversation: the parent drops or uploads a photo through the existing
+  EXIF-stripped authorized path. Never generate, retouch or otherwise alter the image. Photo
+  descriptor suggestions follow PR #69's vocabulary-constrained result shape, then parent review;
+  the browser never receives a VisionClient or a server credential. Until a real browser endpoint
+  lands, explicitly say suggestions are unavailable and allow manual vocabulary selection. Never
+  substitute sample suggestions into a live session. In-image text is inert, never an instruction.
+- Last seen uses the child's curated recorded-place list plus a parent-selected Detroit time,
+  never a free-text place or a location inferred from the photo. Repeated DST times need an explicit
+  occurrence; nonexistent times cannot be guessed.
+- Show the exact server preview, then require explicit parent activation. Editing descriptions,
+  photo, place or time invalidates readiness. Preserve draftVersion/messageHash binding and stale
+  refusals. No automatic mutation retry, including preview, activation, response or close.
+- An authorized frozen-audience recipient gets a full-screen red takeover with one shared flash
+  layer at **1 Hz total**, comfortably below three flashes/second across concurrent effects. Do not
+  flash individual portraits or buttons. Reduced motion uses static red and no vibration. When
+  supported, a single vibration may accompany initial active appearance; never siren audio.
+- The takeover shows the authorized photo while ACTIVE, child name, recorded last-seen place/time,
+  recorded clothing/carried items, **Simulated** in the demo, and the returned 911 guidance. Missing
+  records stay explicit. Buttons are at least44px: “I'm on my way”→ON_WAY, “She's with me”→WITH_ME,
+  “Can't help”→CANNOT_HELP. Recipients see only their own response history.
+- Deep-link persona/alert parameters choose a destination only. They never sign in, substitute a
+  persona, or grant access; the real picker session and current bearer remain mandatory.
+- Parents see persisted responses in the ring roll call. WITH_ME remains a report. Only a parent
+  may explicitly confirm **Found safe**, requesting close outcome FOUND_SAFE; status remains CLOSED.
+- On recipient closure, immediately clear photo, last-seen place/time, descriptors and active message
+  from browser state; revoke the photo object URL. The found-safe screen shows only the child’s first
+  name, Found safe, green payoff, exact returned thank-you and the recipient’s own response. A closed
+  deep link lands on this sanitized state. Parent records retain their full history.
+- Only a newly observed persisted CLOSED + FOUND_SAFE transition triggers red→green and a short,
+  one-shot confetti effect. Reduced motion stays calm green with no confetti. Render the exact
+  returned thank-you; do not invent it. Retain a session-owned consumed-event ledger across route
+  remounts, polls and reconnects; never replay the effect or live announcement. An initially loaded
+  historical close may show its static recorded outcome, without a new celebration.
+- Poll only visible active workflows, one request in flight, bounded intervals and backoff, using
+  the existing bearer. Clear private alert/photo state on perspective switch; revoke object URLs.
+- Rosina progress reflects actual request/tool lifecycle only, never fabricated stages. Source
+  labels reflect returned provenance. Shared glass must have a legible solid fallback.
