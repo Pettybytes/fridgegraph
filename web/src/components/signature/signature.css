@@ -95,3 +95,11 @@
 .sg-rollcall .sg-village .sg-person[data-response=ON_WAY] .sg-portrait{box-shadow:0 0 0 4px var(--fg-surface),0 0 0 6px var(--fg-onway)}
 .sg-rollcall .sg-village .sg-person[data-response=WITH_ME] .sg-portrait{box-shadow:0 0 0 4px var(--fg-surface),0 0 0 6px var(--fg-withme)}
 .sg-rollcall .sg-village .sg-person[data-response=CANNOT_HELP] .sg-portrait{box-shadow:0 0 0 4px var(--fg-surface),0 0 0 6px var(--fg-muted)}
+/* Quiet but visible structure against both shared canvases. */
+.sg-orbits{stroke:color-mix(in oklch,var(--fg-ink) 25%,var(--fg-surface));stroke-width:1.4}
+.sg-scene{max-width:920px}
+.sg-response-state{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:7px 10px;min-height:36px;border-radius:10px;background:var(--fg-surface);border:1px solid var(--fg-border);color:var(--fg-ink);font-size:16px;line-height:1.3;font-weight:500}
+.sg-response-state svg{flex-shrink:0}.sg-person[data-response=NONE] .sg-response-state{color:var(--fg-ink);background:var(--fg-surface)}
+.sg-person[data-response=ON_WAY] .sg-response-state{border-color:var(--fg-onway)}
+.sg-person[data-response=WITH_ME] .sg-response-state{border-color:var(--fg-withme)}
+.sg-person[data-response=CANNOT_HELP] .sg-response-state{color:var(--fg-ink)}

@@ -12,7 +12,7 @@ export function ringSlots(count:number){return Array.from({length:count},(_,i)=>
  * Overflow is explicit instead of shrinking portraits. Mobile crops concentric ellipses into arcs below the child, with one
  * portrait per category and explicit overflow, so names retain a readable measure. */
 export function concentricLayout(people:VillagePerson[],narrow:boolean,compact=false,audience=false){
- const width=narrow?360:1000,height=audience?(narrow?700:640):compact?460:narrow?760:700
+ const width=narrow?360:1000,height=audience?(narrow?700:640):compact?460:narrow?760:660
  const centerY=narrow&&!compact&&!audience?150:height/2
  const buckets=audience?[{label:'Frozen audience',people:orderedPeople(people)}]:compact?[{label:'Shared connections',people:orderedPeople(people)}]:[
   {label:'Household',people:people.filter(p=>p.group==='Household')},
@@ -22,7 +22,7 @@ export function concentricLayout(people:VillagePerson[],narrow:boolean,compact=f
  const nodes:{person:VillagePerson;x:number;y:number}[]=[]
  const rings=buckets.map((bucket,index)=>{
   const rx=audience?(narrow?100:350):compact?(narrow?110:310):narrow?[110,140,160][index]:180+index*125
-  const ry=audience?(narrow?250:235):compact?155:narrow?[260,330,430][index]:110+index*90
+  const ry=audience?(narrow?250:235):compact?155:narrow?[260,330,430][index]:90+index*80
   const capacity=audience?(narrow?2:6):compact?2:narrow?1:[2,4,6][index]
   const visible=orderedPeople(bucket.people).slice(0,capacity),overflow=orderedPeople(bucket.people).slice(capacity)
   visible.forEach((person,i)=>{
