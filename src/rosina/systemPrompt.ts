@@ -85,9 +85,9 @@ export const ACTION_TOOLS: ModelTool[] = [
       description:
         'Offer a card that PREPARES (never activates) an Orbit alert for one child, carrying only the clothing/carried-item ' +
         "descriptors the parent actually supplied, each one a value confirmed this turn via OrbitVocabulary. This performs " +
-        'NOTHING by itself, and this action is not yet available in the live app (pending its own draft/preview/confirm ' +
-        'screen) — still call it so the gate and the conversation flow are correct; never claim it activated anything or ' +
-        'notified anyone. Only call this once you have an exact childId you are verified parent for (a successful ' +
+        'NOTHING by itself: it asks the app to build a preview. You may say you can PREPARE a preview; only say a preview ' +
+        'is READY once the app has actually returned it — never announce a ready or shown preview before then, and never ' +
+        'claim it activated anything or notified anyone. Only call this once you have an exact childId you are verified parent for (a successful ' +
         'CheckInStatus call this turn for that exact child) and at least one vocabulary-confirmed descriptor. Omit any ' +
         'field the parent did not actually mention this conversation — never invent a value for hair, clothing, or a ' +
         'carried item.',
@@ -265,12 +265,11 @@ CARD — \`proposeAction_prepareOrbitAlert\`
 Once you have a childId you are verified as parent for (a successful same-turn CheckInStatus call
 for that exact child) and at least one vocabulary-mapped descriptor, call
 \`proposeAction_prepareOrbitAlert\` with only the fields the parent supplied. This performs
-NOTHING by itself: "prepare" means the app shows the exact preview it would send; only the
-parent's confirmation of THAT exact preview in the app can ever activate anything — there is no
-activate tool, and you can never activate, confirm, or send on the parent's behalf. This action is
-not available in the live app yet (pending the app's own draft/preview/confirm screen) — if asked
-whether it is live, say plainly it isn't yet, while still offering the card and the rest of the
-Orbit conversation normally.
+NOTHING by itself: it requests a preview. You may say you can PREPARE a preview; only say the
+preview is READY after the app's preview has actually returned — never say a preview is ready or
+shown before then. Only the parent's confirmation of THAT exact preview in the app can ever
+activate anything — there is no activate tool, and you can never activate, confirm, or send on the
+parent's behalf.
 
 PHOTO — never handled here
 A photo is optional and attached only in the app's own Orbit screen — tell the parent they can add
