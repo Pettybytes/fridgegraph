@@ -339,9 +339,13 @@ Lincoln Elementary (recorded school day ends 15:00).
   scenario date **2026-10-26**, dismissal **12:30 PM**. Source: `src/rosina/samples/`
   (`notice-a-early-dismissal.html` / `.txt`); rendered assets:
   `web/public/samples/notice-plan/notice-a-early-dismissal.png` and `.pdf` (served to the tray).
-- **(b) ambiguous notice** needing the one clarifying question (§4b). _Planned._
-- **(c) field-trip permission slip** — **review-only** (§1.2) unless an existing slip matches by id.
-  _Planned._
+- **(b) ambiguous notice** needing the one clarifying question (§4b). **SHIPPED.** "dismissed early
+  **next Friday**" with no explicit date → the pipeline returns one question and the `resume` answer
+  continues the same proposal. Source `notice-b-ambiguous.{html,txt}`; assets
+  `web/public/samples/notice-plan/notice-b-ambiguous.{png,pdf}`.
+- **(c) field-trip permission slip** — **review-only** (§1.2), confirm disabled (server 422).
+  **SHIPPED.** Grade 3 Nature Center trip that returns before dismissal (no conflict). Source
+  `notice-c-field-trip.{html,txt}`; assets `…/notice-plan/notice-c-field-trip.{png,pdf}`.
 
 Render step: `node ops/render-notice-samples.mjs` (Playwright headless Chromium, no network). The
 `.html` is the single source of truth for the text; `.txt` is the pasted-text form (verified-quote

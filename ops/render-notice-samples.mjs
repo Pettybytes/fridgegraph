@@ -19,6 +19,8 @@ const OUT = resolve(here, '../web/public/samples/notice-plan');
 
 const SAMPLES = [
   { id: 'notice-a-early-dismissal', html: 'notice-a-early-dismissal.html' },
+  { id: 'notice-b-ambiguous', html: 'notice-b-ambiguous.html' },
+  { id: 'notice-c-field-trip', html: 'notice-c-field-trip.html' },
 ];
 
 async function main() {
