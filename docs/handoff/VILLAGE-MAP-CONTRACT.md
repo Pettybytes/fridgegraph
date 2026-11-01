@@ -165,3 +165,23 @@ appears to lack a subject for her (Priya resolved fine). Consequence: **the pare
 coordinate path is UNPROVEN** — it has never been demonstrated, and it must not be described as
 working until a harness that actually resolves every persona shows coordinates returned for Kendra
 and Andre and absent for Loretta without `address.read`.
+
+### RESOLVED — same day, with evidence
+
+The defect above was fixed **before** 0056 was committed. `place_geometry_for` now requires the place's
+household to be one of the **child's** households, so a place from another family answers exactly like
+one that does not exist.
+
+The harness bug was mine, not the product's: the identity map uses person ids (`p_mom`, `p_dad`,
+`p_gma`, `p_priya`, …) and **"Kendra" is persona `p_mom`** — `p_kendra` never existed. With correct
+subjects, `ops/0056-dry-run.mjs` (rolled back) gives **5/5**:
+
+| caller | own-family place | another family's place |
+|---|---|---|
+| `p_mom` (Kendra, parent) | `Lincoln Elementary School`, **lat 42.331400** | **no row** |
+| `p_priya` (grants, no `address.read`) | `Lincoln Elementary School`, **lat null** | **no row** |
+| `p_dana` (unrelated) | **no row** | not asked |
+
+So the coordinate path is now demonstrably open to a parent and closed to a grant-holder, which is the
+shape the settled decision asked for. The migration is dry-run clean but **still unapplied** — applying
+it belongs to a reserved window.
