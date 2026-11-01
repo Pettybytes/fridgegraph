@@ -22,8 +22,9 @@ const stubVision = (result: VisionResult): VisionClient => ({
   describe: async () => result,
 });
 
+const IMAGE = { data: new Uint8Array([1, 2, 3]), contentType: 'image/png' };
 const base = (vision: VisionClient) =>
-  proposePhotoDescriptors({ photoId: 'photo_abc', childId: 'child_1', bearer: 'BEARER', vocabularyByKind: vocab, vision });
+  proposePhotoDescriptors({ image: IMAGE, childId: 'child_1', vocabularyByKind: vocab, vision });
 
 test('maps only in-vocabulary values and records the model id + source', async () => {
   const proposal = await base(
@@ -104,7 +105,7 @@ test('an unknown descriptor key is dropped (no new descriptor kinds invented)', 
 
 test('with no fetched vocabulary, every value fails closed', async () => {
   const proposal = await proposePhotoDescriptors({
-    photoId: 'photo_abc', childId: 'child_1', bearer: 'BEARER',
+    image: IMAGE, childId: 'child_1',
     vocabularyByKind: new Map(),
     vision: stubVision({ modelId: VISION_MODEL_ID, source: 'live', descriptors: [{ key: 'wearColor', value: 'red' }] }),
   });

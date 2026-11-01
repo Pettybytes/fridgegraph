@@ -39,13 +39,17 @@ export type VisionResult = {
   textInImage?: string[];
 };
 
+/** An EXIF-stripped image the authorized store loaded; bytes only ever flow to the vision
+ *  call, never to a log. */
+export type VisionImage = { data: Uint8Array; contentType: string };
+
 /**
  * The one intended Meta vision call, injected so nothing else in the process can reach the
- * image and so tests run without a key. An implementation MUST send the image reference only
- * to the Meta vision endpoint, over the parent's bearer, and MUST NOT log the raw image.
+ * image and so tests run without a key. An implementation MUST send the image ONLY to the
+ * Meta vision endpoint and MUST NOT log the raw image.
  */
 export type VisionClient = {
-  describe(input: { photoId: string; childId: string; bearer: string; signal?: AbortSignal }): Promise<VisionResult>;
+  describe(input: { image: VisionImage; childId: string; signal?: AbortSignal }): Promise<VisionResult>;
 };
 
 export type DroppedDescriptor = { key: string; value: string; reason: 'UNKNOWN_KEY' | 'NOT_IN_VOCABULARY' };
@@ -79,17 +83,15 @@ function normaliseKey(raw: string): DescriptorKey | undefined {
  * keyed by kind (same shape `validatePrepareOrbitAlert` consumes).
  */
 export async function proposePhotoDescriptors(input: {
-  photoId: string;
+  image: VisionImage;
   childId: string;
-  bearer: string;
   vocabularyByKind: ReadonlyMap<string, ReadonlySet<string>>;
   vision: VisionClient;
   signal?: AbortSignal;
 }): Promise<PhotoDescriptorProposal> {
   const result = await input.vision.describe({
-    photoId: input.photoId,
+    image: input.image,
     childId: input.childId,
-    bearer: input.bearer,
     signal: input.signal,
   });
 

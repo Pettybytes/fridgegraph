@@ -16,7 +16,10 @@ import { verifyBearer } from '../auth/verify';
 import { scenarioNowFrom } from '../context';
 import { runRosinaTurn, type HistoryMessage } from './model';
 import { createRateLimiter } from './rateLimit';
-import { MuseConfigError, type ProviderId } from '../muse/providers';
+import { MuseConfigError, resolveProvider, type ProviderId } from '../muse/providers';
+import { createPhotoDescriptorsHandler } from './photoEndpoint';
+import { createMuseVisionClient, MUSE_VISION_MODEL } from './museVision';
+import type { VisionClient } from './photoDescriptors';
 
 loadEnv();
 
@@ -122,6 +125,27 @@ export function createRosinaApp() {
       console.error(`[rosina] unhandled: ${error instanceof Error ? error.message : 'unknown'}`);
       if (!res.headersSent) res.status(200).json({ reply: "I couldn't check that just now.", actions: [] });
     });
+  });
+
+  // Photo → vocabulary-constrained descriptor suggestions (PR F). The vision client is real
+  // (Meta muse-spark-1.3) when configured; per-child/per-photo authorization and the
+  // EXIF-stripped photo store are not wired to real storage in this environment, so they fail
+  // closed (403/404) until they are — the mapping, safety and vision call are production-ready.
+  let vision: VisionClient | null = null;
+  try {
+    const c = resolveProvider('meta');
+    vision = createMuseVisionClient({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: MUSE_VISION_MODEL });
+  } catch { vision = null; }
+  const photoHandler = createPhotoDescriptorsHandler({
+    verify: async (h) => { const id = await verifyBearer(h); return id.ok ? { ok: true, personId: id.personId } : { ok: false }; },
+    rateLimiter: limiter,
+    authorize: async () => false,
+    photoStore: { load: async () => null },
+    vocabulary: async () => new Map(),
+    vision,
+  });
+  app.post('/api/rosina/photo-descriptors', (req, res) => {
+    photoHandler(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'VISION_ERROR' }); });
   });
   return app;
 }
