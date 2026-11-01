@@ -74,20 +74,35 @@
 
 @media (hover: none) { .fg-pcard:hover { border-color: var(--fg-border); box-shadow: none; } }
 
-/* The picker's front door: the fridge-hero scene behind the whole page, with a wash so the
-   headline + glass cards lead and the magnets/notes/ties show through the cards. */
+/* The picker's front door: ONE fridge — the family fridge covered in magnets, notes, a
+   photo and village ties — as a single object sitting lower-right, behind the cards and
+   clear of the text column. Soft colour fields fill the rest. */
 body:has(.fg-picker) {
   background-image:
-    linear-gradient(180deg, color-mix(in oklch, var(--fg-canvas) 32%, transparent), color-mix(in oklch, var(--fg-canvas) 74%, transparent)),
-    url(/fridge-hero.svg);
-  background-size: cover, cover;
-  background-position: center top, center top;
-  background-attachment: fixed, fixed;
-  background-repeat: no-repeat, no-repeat;
+    url(/fridge-appliance.svg),
+    radial-gradient(1000px 760px at 102% 118%, color-mix(in oklch, var(--rosina-periwinkle) 30%, transparent), transparent 60%),
+    radial-gradient(900px 680px at -4% -8%, color-mix(in oklch, var(--fg-primary) 16%, transparent), transparent 58%),
+    radial-gradient(900px 900px at 60% 50%, color-mix(in oklch, var(--rosina-violet) 12%, transparent), transparent 62%);
+  background-repeat: no-repeat;
+  background-position: right -36px bottom -24px, center, center, center;
+  background-size: min(40vw, 540px) auto, cover, cover, cover;
+  background-attachment: fixed;
 }
 .dark body:has(.fg-picker) {
   background-image:
-    linear-gradient(180deg, color-mix(in oklch, var(--fg-canvas) 68%, transparent), color-mix(in oklch, var(--fg-canvas) 88%, transparent)),
-    url(/fridge-hero.svg);
+    url(/fridge-appliance.svg),
+    radial-gradient(1000px 760px at 102% 118%, color-mix(in oklch, var(--rosina-periwinkle) 24%, transparent), transparent 58%),
+    radial-gradient(900px 680px at -4% -8%, color-mix(in oklch, var(--fg-primary) 26%, transparent), transparent 56%),
+    radial-gradient(900px 900px at 60% 50%, color-mix(in oklch, var(--rosina-violet) 20%, transparent), transparent 60%);
+}
+/* Narrow screens: drop the fridge object so it never crowds the copy. */
+@media (max-width: 1100px) {
+  body:has(.fg-picker), .dark body:has(.fg-picker) {
+    background-image:
+      radial-gradient(900px 700px at 102% 118%, color-mix(in oklch, var(--rosina-periwinkle) 26%, transparent), transparent 60%),
+      radial-gradient(800px 640px at -4% -8%, color-mix(in oklch, var(--fg-primary) 16%, transparent), transparent 58%);
+    background-position: center, center;
+    background-size: cover, cover;
+  }
 }
 @media (prefers-contrast: more) { body:has(.fg-picker), .dark body:has(.fg-picker) { background-image: none; } }
