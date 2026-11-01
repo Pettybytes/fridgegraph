@@ -1,4 +1,7 @@
-.rosina-panel { position: fixed; top: 6.8rem; right: 1.25rem; bottom: 1.25rem; width: 350px; z-index: 25; display: flex; flex-direction: column; background: white; border: 1px solid #d4cadd; border-radius: 1.2rem; box-shadow: 0 12px 40px #26344c12; overflow: hidden; color: #26344c; }
+/* Default closed everywhere (honours the component's open=false): a launcher, not
+   a docked panel crowding the page. Docks on the right only once opened. */
+.rosina-panel { position: fixed; top: 6.8rem; right: 1.25rem; bottom: 1.25rem; width: 350px; z-index: 25; display: none; flex-direction: column; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: 1.2rem; box-shadow: 0 12px 40px #26344c12; overflow: hidden; color: var(--fg-ink); }
+.rosina-panel.is-open { display: flex; }
 .rosina-panel header { display: flex; justify-content: space-between; align-items: start; padding: 1.25rem 1.2rem .75rem; }
 .rosina-panel header h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.025em; }
 .rosina-panel header p, .rosina-source { font-size: .73rem; line-height: 1.5; color: #62708a; }
@@ -23,7 +26,12 @@
 .rosina-panel form button, .rosina-confirm > button { padding: .7rem .9rem; color: white; border-radius: .6rem; background: #7559a1; font-size: .85rem; }
 .rosina-panel form button:disabled { opacity: .5; }
 .rosina-error { padding: .5rem 1rem; color: #8d3d50; font-size: .8rem; }
-.rosina-launcher { display: none; }
+/* Launcher is the resting state on every size: a quiet pill, bottom-right. */
+.rosina-launcher { position: fixed; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); right: calc(1.25rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; color: var(--fg-on-primary); background: var(--fg-primary); border: 0; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
+/* While the panel is open the launcher must not float over it (z26 > panel z25) —
+   it would intercept clicks on the panel's Send button. Close restores it; focus
+   return is handled in RosinaPanel (launcherRef). */
+.rosina-launcher[aria-expanded="true"] { display: none; }
 .rosina-confirm-overlay { position: fixed; inset: 0; background: #26344c88; z-index: 80; }
 .rosina-confirm { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 1rem; padding: 1.5rem; max-width: 440px; width: calc(100% - 2rem); z-index: 81; color: #26344c; }
 .rosina-confirm h2 { font-size: 1.4rem; font-weight: 650; }
@@ -32,7 +40,9 @@
 .rosina-confirm button { margin: .4rem .5rem .2rem 0; }
 .rosina-confirm button:last-child { color: #624389; background: #f0ebf6; }
 .rosina-panel button:focus-visible, .rosina-launcher:focus-visible, .rosina-confirm button:focus-visible { outline: 3px solid #7559a1; outline-offset: 3px; }
-@media(min-width: 1200px) { body:has(.rosina-panel:not([hidden])) .workspace { padding-right: 375px; } body:has(.rosina-panel:not([hidden])) .persona-entry { margin-right: 375px; max-width: 1000px; } body:has(.rosina-panel:not([hidden])) .persona-grid { grid-template-columns: repeat(2, 1fr); } .rosina-panel header button { display: block; } }
+/* Reserve the right dock ONLY while the panel is actually open. A closed panel is
+   display:none but not [hidden], so keying off presence stole 375px permanently. */
+@media(min-width: 1200px) { body:has(.rosina-panel.is-open:not([hidden])) .workspace { padding-right: 375px; } body:has(.rosina-panel.is-open:not([hidden])) .persona-entry { margin-right: 375px; max-width: 1000px; } body:has(.rosina-panel.is-open:not([hidden])) .persona-grid { grid-template-columns: repeat(2, 1fr); } .rosina-panel header button { display: block; } }
 @media(max-width: 1199px) {
  /* Reserve a viewport dock so the launcher never paints over scrollable content. */
  body:has(.rosina-launcher) #root { height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
@@ -48,6 +58,6 @@
 .care-information h2 { font-size: 1.2rem; font-weight: 650; letter-spacing: -.02em; margin-bottom: .7rem; }
 .care-information p { font-size: .9rem; line-height: 1.6; }
 .care-information p:last-child { color: #62708a; font-size: .75rem; margin-top: .65rem; }
-@media(min-width: 1200px) and (max-width: 1700px) { body:has(.rosina-panel) .mc-layout { grid-template-columns: minmax(0, 1fr); } body:has(.rosina-panel) .mc-trace { grid-row: auto; grid-column: auto; } }
+@media(min-width: 1200px) and (max-width: 1700px) { body:has(.rosina-panel.is-open) .mc-layout { grid-template-columns: minmax(0, 1fr); } body:has(.rosina-panel.is-open) .mc-trace { grid-row: auto; grid-column: auto; } }
 
 .rosina-panel[hidden]{display:none}.rosina-launcher.is-reopen{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:.5rem;background:#7559a1;color:white;padding:.8rem 1.2rem;border-radius:2rem;z-index:26}.rosina-source{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.rosina-mode{font-size:.68rem;font-weight:600;padding:.2rem .45rem;border-radius:.3rem}.mode-live{color:#276b48;background:#e5f2eb;border:1px solid #9ac3ad}.mode-mock{color:#7559a1;background:#eee8f4;border:1px dashed #b8a3d0}

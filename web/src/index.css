@@ -5,10 +5,199 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ───────────────────────────────────────────────────────────────────────────
+   FridgeGraph design tokens — the one authoritative definition.
+   Bound by docs/contracts/design.md. Runtime palette lives in :root / .dark so
+   it can switch with the theme; @theme inline maps Tailwind color utilities
+   (bg-canvas, text-ink, border-hairline, …) onto those runtime vars. Static
+   scales (type, radius, motion, z) live in @theme.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 @theme {
-  --color-fridge-ink: oklch(0.21 0.02 264);
-  --color-fridge-paper: oklch(0.98 0.005 264);
-  --color-fridge-accent: oklch(0.62 0.17 22);
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+
+  /* Radius roles. Concentric rule (design.md §5): inner = outer − total inset,
+     clamped at 0. --radius-screen is --radius-device (44) − 8px device inset. */
+  --radius-device: 44px;
+  --radius-screen: 36px;
+  --radius-card-lg: 20px;
+  --radius-card: 16px;
+  --radius-nested: 10px;
+  --radius-control: 10px;
+  --radius-chip: 8px;
+  --radius-pill: 999px;
+  /* shadcn components read --radius; keep them on the same rhythm. */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* Motion (design.md §4; Emil's custom curves — explicitly requested here). */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-feedback: 140ms;
+  --dur-panel: 220ms;
+  --dur-scene: 300ms;
+
+  /* z-index scale — no arbitrary z values anywhere. */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-nav: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+}
+
+/* Map Tailwind color utilities onto the runtime (themeable) palette. */
+@theme inline {
+  --color-canvas: var(--fg-canvas);
+  --color-surface: var(--fg-surface);
+  --color-elevated: var(--fg-elevated);
+  --color-ink: var(--fg-ink);
+  --color-muted-ink: var(--fg-muted);
+  --color-hairline: var(--fg-border);
+  --color-brand: var(--fg-primary);
+  --color-brand-hover: var(--fg-primary-hover);
+  --color-on-brand: var(--fg-on-primary);
+  --color-coral: var(--fg-accent);
+  --color-selection: var(--fg-selection);
+  --color-focus: var(--fg-focus);
+  --color-onway: var(--fg-onway);
+  --color-onway-ink: var(--fg-onway-ink);
+  --color-withme: var(--fg-withme);
+  --color-withme-ink: var(--fg-withme-ink);
+  --color-simulated: var(--fg-simulated);
+  --color-real: var(--fg-real);
+  --color-attention: var(--fg-attention);
+  --color-rosina-periwinkle: var(--rosina-periwinkle);
+  --color-rosina-violet: var(--rosina-violet);
+  --color-rosina-navy: var(--rosina-navy);
+  --color-rosina-silver: var(--rosina-silver);
+
+  /* shadcn bridge — its semantic names now resolve to the FridgeGraph palette,
+     so every shadcn/ui component inherits one identity (no divergent palette).
+     (--font-sans is defined once in @theme above; never re-declare it here as a
+     self-reference, which resolves to nothing and drops the app to a serif.) */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  /* FridgeGraph runtime palette — light (warm paper, dark ink, indigo, coral). */
+  --fg-canvas: oklch(0.985 0.008 85);
+  --fg-surface: oklch(1 0 0);
+  --fg-elevated: oklch(1 0 0);
+  --fg-ink: oklch(0.24 0.03 270);
+  --fg-muted: oklch(0.52 0.022 268);
+  --fg-border: oklch(0.91 0.008 268);
+  --fg-primary: oklch(0.47 0.15 274);
+  --fg-primary-hover: oklch(0.42 0.15 274);
+  --fg-on-primary: oklch(0.99 0.01 274);
+  --fg-accent: oklch(0.64 0.17 25);
+  --fg-selection: oklch(0.93 0.04 274);
+  --fg-focus: oklch(0.55 0.15 274);
+  --fg-onway: oklch(0.70 0.12 75);
+  --fg-onway-ink: oklch(0.42 0.09 68);
+  --fg-withme: oklch(0.58 0.12 158);
+  --fg-withme-ink: oklch(0.40 0.09 158);
+  --fg-simulated: oklch(0.55 0.015 268);
+  --fg-real: oklch(0.52 0.10 232);
+  --fg-attention: oklch(0.57 0.16 28);
+  --rosina-periwinkle: oklch(0.72 0.08 262);
+  --rosina-violet: oklch(0.60 0.16 300);
+  --rosina-navy: oklch(0.32 0.07 274);
+  --rosina-silver: oklch(0.82 0.01 262);
+
+  /* shadcn semantic vars, pointed at the FridgeGraph palette. */
+  --background: var(--fg-canvas);
+  --foreground: var(--fg-ink);
+  --card: var(--fg-surface);
+  --card-foreground: var(--fg-ink);
+  --popover: var(--fg-surface);
+  --popover-foreground: var(--fg-ink);
+  --primary: var(--fg-primary);
+  --primary-foreground: var(--fg-on-primary);
+  --secondary: oklch(0.96 0.006 268);
+  --secondary-foreground: var(--fg-ink);
+  --muted: oklch(0.96 0.006 268);
+  --muted-foreground: var(--fg-muted);
+  --accent: var(--fg-selection);
+  --accent-foreground: var(--fg-primary);
+  --destructive: var(--fg-attention);
+  --border: var(--fg-border);
+  --input: var(--fg-border);
+  --ring: var(--fg-focus);
+  --sidebar: var(--fg-surface);
+  --sidebar-foreground: var(--fg-ink);
+  --sidebar-primary: var(--fg-primary);
+  --sidebar-primary-foreground: var(--fg-on-primary);
+  --sidebar-accent: var(--fg-selection);
+  --sidebar-accent-foreground: var(--fg-primary);
+  --sidebar-border: var(--fg-border);
+  --sidebar-ring: var(--fg-focus);
+
+  /* Legacy shell aliases now resolve to the unified palette (one source). */
+  --fg-slate: var(--fg-ink);
+  --fg-workspace: var(--fg-canvas);
+  --fg-plum: var(--fg-primary);
+  --fg-line: var(--fg-border);
+}
+
+.dark {
+  --fg-canvas: oklch(0.17 0.012 270);
+  --fg-surface: oklch(0.21 0.014 270);
+  --fg-elevated: oklch(0.24 0.014 270);
+  --fg-ink: oklch(0.96 0.006 85);
+  --fg-muted: oklch(0.70 0.016 268);
+  --fg-border: oklch(1 0 0 / 0.12);
+  --fg-primary: oklch(0.64 0.16 276);
+  --fg-primary-hover: oklch(0.69 0.16 276);
+  --fg-on-primary: oklch(0.16 0.02 276);
+  --fg-accent: oklch(0.68 0.16 28);
+  --fg-selection: oklch(0.34 0.07 276);
+  --fg-focus: oklch(0.70 0.14 276);
+  --fg-onway: oklch(0.76 0.12 78);
+  --fg-onway-ink: oklch(0.86 0.10 80);
+  --fg-withme: oklch(0.68 0.13 158);
+  --fg-withme-ink: oklch(0.82 0.12 158);
+  --fg-simulated: oklch(0.70 0.016 268);
+  --fg-real: oklch(0.66 0.11 232);
+  --fg-attention: oklch(0.68 0.16 28);
+
+  --secondary: oklch(0.26 0.014 270);
+  --muted: oklch(0.26 0.014 270);
+  --accent: var(--fg-selection);
+  --accent-foreground: var(--fg-ink);
+  --input: oklch(1 0 0 / 0.15);
 }
 
 html,
@@ -17,171 +206,103 @@ body,
   height: 100%;
 }
 
-body {
-  margin: 0;
-  background-color: var(--color-fridge-paper);
-  color: var(--color-fridge-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-}
-
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    margin: 0;
+    /* Ambient gradient field — a soft, static depth layer behind every surface
+       (picker, Today, village). Palette-tinted so it adapts light/dark; fixed so it
+       reads as a field the content floats over, not a scrolling texture. No motion. */
+    background-color: var(--fg-canvas);
+    background-image:
+      radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 42%, transparent), transparent 64%),
+      radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 30%, transparent), transparent 58%),
+      radial-gradient(1040px 1040px at 50% 120%, color-mix(in oklch, var(--rosina-violet) 28%, transparent), transparent 62%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    color: var(--fg-ink);
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
   }
+  /* Dark mode needs higher-opacity glows to read over the dark canvas. */
+  .dark body {
+    background-image:
+      radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 30%, transparent), transparent 60%),
+      radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 34%, transparent), transparent 56%),
+      radial-gradient(1040px 1040px at 50% 122%, color-mix(in oklch, var(--rosina-violet) 30%, transparent), transparent 60%);
+  }
+  @media (prefers-contrast: more) { body, .dark body { background-image: none; } }
   html {
     @apply font-sans;
   }
+  a { color: inherit; }
+  button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
+  /* One focus treatment, everywhere. */
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 3px solid var(--fg-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+  ::selection { background: var(--fg-selection); color: var(--fg-ink); }
 }
-/* FridgeGraph shell: calm workspace, a persistent village rail. */
-:root { --fg-slate: #26344b; --fg-workspace: #f0f4fa; --fg-plum: #7559a1; --fg-line: #dce3ed; }
-body { background: var(--fg-workspace); color: var(--fg-slate); font-family: 'Geist Variable', sans-serif; }
-a { color: inherit; }
-button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
-a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #a18ac6; outline-offset: 4px; }
+
+/* Squircle: progressive enhancement over border-radius (design.md §5).
+   border-radius is the finished fallback; Safari/Firefox render rounded-rect. */
+@supports (corner-shape: squircle) {
+  .fg-squircle { corner-shape: squircle; }
+}
+
+/* Reduced motion: cross-fade, not movement; keep state changes legible. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Existing shell layout — kept structurally; colors now read from the unified
+   tokens above via the --fg-* aliases. Deep-detail re-skin of this shell is
+   superseded by the new Today surface + primitives (see docs/design/system.md).
+   ─────────────────────────────────────────────────────────────────────────── */
 .app-shell { min-height: 100dvh; display: grid; grid-template-columns: 244px minmax(0, 1fr); }
-.sidebar { background: #fff; border-right: 1px solid var(--fg-line); padding: 36px 20px 24px; display: flex; flex-direction: column; }
-.brand { display: flex; align-items: center; gap: 10px; font-size: 23px; font-weight: 650; text-decoration: none; letter-spacing: -1px; padding: 0 12px; }
-.brand svg { color: var(--fg-plum); }
-.village-caption { margin: 8px 12px 48px; font-size: 13px; color: #68758a; }
+.sidebar { background: color-mix(in oklch, var(--fg-surface) 72%, transparent); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); border-right: 1px solid var(--fg-line); padding: 36px 20px 24px; display: flex; flex-direction: column; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 23px; font-weight: 650; text-decoration: none; letter-spacing: -0.02em; padding: 0 12px; }
+.brand svg { color: var(--fg-primary); }
+.village-caption { margin: 8px 12px 48px; font-size: 13px; color: var(--fg-muted); }
 .sidebar nav { display: grid; gap: 8px; }
-.nav-link { display: flex; align-items: center; gap: 12px; padding: 14px 13px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 500; color: #657086; }
-.nav-link.active { background: #f0ebf7; color: #65498e; }
-.nav-link:hover { background: #f2f4f8; }
+.nav-link { display: flex; align-items: center; gap: 12px; padding: 14px 13px; border-radius: var(--radius-control); text-decoration: none; font-size: 14px; font-weight: 500; color: var(--fg-muted); transition: background-color var(--dur-feedback) var(--ease-out), color var(--dur-feedback) var(--ease-out); }
+.nav-link.active { background: var(--fg-selection); color: var(--fg-primary); }
+.nav-link:hover { background: color-mix(in oklch, var(--fg-selection) 55%, transparent); }
 .sidebar-footer { display: flex; gap: 11px; align-items: center; margin-top: auto; padding: 32px 12px 0; }
-.avatar { background: #e8e1f0; color: #65498e; width: 37px; height: 37px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; }
+.avatar { background: var(--fg-selection); color: var(--fg-primary); width: 37px; height: 37px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; }
 .sidebar-footer strong { font-size: 13px; }
-.sidebar-footer small { display: block; margin-top: 3px; color: #768195; font-size: 11px; }
+.sidebar-footer small { display: block; margin-top: 3px; color: var(--fg-muted); font-size: 11px; }
 .workspace { display: flex; flex-direction: column; min-width: 0; }
-.topbar { min-height: 79px; border-bottom: 1px solid var(--fg-line); padding: 0 44px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-.demo-badge { background: #e5eaf2; color: #56647a; padding: 6px 11px; border-radius: 6px; font-size: 11px; }
+.topbar { min-height: 79px; border-bottom: 1px solid var(--fg-line); padding: 0 44px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; background: color-mix(in oklch, var(--fg-surface) 55%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); position: sticky; top: 0; z-index: var(--z-sticky); }
+/* Solid fallbacks where glass can't render or is unwanted. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .sidebar, .topbar { background: var(--fg-surface); } }
+@media (prefers-reduced-transparency: reduce) { .sidebar, .topbar { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+.demo-badge { background: color-mix(in oklch, var(--fg-primary) 10%, var(--fg-surface)); color: var(--fg-muted); padding: 6px 11px; border-radius: var(--radius-chip); font-size: 11px; }
 .workspace main { padding: 42px 44px; flex: 1; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; gap: 20px; }
-.page-heading p { font-size: 12px; color: #788399; margin: 0 0 10px; }
-h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spacing: -1.2px; }
-.scope-mark { display: flex; align-items: center; gap: 8px; color: #8b789f; font-size: 12px; white-space: nowrap; }
+.page-heading p { font-size: 12px; color: var(--fg-muted); margin: 0 0 10px; }
+h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+.scope-mark { display: flex; align-items: center; gap: 8px; color: var(--fg-muted); font-size: 12px; white-space: nowrap; }
 .scope-mark svg { width: 19px; }
-.route-slot { min-height: 430px; background: #fff; border: 1px dashed #cbd4e2; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; text-align: center; }
-.slot-symbol { width: 74px; height: 74px; display: grid; place-items: center; border-radius: 24px; background: #f0ebf7; color: #7559a1; margin-bottom: 25px; }
-.route-slot h2 { font-weight: 550; letter-spacing: -.5px; font-size: 23px; margin: 0 0 12px; }
-.route-slot p { color: #758096; font-size: 14px; line-height: 1.7; max-width: 40ch; margin: 0 0 26px; }
-.route-slot a { color: #705193; font-size: 13px; font-weight: 550; display: flex; align-items: center; gap: 8px; text-underline-offset: 5px; }
-.attribution { padding: 24px 44px; font-size: 10px; color: #7b8596; }
-.skip-link { position: fixed; top: -100px; left: 20px; z-index: 100; padding: 12px; background: white; }
+.route-slot { min-height: 430px; background: var(--fg-surface); border: 1px dashed var(--fg-border); border-radius: var(--radius-card-lg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; text-align: center; }
+.slot-symbol { width: 74px; height: 74px; display: grid; place-items: center; border-radius: var(--radius-card); background: var(--fg-selection); color: var(--fg-primary); margin-bottom: 25px; }
+.route-slot h2 { font-weight: 550; letter-spacing: -0.01em; font-size: 23px; margin: 0 0 12px; }
+.route-slot p { color: var(--fg-muted); font-size: 14px; line-height: 1.7; max-width: 40ch; margin: 0 0 26px; text-wrap: pretty; }
+.route-slot a { color: var(--fg-primary); font-size: 13px; font-weight: 550; display: flex; align-items: center; gap: 8px; text-underline-offset: 5px; }
+.attribution { padding: 24px 44px; font-size: 10px; color: var(--fg-muted); }
+.skip-link { position: fixed; top: -100px; left: 20px; z-index: var(--z-toast); padding: 12px; background: var(--fg-surface); border-radius: var(--radius-control); }
 .skip-link:focus { top: 10px; }
 @media (max-width: 700px) {
   .app-shell { grid-template-columns: minmax(0, 1fr); }
@@ -202,9 +323,21 @@ h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spac
   .attribution { padding: 22px 20px; line-height: 1.7; max-width: 40ch; }
 }
 
-.connected-entry { max-width: 36rem; margin: 10vh auto; padding: 2rem; color: #3a506b; }
+.connected-entry { max-width: 36rem; margin: 10vh auto; padding: 2rem; color: var(--fg-ink); }
 .connected-entry form, .connected-entry label { display: grid; gap: .7rem; }
 .connected-entry form { gap: 1rem; margin: 2rem 0; }
-.connected-entry input { border: 1px solid #c9bddb; padding: .8rem; border-radius: .6rem; background: white; }
-.connected-entry button { padding: .8rem; background: #7559a1; color: white; border-radius: .6rem; }
-.mc-current { background: #f5f0fa; border-radius: 1rem; padding: 1.2rem; overflow-wrap: anywhere; }
+.connected-entry input { border: 1px solid var(--fg-border); padding: .8rem; border-radius: var(--radius-control); background: var(--fg-surface); }
+.connected-entry button { padding: .8rem; background: var(--fg-primary); color: var(--fg-on-primary); border-radius: var(--radius-control); }
+.mc-current { background: var(--fg-selection); border-radius: var(--radius-card); padding: 1.2rem; overflow-wrap: anywhere; }
+
+/* ── Recording focus mode (dev-only, ?focus) ──────────────────────────────────
+   A single centred, zoomed column with chrome hidden, so body text clears 16px at
+   1280×720. zoom scales px type reliably in the recording engine. */
+:root[data-focus="1"] .sidebar,
+:root[data-focus="1"] .topbar,
+:root[data-focus="1"] .sandbox-banner,
+:root[data-focus="1"] .session-chip,
+:root[data-focus="1"] .rosina-launcher { display: none; }
+:root[data-focus="1"] .app-shell { grid-template-columns: 1fr; }
+:root[data-focus="1"] .workspace main { zoom: 1.35; max-width: 760px; margin: 0 auto; padding-top: 28px; }
+:root[data-focus="1"] .fg-picker { zoom: 1.2; }

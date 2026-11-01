@@ -11,7 +11,7 @@ it('keeps the village module deferred until its route is selected', async () => 
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
   await screen.findByText('Signed in as Kendra')
-  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Mission Control')
+  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Today')
   expect(moduleLoad.count).toBe(0)
   window.location.hash = '#/village'
   fireEvent(window, new HashChangeEvent('hashchange'))

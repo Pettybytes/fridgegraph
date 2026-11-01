@@ -1,0 +1,73 @@
+/* Persona picker — the demo's front door. Bound by docs/contracts/design.md.
+   Same standard as Kendra's Today: warm paper, one indigo accent, confident
+   type, calm spacing. Mobile-first, then a two-column card grid. */
+
+/* The sandbox notice, kept but quieter (it's rendered above the picker). */
+.sandbox-banner {
+  margin: 0; padding: 8px 16px; text-align: center;
+  font-size: 12px; color: var(--fg-muted);
+  background: color-mix(in oklch, var(--fg-primary) 8%, color-mix(in oklch, var(--fg-surface) 60%, transparent));
+  backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--fg-border);
+  position: sticky; top: 0; z-index: var(--z-sticky);
+}
+/* Solid fallbacks where glass can't render or the viewer prefers less transparency. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sandbox-banner { background: color-mix(in oklch, var(--fg-primary) 5%, var(--fg-canvas)); }
+  .fg-pcard { background: var(--fg-surface); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sandbox-banner { background: color-mix(in oklch, var(--fg-primary) 5%, var(--fg-canvas)); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .fg-pcard { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+.fg-picker { max-width: 940px; margin: 0 auto; padding: clamp(28px, 5vw, 56px) 20px 64px; display: grid; gap: 32px; }
+
+.fg-picker-head { display: grid; gap: 14px; max-width: 660px; }
+.fg-picker-brand { display: inline-flex; align-items: center; gap: 9px; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; text-decoration: none; color: var(--fg-ink); }
+.fg-picker-brand svg { color: var(--fg-primary); }
+.fg-picker-title { margin: 0; font-size: clamp(28px, 5vw, 42px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance; }
+.fg-picker-sub { margin: 0; font-size: clamp(15px, 2vw, 17px); color: var(--fg-muted); line-height: 1.55; max-width: 52ch; text-wrap: pretty; }
+.fg-picker-rosina { display: flex; align-items: center; gap: 11px; margin-top: 4px; padding: 12px 14px; border-radius: var(--radius-card); background: color-mix(in oklch, var(--rosina-periwinkle) 12%, var(--fg-surface)); border: 1px solid color-mix(in oklch, var(--rosina-periwinkle) 24%, var(--fg-border)); }
+.fg-picker-rosina p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--fg-ink); text-wrap: pretty; }
+
+.fg-picker-alert { margin: 0; padding: 10px 14px; border-radius: var(--radius-nested); font-size: 13px; color: var(--fg-attention); background: color-mix(in oklch, var(--fg-attention) 9%, var(--fg-surface)); border: 1px solid color-mix(in oklch, var(--fg-attention) 28%, var(--fg-border)); }
+.fg-picker-notice { margin: 0; padding: 10px 14px; border-radius: var(--radius-nested); font-size: 13px; color: var(--fg-muted); background: var(--fg-surface); border: 1px solid var(--fg-border); }
+
+.fg-picker-groups { display: grid; gap: 26px; }
+.fg-picker-group { display: grid; gap: 12px; }
+.fg-picker-group-label { margin: 0; font-size: 12px; font-weight: 650; letter-spacing: 0.02em; text-transform: uppercase; color: var(--fg-muted); }
+.fg-picker-grid { display: grid; gap: 10px; }
+@media (min-width: 640px) { .fg-picker-grid { grid-template-columns: 1fr 1fr; } }
+
+.fg-pcard {
+  display: flex; align-items: center; gap: 13px; text-align: left; width: 100%;
+  padding: 14px; min-height: 76px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--fg-border);
+  background: color-mix(in oklch, var(--fg-surface) 78%, transparent); color: var(--fg-ink);
+  backdrop-filter: blur(16px) saturate(135%); -webkit-backdrop-filter: blur(16px) saturate(135%);
+  cursor: pointer;
+  transition: border-color var(--dur-feedback) var(--ease-out), background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
+}
+.fg-pcard:hover { border-color: color-mix(in oklch, var(--fg-primary) 40%, var(--fg-border)); box-shadow: 0 1px 2px oklch(0.2 0.03 270 / 0.04), 0 10px 26px -16px oklch(0.2 0.03 270 / 0.22); }
+.fg-pcard:active { transform: scale(0.99); }
+.fg-pcard:disabled { opacity: 0.55; cursor: default; }
+.fg-pcard:disabled:hover { border-color: var(--fg-border); box-shadow: none; }
+.fg-pcard-body { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.fg-pcard-name { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.fg-pcard-rel { font-size: 13px; color: var(--fg-ink); opacity: 0.85; }
+.fg-pcard-see { font-size: 12.5px; color: var(--fg-muted); line-height: 1.4; }
+.fg-pcard-go { width: 18px; height: 18px; color: var(--fg-muted); flex: 0 0 auto; }
+.fg-pcard:hover .fg-pcard-go { color: var(--fg-primary); }
+
+.fg-picker-guide { display: grid; gap: 12px; }
+.fg-pcard-guide { background: color-mix(in oklch, var(--fg-ink) 3%, var(--fg-surface)); }
+
+.fg-picker-tools { display: grid; gap: 14px; }
+.fg-picker-tools-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.fg-picker-tools-head p { margin: 4px 0 0; font-size: 13px; color: var(--fg-muted); line-height: 1.5; max-width: 42ch; }
+.fg-picker-tools-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fg-picker-family { display: grid; gap: 12px; max-width: 360px; }
+
+@media (hover: none) { .fg-pcard:hover { border-color: var(--fg-border); box-shadow: none; } }

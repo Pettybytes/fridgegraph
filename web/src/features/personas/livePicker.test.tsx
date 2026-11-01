@@ -8,7 +8,7 @@ import {actionAllowed} from '@/features/rosina/catalog'
 it('uses the public live picker by default, without minting any READY identity before a click',async()=>{
  vi.stubEnv('VITE_DEV_MOCK_AUTH','false')
  const request=vi.fn<typeof fetch>(async(url)=>String(url).endsWith('health')?Response.json({personas:[{personaId:'rosa',ready:false},{personaId:'kendra',ready:true}]}):Response.json({status:'UNAVAILABLE',personaId:'rosa',reason:'NO_SEEDED_IDENTITY'}))
- vi.stubGlobal('fetch',request);render(<App/>);expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Explore FridgeGraph as')
+ vi.stubGlobal('fetch',request);render(<App/>);expect(screen.getByRole('heading',{level:1})).toHaveTextContent('The village it takes to raise')
  await waitFor(()=>expect(screen.getByRole('button',{name:'Explore as Rosa Castellano'})).toBeDisabled())
  expect(screen.getByRole('button',{name:'Explore as Kendra'})).toBeEnabled();expect(screen.getByText('Not set up in this demo yet')).toBeVisible()
  expect(request.mock.calls.filter(c=>String(c[0]).endsWith('login')).every(c=>JSON.parse(String(c[1]?.body)).personaId==='rosa')).toBe(true)
