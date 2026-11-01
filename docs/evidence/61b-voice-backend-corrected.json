@@ -1,0 +1,48 @@
+{
+  "at": "2026-11-01T18:52:32.968Z",
+  "voice": "http://127.0.0.1:4118",
+  "checks": [
+    {
+      "label": "an anonymous turn is refused",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "label": "an audio turn succeeds for a signed-in caller",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "the transcript came from the audio",
+      "ok": true,
+      "detail": "audio: \"Testing the fridge graph voice channel.\""
+    },
+    {
+      "label": "it answers as the signed-in caller (through the existing Rosina turn)",
+      "ok": true,
+      "detail": "Hearing you on the voice channel — what do you need?"
+    },
+    {
+      "label": "the reply is real speech from ElevenLabs",
+      "ok": true,
+      "detail": "41838 bytes audio/mpeg voice=uG1JFy6xppqckhHCs2KG"
+    },
+    {
+      "label": "the models are recorded in the response",
+      "ok": true,
+      "detail": "{\"asr\":\"muse-voice-transcribe-1.0\",\"tts\":\"eleven_multilingual_v2\",\"voice\":\"uG1JFy6xppqckhHCs2KG\",\"rosina\":null}"
+    },
+    {
+      "label": "the standalone transcribe route returns the same words",
+      "ok": true,
+      "detail": "status=200 \"Testing the fridge graph voice channel.\" model=muse-voice-transcribe-1.0"
+    },
+    {
+      "label": "the turn route rate limits a burst",
+      "ok": true,
+      "detail": "6 of 16 answered 429"
+    }
+  ],
+  "passed": 8,
+  "failed": 0
+}

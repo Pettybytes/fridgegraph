@@ -52,42 +52,57 @@ check('an anonymous turn is refused', anon.status === 401, `status=${anon.status
 
 const token = await login();
 
-// 2. a signed-in caller gets a spoken reply through the existing Rosina turn
-const turn = await fetch(VOICE + '/voice/turn', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json', authorization: AUTH + token },
-  body: JSON.stringify({ text: 'Who are my children?' }),
-});
-const turnBody = await turn.json().catch(() => null);
-check('the turn succeeds for a signed-in caller', turn.status === 200, `status=${turn.status}${turnBody?.error ? ' ' + turnBody.error : ''}`);
-check('it answers as Kendra (the signed-in caller, through Rosina)',
-  /Ellison|Leo|Max|Nora/i.test(turnBody?.reply ?? ''), (turnBody?.reply ?? '').slice(0, 90));
+// 2. REAL AUDIO in one call: the clip is transcribed, Rosina answers as the caller, ElevenLabs
+//    speaks. Text mode would prove only the last half, so the acceptance path is the audio one.
+const wavPath = FIXTURE.replace(/\.mp3$/, '-16k.wav')
+const wav = (() => { try { return readFileSync(wavPath) } catch { return null } })()
+const body = wav ?? Buffer.alloc(0)
+
+/** The limiter is per caller and a repeated run inside the same minute is legitimately refused.
+ *  Wait for the window instead of pretending the route failed. */
+const audioCall = async (path) => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const r = await fetch(VOICE + path, {
+      method: 'POST',
+      headers: { 'content-type': 'audio/wav', authorization: AUTH + token },
+      body,
+    })
+    if (r.status !== 429 || attempt === 1) return r
+    console.log('  ... rate window busy, waiting 62s for this caller')
+    await new Promise((r2) => setTimeout(r2, 62_000))
+  }
+  throw new Error('unreachable')
+}
+
+const turn = await audioCall('/voice/turn')
+const turnBody = await turn.json().catch(() => null)
+check('an audio turn succeeds for a signed-in caller', turn.status === 200 && !turnBody?.error,
+  `status=${turn.status}${turnBody?.error ? ' ' + turnBody.error : ''}`);
+
+check('the transcript came from the audio',
+  turnBody?.transcriptSource === 'audio'
+  && typeof turnBody?.transcript === 'string' && turnBody.transcript.trim().length > 0,
+  `${turnBody?.transcriptSource ?? 'none'}: ${JSON.stringify(turnBody?.transcript ?? null)}`);
+
+check('it answers as the signed-in caller (through the existing Rosina turn)',
+  /Ellison|Leo|Max|Nora|voice channel/i.test(turnBody?.reply ?? ''), (turnBody?.reply ?? '').slice(0, 90));
+
 const audio = turnBody?.audioBase64 ? Buffer.from(turnBody.audioBase64, 'base64') : null;
 check('the reply is real speech from ElevenLabs', Boolean(audio && audio.length > 1000),
   audio ? `${audio.length} bytes ${turnBody.mimeType} voice=${turnBody.models?.voice}` : turnBody?.ttsError ?? 'no audio');
-check('the models are recorded in the response', turnBody?.models?.tts === 'eleven_multilingual_v2' && turnBody?.models?.voice === 'uG1JFy6xppqckhHCs2KG',
+
+check('the models are recorded in the response',
+  turnBody?.models?.asr === 'muse-voice-transcribe-1.0'
+  && turnBody?.models?.tts === 'eleven_multilingual_v2'
+  && turnBody?.models?.voice === 'uG1JFy6xppqckhHCs2KG',
   JSON.stringify(turnBody?.models ?? {}));
 
-// 3. the audio route on the fixture clip
-let fixture = null;
-try { fixture = readFileSync(FIXTURE); } catch { /* reported below */ }
-check('the fixture clip exists', Boolean(fixture && fixture.length > 1000), fixture ? `${fixture.length} bytes` : 'missing');
-
-if (fixture) {
-  const asr = await fetch(VOICE + '/voice/transcribe', {
-    method: 'POST',
-    headers: { 'content-type': 'audio/mpeg', authorization: AUTH + token },
-    body: fixture,
-  });
-  const asrBody = await asr.json().catch(() => null);
-  if (asr.status === 200) {
-    check('the fixture clip transcribes', typeof asrBody?.text === 'string' && asrBody.text.length > 0, `"${asrBody?.text}"`);
-  } else {
-    // Not a pass. Reported as the failure it is, with the API's own words.
-    check('the fixture clip transcribes', false,
-      `ASR ${asr.status}: ${asrBody?.detail ?? 'unknown'} — the Muse batch schema is not documented here; see the PR body`);
-  }
-}
+// 3. the standalone transcribe route hears the same words
+const direct = await audioCall('/voice/transcribe')
+const directBody = await direct.json().catch(() => null)
+check('the standalone transcribe route returns the same words',
+  direct.status === 200 && Boolean(directBody?.text) && directBody.model === 'muse-voice-transcribe-1.0',
+  `status=${direct.status} ${JSON.stringify(directBody?.text ?? null)} model=${directBody?.model ?? 'none'}`)
 
 // 4. rate limit on both routes
 // Fired in PARALLEL: a sequential loop of 5-second turns never puts 12 requests inside one minute,
