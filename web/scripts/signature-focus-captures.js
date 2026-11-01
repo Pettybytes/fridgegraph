@@ -1,5 +1,5 @@
 async launcher=>{
- const url=new URL(launcher.url()),origin='http://127.0.0.1:'+url.searchParams.get('harnessPort'),run=url.searchParams.get('run'),root='web/evidence/signature/'+run+'/',base='http://127.0.0.1:5189/?focus#/today',deadline=Date.parse(url.searchParams.get('until')),uiHead=url.searchParams.get('head'),backend=url.searchParams.get('backend');
+ const url=new URL(launcher.url()),origin='http://127.0.0.1:'+url.searchParams.get('harnessPort'),run=url.searchParams.get('run'),root='web/evidence/signature/'+run+'/',base='http://127.0.0.1:5189/?focus#/today',deadline=Date.parse(url.searchParams.get('until'))-10*60*1000,uiHead=url.searchParams.get('head'),backend=url.searchParams.get('backend');
  const checks=[],captures=[],turns=[],httpFailures=[],contexts=[],tokens=new Map(),alerts=new Map(),previews=new Map(),counts=new Map(),bindings=[];let stage='Not started',failure=null,active=false,closed=false;
  const demand=(pass,check)=>{checks.push({check,pass:!!pass});if(!pass)throw Error('Assertion')};
  const post=(p,path,body)=>p.evaluate(async({origin,path,body})=>{await fetch(origin+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})},{origin,path,body});
