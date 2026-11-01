@@ -10,9 +10,9 @@ import {promisify} from 'node:util'
 function signatureCaptureWindowOpen(text,{runtime,until,now=Date.now()}){
  const end=Date.parse(until??'');if(!/^[a-f0-9]{7,40}$/.test(runtime??'')||!Number.isFinite(end)||end<=now||end-now>45*60*1000)return false
  const rows=text.slice(text.lastIndexOf('## Stack reservations')).split('\n').filter(line=>line.startsWith('| ')).map(row=>row.split('|').slice(1,-1).map(cell=>cell.replace(/\*/g,'').trim()))
- const index=rows.findLastIndex(cells=>/W-CAP-SIGNATURE-DENSITY window OPEN/.test(cells[1]??''))
- if(index<0)return false
- return rows[index][1].includes('`'+runtime+'`')&&/HEALTHY/.test(rows[index][1])&&rows.slice(index).every(cells=>cells.at(-1)==='OPEN — W-CAP-SIGNATURE-DENSITY until '+until)
+ const last=rows.at(-1),release=rows.findLastIndex(cells=>/W-REFRESH RELEASED/.test(cells[1]??'')&&/HEALTHY/.test(cells[1])&&cells[1].includes('`'+runtime+'`'))
+ return release>=0&&release<rows.length-1&&/W-CAP-SIGNATURE-DENSITY RESERVED/.test(last?.[1]??'')&&last[1].includes('`'+runtime+'`')&&last.at(-1)==='OPEN to '+until
+
 }
 const exec=promisify(execFile),web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=resolve(web,'..')
 if(!signatureCaptureWindowOpen(await readFile(resolve(repo,'../fridgegraph/docs/handoff/HANDOFF.md'),'utf8'),{runtime:process.env.SIGNATURE_WINDOW_RUNTIME,until:process.env.SIGNATURE_WINDOW_UNTIL})){console.error('Deferred: shared stack has an active reservation. No live requests.');process.exit(2)}
