@@ -185,3 +185,49 @@ subjects, `ops/0056-dry-run.mjs` (rolled back) gives **5/5**:
 So the coordinate path is now demonstrably open to a parent and closed to a grant-holder, which is the
 shape the settled decision asked for. The migration is dry-run clean but **still unapplied** — applying
 it belongs to a reserved window.
+
+---
+
+# IMPLEMENTED — 2026-11-01 (piece 1 of 5)
+
+Migration **0058** is forward-only: 0056 and 0057 are applied and the live database is ahead of
+`main`, so they are never edited again.
+
+## `POST /api/village/route` (served on 4008)
+
+```jsonc
+// request — PLACE IDS only, never coordinates
+{ "childId": "p_nora", "fromPlaceId": "rp_…", "toPlaceId": "rp_…" }
+
+// 200
+{ "distanceMeters": 14420, "durationSeconds": 1277,
+  "geometry": { "type": "LineString", "coordinates": [[-83.134, 42.289], …] },
+  "source": "openrouteservice", "cached": false, "disclaimer": "Estimated — not live traffic" }
+```
+
+| status | error | meaning |
+|---|---|---|
+| 401 | `UNAUTHENTICATED` | no/!valid bearer |
+| 429 | `RATE_LIMITED` | per-caller routing limit |
+| 400 | `INVALID_REQUEST` | missing id |
+| **404** | `NOT_FOUND` | place missing **or** not this child's — same answer, no oracle |
+| **403** | `COORDINATES_WITHHELD` | caller may see the place, not locate it |
+| **409** | `GEOMETRY_UNAVAILABLE` | caller may locate it, but no coordinates recorded |
+| **503** | `ROUTE_UNAVAILABLE` | no key / non-200 / empty route — **never** a straight-line fallback |
+
+**Authorization runs before the cache is read.** The cache key is the two place ids *and* the
+coordinates they resolved to, so moving a place invalidates its own entry, and a caller who cannot
+route is never served someone else's cached route. Geometry is an encoded polyline decoded
+**server-side** into GeoJSON. The ORS key is server-side only — never logged, never returned.
+
+## Still to build (pieces 2–5)
+
+2. **Road-distance ride cost** through `_rank_and_advance` / `candidate_evaluations`, `cost_basis`
+   recording `road` vs `haversine`, `ROUTE_UNAVAILABLE` never presented as a road result, 0020 cap
+   path untouched, one stored number everywhere.
+3. **Calendar linkage** — "where people are EXPECTED, by day", schedule-derived only, worded as
+   scheduled, never presence or availability.
+4. **Proof suite through the served endpoints**, with a role/person preflight that aborts on a null
+   `current_person()` or an owner connection instead of recording meaningless results — the exact
+   failure mode that bit me twice in this branch.
+5. Final contract/PR pass and the HANDOFF note.
