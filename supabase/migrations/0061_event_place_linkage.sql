@@ -64,40 +64,52 @@ create trigger events_place_guard
   for each row execute function public._events_place_guard();
 
 /**
- * A day's events with the linked place, gated. `may_locate` decides whether the place columns are
- * populated; the event rows themselves are visible to anyone who can see the child's calendar.
- * An event with no link and an event whose place is withheld are DIFFERENT states, and the caller can
- * tell them apart: `linked` is true for a link the caller may see.
+ * A day's events with the linked place, gated by SCHEDULE-read authority for that child.
+ *
+ * Three states, distinguishable on purpose:
+ *   'unlinked'  the event has no place. Nothing is inferred from the title or the free-text location.
+ *   'withheld'  the event names a place the caller may not read (not in a household they can read).
+ *               The event still renders; `place_id`/`place_label` stay NULL so a withheld link is not
+ *               silently indistinguishable from "no place".
+ *   'linked'    the place is readable: `place_id` + `place_label` are returned.
+ *
+ * NO COORDINATES HERE. The event reader exposes no coordinate fields at all; coordinates remain the
+ * business of `place_route_geometry_for` (0058), which gates them behind parent/`address.read`. A
+ * schedule reader therefore gets the label — the "there is a pickup at the Tigers field" card — and
+ * never a position. Priya is exactly this case: schedule-read, no `address.read`, label only.
+ *
+ * place_id + label follow the contract's `places[]` shape (id + label visible, `coordinates?`
+ * optional); this reader adds no restriction of its own beyond the household rule that already
+ * governs which places a caller may read.
  */
 create or replace function public.event_day_places(p_child text, p_day date)
 returns table (
   event_id    text,
   title       text,
   start_at    timestamp,
-  linked      boolean,
+  state       text,
   place_id    text,
   place_label text
 )
 language sql stable security definer set search_path = pg_catalog, public as $$
   with gate as (
-    select (public.is_parent_of(p_child) or public.has_scope(p_child, 'address.read')) as may_locate,
-           (public.is_parent_of(p_child) or exists (
-              select 1 from public.grants g
-               where g.actor_id = public.current_person()
-                 and g.child_id = p_child
-                 and (g.valid_from is null or current_date >= g.valid_from)
-                 and (g.valid_until is null or current_date <= g.valid_until)
-           )) as may_see
+    select (public.is_parent_of(p_child) or public.has_scope(p_child, 'schedule.read')) as may_see
   )
   select e.id,
          e.title,
          e.start_at,
-         (e.place_id is not null) as linked,
-         case when gate.may_locate then e.place_id end,
-         case when gate.may_locate then rp.label end
+         case when e.place_id is null then 'unlinked'
+              when rp.id is null      then 'withheld'
+              else 'linked' end,
+         case when rp.id is not null then e.place_id end,
+         case when rp.id is not null then rp.label   end
     from public.events e
     cross join gate
-    left join public.recorded_places rp on rp.id = e.place_id
+    left join public.recorded_places rp
+      on rp.id = e.place_id
+     and rp.household_id in (
+       select hm.household_id from public.household_members hm where hm.person_id = p_child
+     )
    where e.child_id = p_child
      and e.start_at::date = p_day
      and gate.may_see

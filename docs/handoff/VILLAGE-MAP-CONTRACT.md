@@ -61,6 +61,36 @@ A place may be attached to a calendar event (drop-off, pickup, practice). The li
 `place_id` on the event relation, resolved to the same `places[]` row — the map never invents a
 venue from an event title.
 
+### Implemented shape (2026-11-01, migration 0061 — STAGED, NOT APPLIED)
+
+`events.place_id` → `recorded_places(id)`, nullable, FK. NULL means **not linked**; the free-text
+`location` column is never parsed and a venue is never inferred from a title. A trigger
+(`events_place_guard`) rejects a link to another household's place at write time (`42501`), so a
+bad link cannot be created and then quietly filtered.
+
+Read accessor — called through the authorized surface with the **caller's own bearer**:
+
+```
+event_day_places(p_child text, p_day date) → (
+  event_id text, title text, start_at timestamp,
+  state text,            -- 'unlinked' | 'withheld' | 'linked'
+  place_id text,         -- populated only when state='linked'
+  place_label text       -- populated only when state='linked'
+)
+```
+
+- **Authority:** `is_parent_of(p_child)` or `has_scope(p_child,'schedule.read')`. No schedule
+  authority → zero rows, not an error, so an unrelated caller learns nothing.
+- **Labels:** returned to any schedule reader. `address.read` is **not** required for a label — lacking
+  it must not hide a label the caller is otherwise entitled to see (Priya keeps her label-only view).
+- **No coordinates.** The reader has no coordinate fields at all; positions stay behind
+  `place_route_geometry_for` (0058). A schedule reader gets the card, never a position.
+- **Three states** so "no place", "a place you may not read" and "a place you may read" are never
+  confused.
+
+Remaining for this section: exposing the accessor through the graph/API surface named above,
+populating `DayPlan.placeId/placeName` from it, and verified event-id → place-id seed mappings.
+
 ## Explicitly out of scope for this PR
 
 - no route recording, no live traffic, no ETA promises;
