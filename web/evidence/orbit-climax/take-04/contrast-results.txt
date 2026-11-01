@@ -1,0 +1,2 @@
+### Error
+Error: Found safe text contrast below 4.5

@@ -1,0 +1,17 @@
+### Result
+[{"theme":"light","foundSafeTextRatio":5.349429084026554,"conversionControlsPass":true},{"theme":"dark","foundSafeTextRatio":5.895083839725284,"conversionControlsPass":true}]
+### Ran Playwright code
+```js
+await (async page=>{
+ const results=[];
+ for(const theme of ['light','dark']){
+  await page.goto('http://127.0.0.1:5196/scripts/orbit-alert-review.html?mode=recipient-closed');await page.getByText('Found safe',{exact:true}).waitFor();await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme);
+  const ratio=await page.locator('.orbit-found').evaluate(el=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const c=canvas.getContext('2d');const luminance=color=>{c.fillStyle=color;c.fillRect(0,0,1,1);const rgb=[...c.getImageData(0,0,1,1).data].slice(0,3);return rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0)};const contrast=(a,b)=>(Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);if(contrast('oklch(1 0 0)','oklch(0 0 0)')<4.5||contrast('oklch(.9 0 0)','oklch(.95 0 0)')>=4.5)throw Error('Conversion control failed');return contrast(getComputedStyle(el).color,getComputedStyle(el.closest('.orbit-takeover')).backgroundColor)});
+  if(ratio<4.5)throw Error('Found safe text contrast below 4.5');results.push({theme,foundSafeTextRatio:ratio,conversionControlsPass:true});
+ }
+ return results;
+}
+)(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-01T19-26-15-455Z.log#L32-L35

@@ -3884,3 +3884,40 @@ Recipient takeover uses one 1 Hz red layer, static under reduced motion, optiona
 Validation: 310 web tests / 52 files PASS; root typecheck and web typecheck/build PASS (existing chunk-size warning). New cache-regression was observed RED (Found safe missing after a stale ACTIVE read), then fixed without changing its assertion. Initial ledger implementation exposed four failing outcome tests; corrected preservation of recorded outcome/thank-you, all green. Controlled Playwright capture at 1440/390 proves response buttons, reduced motion, single flash layer, explicit close, no replay, photo review inside Rosina, exact preview and stale-time disablement, with zero backend requests. Evidence is append-only in `web/evidence/orbit-alert/offline-01`, `offline-02`, `offline-03`. Offline-01 visual defects (pale red, hue-shifted green and underlying page in full-page capture) were corrected in offline-02/03. Design §10 records Bryan's new direction and recipient privacy decision.
 
 Remaining integration: #69's real descriptor HTTP transport; Bentley's closed-recipient read/photo gate; reserved live capture of new place/FOUND_SAFE contract. Deep links never choose identity or mint a session; current child-scoped controller refuses a different child instead of expanding authority. Existing catalog preparation remains compatible; the new photo-led flow adds required place/time review. No server/schema/auth changes. PR may be reviewed on offline evidence; this is not a claim of live completion.
+
+### Orbit climax polish — 2026-11-01
+
+Fresh branch/worktree `feat/web-orbit-climax` / `fridgegraph-orbit-climax`, fetched-main base
+`9d73892464fa7c8709ccfb674b2b98faff842796` (includes #72 and #73). UI: complete offline · backend:
+unchanged, post-close redaction gate remains Bentley's work · integrated: controlled browser
+sequence PASS, live integration remains separately pending. No backend calls or shared-stack
+window, reset, seed or restart. #69 descriptor API remains mocked only in test fixtures.
+
+Recipient uses shared danger/safe tokens, a 1 Hz edge band, geometry-only portrait pulse, large
+name/chips/tags and 70–84px response buttons. Persisted own response drives pressed/confirmation
+state. Found-safe fills the recipient screen green, draws a check and shows visible confetti
+once; reduced motion is static. Parent ring response chips enter from a newly observed recorded
+response, with the existing ledger preventing replay. The #73 controller/sanitizer is byte-for-byte
+unchanged. Fixture descriptors now say red sweater, matching the supplied Nora portrait.
+
+Skills applied: emil-design-eng shaped 140ms press feedback, a 480ms ease-out chip arrival and
+state-driven confirmation; apple-design shaped optical display hierarchy, continuous red-to-green
+change, nonblocking feedback and static reduced-motion equivalents. No additional palette.
+
+Validation: 312 web tests / 52 files PASS; root typecheck and web typecheck/build PASS (existing
+bundle-size warning). Controlled browser at 1440/390, light/dark: 1 Hz edge, ≥70px buttons,
+confirmation from returned response, photo/place removed after close, no replay, reduced-motion
+static PASS. Alert text contrast 5.1394:1 light / 6.7022:1 dark. Screenshots and sequence recordings
+are append-only under `web/evidence/orbit-climax/`; final review details and skill comparison in
+its RECEIPT.md. No claim of real vision or new live backend verification.
+
+Final contrast review caught a real light-theme found-safe small-text failure. Kept
+`take-04/contrast-results.txt` unchanged; darkened the shared-safe surface (90% token + black),
+not the test. Final `take-05`: green 5.3494:1 light / 5.8951:1 dark, same ≥4.5 gate and known
+high/low OKLCH controls. Re-captured both themes/sizes and the complete two-view sequence with
+source frozen; all response/close/privacy checks passed with zero backend requests.
+
+PR #74 final chip contrast review: alpha-composited light chips initially 4.3397:1, corrected with
+shared danger-ink tint to 5.9190:1 light / 7.6789:1 dark. Failed measurement retained; threshold
+unchanged. `take-06` supersedes earlier takes as final screenshots/recording. 312 web tests rerun
+PASS; root typecheck/build PASS. #74 stays draft until final-head CI is green.

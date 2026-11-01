@@ -90,3 +90,10 @@ it('a late ACTIVE cache result cannot reopen recipient details after CLOSED was 
  render(<AlertTakeover controller={controller} childName="Nora Ellison"/>);
  expect(screen.getByText('Found safe',{exact:true})).toBeVisible();expect(screen.queryByRole('img')).not.toBeInTheDocument();expect(screen.queryByText('Recorded Park')).not.toBeInTheDocument();expect(controller.getSnapshot().alert?.share).toEqual({photoId:null});expect(adapter.photo).not.toHaveBeenCalled()
 })
+
+it('response confirmation and pressed state wait for a persisted own response, never just a tap',async()=>{
+ const {controller,adapter,setRecord}=fixture();await controller.load();let resolve!:()=>void
+ vi.mocked(adapter.respond).mockImplementation(()=>new Promise<void>(done=>{resolve=done}));render(<AlertTakeover controller={controller} childName="Nora Ellison"/>);
+ const button=screen.getByRole('button',{name:"I'm on my way"});fireEvent.click(button);expect(button).toHaveAttribute('aria-pressed','false');expect(screen.queryByText(/Your response is recorded/)).not.toBeInTheDocument();
+ const response={person:{id:'recipient',displayName:'Recipient'},response:'ON_WAY',respondedAt:'2026-11-01T20:05:00Z'};setRecord({...active,responses:[response],latestResponses:[response]});await act(async()=>resolve());await waitFor(()=>expect(button).toHaveAttribute('aria-pressed','true'));expect(screen.getByRole('status')).toHaveTextContent('Your response is recorded');expect(adapter.close).not.toHaveBeenCalled()
+})

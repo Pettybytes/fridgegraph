@@ -1,0 +1,12 @@
+### Result
+{"chipRatio":4.339706166668446}
+### Ran Playwright code
+```js
+await (async page=>{await page.goto("http://127.0.0.1:5196/scripts/orbit-alert-review.html?mode=recipient");await page.getByText("Recorded Park",{exact:true}).waitFor();return await page.locator(".orbit-alert-subject p").first().evaluate(el=>{const c=document.createElement("canvas").getContext("2d");const parent=getComputedStyle(el.closest(".orbit-takeover"));const style=getComputedStyle(el);const rgb=(a,b)=>{c.clearRect(0,0,1,1);c.fillStyle=a;c.fillRect(0,0,1,1);if(b){c.fillStyle=b;c.fillRect(0,0,1,1)}return [...c.getImageData(0,0,1,1).data].slice(0,3)};const l=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);const a=l(rgb(style.color)),b=l(rgb(parent.backgroundColor,style.backgroundColor));return{chipRatio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)}})})(page);
+```
+### Page
+- Page URL: http://127.0.0.1:5196/scripts/orbit-alert-review.html?mode=recipient
+- Page Title: Controlled Orbit Alert review
+- Console: 1 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-11-01T19-26-15-455Z.log#L57-L59
