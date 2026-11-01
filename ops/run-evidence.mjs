@@ -5,7 +5,7 @@
  * raw response to docs/evidence/. Run order matters: the mutation block (11) changes state and
  * the last step resets it.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { redactBearer, tokenForPersonId, envValue } from './auth.mjs';
@@ -13,7 +13,22 @@ import { redactBearer, tokenForPersonId, envValue } from './auth.mjs';
 const ENDPOINT = process.env.FRIDGEGRAPH_ROUTER ?? 'http://127.0.0.1:4010/';
 const RESET_URL = process.env.FRIDGEGRAPH_RESET_URL ?? 'http://127.0.0.1:4001/__reset';
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = join(HERE, '..', 'docs', 'evidence');
+/**
+ * OUTPUT LOCATION. A suite run MUTATES the stack and rewrites what it recorded, so by default it
+ * writes to a gitignored run directory and the canonical `docs/evidence/` files stay untouched. The
+ * evidence tree is the record of what was proven on the GraphOS router; a later run on a different
+ * router must never silently replace it.
+ *
+ *   node ops/run-evidence.mjs            -> .runs/evidence/<timestamp>/
+ *   node ops/run-evidence.mjs --record   -> docs/evidence/  (only for a deliberate record run)
+ *
+ * `--record` refuses BEFORE the first live call if any target filename already exists, and every
+ * write uses exclusive creation (flag 'wx'), so a recorded file can never be overwritten.
+ */
+const RECORD = process.argv.includes('--record');
+const EVIDENCE_DIR = join(HERE, '..', 'docs', 'evidence');
+const RUN_STAMP = new Date().toISOString().replace(/[:.]/g, '-');
+const OUT_DIR = RECORD ? EVIDENCE_DIR : join(HERE, '..', '.runs', 'evidence', RUN_STAMP);
 mkdirSync(OUT_DIR, { recursive: true });
 
 async function gql({ user, date, query, variables, extraHeaders }) {
@@ -62,7 +77,7 @@ function writeEvidence(slug, { title, user, date, query, variables, extraHeaders
     '```',
     '',
   ].join('\n');
-  writeFileSync(join(OUT_DIR, `${slug}.md`), md);
+  writeFileSync(join(OUT_DIR, `${slug}.md`), md, { flag: 'wx' });
 }
 
 // ---------------------------------------------------------------- assertions
@@ -349,6 +364,25 @@ const D_26 = '2026-10-26';
 const D_29 = '2026-10-29';
 
 // ---------------------------------------------------------------- 1
+/**
+ * --record PREFLIGHT. Runs before the first live call, so a refused record run mutates nothing.
+ * Every file the suite would write must be new; an existing name is a hard refusal, never an
+ * overwrite — the evidence tree is the record of what was proven, not a scratch directory.
+ */
+const EVIDENCE_SLUGS = [...Object.keys(CHECKS), '11f-reset', '26-rpc-execute-posture'];
+if (RECORD) {
+  const collisions = EVIDENCE_SLUGS
+    .map((slug) => `${slug}.md`)
+    .filter((file) => existsSync(join(EVIDENCE_DIR, file)));
+  if (collisions.length) {
+    console.error(`[evidence] --record REFUSED: ${collisions.length} target file(s) already exist in docs/evidence/.`);
+    console.error(collisions.slice(0, 8).join(', ') + (collisions.length > 8 ? ', …' : ''));
+    console.error('[evidence] Nothing was run and nothing was written. Evidence is append-only.');
+    process.exit(2);
+  }
+}
+console.log(`[evidence] writing to ${RECORD ? 'docs/evidence/ (--record)' : OUT_DIR}`);
+
 await run('01-kendra-full-view', 'As Kendra: Nora, today\'s schedule, pickupCandidates (contacts + vehicles), approverFor', {
   user: 'p_mom',
   date: D_26,
@@ -603,6 +637,7 @@ await run('11e-dana-careplan-still-denied', 'As Dana: Nora\'s carePlan still den
       '```',
       '',
     ].join('\n'),
+    { flag: 'wx' },
   );
   console.log(`--- 11f-reset status=${res.status} body=${body}`);
   record('11f-reset', 'status 200', res.status === 200, `got ${res.status}`);
@@ -732,7 +767,7 @@ await run('14b-garbage-token', 'Malformed bearer token -> rejected (edge AUTH_ER
     '',
   ].join('\n');
 
-  writeFileSync(join(OUT_DIR, '26-rpc-execute-posture.md'), md);
+  writeFileSync(join(OUT_DIR, '26-rpc-execute-posture.md'), md, { flag: 'wx' });
   console.log(
     `--- ${SLUG} [direct PostgREST] anon=${anon.map(([, r]) => r.status).join('/')} authed=${authed.map(([, r]) => r.status).join('/')} angelaRows=${Array.isArray(angelaRows.parsed) ? angelaRows.parsed.length : 'n/a'} walterRows=${Array.isArray(walterRows.parsed) ? walterRows.parsed.length : 'n/a'}`,
   );
