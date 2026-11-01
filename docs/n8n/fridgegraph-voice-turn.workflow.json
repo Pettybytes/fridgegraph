@@ -231,5 +231,31 @@
         ]
       ]
     }
+  },
+  "meta": {
+    "browserVoice": {
+      "sharesThisEndpoint": true,
+      "note": "Browser voice is NOT a second service. ops/voice-turn-server.mjs (127.0.0.1:4118) serves two extra routes on the same process and port. This workflow stays the GHL/voice-turn path and is untouched.",
+      "routes": [
+        {
+          "path": "/voice/transcribe",
+          "body": "audio bytes",
+          "returns": "{ text, model }"
+        },
+        {
+          "path": "/voice/turn",
+          "body": "audio bytes, or JSON { text } for a text-mode client",
+          "returns": "{ transcript, transcriptSource, reply, actions, models, audioBase64, mimeType, ttsError }"
+        }
+      ],
+      "identity": "Both routes require the caller's own bearer. /voice/turn forwards THAT bearer to the Rosina service (4200), which forwards it to the MCP server, so transcription, tools and any reviewed action run as the signed-in caller. A GHL webhook credential is never accepted here.",
+      "models": {
+        "asr": "muse-voice-transcribe-1.0",
+        "tts": "eleven_multilingual_v2",
+        "ttsVoice": "uG1JFy6xppqckhHCs2KG"
+      },
+      "secrets": "ELEVENLABS_API_KEY and META_API_KEY are read server-side only; neither is ever returned to the browser.",
+      "rateLimit": "12 turns per minute per caller on both routes (VOICE_RATE_LIMIT_PER_MIN), keyed by a hash of the bearer; Rosina applies its own 20/min per person on top."
+    }
   }
 }

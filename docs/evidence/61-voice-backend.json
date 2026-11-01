@@ -1,0 +1,48 @@
+{
+  "at": "2026-11-01T18:31:35.434Z",
+  "voice": "http://127.0.0.1:4118",
+  "checks": [
+    {
+      "label": "an anonymous turn is refused",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "label": "the turn succeeds for a signed-in caller",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "it answers as Kendra (the signed-in caller, through Rosina)",
+      "ok": true,
+      "detail": "Leo Ellison, Max Ellison, and Nora Ellison — that's what the shared children list shows."
+    },
+    {
+      "label": "the reply is real speech from ElevenLabs",
+      "ok": true,
+      "detail": "85724 bytes audio/mpeg voice=uG1JFy6xppqckhHCs2KG"
+    },
+    {
+      "label": "the models are recorded in the response",
+      "ok": true,
+      "detail": "{\"asr\":null,\"tts\":\"eleven_multilingual_v2\",\"voice\":\"uG1JFy6xppqckhHCs2KG\",\"rosina\":null}"
+    },
+    {
+      "label": "the fixture clip exists",
+      "ok": true,
+      "detail": "33061 bytes"
+    },
+    {
+      "label": "the fixture clip transcribes",
+      "ok": false,
+      "detail": "ASR 502: Malformed request — the Muse batch schema is not documented here; see the PR body"
+    },
+    {
+      "label": "the turn route rate limits a burst",
+      "ok": true,
+      "detail": "6 of 16 answered 429"
+    }
+  ],
+  "passed": 7,
+  "failed": 1
+}
