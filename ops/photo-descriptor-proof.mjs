@@ -260,6 +260,9 @@ async function livePhase() {
     kinds.length ? JSON.stringify(props) : 'no descriptors proposed (empty is valid; nothing invented)');
   check('live', 'the model and whether it was live/cached are stated', !!k.body?.modelId && !!k.body?.source,
     `${k.body?.modelId ?? '?'} / ${k.body?.source ?? '?'}`);
+  check('live', 'the reply is the review-proposal envelope, not a draft or an alert',
+    !!k.body && Array.isArray(k.body.dropped) && typeof k.body.descriptors === 'object' && k.body.descriptors !== null,
+    `keys=${Object.keys(k.body ?? {}).join(',')}`);
 
   const afterProposal = await gql(kendra, '{ orbitStatus(childId: "p_nora") { alertId status } }');
   check('live', 'the proposal is review-only: it creates no alert and changes no Orbit state',
@@ -276,12 +279,17 @@ async function livePhase() {
     'mutation($p: ID){ orbitDraft(childId: "p_nora", photoId: $p, wearColor: "yellow"){ draftId draftVersion status } }',
     { p: photoId });
   const draft = draftRes.data?.orbitDraft;
-  const prev = await gql(kendra, 'query($d: ID){ orbitPreview(draftId: $d){ draftId draftVersion messageHash audienceSize } }',
+  // orbitPreview is a MUTATION in the served schema, not a Query field.
+  const prev = await gql(kendra, 'mutation($d: ID!){ orbitPreview(draftId: $d){ draftId draftVersion messageHash audienceSize } }',
     { d: draft?.draftId });
   const pre = prev.data?.orbitPreview;
-  const act = await gql(kendra,
-    'mutation($d: ID, $v: Int, $h: String){ orbitActivate(draftId: $d, draftVersion: $v, messageHash: $h){ id status } }',
-    { d: draft?.draftId, v: pre?.draftVersion ?? draft?.draftVersion, h: pre?.messageHash });
+  // `draftVersion: Int!` and `messageHash: String!` are non-null arguments: a nullable variable
+  // cannot be passed to them (that fails validation before the resolver ever runs).
+  const act = draft?.draftId && pre?.messageHash
+    ? await gql(kendra,
+      'mutation($d: ID!, $v: Int!, $h: String!){ orbitActivate(draftId: $d, draftVersion: $v, messageHash: $h){ id status } }',
+      { d: draft.draftId, v: pre.draftVersion, h: pre.messageHash })
+    : { errors: [{ extensions: { code: `NO_PREVIEW(${errCode(draftRes) || errCode(prev)})` } }] };
   const alert = act.data?.orbitActivate;
   check('live', 'a real alert is ACTIVE with a frozen audience (setup for case 3)', !!alert?.id,
     `alert=${alert?.id ?? errCode(act)} status=${alert?.status ?? '?'} audience=${pre?.audienceSize ?? '?'}`);
@@ -303,7 +311,7 @@ async function livePhase() {
 
   // Clean up: close the alert we opened.
   if (alert?.id) {
-    const close = await gql(kendra, 'mutation($a: ID){ orbitClose(alertId: $a){ id status } }', { a: alert.id });
+    const close = await gql(kendra, 'mutation($a: ID!){ orbitClose(alertId: $a){ id status } }', { a: alert.id });
     check('live', 'the proof closes the alert it activated',
       String(close.data?.orbitClose?.status ?? '').toUpperCase() === 'CLOSED',
       `status=${close.data?.orbitClose?.status ?? errCode(close)}`);
@@ -322,8 +330,15 @@ try {
 
   if (!OFFLINE_ONLY && DO_RESET) {
     const kendra = await login('kendra');
-    const r = await fetch(APP + '/api/demo/reset', { method: 'POST', headers: { ...authHeaders(kendra) } });
-    const b = await r.json().catch(() => null);
+    let r = await fetch(APP + '/api/demo/reset', { method: 'POST', headers: { ...authHeaders(kendra) } });
+    let b = await r.json().catch(() => null);
+    // One reset per person per 30 s: an earlier run in the same window can still be cooling down.
+    if (r.status === 429) {
+      console.log('  ..    reset rate-limited (one per person per 30 s); waiting 31 s');
+      await new Promise((res) => setTimeout(res, 31_000));
+      r = await fetch(APP + '/api/demo/reset', { method: 'POST', headers: { ...authHeaders(kendra) } });
+      b = await r.json().catch(() => null);
+    }
     check('live', 'ordinary demo reset restores the sandbox', r.status === 200 && b?.ok !== false,
       `status=${r.status}`);
     receipt.reset = { status: r.status, body: b };
