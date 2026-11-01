@@ -1,0 +1,182 @@
+{
+  "at": "2026-11-01T19:32:04.099Z",
+  "alertId": "oa_7a2caba3927d",
+  "checks": [
+    {
+      "label": "all four personas signed in",
+      "ok": true,
+      "detail": "kendra=true loretta=true dana=true guide=true"
+    },
+    {
+      "label": "the stack answers a health read",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the parent reads a place",
+      "ok": true,
+      "detail": "Eastside Sports Field"
+    },
+    {
+      "label": "the parent registers a photo",
+      "ok": true,
+      "detail": "status=200 ph_70c6216e3a74"
+    },
+    {
+      "label": "a draft is created with the place and the photo",
+      "ok": true,
+      "detail": "oa_7a2caba3927d"
+    },
+    {
+      "label": "the preview mints a binding",
+      "ok": true,
+      "detail": "audience=3"
+    },
+    {
+      "label": "the alert is ACTIVE",
+      "ok": true,
+      "detail": "oa_7a2caba3927d"
+    },
+    {
+      "label": "ACTIVE recipient sees the descriptors",
+      "ok": true,
+      "detail": "Blue/Jacket"
+    },
+    {
+      "label": "ACTIVE recipient sees the place and time",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "ACTIVE recipient sees the photo id",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "ACTIVE recipient fetches the photo bytes",
+      "ok": true,
+      "detail": "status=200 access=AUDIENCE"
+    },
+    {
+      "label": "an unrelated caller sees no alert at all",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "an unrelated caller cannot fetch the photo",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "label": "the demo guide gets no sensitive fields (no bypass)",
+      "ok": true,
+      "detail": "shell only"
+    },
+    {
+      "label": "a direct REST read of a sensitive column is refused (even while ACTIVE)",
+      "ok": true,
+      "detail": "status=403"
+    },
+    {
+      "label": "a direct REST read of a safe column still works",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "the parent closes it",
+      "ok": true,
+      "detail": "CLOSED"
+    },
+    {
+      "label": "CLOSED recipient still sees status and outcome",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "CLOSED recipient still sees the thank-you",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "CLOSED recipient gets NO descriptors",
+      "ok": true,
+      "detail": "{\"wearColor\":null,\"wearGarment\":null,\"photoId\":null,\"description\":\"\"}"
+    },
+    {
+      "label": "CLOSED recipient gets NO message",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "CLOSED recipient gets NO photo id",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "CLOSED recipient gets NO place or time",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "CLOSED recipient photo GET is refused",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "label": "CLOSED recipient cannot read the sensitive columns via REST",
+      "ok": true,
+      "detail": "status=403"
+    },
+    {
+      "label": "CLOSED recipient gets no share row from the RPC",
+      "ok": true,
+      "detail": "status=200 body=[]"
+    },
+    {
+      "label": "the parent keeps the descriptors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the parent keeps the message",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the parent keeps the place and time",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the parent keeps the photo after closure",
+      "ok": true,
+      "detail": "status=200 access=PARENT"
+    },
+    {
+      "label": "the demo reset succeeds",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "the reset restores the places",
+      "ok": true,
+      "detail": "3 places"
+    },
+    {
+      "label": "the reset clears the alert",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "passed": 33,
+  "failed": 0,
+  "notes": {
+    "signedUrls": "The photo endpoint never mints a signed URL: every GET re-evaluates orbit_photo_access and streams the bytes itself, so there is no URL whose lifetime could outlive the close. The question is answered by construction, and the same GET that returned bytes before the close returns 404 after it.",
+    "bypassRoutes": [
+      "GraphQL",
+      "PostgREST table read",
+      "PostgREST RPC orbit_share_for",
+      "photo endpoint"
+    ]
+  }
+}

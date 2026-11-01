@@ -418,6 +418,21 @@ async function jobById(ctx: Ctx, id: string) {
  * Emergency guidance, included on every parent-facing Orbit response. Orbit notifies an approved
  * village; it is not an emergency service.
  */
+/**
+ * Columns of orbit_alerts a caller may read directly. The descriptors, the stored message, the photo
+ * reference and the last-seen place/time are deliberately NOT here: 0055 revoked table-level SELECT
+ * and granted only these, so reading a sensitive column fails at the database rather than depending
+ * on this file. Those fields come from orbit_share_for(), which gates them (parent/guardian, or a
+ * frozen audience member while ACTIVE).
+ *
+ * The `as '*'` at the call sites is a cast on the SELECTOR STRING only, not on the data: the generated
+ * database types predate 0053-0055, so a column list is not a known literal to them. The database
+ * still enforces the column grant, which is the only thing that matters here.
+ */
+const ORBIT_SAFE_COLUMNS =
+  'id,child_id,created_by,created_at,status,draft_version,activated_by,activated_at,' +
+  'closed_by,closed_at,close_outcome,job_id,message_hash,sandbox,fixture';
+
 const ORBIT_GUIDANCE =
   'If a child is missing or in danger, call 911 immediately. Orbit notifies your approved village; it does not replace emergency services.';
 
@@ -449,10 +464,14 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
   const latest = new Map<string, Record<string, unknown>>();
   for (const r of responses) latest.set(String(r.person_id), r);
 
-  // The place and the thank-you are gated in the DATABASE by the frozen-audience rule, not here, so
-  // a caller who is neither a parent nor an audience member gets no row at all.
-  const placeRes = await dbFor(ctx).rpc('orbit_place_for', { p_alert: String(a.id) });
-  const place = Array.isArray(placeRes.data) ? (placeRes.data[0] as Record<string, unknown> | undefined) : undefined;
+  // Descriptors, the stored message, the photo reference and the place/time come from ONE accessor
+  // that answers a parent/guardian always and a frozen audience member only while the alert is
+  // ACTIVE. After a close it returns no row, so these fields are null for a recipient without the
+  // resolver having to remember a rule — the boundary is the database.
+  const shareRes = await dbFor(ctx).rpc('orbit_share_for', { p_alert: String(a.id) });
+  const shareRow = Array.isArray(shareRes.data)
+    ? (shareRes.data[0] as Record<string, unknown> | undefined)
+    : undefined;
   const thankyouRes = await dbFor(ctx).rpc('orbit_thankyou_for', { p_alert: String(a.id) });
   const thankyou = typeof thankyouRes.data === 'string' ? thankyouRes.data : null;
 
@@ -460,22 +479,24 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
     id: String(a.id),
     status: String(a.status),
     child: { id: String(a.child_id) },
-    message: a.minimal_message == null ? null : String(a.minimal_message),
+    message: shareRow?.minimal_message == null ? null : String(shareRow.minimal_message),
     share: {
-      wearColor: a.wear_color ?? null,
-      wearGarment: a.wear_garment ?? null,
-      hair: a.hair_desc ?? null,
-      carryColor: a.carry_color ?? null,
-      carryItem: a.carry_item ?? null,
-      photoId: a.photo_id ?? null,
-      description: a.minimal_message == null ? '' : String(a.minimal_message),
+      wearColor: shareRow?.wear_color ?? null,
+      wearGarment: shareRow?.wear_garment ?? null,
+      hair: shareRow?.hair_desc ?? null,
+      carryColor: shareRow?.carry_color ?? null,
+      carryItem: shareRow?.carry_item ?? null,
+      photoId: shareRow?.photo_id ?? null,
+      description: shareRow?.minimal_message == null ? '' : String(shareRow.minimal_message),
     },
     activatedAt: a.activated_at ?? null,
     closedAt: a.closed_at ?? null,
     closeOutcome: a.close_outcome ?? null,
     thankyou,
-    lastSeenPlace: place ? { id: String(place.id), kind: String(place.kind), label: String(place.label) } : null,
-    lastSeenAt: a.last_seen_at ?? null,
+    lastSeenPlace: shareRow?.place_label == null
+      ? null
+      : { id: String(shareRow.last_seen_place_id), kind: String(shareRow.place_kind), label: String(shareRow.place_label) },
+    lastSeenAt: shareRow?.last_seen_at ?? null,
     audience: audience.map((m) => ({
       person: { id: String(m.person_id) },
       notifyOrder: Number(m.notify_order),
@@ -496,7 +517,7 @@ const resolvers = {
 
     orbitAlert: async (_: unknown, { alertId }: { alertId: string }, ctx: Ctx) => {
       requireCaller(ctx);
-      const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
+      const found = await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId));
       if (!found.length) return null; // no existence oracle
       return orbitAlertPayload(ctx, found[0]);
     },
@@ -509,11 +530,11 @@ const resolvers = {
       requireCaller(ctx);
       const parent = await isParentOf(ctx, childId);
       const found = alertId
-        ? await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId))
+        ? await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId))
         : await rows(
             dbFor(ctx)
               .from('orbit_alerts')
-              .select('*')
+              .select(ORBIT_SAFE_COLUMNS as '*')
               .eq('child_id', childId)
               .order('created_at', { ascending: false })
               .limit(1),
@@ -849,7 +870,7 @@ const resolvers = {
       });
       if (error) throw error;
       const alertId = String(data);
-      const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
+      const found = await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId));
       if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
       return orbitAlertPayload(ctx, found[0]);
     },
@@ -875,7 +896,7 @@ const resolvers = {
         p_outcome: outcome ?? 'FOUND_SAFE',
       });
       if (error) throw error;
-      const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
+      const found = await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId));
       if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
       return orbitAlertPayload(ctx, found[0]);
     },
