@@ -351,6 +351,17 @@ WINDOW-ONLY STEPS (not run here):
   5. cast checksum:        measure, then update the published checksum deliberately
   6. Rosina:               serve with #86 + #89; confirm ROSINA_PROPOSAL_SIGNING_KEY is SET
                            (presence and length only — never print the value)
+
+  COORDINATION (window plan, from Bryan — no code change implied):
+    - #90 (Codex) is offline-ready at 66cc717, CI green, transport behind
+      VITE_NOTICE_PLAN_LIVE; stays draft and mock-labelled until this window.
+    - give the VERIFIED Rosina serving revision and the TEST SLOT to
+      feat/web-graphql-adapter (Codex) and feat/rosina-service (Claude Code).
+    - coordinate ONE mounted sample-(a) flow so UI and backend evidence cover the
+      SAME request; enable live mode only in the designated test build.
+    - record the UI revision separately from the backend revision.
+    - samples (b) and (c) remain feat/rosina-service's proofs; canonical
+      restoration afterward (live flag off, mock-labelled default restored).
 `);
 
 console.log(failed === 0 ? 'REHEARSAL PASS (rolled back)' : `REHEARSAL FAILED — ${failed} check(s)`);
