@@ -30,8 +30,11 @@ const fakeDbFor: DbForFn = (ctx) => ({
   async rpc(fn, args) {
     if (fn !== 'orbit_photo_access') return { data: null, error: { message: 'unknown rpc' } };
     const photo = PHOTOS[String((args as { p_photo?: unknown }).p_photo)];
-    // Only Kendra (token 'kendra') is a parent; everyone else, and unknown photos, get null.
+    // Kendra (token 'kendra') is a parent. 'audience' is a frozen recipient of an ACTIVE alert —
+    // the accessor grants AUDIENCE, which must NOT be enough for descriptor prep. Everyone else,
+    // and unknown photos, get null.
     if (ctx.token === 'kendra' && photo) return { data: [{ access: 'PARENT', storage_path: photo.path, child_id: photo.child }], error: null };
+    if (ctx.token === 'audience' && photo) return { data: [{ access: 'AUDIENCE', storage_path: photo.path, child_id: photo.child }], error: null };
     return { data: [], error: null }; // unauthorized == nonexistent: the same empty answer
   },
   from() {
@@ -43,7 +46,7 @@ const vision: VisionClient = { describe: async () => ({ modelId: VISION_MODEL_ID
 
 function handler(visionClient: VisionClient | null) {
   return createPhotoDescriptorsHandler(buildPhotoDeps({
-    verify: async (h) => (h === 'Bearer kendra' ? { ok: true, personId: 'p_mom' } : h === 'Bearer priya' ? { ok: true, personId: 'p_priya' } : { ok: false }),
+    verify: async (h) => (h === 'Bearer kendra' ? { ok: true, personId: 'p_mom' } : h === 'Bearer priya' ? { ok: true, personId: 'p_priya' } : h === 'Bearer audience' ? { ok: true, personId: 'p_ray' } : { ok: false }),
     rateLimiter: { allow: () => true },
     vision: visionClient,
     photoDir,
@@ -72,6 +75,13 @@ test('Priya → 403 (she is not a parent of the child)', async () => {
   const res = fakeRes();
   await handler(vision)(fakeReq('priya', { childId: 'p_nora', photoId: 'ph_nora' }), res);
   assert.equal(res.code, 403);
+});
+
+test('an ACTIVE-alert AUDIENCE recipient → 403 (descriptor prep is parent-only, not vision for recipients)', async () => {
+  const res = fakeRes();
+  await handler(vision)(fakeReq('audience', { childId: 'p_nora', photoId: 'ph_nora' }), res);
+  assert.equal(res.code, 403);
+  assert.deepEqual(res.payload, { error: 'NOT_AUTHORIZED' });
 });
 
 test('another child’s photo → the same generic 403', async () => {

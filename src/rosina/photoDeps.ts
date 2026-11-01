@@ -7,10 +7,12 @@
  * service-role bypass — reusing the same database authority (`orbit_photo_access`, 0037/0055)
  * and the same private photo path the upload used.
  *
- *  - authorize: `orbit_photo_access(photoId)` as the caller decides PARENT/AUDIENCE for THIS
- *    photo, and the returned `child_id` must equal the requested child. Missing, inaccessible
- *    and wrong-child all fail closed (the accessor already returns the same null for unauthorized
- *    and nonexistent — no oracle). Works before activation: a parent gets PARENT any time.
+ *  - authorize: `orbit_photo_access(photoId)` as the caller must return PARENT (parent/guardian
+ *    of the child) for THIS photo, and the returned `child_id` must equal the requested child.
+ *    Descriptor preparation is the parent's job — an AUDIENCE recipient (granted only while an
+ *    alert is ACTIVE) is NOT allowed to run vision on the photo and gets the same generic 403.
+ *    Missing, inaccessible and wrong-child all fail closed (no oracle). Works before activation:
+ *    a parent gets PARENT any time.
  *  - photoStore: re-evaluates access on EVERY load, then reads the EXIF-stripped bytes from the
  *    private dir. No signed URL is ever minted; raw bytes and paths are never logged.
  *  - vocabulary: the real controlled vocabulary (`orbit_vocabulary`, selectable by authenticated)
@@ -43,8 +45,10 @@ async function accessFor(dbForFn: DbForFn, bearer: string, photoId: string, chil
   try { res = await dbForFn(ctx).rpc('orbit_photo_access', { p_photo: photoId }); }
   catch { return null; }
   const row = res.error ? null : firstRow(res.data);
-  // Fail closed: granted access AND the photo is for the requested child.
-  if (!row?.access || !row.storage_path || row.child_id !== childId) return null;
+  // Fail closed and PARENT-only: descriptor preparation is the parent's job. An AUDIENCE
+  // recipient (who can see the photo only while an alert is ACTIVE) must NOT be able to run the
+  // vision model on the child's photo — they get the same generic 403 as anyone else.
+  if (row?.access !== 'PARENT' || !row.storage_path || row.child_id !== childId) return null;
   return row;
 }
 
