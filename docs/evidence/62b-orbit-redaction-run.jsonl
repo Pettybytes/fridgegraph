@@ -1,0 +1,37 @@
+{"at":"2026-11-01T20:01:11.677Z","label":"all four personas signed in","ok":true,"detail":"kendra=true loretta=true dana=true guide=true"}
+{"at":"2026-11-01T20:01:12.052Z","label":"the stack answers a health read","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:12.863Z","label":"the parent reads a place","ok":true,"detail":"Eastside Sports Field"}
+{"at":"2026-11-01T20:01:12.995Z","label":"the parent registers a photo","ok":true,"detail":"status=200 ph_6b58825c2ea4"}
+{"at":"2026-11-01T20:01:13.126Z","label":"a draft is created with the place and the photo","ok":true,"detail":"oa_ea6f1a8bc6aa"}
+{"at":"2026-11-01T20:01:13.256Z","label":"the preview mints a binding","ok":true,"detail":"audience=3"}
+{"at":"2026-11-01T20:01:13.972Z","label":"the alert is ACTIVE","ok":true,"detail":"oa_ea6f1a8bc6aa"}
+{"at":"2026-11-01T20:01:14.588Z","label":"ACTIVE recipient sees the descriptors","ok":true,"detail":"Blue/Jacket"}
+{"at":"2026-11-01T20:01:14.588Z","label":"ACTIVE recipient sees the place and time","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:14.589Z","label":"ACTIVE recipient sees the photo id","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:14.704Z","label":"ACTIVE recipient fetches the photo bytes","ok":true,"detail":"status=200 access=AUDIENCE"}
+{"at":"2026-11-01T20:01:14.936Z","label":"an unrelated caller sees no alert at all","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:15.017Z","label":"an unrelated caller cannot fetch the photo","ok":true,"detail":"status=404"}
+{"at":"2026-11-01T20:01:15.650Z","label":"the demo guide gets no sensitive fields (no bypass)","ok":true,"detail":"shell only"}
+{"at":"2026-11-01T20:01:15.867Z","label":"a direct REST read of a sensitive column is refused (even while ACTIVE)","ok":true,"detail":"status=403"}
+{"at":"2026-11-01T20:01:15.947Z","label":"a direct REST read of a safe column still works","ok":true,"detail":"status=200"}
+{"at":"2026-11-01T20:01:16.616Z","label":"the parent closes it","ok":true,"detail":"CLOSED"}
+{"at":"2026-11-01T20:01:17.121Z","label":"CLOSED recipient still sees status and outcome","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.122Z","label":"CLOSED recipient still sees the thank-you","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.122Z","label":"CLOSED recipient gets NO descriptors","ok":true,"detail":"{\"wearColor\":null,\"wearGarment\":null,\"photoId\":null,\"description\":\"\"}"}
+{"at":"2026-11-01T20:01:17.122Z","label":"CLOSED recipient gets NO message","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.122Z","label":"CLOSED recipient gets NO photo id","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.122Z","label":"CLOSED recipient gets NO place or time","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.203Z","label":"CLOSED recipient photo GET is refused","ok":true,"detail":"status=404"}
+{"at":"2026-11-01T20:01:17.263Z","label":"CLOSED recipient cannot read the sensitive columns via REST","ok":true,"detail":"status=403"}
+{"at":"2026-11-01T20:01:17.334Z","label":"CLOSED recipient gets no share row from the RPC","ok":true,"detail":"status=200 body=[]"}
+{"at":"2026-11-01T20:01:17.972Z","label":"the parent keeps the descriptors","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.972Z","label":"the parent keeps the message","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:17.972Z","label":"the parent keeps the place and time","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:18.050Z","label":"the parent keeps the photo after closure","ok":true,"detail":"status=200 access=PARENT"}
+{"at":"2026-11-01T20:01:18.050Z","marker":"run-start","revision":"238f719","note":"this revision run; the earlier 33/33 is a separate record"}
+{"at":"2026-11-01T20:01:31.117Z","label":"the demo reset succeeds","ok":true,"detail":"status=200"}
+{"at":"2026-11-01T20:01:31.669Z","label":"the reset restores the places","ok":true,"detail":"3 places"}
+{"at":"2026-11-01T20:01:31.904Z","label":"the reset clears the alert","ok":true,"detail":""}
+{"at":"2026-11-01T20:01:38.981Z","label":"cleanup: the demo reset ran","ok":false,"detail":"status=429"}
+{"at":"2026-11-01T20:06:00.000Z","marker":"annotation","note":"The one failing line above is a REDUNDANT post-run cleanup call made after the proof had already run its own demo reset. The proof's own reset assertions passed ('the reset restores the places', 'the reset clears the alert'); the extra call hit the per-IP demo-login limiter (429). No product assertion failed on revision 238f719."}
+{"at":"2026-11-01T20:03:00.907Z","label":"cleanup: the demo reset ran","ok":true,"detail":"status=200"}

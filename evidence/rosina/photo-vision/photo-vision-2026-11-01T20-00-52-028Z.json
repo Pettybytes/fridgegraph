@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-01T20:00:52.029Z",
+  "model": "muse-spark-1.3",
+  "image": "fictional authored illustration (yellow raincoat, green backpack, curly hair) — not a real person or photo",
+  "note": "raw image bytes are never logged; only the mapped result is recorded",
+  "status": "LIVE",
+  "source": "live",
+  "modelId": "muse-spark-1.3",
+  "descriptors": {
+    "wearColor": "yellow",
+    "carryColor": "green",
+    "carryItem": "backpack"
+  },
+  "dropped": [
+    {
+      "key": "wearGarment",
+      "value": "shirt",
+      "reason": "NOT_IN_VOCABULARY"
+    },
+    {
+      "key": "hair",
+      "value": "brown",
+      "reason": "NOT_IN_VOCABULARY"
+    }
+  ],
+  "textInImage": []
+}

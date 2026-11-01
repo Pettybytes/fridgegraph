@@ -1,0 +1,39 @@
+{
+  "at": "2026-11-01T20:14:12.246Z",
+  "endpoint": "/api/rosina/photo-descriptors",
+  "revision": "534b1ca",
+  "checks": [
+    {
+      "label": "picker-issued callers signed in",
+      "ok": true,
+      "detail": "kendra=true priya=true"
+    },
+    {
+      "label": "an authorized fictional photo is registered",
+      "ok": true,
+      "detail": "status=200 ph_eb04ff7e1f9c"
+    },
+    {
+      "label": "the authorized caller gets a proposal",
+      "ok": false,
+      "detail": "status=403 NOT_AUTHORIZED"
+    },
+    {
+      "label": "every suggested kind is in the controlled vocabulary",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "label": "the proposal is review-only (nothing auto-applied)",
+      "ok": false,
+      "detail": "source=n/a model=n/a dropped=0"
+    },
+    {
+      "label": "an unrelated caller is refused",
+      "ok": true,
+      "detail": "status=403 NOT_AUTHORIZED"
+    }
+  ],
+  "passed": 4,
+  "failed": 2
+}
