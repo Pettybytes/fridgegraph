@@ -55,3 +55,20 @@ endpoint, and separately reserved live verification. This PR is visual polish on
 Final untrimmed take-05 recording measured by ffprobe: **19.066 seconds**, 1440×900 at 30fps.
 UI source remained frozen throughout. Screenshots of the response arrival and payoff were taken
 from that same sequence. All six action/privacy checks passed, backend request count zero.
+
+## Final chip contrast correction — take-06
+
+A follow-up alpha-composited check found the light place/time chip at **4.3397:1**; the raw
+measurement remains unchanged in `take-05/chip-contrast-review.txt`. This was a real color defect,
+not a parser problem. Replaced its translucent foreground tint with the shared danger-ink tint.
+Final place/time chips and recorded-response confirmation: **5.9190:1 light / 7.6789:1 dark**.
+The same 4.5:1 gate remains; green and alert background contrast remain as measured above.
+
+`take-06` supersedes take-05 as final visual evidence: all four width/theme combinations and
+reduced-motion states recaptured, plus the entire explicit activation/response/close sequence.
+Earlier takes are retained unchanged. Full suite rerun: **312/312 PASS**, root typecheck and web
+build PASS. Client sanitizer remains unchanged. No live requests.
+
+Final take-06 duration: **19.100 seconds**, untrimmed 1440×900 / 30fps. Six sequence gates PASS;
+zero backend requests; no source edits or HMR during recording. The associated commit contains
+exactly the UI source rendered in this final take.

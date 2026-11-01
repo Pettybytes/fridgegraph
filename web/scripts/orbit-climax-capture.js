@@ -1,6 +1,6 @@
 async page=>{
  const results=[];let calls=0;page.on('request',r=>{if(/\/(api|graphql)(\/|$)/.test(new URL(r.url()).pathname))calls++});
- const root='web/evidence/orbit-climax/take-05';
+ const root='web/evidence/orbit-climax/take-06';
  for(const width of [1440,390])for(const theme of ['light','dark']){
   await page.setViewportSize({width,height:width===390?844:900});await page.emulateMedia({reducedMotion:'no-preference'});await page.goto('http://127.0.0.1:5196/scripts/orbit-alert-review.html?mode=recipient');await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme);await page.getByAltText('Photo shared by the parent').waitFor();
   const styles=await page.locator('.orbit-takeover').evaluate(el=>{const style=getComputedStyle(el),edge=getComputedStyle(el,'::before');const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].slice(0,3)};const lum=c=>rgb(c).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);const a=lum(style.color),b=lum(style.backgroundColor);return{flash:edge.animationDuration,band:parseFloat(edge.borderTopWidth),contrast:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)}});

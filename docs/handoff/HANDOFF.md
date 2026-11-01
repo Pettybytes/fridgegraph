@@ -3916,3 +3916,8 @@ Final contrast review caught a real light-theme found-safe small-text failure. K
 not the test. Final `take-05`: green 5.3494:1 light / 5.8951:1 dark, same ≥4.5 gate and known
 high/low OKLCH controls. Re-captured both themes/sizes and the complete two-view sequence with
 source frozen; all response/close/privacy checks passed with zero backend requests.
+
+PR #74 final chip contrast review: alpha-composited light chips initially 4.3397:1, corrected with
+shared danger-ink tint to 5.9190:1 light / 7.6789:1 dark. Failed measurement retained; threshold
+unchanged. `take-06` supersedes earlier takes as final screenshots/recording. 312 web tests rerun
+PASS; root typecheck/build PASS. #74 stays draft until final-head CI is green.
