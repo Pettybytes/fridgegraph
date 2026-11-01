@@ -14,7 +14,7 @@
  * stands in for `current_person()`), there is no PostgREST, no JWT verification and no RLS policies on
  * the scaffold tables. So this proves ORDER, SIGNATURES, ACLS and SQL behaviour — not RLS under real
  * claims. The reserved window on the project database is still the authority, and the steps that only
- * exist there (seed-auth-users, reseed, supergraph recompose, Rosina) are PRINTED as window steps,
+ * exist there (seed-auth-users, reseed, the GraphQL recompose, Rosina) are PRINTED as window steps,
  * never faked.
  *
  * Usage:
@@ -343,7 +343,11 @@ WINDOW-ONLY STEPS (not run here):
      teacher files come from ${teacher.sha}` : ''}
   2. seed auth users:      npx tsx scripts/seed-auth-users.ts
   3. reseed:               npm run db:seed   (places + links are seeded by the migration helpers)
-  4. supergraph recompose: reportSchoolDay + the village/day field, then restart the router
+  4. SURFACES — do not recompose for REST:
+       /api/village/day and /api/village/route are Express routes on 4008. Restart that
+       listener; NO supergraph change.
+     GraphQL changes only (today: school.reportSchoolDay, 0070): recompose the supergraph
+       and restart the router. The village day read is NOT a GraphQL field.
   5. cast checksum:        measure, then update the published checksum deliberately
   6. Rosina:               serve with #86 + #89; confirm ROSINA_PROPOSAL_SIGNING_KEY is SET
                            (presence and length only — never print the value)
