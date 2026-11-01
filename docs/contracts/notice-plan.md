@@ -328,9 +328,17 @@ village school matched **by id** from `docs/handoff/VILLAGE-MAP-CONTRACT.md`
 Lincoln Elementary (recorded school day ends 15:00).
 
 - **(a) early dismissal** conflicting with Nora's recorded 15:00 pickup on the scenario date —
-  **built FIRST, end to end.**
-- **(b) ambiguous notice** needing the one clarifying question (§4b).
+  **built FIRST, end to end. SHIPPED (assets only).** School `g_school` (Lincoln Elementary),
+  scenario date **2026-10-26**, dismissal **12:30 PM**. Source: `src/rosina/samples/`
+  (`notice-a-early-dismissal.html` / `.txt`); rendered assets:
+  `web/public/samples/notice-plan/notice-a-early-dismissal.png` and `.pdf` (served to the tray).
+- **(b) ambiguous notice** needing the one clarifying question (§4b). _Planned._
 - **(c) field-trip permission slip** — **review-only** (§1.2) unless an existing slip matches by id.
+  _Planned._
+
+Render step: `node ops/render-notice-samples.mjs` (Playwright headless Chromium, no network). The
+`.html` is the single source of truth for the text; `.txt` is the pasted-text form (verified-quote
+path), `.png`/`.pdf` the image/PDF forms (transcription path) — identical text in all three.
 
 ---
 
