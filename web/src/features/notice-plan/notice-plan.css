@@ -17,7 +17,7 @@
 .notice-files li span{min-width:0;overflow-wrap:anywhere}
 .notice-samples{padding:10px;background:var(--fg-canvas);border-radius:8px}
 .notice-draft-actions{display:flex;flex-wrap:wrap;gap:8px}
-.notice-review{display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--fg-border)}
+.notice-review{display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--fg-border);scroll-margin-top:64px}
 .notice-review h3{font-size:18px;font-weight:600}.notice-review h4{font-size:15px;font-weight:600}
 .notice-review article{padding:12px 0;border-top:1px solid var(--fg-border)}
 .notice-review blockquote{margin:8px 0;padding-left:10px;border-left:2px solid var(--fg-primary);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -25,5 +25,7 @@
 .notice-review ul{padding-left:18px}.notice-question{display:grid;gap:8px}
 .notice-question input{min-height:44px;padding:8px;border:1px solid var(--fg-border);border-radius:8px;background:var(--fg-canvas);color:var(--fg-ink)}
 .notice-draft .notice-control[data-variant=default]{background:var(--fg-primary);color:var(--fg-on-primary)}
+/* The focus capture has room for the full review and its confirm action. */
+:root[data-focus="1"] .notice-draft-body{max-height:58dvh}
 /* Impeccable side-tab finding is retained deliberately on blockquote only:
    the rule marks a quoted source passage, not a decorative card accent. */

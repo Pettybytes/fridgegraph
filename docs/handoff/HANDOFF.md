@@ -4004,3 +4004,27 @@ The scripted sample review says confirmation is not connected; it does not claim
 Review-only captures/recording: web/evidence/notice-plan/review-only/. The earlier shell captures
 are preserved separately. Full sample(a)→confirm and live/deployed acceptance remain pending.
 Live activation requires BOTH merged endpoint and verified deployed revision, in a reserved window.
+
+### NOTICE → PLAN mock confirmation — 2026-11-01, PR #90 draft
+PR #89's current head was verified as `67c7314c1db7056dbfaa112aae2a6cb822e7a578`.
+Its implemented confirm shape is `{ claims, signature }` echoed from the prepare envelope;
+the success body is `{ job: { id, status } }`. Contract §0 documents the signed claims,
+but the §5 example still shows an older flat request and a response version that the handler
+does not return. Requested a contract correction on #89; the mock follows the implementation.
+
+UI: mock prepare/review/explicit `requestPickup` confirm complete. Backend: PR #89 open,
+implementation unit-tested, integration seam not yet live-proven. Integrated + tested: PENDING.
+Kendra's exact sample (a) produces only the published `requestPickup` action and a coarse
+afternoon window. Parent/guardian confirmation is explicit; Priya and review-only field-trip
+proposals have no confirm control. The mock returns one stable job id for an explicit repeat,
+without writing a real pickup or consent record. Confirm errors 401, 403, 400, 410, 409,
+422 and rate limiting show no success or automatic retry. Inputs and late confirmation
+results clear across persona/child changes. Mock screenshots and a sample→review→confirm
+recording are in `web/evidence/notice-plan/mock-confirm/`; this is not live evidence.
+Final offline check: 369 web tests across 62 files PASS; root typecheck PASS;
+web typecheck/build PASS; staged secret scan 856 files, 0 findings.
+
+Live transport remains disabled until #89 is merged AND its endpoint is verified served.
+Then reserve a Bentley window, connect current-session bearer transport, and prove a
+real sample (a) request through Mission Control; field-trip/permission-slip remains
+review-only. PR #90 stays draft until that integration passes.

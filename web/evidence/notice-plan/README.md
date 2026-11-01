@@ -52,3 +52,37 @@ Final source scan (stable review added) reports one side-tab finding on the bloc
 2px source marker. Retained with a source comment: it denotes the quoted passage, not a
 decorative card stripe. The earlier no-finding source result applies to the shell stage.
 Final staged secret scan: 855 files, 0 findings; diff whitespace check PASS.
+
+## Mock confirm continuation — PR #90 draft, 2026-11-01
+
+The earlier review-only receipt and files remain intact. PR #89 current head was verified
+at `67c7314c1db7056dbfaa112aae2a6cb822e7a578`. Its handler accepts the envelope's
+`{ claims, signature }` and returns `{ job: { id, status } }`; §5 of the contract still
+shows a stale flat request example, reported on #89.
+
+`mock-confirm/` contains an explicit sample (a) → review → confirm viewport recording
+and light/dark desktop/mobile screenshots. Playwright CLI used the local 5200 mock-auth
+server, Kendra, and no real backend request. The result is visibly **Mock** and says no
+record was created or pickup arranged. The source review, coarse afternoon window and
+Mission Control link remain visible. The mock adapter is idempotent by child/date/window;
+an explicit repeat returns the same mock job. Field-trip review has no confirm action.
+
+The focused notice suite passed 27/27. The first full suite exposed one new assertion
+mistake: it expected the rate-limited confirm control to stay disabled, although manual
+retry is allowed. The assertion now checks that the control stays enabled while the
+confirm call count remains exactly one; 27/27 focused tests passed afterward. The first
+browser capture clipped the review heading because the nested scroll had a 405px cap;
+the focus-mode cap and scroll margin were adjusted before the later captures. A first
+"dark" screenshot used browser color-scheme emulation only; this app uses a `.dark`
+class, so the dark captures were repeated with that class set. Superseded screenshot
+bytes have no bearing on the earlier review-only evidence.
+
+**Live verification: PENDING.** #89 must merge, its endpoint must be verified deployed,
+and a Bentley window must be reserved before connecting and exercising the real transport.
+The mock recording is never presented as live proof.
+
+Final offline checks after this continuation: 369/369 web tests in 62 files,
+root typecheck and web typecheck/build PASS; staged secret scan 856 files,
+0 findings. Full-suite first pass was 368/369 because the new 429 assertion
+incorrectly expected the button to remain disabled; the corrected explicit
+manual-retry assertion passed in the final 369/369 run.
