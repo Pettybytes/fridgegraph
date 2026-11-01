@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
+import { routeBetween, allowRoute, RouteUnavailable } from '../village/ors';
 import { dbFor } from '../db';
 import type { Ctx } from '../authz';
 
@@ -338,6 +339,66 @@ export function createDemoLoginApp() {
    * sessions. Same guards as before: loopback only (until Task H), demo sessions only, the Demo guide
    * is refused, and one reset per person per 30 s.
    */
+  // Village routing. The client sends PLACE IDS; authorization happens here first, and only then is
+  // the cache or the network touched. See src/village/ors.ts for why row existence is not permission.
+  app.post('/api/village/route', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = bearerToken(req.headers.authorization);
+    if (!token) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    const identity = await verifyBearer(req.headers.authorization);
+    if (!identity.ok || !identity.personId) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    if (!allowRoute(identity.personId)) { res.status(429).json({ error: 'RATE_LIMITED' }); return; }
+
+    const childId = typeof req.body?.childId === 'string' ? req.body.childId : '';
+    const fromPlaceId = typeof req.body?.fromPlaceId === 'string' ? req.body.fromPlaceId : '';
+    const toPlaceId = typeof req.body?.toPlaceId === 'string' ? req.body.toPlaceId : '';
+    if (!childId || !fromPlaceId || !toPlaceId) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+
+    const ctx: Ctx = { today: todayIso(), token };
+    const look = async (placeId: string) => {
+      const { data, error } = await dbFor(ctx).rpc('place_route_geometry_for', { p_child: childId, p_place: placeId });
+      if (error) return { kind: 'error' as const };
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { id?: string; label?: string; state?: string; latitude?: number | null; longitude?: number | null }
+        | null;
+      if (!row?.id) return { kind: 'notfound' as const };
+      return { kind: 'row' as const, row };
+    };
+
+    const [from, to] = await Promise.all([look(fromPlaceId), look(toPlaceId)]);
+    // A place the caller cannot see and a place that does not exist get the SAME answer.
+    for (const r of [from, to]) {
+      if (r.kind === 'error') { res.status(502).json({ error: 'LOOKUP_FAILED' }); return; }
+      if (r.kind === 'notfound') { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    }
+    for (const r of [from, to]) {
+      const row = (r as { row: { label?: string; state?: string; latitude?: number | null; longitude?: number | null } }).row;
+      if (row.state === 'withheld') {
+        res.status(403).json({ error: 'COORDINATES_WITHHELD', place: row.label ?? null });
+        return;
+      }
+      if (row.state === 'absent') {
+        // Authorized but ungeocoded is its own case, not a refusal and not a route.
+        res.status(409).json({ error: 'GEOMETRY_UNAVAILABLE', place: row.label ?? null });
+        return;
+      }
+    }
+
+    const f = (from as { row: { latitude: number; longitude: number } }).row;
+    const t = (to as { row: { latitude: number; longitude: number } }).row;
+    try {
+      const route = await routeBetween(fromPlaceId, toPlaceId,
+        { lat: f.latitude, lng: f.longitude }, { lat: t.latitude, lng: t.longitude });
+      res.status(200).json(route);
+    } catch (e) {
+      if (e instanceof RouteUnavailable) {
+        res.status(503).json({ error: 'ROUTE_UNAVAILABLE', reason: e.reason });
+        return;
+      }
+      res.status(503).json({ error: 'ROUTE_UNAVAILABLE', reason: 'UNEXPECTED' });
+    }
+  });
+
   app.post('/api/demo/reset', async (req: Request, res: Response) => {
     const addr = req.socket.remoteAddress ?? '';
     if (!(addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) {
