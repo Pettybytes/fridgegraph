@@ -71,10 +71,11 @@ test('403 when the caller is not authorized — photo never loaded, vision never
   assert.equal(described, false, 'vision must not run on refusal');
 });
 
-test('404 when the photo is not found / not this caller’s', async () => {
+test('a missing / unloadable photo is the SAME generic 403 (no existence oracle)', async () => {
   const res = fakeRes();
   await createPhotoDescriptorsHandler(deps({ photoStore: { load: async () => null } }))(fakeReq(auth, body), res);
-  assert.equal(res.code, 404);
+  assert.equal(res.code, 403);
+  assert.deepEqual(res.payload, { error: 'NOT_AUTHORIZED' });
 });
 
 test('200 returns an in-vocabulary proposal when everything passes', async () => {

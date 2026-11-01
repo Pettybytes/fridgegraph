@@ -10,6 +10,7 @@
  * non-content metadata (route, resolved person id, tool names, latencies, HTTP status) reaches
  * the console.
  */
+import { join } from 'node:path';
 import express, { type Request, type Response } from 'express';
 import { loadEnv } from '../env';
 import { verifyBearer } from '../auth/verify';
@@ -19,9 +20,13 @@ import { createRateLimiter } from './rateLimit';
 import { MuseConfigError, resolveProvider, type ProviderId } from '../muse/providers';
 import { createPhotoDescriptorsHandler } from './photoEndpoint';
 import { createMuseVisionClient, MUSE_VISION_MODEL } from './museVision';
+import { buildPhotoDeps } from './photoDeps';
 import type { VisionClient } from './photoDescriptors';
 
 loadEnv();
+
+// Same private photo directory the demo upload/photo-GET path uses.
+const ORBIT_PHOTO_DIR = process.env.ORBIT_PHOTO_DIR ?? join(process.cwd(), 'var', 'orbit-photos');
 
 const PORT = Number(process.env.ROSINA_PORT ?? 4200);
 const PROVIDER = (process.env.ROSINA_PROVIDER ?? 'meta') as ProviderId;
@@ -128,22 +133,20 @@ export function createRosinaApp() {
   });
 
   // Photo → vocabulary-constrained descriptor suggestions (PR F). The vision client is real
-  // (Meta muse-spark-1.3) when configured; per-child/per-photo authorization and the
-  // EXIF-stripped photo store are not wired to real storage in this environment, so they fail
-  // closed (403/404) until they are — the mapping, safety and vision call are production-ready.
+  // (Meta muse-spark-1.3) when configured; authorization, the EXIF-stripped photo store and the
+  // controlled vocabulary are now the real production wiring (buildPhotoDeps) — every decision is
+  // made with the caller's own bearer through an RLS-scoped client (no service-role).
   let vision: VisionClient | null = null;
   try {
     const c = resolveProvider('meta');
     vision = createMuseVisionClient({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: MUSE_VISION_MODEL });
   } catch { vision = null; }
-  const photoHandler = createPhotoDescriptorsHandler({
+  const photoHandler = createPhotoDescriptorsHandler(buildPhotoDeps({
     verify: async (h) => { const id = await verifyBearer(h); return id.ok ? { ok: true, personId: id.personId } : { ok: false }; },
     rateLimiter: limiter,
-    authorize: async () => false,
-    photoStore: { load: async () => null },
-    vocabulary: async () => new Map(),
     vision,
-  });
+    photoDir: ORBIT_PHOTO_DIR,
+  }));
   app.post('/api/rosina/photo-descriptors', (req, res) => {
     photoHandler(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'VISION_ERROR' }); });
   });
