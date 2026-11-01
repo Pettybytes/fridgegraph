@@ -388,7 +388,11 @@ export function createDemoLoginApp() {
       // but it IS logged, because a silent failure here means ranking quietly stays on haversine.
       if (!route.cached) {
         try {
-          await dbFor(ctx).rpc('store_route_result', {
+          // The RAW writer is no longer executable by a request-handling caller (0063); this is the
+          // caller-authorized one. It re-checks parent/address.read on the child and refuses a
+          // snapshot that is not a real place row for that child.
+          await dbFor(ctx).rpc('store_route_result_authorized', {
+            p_child: childId,
             p_profile: profileRaw,
             p_from_place_id: fromPlaceId,
             p_to_place_id: toPlaceId,

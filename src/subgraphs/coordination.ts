@@ -1,6 +1,7 @@
 import { parse } from 'graphql';
 import { GraphQLError } from 'graphql';
 import { requireCaller, refuseDemoGuideWrite, isParentOf, authorizeChild, householdIdsOfChild, SCOPE, type Ctx } from '../authz';
+import { prewarmForPickupRequest } from '../village/ridePrewarm';
 import { dbFor, rows } from '../db';
 
 /**
@@ -916,6 +917,15 @@ const resolvers = {
         p_window: window ?? 'afternoon',
       });
       if (error) rpcError(error);
+
+      // Pre-step for the initial paid-ride evaluation.
+      //
+      // `request_pickup` creates the candidate set and leaves the job `discovering`; ranking (and
+      // therefore any road measurement) happens on a reply, so warming AFTER the response cannot race
+      // it. Detached on purpose: a slow provider must never delay the parent's request, and every
+      // failure here is soft (the evaluation falls back to its labelled haversine basis).
+      void prewarmForPickupRequest(ctx, childId).catch(() => undefined);
+
       return jobById(ctx, String(data));
     },
 
