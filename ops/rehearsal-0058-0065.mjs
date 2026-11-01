@@ -37,8 +37,14 @@ const projectUrl = (() => {
   } catch { return null; }
 })();
 if (projectUrl && target.replace(/\s/g, '') === projectUrl) {
-  console.error('REFUSED: REHEARSAL_DB_URL points at the project database.');
-  process.exit(2);
+  if (process.env.REHEARSAL_ALLOW_PROJECT !== '1') {
+    console.error('REFUSED: REHEARSAL_DB_URL points at the project database.');
+    console.error('Set REHEARSAL_ALLOW_PROJECT=1 only for the documented rolled-back project rehearsal:');
+    console.error('one transaction, every step asserted, and a rollback before the process exits.');
+    process.exit(2);
+  }
+  console.log('NOTE: project database rehearsal — REHEARSAL_ALLOW_PROJECT=1.');
+  console.log('Everything below runs inside ONE transaction and is rolled back; nothing is committed.');
 }
 
 let failed = 0;
@@ -142,6 +148,11 @@ await c.query('begin');
 
 try {
   // ---- scaffolding the slice reads. Shaped like the real columns, not like the functions' wishes.
+  // On the PROJECT database the real schema already exists: creating the simplified scaffold would
+  // collide, and a parallel half-built schema is the opposite of what a rehearsal should prove.
+  if (process.env.REHEARSAL_ALLOW_PROJECT === '1') {
+    console.log('  scaffold: skipped — project schema present; only the migrations run, in-transaction');
+  } else {
   await c.query(`
     create table people (id text primary key);
     create table households (id text primary key);
@@ -225,9 +236,31 @@ try {
   const seedEvents = ['p_nora','p_jax','p_emma','p_micah','p_avery']
     .flatMap((child) => [0, 3, 6].map((k) => `('fx_event_${child}_${k}','${child}','School day','2026-09-0${k + 1} 08:15','confirmed')`));
   await c.query(`insert into events (id, child_id, title, start_at, status) values ${seedEvents.join(',')}`);
+  }
 
   // ---- apply, in order, asserting each step landed
+  // APPLIED STATE IS NOT FILE PRESENCE. On the project database a teacher migration may already be
+  // live (#92/#96 applied 0070–0072 independently). Replaying it is a real failure, so each teacher
+  // file is probed for its own objects first and skipped when they are already there.
+  const appliedProbe = {
+    '0070_school_report_write.sql':
+      `select 1 from pg_policies where tablename = 'school_reports' and policyname = 'school_reports_insert'`,
+    '0071_school_report_proposal.sql':
+      `select 1 from pg_proc where proname = 'propose_school_report'`,
+    '0072_school_report_reported_at.sql':
+      `select 1 from information_schema.columns where table_name = 'school_reports' and column_name = 'reported_at'`,
+  };
+  let skippedMigrations = 0;
   for (const file of plan) {
+    const probe = process.env.REHEARSAL_ALLOW_PROJECT === '1' ? appliedProbe[file] : null;
+    if (probe) {
+      const hit = await c.query(probe);
+      if (hit.rowCount > 0) {
+        skippedMigrations += 1;
+        console.log(`  SKIP  ${file} — already applied (probed its own objects)`);
+        continue;
+      }
+    }
     try {
       await c.query(planSql.get(file) ?? body(`supabase/migrations/${file}`));
       check(`applied ${file}`, true);
@@ -236,6 +269,7 @@ try {
       throw e;
     }
   }
+  if (skippedMigrations) console.log(`  ${skippedMigrations} migration(s) skipped as already applied`);
 
   // ---- 0058 / 0061 / 0062 / 0063 / 0064 signatures
   const fns = ['place_route_geometry_for', 'event_day_places', 'seed_recorded_places',
@@ -299,11 +333,20 @@ try {
 
   // 0061's three states, on the linked/unlinked rows this scaffold has.
   await c.query(`select set_config('test.person','p_mom',false)`);
-  await c.query(`insert into household_members values ('h_a','p_mom','parent')`);
-  const states = (await c.query(
-    `select state, count(*)::int n from event_day_places('p_nora','2026-09-01') group by state`)).rows;
-  check('0061 — a linked event reads as linked',
-    states.some((s) => s.state === 'linked'), JSON.stringify(states));
+  if (process.env.REHEARSAL_ALLOW_PROJECT !== '1') {
+    await c.query(`insert into household_members (household_id, person_id, role) values ('h_a','p_mom','parent')`);
+  }
+  const states = process.env.REHEARSAL_ALLOW_PROJECT === '1'
+    ? null
+    : (await c.query(
+        `select state, count(*)::int n from event_day_places('p_nora','2026-09-01') group by state`)).rows;
+  if (states === null) {
+    console.log('  SKIP  0061 — day read: the real `current_person()` reads the auth context, not the');
+    console.log('        rehearsal GUC, so a caller cannot be simulated here. The served proof owns this.');
+  } else {
+    check('0061 — a linked event reads as linked',
+      states.some((s) => s.state === 'linked'), JSON.stringify(states));
+  }
 
   // ---- TEACHER: file presence is not applied state. Probe the DB for the objects 0070 creates.
   if (teacher.files.length) {
