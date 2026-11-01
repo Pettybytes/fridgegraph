@@ -37,7 +37,7 @@ import pg from 'pg';
 
 const BASE = (process.env.SERVED_BASE ?? 'http://127.0.0.1:4008').replace(/\/$/, '');
 const PLACE_ID = 'rp_proof_no_geometry';
-const PLACE_LABEL = 'Proof Place Without Geometry';
+const PLACE_LABEL = 'Cedar Hill Park';
 const PLACE_HOUSEHOLD = 'h_a';
 
 const args = process.argv.slice(2);
