@@ -230,12 +230,17 @@ const creds = readCreds();
 const created: string[] = [];
 const reused: string[] = [];
 const skipped: string[] = [];
+// Every canonical person that has an auth user — created now OR already present — belongs in the
+// identity map. Building the map from `.demo-credentials` alone was the defect: an existing user
+// whose stored password was unavailable was skipped, and the map was then written without it.
+const resolved = new Map<string, string>();
 
 for (const person of PEOPLE) {
   const email = emailFor(person);
   const found = byEmail.get(email);
 
   if (found) {
+    resolved.set(person.personId, found.id);
     const stored = creds[email];
     if (stored?.password && stored.userId === found.id) {
       const ok = await canSignIn(url, publishable, email, stored.password);
@@ -253,6 +258,7 @@ for (const person of PEOPLE) {
   const password = randomBytes(24).toString('base64url');
   const userId = await createUser(url, service, email, password);
   creds[email] = { personId: person.personId, userId, password };
+  resolved.set(person.personId, userId);
   created.push(`${person.personId} <${email}>`);
 }
 
@@ -279,12 +285,56 @@ for (const person of PEOPLE) {
 // data/identity-map.json: the ONLY identity source the servers load (sub -> personId).
 mkdirSync(dirname(MAP_PATH), { recursive: true });
 const map: Record<string, string> = {};
-for (const cred of Object.values(creds)) map[cred.userId] = cred.personId;
-writeFileSync(MAP_PATH, `${JSON.stringify(map, null, 2)}\n`, { mode: 0o600 });
-chmodSync(MAP_PATH, 0o600);
+for (const [personId, userId] of resolved) map[userId] = personId;
+
+// A map that silently loses identities is worse than no write at all: those personas become
+// UNAVAILABLE with no error, which is exactly how a working picker was broken.
+function readMap(file: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'));
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+const previousMap = readMap(MAP_PATH);
+const lost = Object.entries(previousMap)
+  .filter(([userId]) => !(userId in map))
+  .map(([, personId]) => personId);
+if (Object.keys(map).length === 0) {
+  console.error('[seed] REFUSED: the new identity map is empty — nothing was written.');
+  process.exit(1);
+}
+if (lost.length > 0 && process.env.SEED_ALLOW_LOSS !== '1') {
+  console.error(`[seed] REFUSED: refusing to drop ${lost.length} identity(ies) already in the map.`);
+  console.error(`[seed] The existing file is unchanged. Re-run with SEED_ALLOW_LOSS=1 only if the removal`);
+  console.error('[seed] is deliberate (for example an account that was actually deleted).');
+  process.exit(1);
+}
+
+// Preserve the last working map before replacing it, and restore it if the write or the DB sync fails.
+if (Object.keys(previousMap).length > 0) {
+  writeFileSync(`${MAP_PATH}.last-good`, `${JSON.stringify(previousMap, null, 2)}\n`, { mode: 0o600 });
+}
+const previousText = existsSync(MAP_PATH) ? readFileSync(MAP_PATH, 'utf8') : null;
+try {
+  writeFileSync(MAP_PATH, `${JSON.stringify(map, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(MAP_PATH, 0o600);
+} catch (e) {
+  if (previousText !== null) writeFileSync(MAP_PATH, previousText, { mode: 0o600 });
+  console.error(`[seed] FAILED to write the identity map; the previous file was restored (${(e as Error).message})`);
+  process.exit(1);
+}
 
 // The database copy of that map: `current_person()` reads this table, never the file.
-const synced = await syncIdentityMap(url, service, map);
+let synced = 0;
+try {
+  synced = await syncIdentityMap(url, service, map);
+} catch (e) {
+  if (previousText !== null) writeFileSync(MAP_PATH, previousText, { mode: 0o600 });
+  console.error(`[seed] FAILED to sync identity_map; the previous file was restored (${(e as Error).message})`);
+  process.exit(1);
+}
 
 console.log(`\n[seed] created ${created.length}:`);
 for (const line of created) console.log(`  + ${line}`);
