@@ -160,6 +160,18 @@ export const DEMO_PERSONAS: readonly DemoPersona[] = [
     initialRoute: 'village',
   },
   {
+    id: 'whitfield',
+    personId: 'p_whitfield',
+    email: 'margaret.whitfield@example.com',
+    name: 'Ms. Whitfield',
+    role: "Nora's 3rd-grade teacher · school-day reports only",
+    childId: 'p_nora',
+    childName: 'Nora Ellison',
+    villageId: 'v_nora',
+    grants: ['school.read', 'school.report'],
+    parent: false,
+  },
+  {
     id: 'dwayne',
     personId: 'p_dwayne',
     email: 'dwayne.ferris@example.com',

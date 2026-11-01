@@ -71,6 +71,9 @@ export function createCastV2(): CastV2 {
     { id: 'p_malik', display_name: 'Malik Ferris', birth_date: '2017-05-21' },
     { id: 'p_cassandra', display_name: 'Cassandra Ferris', birth_date: '1992-01-30' },
     { id: 'p_oscar', display_name: 'Oscar Alvarez', birth_date: '1978-11-12' },
+    // Nora's teacher (TASK: teacher persona). Additive to the Ellison network like everything
+    // else here — no existing Ellison person, relationship or grant is touched.
+    { id: 'p_whitfield', display_name: 'Ms. Whitfield', birth_date: '1984-04-02' },
   ];
 
   const villages = [
@@ -122,6 +125,7 @@ export function createCastV2(): CastV2 {
     rel('r_cassandra_malik', 'p_cassandra', 'p_malik', 'aunt'),
     rel('r_oscar_malik', 'p_oscar', 'p_malik', 'neighbor'),
     rel('r_priya_malik', 'p_priya', 'p_malik', 'nanny'),
+    rel('r_whitfield_teacher', 'p_whitfield', 'p_nora', 'teacher'),
   ];
 
   const contact = (person: string, channel: string, value: string) => ({ person_id: person, channel, value, preferred: true, verified: true });
@@ -141,6 +145,10 @@ export function createCastV2(): CastV2 {
     { id: 'g_priya_malik', actor_id: 'p_priya', child_id: 'p_malik', scopes: ['careplan.read'], valid_from: null, valid_until: null, granted_by: 'p_dwayne' },
     { id: 'g_rosa_emma', actor_id: 'p_rosa', child_id: 'p_emma', scopes: ['schedule.read', 'careplan.read'], valid_from: null, valid_until: null, granted_by: 'p_rosa' },
     { id: 'g_tomas_emma', actor_id: 'p_tomas', child_id: 'p_emma', scopes: ['schedule.read', 'careplan.read'], valid_from: null, valid_until: null, granted_by: 'p_rosa' },
+    // Ms. Whitfield (TASK: teacher persona): school-day read + the new school.report write only.
+    // No careplan.read, no pickup.*, no transport.*, no contacts.* — nothing beyond the school
+    // subgraph for exactly one child. Granted by Kendra, the same as every other Nora-side grant.
+    { id: 'g_whitfield_school', actor_id: 'p_whitfield', child_id: 'p_nora', scopes: ['school.read', 'school.report'], valid_from: null, valid_until: null, granted_by: 'p_mom' },
   ];
 
   // 24 routines: four per network across the six networks (Ellison/Coleman get theirs here too).

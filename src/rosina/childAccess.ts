@@ -23,6 +23,7 @@ export const SCOPE = {
   schedule: 'schedule.read',
   careplan: 'careplan.read',
   school: 'school.read',
+  schoolReport: 'school.report',
   contacts: 'contacts.read',
   transport: 'transport.read',
   goals: 'goals.read',

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map } from 'lucide-react'
+import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map, List } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map'
+export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map' | 'activity'
 const routes = [
   { path: 'map', label: 'Village map', icon: Map },
   { path: 'today', label: 'Today', icon: Home },
   { path: 'mission-control', label: 'Mission Control', icon: LayoutDashboard },
+  { path: 'activity', label: 'Activity', icon: List },
   { path: 'orbit', label: 'Orbit', icon: Radar },
   { path: 'calendar', label: 'Family Calendar', icon: CalendarDays },
   { path: 'ask-rosina', label: 'Ask Rosina', icon: MessageCircle },

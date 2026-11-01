@@ -36,6 +36,7 @@ export const SCOPE = {
   goals: 'goals.read',
   careplan: 'careplan.read',
   school: 'school.read',
+  schoolReport: 'school.report',
   contacts: 'contacts.read',
   pickupVerify: 'pickup.verify',
   pickupRequest: 'pickup.request',

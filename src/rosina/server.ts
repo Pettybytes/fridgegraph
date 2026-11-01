@@ -22,6 +22,9 @@ import { createPhotoDescriptorsHandler } from './photoEndpoint';
 import { createMuseVisionClient, MUSE_VISION_MODEL } from './museVision';
 import { buildPhotoDeps } from './photoDeps';
 import type { VisionClient } from './photoDescriptors';
+import { createNoticePlanHandlers } from './noticeEndpoint';
+import { createSparkNoticeExtractor } from './noticeExtractor';
+import { buildScheduleReader, buildPickupRequester } from './noticeDeps';
 
 loadEnv();
 
@@ -34,6 +37,14 @@ const MCP_URL = process.env.ROSINA_MCP_URL ?? 'http://127.0.0.1:5050/mcp';
 const DEMO_CLOCK = process.env.DEMO_CLOCK === '1';
 const TIMEOUT_MS = Number(process.env.ROSINA_TIMEOUT_MS ?? 30_000);
 const RATE_LIMIT_PER_MIN = Number(process.env.ROSINA_RATE_LIMIT_PER_MIN ?? 20);
+
+// Notice → Plan. The router GraphQL endpoint reached AS THE CALLER (bearer forwarded, never a
+// service key); defaults to the MCP host with /graphql. The signing key is required — without it the
+// feature stays OFF rather than signing proposals with an insecure default. Scenario reference date
+// is explicit (contract §3.3).
+const GRAPHQL_URL = process.env.ROSINA_GRAPHQL_URL ?? MCP_URL.replace(/\/mcp\/?$/, '/graphql');
+const NOTICE_SIGNING_KEY = process.env.ROSINA_PROPOSAL_SIGNING_KEY ?? '';
+const NOTICE_SCENARIO_DATE = process.env.ROSINA_NOTICE_SCENARIO_DATE ?? '2026-10-26';
 
 const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
 
@@ -108,17 +119,23 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
 
   if (outcome === TIMEOUT || outcome === null) {
     console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} result=${outcome === TIMEOUT ? 'TIMEOUT' : 'ERROR'} latencyMs=${Date.now() - startedAt}`);
-    res.status(200).json({ reply: "I couldn't check that just now.", actions: [] });
+    res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null });
     return;
   }
 
   console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} latencyMs=${Date.now() - startedAt}`);
-  res.status(200).json({ reply: outcome.reply, actions: outcome.actions });
+  res.status(200).json({ reply: outcome.reply, actions: outcome.actions, schoolReportProposal: outcome.schoolReportProposal });
 }
 
 export function createRosinaApp() {
   const app = express();
-  app.use(express.json({ limit: '64kb' }));
+  const jsonSmall = express.json({ limit: '64kb' });
+  // The notice-plan routes carry an image/PDF, so they parse their own (larger) body; every other
+  // route keeps the 64kb cap. Mounting this as a gate keeps the global cap off exactly those paths.
+  app.use((req: Request, res: Response, next: (err?: unknown) => void) => {
+    if (req.path.startsWith('/api/rosina/notice-plan')) { next(); return; }
+    jsonSmall(req, res, next);
+  });
   // A malformed JSON body reaches here as a SyntaxError from express.json(); treat it the same
   // as any other invalid request rather than letting Express's default HTML error page through.
   app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {
@@ -128,7 +145,7 @@ export function createRosinaApp() {
   app.post('/api/rosina', (req, res) => {
     handleRosina(req, res).catch((error: unknown) => {
       console.error(`[rosina] unhandled: ${error instanceof Error ? error.message : 'unknown'}`);
-      if (!res.headersSent) res.status(200).json({ reply: "I couldn't check that just now.", actions: [] });
+      if (!res.headersSent) res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null });
     });
   });
 
@@ -150,6 +167,43 @@ export function createRosinaApp() {
   app.post('/api/rosina/photo-descriptors', (req, res) => {
     photoHandler(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'VISION_ERROR' }); });
   });
+
+  // Notice → Plan: prepare a review-only proposal, confirm it server-side. OFF unless a signing key
+  // and a model provider are both configured — no insecure default key, no guessed provider.
+  let noticeHandlers: ReturnType<typeof createNoticePlanHandlers> | null = null;
+  if (NOTICE_SIGNING_KEY) {
+    try {
+      const c = resolveProvider('meta');
+      noticeHandlers = createNoticePlanHandlers({
+        verify: async (h) => { const id = await verifyBearer(h); return id.ok ? { ok: true, personId: id.personId } : { ok: false }; },
+        rateLimiter: limiter,
+        scheduleReader: buildScheduleReader({ graphqlUrl: GRAPHQL_URL }),
+        extractor: createSparkNoticeExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model }),
+        requestPickup: buildPickupRequester({ graphqlUrl: GRAPHQL_URL }),
+        signingKey: NOTICE_SIGNING_KEY,
+        scenarioDate: NOTICE_SCENARIO_DATE,
+      });
+    } catch { noticeHandlers = null; }
+  }
+  if (noticeHandlers) {
+    const jsonLarge = express.json({ limit: '12mb' });
+    const h = noticeHandlers;
+    app.post('/api/rosina/notice-plan', jsonLarge, (req, res) => {
+      h.prepare(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'NOTICE_ERROR' }); });
+    });
+    app.post('/api/rosina/notice-plan/confirm', jsonLarge, (req, res) => {
+      h.confirm(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'NOTICE_ERROR' }); });
+    });
+    // Body-parser errors on the large routes (too large / malformed) — the early handler is before
+    // these routes and won't see them, so map them here.
+    app.use('/api/rosina/notice-plan', (err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {
+      if (err && typeof err === 'object' && (err as { type?: string }).type === 'entity.too.large') { res.status(413).json({ error: 'PAYLOAD_TOO_LARGE' }); return; }
+      if (err instanceof SyntaxError) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+      next(err);
+    });
+  } else {
+    console.log('[rosina] notice-plan OFF (set ROSINA_PROPOSAL_SIGNING_KEY and a model provider to enable)');
+  }
   return app;
 }
 
