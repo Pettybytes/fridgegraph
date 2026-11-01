@@ -49,7 +49,10 @@ export type VisionImage = { data: Uint8Array; contentType: string };
  * Meta vision endpoint and MUST NOT log the raw image.
  */
 export type VisionClient = {
-  describe(input: { image: VisionImage; childId: string; signal?: AbortSignal }): Promise<VisionResult>;
+  /** `vocabularyByKind` is this child's controlled vocabulary (allowed values per kind). The
+   *  model is given the allowed values so it can pick an in-vocabulary value for every visible
+   *  kind instead of a synonym that would be dropped; it still omits a kind it cannot see. */
+  describe(input: { image: VisionImage; childId: string; vocabularyByKind: ReadonlyMap<string, ReadonlySet<string>>; signal?: AbortSignal }): Promise<VisionResult>;
 };
 
 export type DroppedDescriptor = { key: string; value: string; reason: 'UNKNOWN_KEY' | 'NOT_IN_VOCABULARY' };
@@ -92,6 +95,7 @@ export async function proposePhotoDescriptors(input: {
   const result = await input.vision.describe({
     image: input.image,
     childId: input.childId,
+    vocabularyByKind: input.vocabularyByKind,
     signal: input.signal,
   });
 
