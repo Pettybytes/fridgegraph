@@ -1,7 +1,7 @@
 import { ResetDemoControl } from './ResetDemoControl'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Sprout } from 'lucide-react'
+import { FridgeMark } from '@/components/fg/FridgeMark'
 import { personas, personaGroups, type Persona } from './auth'
 import { useSession } from './Session'
 import { Avatar, Icon, Surface, StatusChip, FgButton, Field } from '@/components/fg/primitives'
@@ -64,7 +64,7 @@ export function PersonaPicker() {
   return (
     <main className="fg-picker">
       <header className="fg-picker-head">
-        <a className="fg-picker-brand" href="#/"><Sprout size={26} aria-hidden="true" />FridgeGraph</a>
+        <a className="fg-picker-brand" href="#/"><FridgeMark size={26} />FridgeGraph</a>
         <h1 className="fg-picker-title">The village it takes to raise a child, kept in one shared place.</h1>
         <p className="fg-picker-sub">Every person sees only what that family has shared with them. Choose a perspective to explore — no sign-in needed.</p>
         <div className="fg-picker-rosina">

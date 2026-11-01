@@ -232,9 +232,12 @@ body,
        reads as a field the content floats over, not a scrolling texture. No motion. */
     background-color: var(--fg-canvas);
     background-image:
+      url(/backdrop.svg),
       radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 42%, transparent), transparent 64%),
       radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 30%, transparent), transparent 58%),
       radial-gradient(1040px 1040px at 50% 120%, color-mix(in oklch, var(--rosina-violet) 28%, transparent), transparent 62%);
+    background-size: cover, auto, auto, auto;
+    background-position: center, 0 0, 0 0, 0 0;
     background-attachment: fixed;
     background-repeat: no-repeat;
     color: var(--fg-ink);
@@ -245,9 +248,12 @@ body,
   /* Dark mode needs higher-opacity glows to read over the dark canvas. */
   .dark body {
     background-image:
+      url(/backdrop.svg),
       radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 30%, transparent), transparent 60%),
       radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 34%, transparent), transparent 56%),
       radial-gradient(1040px 1040px at 50% 122%, color-mix(in oklch, var(--rosina-violet) 30%, transparent), transparent 60%);
+    background-size: cover, auto, auto, auto;
+    background-position: center, 0 0, 0 0, 0 0;
   }
   @media (prefers-contrast: more) { body, .dark body { background-image: none; } }
   html {

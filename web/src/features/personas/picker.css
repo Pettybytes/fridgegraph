@@ -44,9 +44,11 @@
   display: flex; align-items: center; gap: 13px; text-align: left; width: 100%;
   padding: 14px; min-height: 76px;
   border-radius: var(--radius-card);
-  border: 1px solid var(--fg-border);
-  background: color-mix(in oklch, var(--fg-surface) 78%, transparent); color: var(--fg-ink);
-  backdrop-filter: blur(16px) saturate(135%); -webkit-backdrop-filter: blur(16px) saturate(135%);
+  border: 1px solid color-mix(in oklch, var(--fg-border) 70%, transparent); color: var(--fg-ink);
+  /* Opaque behind the name/avatar (top-left), translucent toward the far corner so the
+     fridge-hero shapes visibly pass behind the card while text keeps AA. */
+  background: linear-gradient(145deg, color-mix(in oklch, var(--fg-surface) 90%, transparent) 0%, color-mix(in oklch, var(--fg-surface) 90%, transparent) 40%, color-mix(in oklch, var(--fg-surface) 55%, transparent) 100%);
+  backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
   cursor: pointer;
   transition: border-color var(--dur-feedback) var(--ease-out), background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
 }
@@ -71,3 +73,36 @@
 .fg-picker-family { display: grid; gap: 12px; max-width: 360px; }
 
 @media (hover: none) { .fg-pcard:hover { border-color: var(--fg-border); box-shadow: none; } }
+
+/* The picker's front door: ONE fridge — the family fridge covered in magnets, notes, a
+   photo and village ties — as a single object sitting lower-right, behind the cards and
+   clear of the text column. Soft colour fields fill the rest. */
+body:has(.fg-picker) {
+  background-image:
+    url(/fridge-appliance.svg),
+    radial-gradient(1000px 760px at 102% 118%, color-mix(in oklch, var(--rosina-periwinkle) 30%, transparent), transparent 60%),
+    radial-gradient(900px 680px at -4% -8%, color-mix(in oklch, var(--fg-primary) 16%, transparent), transparent 58%),
+    radial-gradient(900px 900px at 60% 50%, color-mix(in oklch, var(--rosina-violet) 12%, transparent), transparent 62%);
+  background-repeat: no-repeat;
+  background-position: right -36px bottom -24px, center, center, center;
+  background-size: min(40vw, 540px) auto, cover, cover, cover;
+  background-attachment: fixed;
+}
+.dark body:has(.fg-picker) {
+  background-image:
+    url(/fridge-appliance.svg),
+    radial-gradient(1000px 760px at 102% 118%, color-mix(in oklch, var(--rosina-periwinkle) 24%, transparent), transparent 58%),
+    radial-gradient(900px 680px at -4% -8%, color-mix(in oklch, var(--fg-primary) 26%, transparent), transparent 56%),
+    radial-gradient(900px 900px at 60% 50%, color-mix(in oklch, var(--rosina-violet) 20%, transparent), transparent 60%);
+}
+/* Narrow screens: drop the fridge object so it never crowds the copy. */
+@media (max-width: 1100px) {
+  body:has(.fg-picker), .dark body:has(.fg-picker) {
+    background-image:
+      radial-gradient(900px 700px at 102% 118%, color-mix(in oklch, var(--rosina-periwinkle) 26%, transparent), transparent 60%),
+      radial-gradient(800px 640px at -4% -8%, color-mix(in oklch, var(--fg-primary) 16%, transparent), transparent 58%);
+    background-position: center, center;
+    background-size: cover, cover;
+  }
+}
+@media (prefers-contrast: more) { body:has(.fg-picker), .dark body:has(.fg-picker) { background-image: none; } }

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" fill="none" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="door" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8ecf6"/><stop offset="55%" stop-color="#dfe4f2"/><stop offset="100%" stop-color="#d3d9ec"/>
+    </linearGradient>
+    <linearGradient id="brush" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5"/><stop offset="50%" stop-color="#ffffff" stop-opacity="0"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+
+  <!-- stainless fridge door surface -->
+  <rect width="1200" height="900" fill="url(#door)"/>
+  <g stroke="#c3cbe0" stroke-width="1" opacity="0.5">
+    <path d="M150 0V900M330 0V900M520 0V900M720 0V900M930 0V900M1090 0V900"/>
+  </g>
+  <rect width="1200" height="900" fill="url(#brush)"/>
+
+  <!-- village ties: thin strings connecting little people-magnets -->
+  <g stroke="#6b73c9" stroke-opacity="0.35" stroke-width="2.5" stroke-linecap="round" fill="none">
+    <path d="M300 230 L520 180 M520 180 L760 250 M520 180 L560 430 M300 230 L330 470 M760 250 L900 470 M560 430 L820 540 M330 470 L560 430"/>
+  </g>
+  <g>
+    <!-- people-magnets (child at centre, larger) -->
+    <circle cx="520" cy="180" r="34" fill="#f4a65b"/><circle cx="520" cy="180" r="34" fill="none" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="300" cy="230" r="26" fill="#7d8ae8"/><circle cx="300" cy="230" r="26" fill="none" stroke="#fff" stroke-width="4"/>
+    <circle cx="760" cy="250" r="26" fill="#58b79a"/><circle cx="760" cy="250" r="26" fill="none" stroke="#fff" stroke-width="4"/>
+    <circle cx="560" cy="430" r="24" fill="#c07be0"/><circle cx="560" cy="430" r="24" fill="none" stroke="#fff" stroke-width="4"/>
+    <circle cx="330" cy="470" r="22" fill="#e0677a"/><circle cx="330" cy="470" r="22" fill="none" stroke="#fff" stroke-width="4"/>
+    <circle cx="900" cy="470" r="22" fill="#5aa7d8"/><circle cx="900" cy="470" r="22" fill="none" stroke="#fff" stroke-width="4"/>
+    <circle cx="820" cy="540" r="20" fill="#e6a93f"/><circle cx="820" cy="540" r="20" fill="none" stroke="#fff" stroke-width="4"/>
+  </g>
+
+  <!-- sticky notes (slightly rotated), a photo, a crayon drawing -->
+  <g font-family="ui-sans-serif, system-ui" >
+    <g transform="rotate(-6 180 560)">
+      <rect x="110" y="500" width="140" height="130" rx="6" fill="#ffe08a"/>
+      <circle cx="180" cy="498" r="7" fill="#e0677a"/>
+      <path d="M128 540h104M128 562h104M128 584h72" stroke="#b9962f" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <g transform="rotate(5 1010 300)">
+      <rect x="930" y="230" width="160" height="150" rx="8" fill="#ffffff"/>
+      <rect x="930" y="230" width="160" height="150" rx="8" fill="none" stroke="#d6ddee" stroke-width="2"/>
+      <rect x="946" y="246" width="128" height="88" rx="4" fill="#cfe6f5"/>
+      <circle cx="986" cy="296" r="18" fill="#f3c9a0"/><path d="M968 330a18 18 0 0136 0z" fill="#7d8ae8"/>
+      <circle cx="1030" cy="300" r="15" fill="#f3c9a0"/><path d="M1015 330a15 15 0 0130 0z" fill="#e0677a"/>
+      <circle cx="1010" cy="226" r="7" fill="#58b79a"/>
+    </g>
+    <g transform="rotate(-3 720 700)">
+      <rect x="620" y="630" width="200" height="150" rx="8" fill="#fff6ea"/>
+      <rect x="620" y="630" width="200" height="150" rx="8" fill="none" stroke="#e7d9c4" stroke-width="2"/>
+      <path d="M648 740q40-70 80 0t80-6" stroke="#58b79a" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <circle cx="690" cy="676" r="16" fill="#ffd24d"/><path d="M690 692v20M690 712l-14 18M690 712l14 18" stroke="#e0677a" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="698" cy="628" r="7" fill="#c07be0"/>
+    </g>
+    <g transform="rotate(8 420 690)">
+      <rect x="360" y="640" width="120" height="110" rx="6" fill="#bfe3d3"/>
+      <circle cx="420" cy="638" r="7" fill="#7d8ae8"/>
+      <path d="M378 676h84M378 698h84M378 720h48" stroke="#3f7d68" stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>
