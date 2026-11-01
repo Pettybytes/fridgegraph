@@ -102,7 +102,7 @@ it('keeps Priya and review-only field trips without a confirm button',async()=>{
  const doConfirm=vi.fn<NoticeAdapter['confirm']>()
  const view=await reviewConfirmable({mode:'mock',prepare,confirm:doConfirm},false)
  expect(screen.queryByRole('button',{name:/Confirm mock pickup/})).not.toBeInTheDocument()
- expect(screen.getByText(/Only Nora’s parent or guardian/)).toBeVisible()
+ expect(screen.getByText(/Only this child’s parent or guardian/)).toBeVisible()
  view.unmount()
  render(<NoticeReview proposal={{...proposal,changes:[{...proposal.changes[0],what:'Field trip',onConfirm:{available:false,note:'Noted, no action available.'}}]}} submittedText="Dismissal at 12:30." busy={false} canConfirm onAnswer={()=>{}}/>)
  expect(screen.getByText('Field trip')).toBeVisible()

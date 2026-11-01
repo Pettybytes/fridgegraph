@@ -22,7 +22,7 @@ export function NoticeReview({proposal,submittedText,busy,canConfirm=false,confi
    </article>
   })}
   {matchingAction&&!proposal.clarification&&canConfirm&&!confirmed&&<Button className="notice-control" type="button" disabled={busy||confirmDisabled} onClick={onConfirm}>Confirm mock pickup request</Button>}
-  {matchingAction&&!proposal.clarification&&!canConfirm&&!confirmed&&<p>Only Nora’s parent or guardian can confirm this pickup request.</p>}
+  {matchingAction&&!proposal.clarification&&!canConfirm&&!confirmed&&<p>Only this child’s parent or guardian can confirm this pickup request.</p>}
   {confirmed&&<div role="status" className="notice-confirmed"><strong>Mock pickup request shown</strong><p>No real record was created, and pickup is not arranged yet.</p><a href="#/mission-control">View Mission Control</a></div>}
  </section>
 }
