@@ -4,6 +4,7 @@ import {
   SCOPE,
   authorizeChild,
   deny,
+  hasScope,
   householdIdsOfChild,
   isParentOf,
   refuseDemoGuideWrite,
@@ -24,6 +25,7 @@ const typeDefs = parse(`
 
   type Mutation {
     approveConsent(slipId: ID!): SlipDecision!
+    reportSchoolDay(childId: ID!, kind: String!, text: String!): SchoolReport!
   }
 
   type Person @key(fields: "id") {
@@ -62,6 +64,29 @@ const typeDefs = parse(`
 type SlipRow = { id: string; child_id: string; title: string; signed: boolean };
 
 type DecisionRow = { approver_id: string; decision: string; at: string };
+
+type ReportRow = { id: string; child_id: string; kind: string; text: string; at: string };
+
+function toReport(r: ReportRow) {
+  return {
+    id: String(r.id),
+    child: { id: String(r.child_id) },
+    kind: String(r.kind),
+    text: String(r.text),
+    at: String(r.at).slice(0, 10),
+  };
+}
+
+/**
+ * Who may FILE a school-day report: a `school.report` grant holder, same shape as every other
+ * scope check. Deliberately NOT `authorizeChild` / `isParentOf` — filing a report is staff writing
+ * TO a parent, never a parent writing about their own child, so a parent with no such grant is
+ * refused here exactly like anyone else. Reading the filed report stays on `school.read`
+ * (`authorizeChild`, unchanged) and that already includes every parent.
+ */
+async function mayReportSchoolDay(ctx: Ctx, childId: string, onDate: string): Promise<boolean> {
+  return hasScope(ctx, childId, SCOPE.schoolReport, onDate);
+}
 
 function toDecision(slipId: string, childId: string, d: DecisionRow) {
   return {
@@ -131,13 +156,7 @@ const resolvers = {
           .select('id,child_id,kind,text,at')
           .eq('child_id', childId),
       );
-      return data.map((r) => ({
-        id: String(r.id),
-        child: { id: String(r.child_id) },
-        kind: String(r.kind),
-        text: String(r.text),
-        at: String(r.at).slice(0, 10),
-      }));
+      return data.map((r) => toReport(r as ReportRow));
     },
     permissionSlips: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       await authorizeChild(ctx, childId, SCOPE.school);
@@ -199,6 +218,31 @@ const resolvers = {
       const decided = await existingDecision(ctx, String(slip.id));
       if (!decided) throw deny();
       return toDecision(String(slip.id), childId, decided);
+    },
+
+    reportSchoolDay: async (
+      _: unknown,
+      { childId, kind, text }: { childId: string; kind: string; text: string },
+      ctx: Ctx,
+    ) => {
+      // The guide observes and never decides (same rule as approveConsent); refused again in the
+      // database (0070's school_reports_insert policy checks school.report, which the guide never
+      // holds).
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+
+      if (!(await mayReportSchoolDay(ctx, childId, ctx.today))) throw deny();
+
+      const id = `sr_${randomUUID()}`;
+      const inserted = (await one(
+        dbFor(ctx)
+          .from('school_reports')
+          .insert({ id, child_id: childId, kind, text, at: ctx.today })
+          .select('id,child_id,kind,text,at')
+          .maybeSingle(),
+      )) as ReportRow | null;
+      if (!inserted) throw deny();
+      return toReport(inserted);
     },
   },
 

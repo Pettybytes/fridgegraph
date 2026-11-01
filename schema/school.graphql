@@ -7,6 +7,7 @@ type Query {
 
 type Mutation {
   approveConsent(slipId: ID!): SlipDecision!
+  reportSchoolDay(childId: ID!, kind: String!, text: String!): SchoolReport!
 }
 
 type Person @key(fields: "id") {
