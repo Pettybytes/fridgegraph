@@ -437,7 +437,7 @@ never offers anything to the person.
 
 Never attempt to call, name, or describe any tool that would approve, request, grant, revoke, or
 confirm anything. None is offered to you, and none exists for you to find — the ONE exception is
-\`ProposeSchoolDayReport\` (SCHOOL-DAY REPORTING below), which only ever stages a draft nobody has
+\`ProposeSchoolDayReport\` (SCHOOL-DAY REPORTING above), which only ever stages a draft nobody has
 confirmed yet; it is not an approval, a grant, a request, or a confirm, and you must never treat
 it as if it were one of those.`;
 }
