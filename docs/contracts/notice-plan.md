@@ -247,11 +247,13 @@ return **one** good clarifying question in `clarification` **instead of guessing
 with:
 
 ```
-POST /api/rosina/notice-plan   { childId, resume: { proposalId, version, answer: "Nov 7" } }
+POST /api/rosina/notice-plan   { childId, notice, resume: { proposalId, version, answer: "Nov 7" } }
 ```
 
-The answer **resumes the same proposal** (same `proposalId`, `version` bumped) — it does not start a
-new one. Only one open question at a time.
+The original **`notice` must be resent** alongside `resume` — the handler re-runs extraction with the
+answer, so a resume-only body (no `notice`) is rejected `400 INVALID_REQUEST` (`parseNotice`). The
+answer **resumes the same proposal** (same `proposalId`, `version` bumped) — it does not start a new
+one. Only one open question at a time.
 
 ### 4c. Expiry, version & signing (stateless — no new DB table)
 
@@ -274,27 +276,35 @@ an **HMAC-signed** envelope. The signature covers:
 `POST /api/rosina/notice-plan/confirm`
 
 ```jsonc
-{ "proposalId": "np_...", "version": 2, "childId": "p_nora",
-  "action": "requestPickup", "params": { "asOf": "2026-11-03", "window": "afternoon" },
+{ "claims": { /* the exact SignedClaims object from the prepare envelope, echoed verbatim:
+                 proposalId, version, callerId, childId, scenarioDate, action, params,
+                 scheduleFingerprint, expiresAt */ },
   "signature": "<hmac from the envelope>" }
 ```
 
+The client echoes the prepare envelope's `claims` + `signature` **verbatim** — it does not
+reconstruct the flat fields itself. Before verifying, the server **replaces `claims.callerId` with
+the authenticated person id** (never trusting the body), so a different caller's token produces
+different claims and the signature fails — this is the caller binding.
+
 Server steps, in order, each a hard gate:
 
-1. **Verify signature** over the exact `{caller, child, version, action, params, fingerprint, expiry}`.
-   Mismatch / tampered params → `400 INVALID_PROPOSAL`.
-2. **Re-authenticate** the bearer; **re-authorize** the caller as parent/guardian of `childId` *now*
-   (not trusting the token's claim alone). Failure → `403 UNAUTHORIZED` (generic; no oracle). Priya
-   and other limited personas land here even if a button were shown.
+1. **Verify signature** over the exact echoed `claims`, with `callerId` set to the authenticated
+   person (see above). Mismatch / tampered field → `400 INVALID_PROPOSAL`. A missing/!object `claims`
+   or missing `signature` is also `400 INVALID_PROPOSAL`.
+2. **Re-authorize** the caller: because `callerId` is taken from the authenticated bearer, a caller
+   who did not prepare the proposal fails signature verification at step 1; the parent/guardian check
+   itself is enforced by `requestPickup` (step 5) and the schedule re-read (step 4). Priya and other
+   limited personas are refused there even if a button were shown.
 3. **Expiry:** `now > expiresAt` → `410 PROPOSAL_EXPIRED`.
 4. **Stale check:** re-read the schedule, recompute `scheduleFingerprint`; if it differs materially
    from the signed one → `409 PROPOSAL_STALE` (re-prepare required).
 5. **Act:** call `requestPickup(childId, asOf, window)` exactly once. Its own idempotency key makes a
    double-click / network retry return the **same** job — never a second job. Review-only proposals
    (`onConfirm.available=false`) → `422 NO_ACTION_AVAILABLE`; nothing is called.
-6. **Return** the `CoordinationJob` (id, status, version). The parent's real decision continues in
-   Mission Control (candidates → Kendra's approval). **No calendar event is written** (that needs
-   Bentley); the confirm's only write is the coordination job via `requestPickup`.
+6. **Return** `{ "job": { "id", "status" } }` (no `version` field). The parent's real decision
+   continues in Mission Control (candidates → Kendra's approval). **No calendar event is written**
+   (that needs Bentley); the confirm's only write is the coordination job via `requestPickup`.
 
 ### 5.3 Dismissal-time → window mapping (the only granularity requestPickup accepts)
 
@@ -312,7 +322,13 @@ window. The proposal text makes this explicit so no false precision is implied.
 | 410 | `PROPOSAL_EXPIRED` | past `expiresAt` |
 | 409 | `PROPOSAL_STALE` | schedule changed since prepare |
 | 422 | `NO_ACTION_AVAILABLE` | review-only proposal, nothing to confirm |
-| 200 | — | job returned (idempotent on retry) |
+| 502 | `PICKUP_FAILED` | `requestPickup` failed for a non-authorization reason |
+| 200 | — | `{ job: { id, status } }` returned (idempotent on retry) |
+
+Prepare (`POST /api/rosina/notice-plan`) errors, for completeness: `400 INVALID_REQUEST` (missing/
+malformed body, including a resume with no `notice`), `415 UNSUPPORTED_MEDIA_TYPE`, `413
+PAYLOAD_TOO_LARGE`, `501 PDF_NOT_SUPPORTED`, `502 EXTRACTION_FAILED`, and `403 UNAUTHORIZED` (child
+not visible to the caller).
 
 ---
 
