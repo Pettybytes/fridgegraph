@@ -11,6 +11,7 @@ async page=>{
   else if(op==='WebOrbitStatus')data.orbitStatus={alertId:null,status:null,audienceCount:0,notifiedCount:0,latestResponses:[],guidance:'If there is an emergency, call 911.'}
   else if(op==='WebOrbitCheck')data.checkInStatus={recorded:true,label:'Check-in',text:'Check-in recorded',dueAt:null,guidance:'If there is an emergency, call 911.'}
   else if(op==='WebOrbitVocabulary')data.orbitVocabulary=[]
+  if(!Object.keys(data).length)return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({errors:[{message:'Controlled read unavailable',extensions:{code:'UNAUTHORIZED'}}]})})
   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({data})})
  })
  await page.goto('http://127.0.0.1:5189/scripts/signature-app-design.html')

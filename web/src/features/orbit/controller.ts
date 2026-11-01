@@ -2,7 +2,7 @@ import {ActivityLedger} from '@/components/signature/activityLedger'
 import {descriptorKeys,vocabularyKinds,orbitError} from './adapter'
 import type {OrbitAdapter,CheckIn,Vocabulary,Descriptors,DescriptorKey,Alert,Status,Preview,ResponseChoice} from './adapter'
 export type Phase='loading'|'idle'|'editing'|'preparing'|'preview'|'activating'|'active'|'closed'|'unavailable'
-export type OrbitState={phase:Phase;busy:string|null;check:CheckIn|null;vocabulary:Vocabulary[];values:Descriptors;photoId?:string;preview:Preview|null;alert:Alert|null;status:Status|null;error:string;guidance:string;authority:boolean;revision:number;previewRevision:number;closeConfirm:boolean;started:boolean}
+export type OrbitState={phase:Phase;acknowledgedClosure?:{alertId:string;personId:string};busy:string|null;check:CheckIn|null;vocabulary:Vocabulary[];values:Descriptors;photoId?:string;preview:Preview|null;alert:Alert|null;status:Status|null;error:string;guidance:string;authority:boolean;revision:number;previewRevision:number;closeConfirm:boolean;started:boolean}
 export type OrbitScope={childId:string;personId:string;parent:boolean;readOnly:boolean;generation:number}
 export function overdue(check:CheckIn|null,now=Date.now()){return !!check&&!check.recorded&&!!check.dueAt&&Number.isFinite(Date.parse(check.dueAt))&&Date.parse(check.dueAt)<now}
 export class OrbitController{
@@ -113,7 +113,7 @@ export class OrbitController{
   if(!this.current()||!this.state.closeConfirm||!this.state.authority||this.scope.readOnly||this.state.busy||!this.state.alert)return
   ++this.operation
   const id=this.state.alert.id;this.patch({busy:'close',closeConfirm:false,error:''})
-  try{const alert=await this.adapter.close(id);this.record(alert)}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
+  try{const alert=await this.adapter.close(id);this.record(alert);if(alert.status==='CLOSED')this.patch({acknowledgedClosure:{alertId:alert.id,personId:this.scope.personId}})}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
  }
  async upload(file:File){
   if(!this.state.started||!this.canPrepare())return

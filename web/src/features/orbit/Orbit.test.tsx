@@ -92,3 +92,15 @@ it('rejects a preview returned for a different draft version even without a loca
  const {adapter,controller}=fixture();vi.mocked(adapter.preview).mockResolvedValue({draftId:'oa_test',draftVersion:2,message:'Mismatched preview',messageHash:'wrong-version-binding',audienceSize:3,guidance})
  render(<Wrapper controller={controller}><OrbitView controller={controller}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'));await waitFor(()=>expect(controller.canPrepare()).toBe(true));await act(async()=>controller.prepare({childId:'p_nora'}));expect(screen.getByRole('alert')).toBeVisible();expect(screen.queryByText('Mismatched preview')).not.toBeInTheDocument();expect(screen.queryByText("Here's the exact preview")).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeDisabled();expect(adapter.activate).not.toHaveBeenCalled()
 })
+
+it('names the closer only after this perspective receives a successful close result',async()=>{
+ const {controller,adapter}=fixture()
+ const alert={id:'oa_closed_test',status:'ACTIVE',child:{id:'p_nora'},message:'Recorded message',share:{photoId:null},activatedAt:null,closedAt:null,audience:[],responses:[],latestResponses:[],guidance}
+ vi.mocked(adapter.status).mockResolvedValue({alertId:alert.id,status:'ACTIVE',audienceCount:0,notifiedCount:0,latestResponses:[],guidance})
+ vi.mocked(adapter.alert).mockResolvedValue(alert)
+ vi.mocked(adapter.close).mockResolvedValue({...alert,status:'CLOSED',closedAt:'2026-10-31T20:00:00Z'})
+ render(<Wrapper controller={controller}><OrbitView controller={controller}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'))
+ await screen.findByRole('button',{name:'Close Orbit'});expect(screen.queryByText(/Closed by/)).not.toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Close Orbit'}));fireEvent.click(screen.getByRole('button',{name:'Confirm close Orbit'}))
+ await screen.findByRole('heading',{name:'Closed by Kendra'});expect(adapter.close).toHaveBeenCalledTimes(1)
+})
