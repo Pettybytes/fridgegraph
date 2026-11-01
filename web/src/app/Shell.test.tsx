@@ -8,9 +8,9 @@ beforeEach(() => { window.location.hash = '' })
 describe('app shell', () => {
   it('opens the persona picker before private Mission Control data', async () => {
     render(<App />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Explore FridgeGraph as…')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('The village it takes to raise')
     fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
-    expect(await screen.findByRole('heading', { level: 1, name: 'Mission Control' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeVisible()
     expect(screen.getByText('Fictional demo')).toBeVisible()
   })
   it('supports direct links and an injectable Living Village slot', () => {

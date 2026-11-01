@@ -28,6 +28,8 @@ import { FamilyCalendar } from '@/features/calendar/FamilyCalendar'
 import { createMockCalendarAdapter } from '@/features/calendar/mockAdapter'
 import { CareInformation } from '@/features/personas/careInformation'
 import { PersonaAccessState } from '@/features/personas/PersonaAccessState'
+import { Today } from '@/features/today/Today'
+import { ChildAccessProvider } from '@/features/personas/childContext'
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   const { session } = useSession()
@@ -53,14 +55,16 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
     return {adapter:createPersonaDataAdapter(session),calendar:null,mockCalendar:createMockCalendarAdapter(session.persona.personId),orbit:null,client:null}
   },[session?.generation,authMode,getCurrentSession,getSessionGeneration,runRead,orbitNow])
   const adapter=connection?.adapter
-  if (switching) return <><PersonaPicker key="switching" /><RosinaPanel key="switching-rosina" /></>
-  if (!session || !adapter) return <><PersonaPicker key="picker" /><RosinaPanel key="entry-rosina" /></>
+  if (switching) return <PersonaPicker key="switching" />
+  if (!session || !adapter) return <PersonaPicker key="picker" />
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <SessionChip />
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
+      <ChildAccessProvider client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
+        today: <Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} />,
         'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
         orbit:<Orbit/>,
         'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
@@ -69,6 +73,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
         village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} />
+      </ChildAccessProvider>
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
   </div>
 }

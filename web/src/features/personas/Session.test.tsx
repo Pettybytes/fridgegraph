@@ -50,6 +50,7 @@ describe('persona sessions', () => {
     window.location.hash = ''
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
+    window.location.hash = '#/mission-control'; fireEvent(window, new HashChangeEvent('hashchange'))
     await screen.findByRole('button', { name: 'Select Tasha Ellison' })
     fireEvent.click(screen.getByRole('button', { name: 'Switch person' }))
     expect(screen.queryByRole('button', { name: 'Select Tasha Ellison' })).not.toBeInTheDocument()

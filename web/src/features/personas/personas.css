@@ -18,8 +18,9 @@
 .persona-tone-2 .persona-initial { background: #e9e4da; color: #786243; }
 .persona-tone-3 .persona-initial { background: #dcece6; color: #386c5a; }
 .persona-tools { display: flex; justify-content: space-between; margin-top: 1.8rem; }
-.persona-tools button, .session-chip button { color: #624389; background: transparent; text-decoration: underline; text-underline-offset: .25rem; cursor: pointer; }
-.session-chip { padding: .8rem 1.25rem; background: white; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .5rem 1rem; font-size: .85rem; border-bottom: 1px solid #e0e5ee; }
+.persona-tools button, .session-chip button { color: var(--fg-primary); background: transparent; text-decoration: underline; text-underline-offset: .25rem; cursor: pointer; }
+/* Theme-aware: literal white bg left the chip text white-on-white in dark mode. */
+.session-chip { padding: .8rem 1.25rem; background: var(--fg-surface); color: var(--fg-ink); display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .5rem 1rem; font-size: .85rem; border-bottom: 1px solid var(--fg-border); }
 .demo-family { margin-top: 2rem; padding: 1.5rem; border-left: 3px solid #7559a1; background: white; }
 .demo-family h2 { font-size: 1.25rem; font-weight: 650; }
 .demo-family p { margin: .8rem 0; color: #56667e; }

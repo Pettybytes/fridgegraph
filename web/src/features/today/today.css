@@ -1,0 +1,77 @@
+/* Kendra's Today. Bound by docs/contracts/design.md. Mobile-first (390),
+   then a clear main story + quiet supporting rail on desktop. One accent
+   (indigo) per view; warm paper canvas; restrained depth. */
+
+.fg-today { display: grid; gap: 20px; max-width: 1180px; }
+.fg-today-main, .fg-today-aside { display: grid; gap: 16px; align-content: start; }
+
+@media (min-width: 960px) {
+  .fg-today { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 28px; align-items: start; }
+}
+
+/* Greeting */
+.fg-today-greet { display: grid; gap: 6px; }
+.fg-today-date { margin: 0; font-size: 13px; color: var(--fg-muted); font-weight: 500; }
+.fg-today-hi { margin: 0; font-size: clamp(24px, 4vw, 32px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; text-wrap: balance; }
+.fg-today-context { margin-top: 4px; justify-self: start; }
+
+/* Ask Rosina */
+.fg-today-rosina { display: grid; gap: 14px; }
+.fg-today-rosina-head { display: flex; gap: 12px; align-items: center; }
+.fg-today-rosina-head h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.fg-today-rosina-head p { margin: 2px 0 0; font-size: 13px; color: var(--fg-muted); line-height: 1.5; text-wrap: pretty; }
+
+/* The next-attention hero sits first and reads as the primary thing to act on. */
+.fg-today-hero { display: grid; scroll-margin-top: 1rem; }
+.fg-today-hero:empty { display: none; }
+
+/* Section heads */
+.fg-today-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.fg-today-section-head h3 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -0.005em; }
+.fg-today-link { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 550; color: var(--fg-primary); text-decoration: none; }
+.fg-today-link svg { width: 15px; height: 15px; }
+.fg-today-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.fg-today-empty { margin: 0; font-size: 13px; color: var(--fg-muted); line-height: 1.6; }
+
+/* Recorded activity */
+.fg-today-events { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 2px; }
+.fg-today-events li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--fg-border); }
+.fg-today-events li:last-child { border-bottom: 0; }
+.fg-today-event-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-muted); }
+.fg-today-event-dot[data-kind='confirmation'] { background: var(--fg-withme); }
+.fg-today-event-dot[data-kind='cost_calculated'] { background: var(--fg-onway); }
+.fg-today-event-summary { font-size: 13px; line-height: 1.45; min-width: 0; }
+.fg-today-event-when { font-size: 12px; color: var(--fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Children */
+.fg-today-childlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fg-childrow { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
+.fg-today-childlist li + li .fg-childrow { border-top: 1px solid var(--fg-border); }
+.fg-childrow-body { min-width: 0; display: grid; gap: 6px; }
+.fg-childrow-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fg-childrow-name strong { font-size: 14px; font-weight: 600; }
+/* Scopes collapse into one quiet line; the detail list expands on demand. */
+.fg-childrow-scopes { font-size: 12px; }
+.fg-childrow-scopes > summary { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--fg-muted); list-style: none; }
+.fg-childrow-scopes > summary::-webkit-details-marker { display: none; }
+.fg-childrow-scopes-view { color: var(--fg-primary); font-weight: 550; }
+.fg-childrow-scopes[open] .fg-childrow-scopes-view { visibility: hidden; }
+.fg-childrow-scopelist { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.fg-scope-tag { font-size: 11px; font-weight: 550; color: var(--fg-muted); background: color-mix(in oklch, var(--fg-ink) 5%, transparent); border: 1px solid var(--fg-border); border-radius: var(--radius-chip); padding: 2px 7px; white-space: nowrap; }
+.fg-childrow-noscope { font-size: 12px; color: var(--fg-muted); }
+
+/* Village preview cluster */
+.fg-today-cluster { display: flex; align-items: center; margin-bottom: 10px; }
+.fg-today-cluster .fg-avatar { margin-left: -8px; box-shadow: 0 0 0 3px var(--fg-surface); }
+.fg-today-cluster .fg-avatar:first-child { margin-left: 0; }
+.fg-today-cluster-more { margin-left: -4px; display: inline-grid; place-items: center; height: 40px; min-width: 40px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--fg-selection); color: var(--fg-primary); font-size: 13px; font-weight: 600; box-shadow: 0 0 0 3px var(--fg-surface); }
+.fg-today-village-count { margin: 0; font-size: 12px; color: var(--fg-muted); }
+
+/* Skeletons (structural loading, no motion needed) */
+.fg-skel-list { display: grid; gap: 10px; }
+.fg-skel-list span { height: 16px; border-radius: var(--radius-chip); background: color-mix(in oklch, var(--fg-ink) 7%, transparent); }
+.fg-skel-list span:nth-child(2) { width: 85%; }
+.fg-skel-list span:nth-child(3) { width: 60%; }
+.fg-skel-cluster { display: flex; gap: 8px; }
+.fg-skel-cluster span { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in oklch, var(--fg-ink) 7%, transparent); }

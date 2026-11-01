@@ -1,0 +1,257 @@
+/* FridgeGraph primitives. Bound by docs/contracts/design.md.
+   Motion is crisp and quiet (the product's mood): transform/opacity only,
+   feedback ≤160ms, custom ease-out, and it all collapses under reduced motion
+   via the global rule in index.css. One accent per view; status is always
+   carried by text + icon as well as colour. */
+
+/* ── Surface / card ───────────────────────────────────────────────────── */
+.fg-surface {
+  background: var(--fg-surface);
+  border: 1px solid var(--fg-border);
+  border-radius: var(--radius-card);
+  color: var(--fg-ink);
+}
+.fg-surface[data-elevated='true'] {
+  background: var(--fg-elevated);
+  border-color: color-mix(in oklch, var(--fg-border) 70%, transparent);
+  box-shadow: 0 1px 2px oklch(0.2 0.03 270 / 0.04), 0 8px 24px -12px oklch(0.2 0.03 270 / 0.12);
+}
+.fg-surface[data-pad='true'] { padding: clamp(16px, 2vw, 20px); }
+/* Concentric nested surface: inner radius = card radius − its inset. */
+.fg-nested {
+  background: color-mix(in oklch, var(--fg-ink) 3%, var(--fg-surface));
+  border: 1px solid var(--fg-border);
+  border-radius: var(--radius-nested);
+}
+
+/* ── Status chip ──────────────────────────────────────────────────────── */
+.fg-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 550; line-height: 1.3;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.fg-chip svg { width: 13px; height: 13px; }
+.fg-chip[data-tone='neutral'] { background: color-mix(in oklch, var(--fg-ink) 6%, transparent); color: var(--fg-muted); }
+.fg-chip[data-tone='brand']   { background: var(--fg-selection); color: var(--fg-primary); }
+.fg-chip[data-tone='onway']   { background: color-mix(in oklch, var(--fg-onway) 20%, var(--fg-surface)); color: var(--fg-onway-ink); }
+.fg-chip[data-tone='withme']  { background: color-mix(in oklch, var(--fg-withme) 20%, var(--fg-surface)); color: var(--fg-withme-ink); }
+.fg-chip[data-tone='simulated'] { background: color-mix(in oklch, var(--fg-simulated) 14%, transparent); color: var(--fg-muted); border-color: color-mix(in oklch, var(--fg-simulated) 35%, transparent); border-style: dashed; }
+.fg-chip[data-tone='real']    { background: color-mix(in oklch, var(--fg-real) 16%, var(--fg-surface)); color: var(--fg-real); }
+.fg-chip[data-tone='attention'] { background: color-mix(in oklch, var(--fg-attention) 14%, var(--fg-surface)); color: var(--fg-attention); }
+
+/* ── Source chip (grounded provenance) ────────────────────────────────── */
+.fg-source {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: var(--radius-chip);
+  background: color-mix(in oklch, var(--fg-ink) 4%, transparent);
+  border: 1px solid var(--fg-border);
+  font-size: 12px; color: var(--fg-muted);
+}
+.fg-source svg { width: 13px; height: 13px; flex: 0 0 auto; color: var(--fg-primary); }
+.fg-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Avatar (monogram until Muse art) ─────────────────────────────────── */
+.fg-avatar {
+  display: inline-grid; place-items: center;
+  width: var(--sz, 40px); height: var(--sz, 40px);
+  border-radius: 50%;
+  background: var(--fg-selection);
+  color: var(--fg-primary);
+  font-weight: 650; letter-spacing: -0.01em;
+  font-size: calc(var(--sz, 40px) * 0.4);
+  flex: 0 0 auto;
+  user-select: none;
+  overflow: hidden;
+}
+.fg-avatar[data-kind='child'] { background: color-mix(in oklch, var(--fg-primary) 14%, var(--fg-surface)); }
+.fg-avatar[data-kind='adult'] { background: color-mix(in oklch, var(--fg-ink) 8%, var(--fg-surface)); color: var(--fg-ink); }
+.fg-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Inline feedback (status / completion / warning / error) ──────────── */
+.fg-feedback {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 13px;
+  border-radius: var(--radius-nested);
+  font-size: 13px; line-height: 1.5;
+  border: 1px solid var(--fg-border);
+  background: var(--fg-surface);
+  color: var(--fg-ink);
+}
+.fg-feedback svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; }
+.fg-feedback[data-tone='info'] svg { color: var(--fg-primary); }
+.fg-feedback[data-tone='success'] { background: color-mix(in oklch, var(--fg-withme) 10%, var(--fg-surface)); border-color: color-mix(in oklch, var(--fg-withme) 30%, var(--fg-border)); }
+.fg-feedback[data-tone='success'] svg { color: var(--fg-withme-ink); }
+.fg-feedback[data-tone='warning'] { background: color-mix(in oklch, var(--fg-onway) 12%, var(--fg-surface)); border-color: color-mix(in oklch, var(--fg-onway) 32%, var(--fg-border)); }
+.fg-feedback[data-tone='warning'] svg { color: var(--fg-onway-ink); }
+.fg-feedback[data-tone='error'] { background: color-mix(in oklch, var(--fg-attention) 9%, var(--fg-surface)); border-color: color-mix(in oklch, var(--fg-attention) 30%, var(--fg-border)); }
+.fg-feedback[data-tone='error'] svg { color: var(--fg-attention); }
+
+/* ── Field + composer ─────────────────────────────────────────────────── */
+.fg-field { display: grid; gap: 6px; }
+.fg-field > label { font-size: 13px; font-weight: 550; color: var(--fg-ink); }
+.fg-field input, .fg-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--fg-border);
+  border-radius: var(--radius-control);
+  background: var(--fg-surface);
+  color: var(--fg-ink);
+  font: inherit; font-size: 14px;
+  transition: border-color var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
+}
+.fg-field input::placeholder, .fg-field textarea::placeholder { color: var(--fg-muted); }
+.fg-field input:focus-visible, .fg-field textarea:focus-visible {
+  outline: none;
+  border-color: var(--fg-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 30%, transparent);
+}
+.fg-field .fg-field-error { font-size: 12px; color: var(--fg-attention); }
+
+.fg-composer {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px 7px 14px;
+  border: 1px solid var(--fg-border);
+  border-radius: var(--radius-pill);
+  background: var(--fg-surface);
+  transition: border-color var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
+}
+.fg-composer:focus-within { border-color: var(--fg-primary); box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 25%, transparent); }
+.fg-composer input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg-ink); font: inherit; font-size: 14px; }
+.fg-composer input:focus-visible { outline: none; }
+.fg-composer input::placeholder { color: var(--fg-muted); }
+
+/* ── Icon button ──────────────────────────────────────────────────────── */
+.fg-iconbtn {
+  display: inline-grid; place-items: center;
+  width: 40px; height: 40px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  background: transparent; color: var(--fg-ink);
+  cursor: pointer;
+  transition: background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out);
+}
+.fg-iconbtn svg { width: 18px; height: 18px; }
+.fg-iconbtn:hover { background: color-mix(in oklch, var(--fg-ink) 6%, transparent); }
+.fg-iconbtn:active { transform: scale(0.94); }
+.fg-iconbtn[data-variant='brand'] { background: var(--fg-primary); color: var(--fg-on-primary); }
+.fg-iconbtn[data-variant='brand']:hover { background: var(--fg-primary-hover); }
+.fg-iconbtn:disabled { opacity: 0.5; pointer-events: none; }
+
+/* ── Primary/secondary pressables (when not using the shadcn Button) ───── */
+.fg-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), border-color var(--dur-feedback) var(--ease-out);
+}
+.fg-btn:active { transform: scale(0.98); }
+.fg-btn:disabled { opacity: 0.55; pointer-events: none; }
+.fg-btn svg { width: 16px; height: 16px; }
+.fg-btn[data-variant='primary'] { background: var(--fg-primary); color: var(--fg-on-primary); }
+.fg-btn[data-variant='primary']:hover { background: var(--fg-primary-hover); }
+.fg-btn[data-variant='secondary'] { background: var(--fg-surface); color: var(--fg-ink); border-color: var(--fg-border); }
+.fg-btn[data-variant='secondary']:hover { background: color-mix(in oklch, var(--fg-ink) 4%, var(--fg-surface)); }
+.fg-btn[data-variant='quiet'] { background: transparent; color: var(--fg-primary); }
+.fg-btn[data-variant='quiet']:hover { background: var(--fg-selection); }
+.fg-btn[data-loading='true'] { color: transparent; position: relative; }
+.fg-btn[data-loading='true']::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%;
+  color: var(--fg-on-primary);
+  animation: fg-spin 0.7s linear infinite;
+}
+@keyframes fg-spin { to { transform: rotate(360deg); } }
+
+@media (hover: none) {
+  .fg-iconbtn:hover, .fg-btn[data-variant='secondary']:hover, .fg-btn[data-variant='quiet']:hover { background: initial; }
+}
+
+/* ── Rosina avatar ────────────────────────────────────────────────────── */
+.fg-rosina { position: relative; display: inline-grid; place-items: center; width: var(--sz, 40px); height: var(--sz, 40px); flex: 0 0 auto; }
+/* .fg-rosina-art is defined below as a CSS viewport crop of the concept board. */
+.fg-rosina-halo {
+  position: absolute; inset: -8%; border-radius: 50%; z-index: 0;
+  background: radial-gradient(circle, color-mix(in oklch, var(--rosina-violet) 40%, transparent) 0%, transparent 68%);
+  opacity: 0; transition: opacity var(--dur-panel) var(--ease-out);
+}
+.fg-rosina[data-state='thinking'] .fg-rosina-halo { opacity: 0.9; animation: fg-rosina-pulse 1.5s var(--ease-in-out) infinite; }
+.fg-rosina[data-state='listening'] .fg-rosina-halo { opacity: 1; background: radial-gradient(circle, color-mix(in oklch, var(--rosina-periwinkle) 55%, transparent) 0%, transparent 68%); animation: fg-rosina-pulse 1.2s var(--ease-in-out) infinite; }
+.fg-rosina[data-state='speaking'] .fg-rosina-halo { opacity: 0.8; animation: fg-rosina-pulse 0.9s var(--ease-in-out) infinite; }
+.fg-rosina[data-state='calm'] .fg-rosina-halo { opacity: 0.45; }
+@keyframes fg-rosina-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.96); } 50% { opacity: 0.95; transform: scale(1.04); } }
+@media (prefers-reduced-motion: reduce) {
+  /* hold still — state stays legible via halo colour + aria-label */
+  .fg-rosina .fg-rosina-halo { animation: none !important; }
+}
+
+/* ── PhoneFrame — our own drawn device, concentric corners ────────────── */
+.fg-phone { display: inline-flex; flex-direction: column; align-items: center; gap: 12px; margin: 0; }
+.fg-phone-device {
+  position: relative; width: 390px; height: 844px;
+  background: linear-gradient(160deg, oklch(0.32 0.02 270), oklch(0.22 0.02 270));
+  border-radius: var(--radius-device);
+  padding: 8px; /* the 8px bezel the concentric --radius-screen accounts for */
+  box-shadow: 0 2px 4px oklch(0 0 0 / 0.14), 0 30px 60px -24px oklch(0.2 0.03 270 / 0.5);
+}
+.fg-phone-bare { width: 390px; height: 844px; }
+.fg-phone-screen {
+  position: relative; width: 100%; height: 100%;
+  background: var(--fg-canvas); color: var(--fg-ink);
+  border-radius: var(--radius-screen);
+  overflow: hidden; /* accurate clipping */
+  display: flex; flex-direction: column;
+}
+.fg-phone-bare .fg-phone-screen { border-radius: var(--radius-screen); }
+.fg-phone-statusbar { flex: 0 0 auto; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-size: 13px; font-weight: 600; color: var(--fg-ink); font-variant-numeric: tabular-nums; }
+.fg-phone-notch { width: 96px; height: 26px; border-radius: var(--radius-pill); background: oklch(0.18 0.02 270); }
+.fg-phone-signal svg { width: 22px; height: 11px; fill: currentColor; color: var(--fg-ink); }
+.fg-phone-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.fg-phone-home { position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%); width: 128px; height: 5px; border-radius: var(--radius-pill); background: oklch(1 0 0 / 0.55); }
+.fg-phone-caption { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-muted); flex-wrap: wrap; justify-content: center; }
+.fg-phone-who { font-weight: 600; color: var(--fg-ink); }
+.fg-phone-status { padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; border: 1px solid var(--fg-border); }
+.fg-phone-status[data-status='live'] { color: var(--fg-withme-ink); background: color-mix(in oklch, var(--fg-withme) 14%, var(--fg-surface)); border-color: color-mix(in oklch, var(--fg-withme) 30%, var(--fg-border)); }
+.fg-phone-status[data-status='sample'] { color: var(--fg-muted); }
+.fg-phone-status[data-status='simulated'] { color: var(--fg-muted); border-style: dashed; }
+
+/* ── Glass material (shared; used sparingly per design.md §6 — floating/overlay
+   surfaces only, never every card). Solid, legible fallback when the viewer
+   asks for reduced transparency. Tokens resolve light/dark via index.css. */
+.fg-glass {
+  background: color-mix(in oklch, var(--fg-surface) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid color-mix(in oklch, var(--fg-border) 80%, transparent);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .fg-glass { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .fg-glass { background: var(--fg-surface); }
+}
+
+/* Rosina avatar art — a CSS viewport crop of the approved concept board.
+   Ratios of the full image (resolution-independent): Ready tile is x854/y48 of a
+   1536-wide board, so size = sz×(1536/320) and the tile's top-left maps to 0,0. */
+.fg-rosina-art {
+  position: absolute; inset: 0; z-index: 1;
+  border-radius: 50%; overflow: hidden;
+  background-color: var(--rosina-periwinkle); /* shows only if the art fails to load */
+  background-repeat: no-repeat;
+  background-size: calc(var(--sz, 40px) * 4.8) auto;
+  background-position: calc(var(--sz, 40px) * -2.66875) calc(var(--sz, 40px) * -0.15); /* Ready */
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--rosina-silver) 45%, transparent);
+}
+/* Thoughtful tile — only while a request is genuinely pending. */
+.fg-rosina[data-state='thinking'] .fg-rosina-art {
+  background-position: calc(var(--sz, 40px) * -3.078) calc(var(--sz, 40px) * -1.469);
+}
+.fg-rosina-art-img { width: 100%; height: 100%; object-fit: cover; }
