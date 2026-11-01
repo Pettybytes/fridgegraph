@@ -1,0 +1,31 @@
+/* Tap-to-talk voice — self-contained, tokens only (design freeze). */
+.fg-voice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* Live mic-level meter (shown only while listening). */
+.fg-voice-meter { display: inline-flex; align-items: center; gap: 3px; height: 22px; }
+.fg-voice-bar {
+  width: 3px; border-radius: var(--radius-pill);
+  background: var(--fg-primary);
+  height: calc(4px + var(--h, 0.12) * 18px);
+  transition: height 80ms linear;
+}
+@media (prefers-reduced-motion: reduce) { .fg-voice-bar { transition: none; } }
+
+/* Visually-hidden live region for announced state changes. */
+.fg-voice-live { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.fg-voice-transcript, .fg-voice-reply { flex-basis: 100%; margin: 2px 0 0; font-size: 13px; line-height: 1.5; color: var(--fg-ink); }
+.fg-voice-you, .fg-voice-her { font-weight: 600; font-size: 11px; margin-right: 6px; color: var(--fg-primary); }
+.fg-voice-you { color: var(--fg-muted); }
+
+.fg-voice-stopaudio, .fg-voice-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--fg-primary);
+  background: transparent; border: 1px solid var(--fg-border); border-radius: var(--radius-pill);
+  padding: 4px 10px; cursor: pointer;
+}
+.fg-voice-stopaudio:hover, .fg-voice-toggle:hover { background: color-mix(in oklch, var(--fg-primary) 8%, transparent); }
+.fg-voice-stopaudio:focus-visible, .fg-voice-toggle:focus-visible { outline: 3px solid var(--fg-focus); outline-offset: 2px; }
+
+.fg-voice-info { flex-basis: 100%; display: grid; gap: 6px; margin-top: 6px; }
+.fg-voice-credit { margin: 0; font-size: 11px; line-height: 1.5; color: var(--fg-muted); }

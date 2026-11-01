@@ -12,6 +12,10 @@ export default defineConfig({
       '/api/orbit': { target: 'http://127.0.0.1:4008', changeOrigin: true },
       '/api/demo': { target: 'http://127.0.0.1:4008', changeOrigin: true },
       '/api/rosina': { target: 'http://127.0.0.1:4200', changeOrigin: true },
+      // Browser voice (#71 voice-turn server, VOICE_PORT default 4118). Same-origin so the
+      // caller's bearer is forwarded exactly like a Rosina text turn; keys stay server-side.
+      // Trailing slash so it matches /voice/turn + /voice/transcribe, never /voice-turn.
+      '/voice/': { target: 'http://127.0.0.1:4118', changeOrigin: true },
     },
   },
   plugins: [react(), tailwindcss()],
