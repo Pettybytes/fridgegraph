@@ -63,3 +63,10 @@ review-desktop/mobile light/dark, phoneframe-verified, Priya refusal, review-cin
 (20 seconds; original cinematic-05 retained), interaction-04.webm. Failed/superseded review runs
 remain in review-history.md. Backend/live integration remains queued against #78, including real
 ORS geometry, authoritative grants and the stored road/haversine cost used by Mission Control.
+
+Final portrait-cluster polish: source `c36796a`, full web suite rerun 328/56 PASS, targeted 16/4 PASS,
+build/typecheck and secret scan PASS. Cinematic-06 actions passed in 20,004 ms and interaction-05
+passed all assertions, with source committed/frozen throughout. Current artifact index:
+`web/evidence/village-map/CURRENT.md`. PR #81 is the reviewable mock slice; #78 remains pending.
+Public-event coordinate exception vs 0056's Priya school null was explicitly raised on #78;
+withheld means no map point regardless, never an inferred public location.

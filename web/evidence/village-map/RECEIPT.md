@@ -69,3 +69,23 @@ Wire details still needed from Bentley: mode discriminator, returned GeoJSON pro
 person-to-origin-place association, child association/refusal shapes, and household-cap/stored
 candidate-evaluation linkage. See PR #78 coordination comment. The settled backend contract keeps
 road vs haversine provenance explicit; there is no parallel cost store or guessed live endpoint.
+
+## Final portrait-cluster review — supersedes earlier final visual artifacts
+
+UI source `c36796a`: overlapping person/place markers retain the person's portrait with a count
+badge and the accessible colocated-record menu. The simulated moving portrait stays above the
+stationary endpoint cluster. No authorization or route/cost behavior changed.
+
+Final screenshots: `portrait-desktop-light.png`, `portrait-desktop-dark.png` (1440×900),
+`portrait-mobile-light.png`, `portrait-mobile-dark.png` (390×844).
+Final recordings: `portrait-cinematic-20s.mp4` (20-second trim; original `cinematic-06.webm` retained),
+`interaction-05.webm`. Cinematic actions passed in 20,004 ms; all interaction assertions passed.
+Source was committed and frozen before both runs, with no UI edits/HMR. Browser errors: zero;
+the same upstream style warnings remain. Full web suite rerun: 328/56 PASS; targeted 16/4 PASS;
+web typecheck/build and secret scan PASS. Reviewed the rendered portrait composition after capture.
+
+Bentley's subsequent 0056 dry-run showed Priya's own-family school coordinates withheld. The
+settled prose's public-event exception needs reconciliation in the final contract. The frontend
+supports complete withholding without any coordinate fallback; the clarification is recorded at
+https://github.com/Pettybytes/fridgegraph/pull/78#issuecomment-6563607006 . No live integration or
+public-place grant is inferred from the mock.
