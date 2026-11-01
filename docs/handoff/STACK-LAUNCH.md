@@ -41,9 +41,9 @@ demo-login listener is a **separate process** here, so `src/main.ts` itself carr
 | **38059** | 4200 | `node --require tsx src/rosina/server.ts` | **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, `ROSINA_PORT=4200` |
 | 94479 | 5051 | `apollo-mcp-server-v2.1.0 /tmp/refresh-mcp.yaml` | — |
 
-All from checkout `fridgegraph-refresh` at **`e56434d`**. The MCP config is a hand-rebased copy of
-`.apollo/mcp.local.yaml` (endpoint 4010→4012, port 5050→5051) because `ops/alt-stack.sh --up` cannot
-generate it.
+All from checkout `fridgegraph-refresh` at **`e56434d`**. That run used a hand-rebased copy of
+`.apollo/mcp.local.yaml` (endpoint 4010→4012, port 5050→5051) because `ops/alt-stack.sh --up` could
+not generate one. **It can now** — see “Generating the alt-stack configs” below.
 
 ## Supergraph
 
@@ -68,8 +68,41 @@ silently — check that a newly added mutation appears on **both** 4010 and 4012
 
 It reads no token values and prints counts and booleans only.
 
+## Generating the alt-stack configs — `ops/alt-stack.sh` (fixed 2026-11-01)
+
+`--up` is no longer broken. The abort was a one-character class of bug: its guard tested for the
+string `":5051"`, but the file it wrote says `port: 5051` (with a space), so the guard failed on
+every run **after** a successful rebase. The guard now tests the exact strings it writes, and it:
+
+- rebases the endpoint (4010 → the alt router) and the transport port (5050 → the MCP port);
+- rewrites **every** operation path to an absolute path (it used to rewrite only
+  `PickupCandidates.graphql`, so the other ten depended on the caller's cwd);
+- refuses to write a config whose schema or operation files do not exist, or when fewer than 11
+  operations were rewritten — a missing operation file silently removes a tool.
+
+`ops/alt-stack-check.mjs` now fails on a **missing or stale** config before it makes any call:
+missing at the expected path; transport port ≠ the port being probed; endpoint not targeting the alt
+router; the derived file older than `.apollo/mcp.local.yaml`; or any path it names that no longer
+exists. It then runs its existing `PickupCandidates` check (4/4 as Kendra).
+
+Ports and artefact names are overridable, which is how the whole thing was proven **without
+stopping the shared stack**:
+
+```bash
+ALT_STACK_SUFFIX=-spare ALT_SUBGRAPH_BASE=4201 ALT_ROUTER_PORT=4022 \
+  ALT_HEALTH_PORT=8093 ALT_MCP_PORT=5071 ops/alt-stack.sh --up     # then --check, then --down
+```
+
+Measured 2026-11-01 18:09Z on exactly that range: `router health OK`, `router graphql OK`,
+`mcp config 12 path(s) present, port 5071 → router 4022`, `mcp candidates 4/4 as Kendra`,
+`CHECK PASSED`; `--down` stopped only the three PIDs it had recorded; the shared stack on
+4001–4007 / 4010 / 4012 / 5051 stayed `HEALTHY` throughout, demo cast unchanged. Do **not** pick
+5060/5061 for the MCP port — Undici (and Chrome) treat them as blocked ports and `fetch` fails with
+`bad port`.
+
+`--gen` generates and validates both configs without starting anything, which is the cheap way to
+test a config change.
+
 ## Known broken tooling
 
-`ops/alt-stack.sh --up` aborts with *"could not rebase mcp.local.yaml ports; its shape changed"* — its
-own header says `--up`/`--down` were untested. Until that is fixed, start the pieces as listed above
-and rebase the MCP config by hand (endpoint → 4012, port → 5051).
+Nothing here is known-broken as of 2026-11-01. Previously: `ops/alt-stack.sh --up` aborted with *"could not rebase mcp.local.yaml ports; its shape changed"* — the guard bug described above. `--up`, `--check` and `--down` are now proven, so hand-rebasing the MCP config is no longer part of the procedure.
