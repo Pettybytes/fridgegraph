@@ -6,7 +6,7 @@ async page=>{
   if(ratio<4.5)throw Error('Found safe text contrast below 4.5');results.push({theme,foundSafeTextRatio:ratio,conversionControlsPass:true});
  }
  for(const theme of ['light','dark']){
-  await page.goto('http://127.0.0.1:5196/scripts/orbit-alert-review.html?mode=recipient');await page.getByText('Recorded Park',{exact:true}).waitFor();await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme);await page.getByRole('button',{name:"I'm on my way",exact:true}).click();await page.getByRole('status').waitFor();
+  await page.goto('http://127.0.0.1:5196/scripts/orbit-alert-review.html?mode=recipient');await page.getByText('Riverside Park',{exact:true}).waitFor();await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme);await page.getByRole('button',{name:"I'm on my way",exact:true}).click();await page.getByRole('status').waitFor();
   const ratios=await page.locator('.orbit-alert-subject p, .orbit-response-confirmation').evaluateAll(elements=>elements.map(el=>{const c=document.createElement('canvas').getContext('2d'),parent=getComputedStyle(el.closest('.orbit-takeover')),style=getComputedStyle(el);const rgb=(a,b)=>{c.clearRect(0,0,1,1);c.fillStyle=a;c.fillRect(0,0,1,1);if(b){c.fillStyle=b;c.fillRect(0,0,1,1)}return [...c.getImageData(0,0,1,1).data].slice(0,3)};const l=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);const a=l(rgb(style.color)),b=l(rgb(parent.backgroundColor,style.backgroundColor));return(Math.max(a,b)+.05)/(Math.min(a,b)+.05)}));if(ratios.some(r=>r<4.5))throw Error('Chip/confirmation contrast below 4.5');results.push({theme,chipAndConfirmationRatios:ratios});
  }
  return results;

@@ -3921,3 +3921,26 @@ PR #74 final chip contrast review: alpha-composited light chips initially 4.3397
 shared danger-ink tint to 5.9190:1 light / 7.6789:1 dark. Failed measurement retained; threshold
 unchanged. `take-06` supersedes earlier takes as final screenshots/recording. 312 web tests rerun
 PASS; root typecheck/build PASS. #74 stays draft until final-head CI is green.
+
+### Village Map P0 — initial checkpoint
+
+Fresh worktree `fridgegraph-village-map`, branch `feat/web-village-map`, fetched-main base
+`238f719fd4e0a4fec522e76a54a9542a32ebba3c` (includes #74 and #69; no dependency on parked #68).
+UI: in progress · backend: not delivered · integrated: pending. Existing screens, Orbit and shell
+have not been restyled. Explicit requested fixture rename: Recorded Park → Riverside Park in
+active offline review fixtures/harnesses; historical evidence unchanged.
+
+Internal mock port, authorization views, read-only route requests, explicit proposal/over-cap
+acceptance, session disposal and one-clock replay model are implemented; 8 targeted tests PASS.
+MapLibre renderer and provider are prepared but not integrated into the app. No live backend
+requests, ORS calls, pricing computation, auth or database changes. Contract notes in
+`docs/contracts/village-map-ui.md` distinguish the frontend port from Bentley's pending wire API.
+
+Reference dependency: `~/Desktop/fridgegraph-refs/trek/` is missing. Desktop search found only the
+older reference folder; sampled screenshots are earlier family-app references, not TREK. Asked
+Bryan for the correct screenshot location. Required reference-driven visual pass and final
+browser/capture acceptance remain pending; do not mark ready or call this delivered.
+
+Checkpoint verification: all 320 web tests / 53 files PASS; root typecheck and web typecheck/build
+PASS (existing chunk-size warning). This verifies the independent mock/state work, not map UI
+integration, reference fidelity or the required browser recordings. No ready PR yet.
