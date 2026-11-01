@@ -54,7 +54,7 @@ export function FamilyCalendar({ adapter }: { adapter: CalendarAdapter }) {
     return () => { active = false; clearInterval(poll) }
   }, [adapter, route, query, view])
   function navigate(day: string, childId: string, nextView = view) {
-    const next = `#/calendar?day=${encodeURIComponent(day)}&childId=${encodeURIComponent(childId)}&view=${nextView}`
+    const next = `#/calendar?day=${encodeURIComponent(day)}&childId=${encodeURIComponent(childId)}&view=${nextView}${query.get('sampleMap')==='1'?'&sampleMap=1':''}`
     setSelection(null); setLinked(null); setRoute(next); location.hash = next
   }
   function open(value: Selection) { setLinked(null); setSelection({ adapter, key: route, value }) }

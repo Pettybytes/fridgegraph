@@ -1,3 +1,7 @@
+import {MapCalendarBridge} from '@/features/village-map/calendar'
+import {VillageMapProvider,MapRosinaContext} from '@/features/village-map/runtime'
+import {VillageMapMini} from '@/features/village-map/VillageMapMini'
+import {VillageMap} from '@/features/village-map/VillageMap'
 import {ResetSeededReads} from '@/features/personas/ResetSeededReads'
 import { lazy, Suspense, useMemo } from 'react'
 import { Shell } from '@/app/Shell'
@@ -65,22 +69,23 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
       <ChildAccessProvider client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
       <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
-        today: <Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} />,
-        'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
+        map: <VillageMap/>,
+        today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
+        'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>,
         orbit:<Orbit/>,
         'ask-rosina': <div className="rosina-route-anchor"><button type="button" onClick={()=>window.dispatchEvent(new Event('rosina:open'))}>Open Ask Rosina</button></div>,
         'care-information': <><p className="persona-mock">Sample data</p><CareInformation /></>,
-        calendar: connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null,
+        calendar: <MapCalendarBridge>{connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null}</MapCalendarBridge>,
         village: authMode === 'live'
           ? <section className="village-route" aria-label="Living Village workspace"><SignatureVillageRoute client={connection?.client ?? null} /></section>
           : <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
-      <RosinaPanel dataAdapter={adapter} />
+      <RosinaPanel dataAdapter={adapter} contextCard={<MapRosinaContext/>} />
       </ChildAccessProvider>
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
   </div>
 }
 export default function App({authAdapter,orbitNow=Date.now}:{authAdapter?:AuthAdapter;orbitNow?:()=>number}={}) {
   const auth = useMemo(() => authAdapter ?? (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH==='true'?createMockAuthAdapter():createLiveAuthAdapter()), [authAdapter])
-  return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage orbitNow={orbitNow} /></SessionProvider>
+  return <SessionProvider adapter={auth}><SandboxBanner /><VillageMapProvider><SignedInVillage orbitNow={orbitNow} /></VillageMapProvider></SessionProvider>
 }

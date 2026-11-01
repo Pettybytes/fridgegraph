@@ -1,4 +1,15 @@
 <!-- Latest W4b publication: PR #32 is READY FOR REVIEW. See final readiness entry below. -->
+
+## Current frontend review — Village Map PR #81
+
+Base `238f719fd4e0a4fec522e76a54a9542a32ebba3c`; branch `feat/web-village-map`.
+UI: complete on mocks · backend: #78 pending · integrated + tested: mock browser PASS, live PENDING.
+Not DONE for live integration. 328 web tests / 56 files, typecheck/build and secret scan pass.
+Withheld coordinates render labels/cards only, never substitute pins or camera locations.
+Detailed chronology, contract coordination and remaining transport fields: [Village Map UI report](VILLAGE-MAP-UI-REPORT.md).
+Screenshots and recordings: [review receipt](../../web/evidence/village-map/RECEIPT.md).
+No shared-stack requests, resets, seeds, restarts or real outreach. PR #81 is for the mock UI slice.
+
 # FridgeGraph — HANDOFF
 
 **Current W4b:** see “W4b replacement brief — live calendar and persona sessions” below. Base #31

@@ -6,7 +6,7 @@ async page=>{
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   await page.getByRole('heading',{name:'Found safe',exact:true}).waitFor();
   const dialog=page.getByRole('dialog');if(await dialog.locator('img').count())throw Error('Closed view retained photo');
-  const text=await dialog.innerText();if(/Recorded Park|blue|shirt|backpack|Ellison/.test(text))throw Error('Closed view retained private details');
+  const text=await dialog.innerText();if(/Riverside Park|blue|shirt|backpack|Ellison/.test(text))throw Error('Closed view retained private details');
   if(await dialog.locator('.orbit-confetti').count())throw Error('Cold link replayed confetti');
   await page.screenshot({path:`web/evidence/orbit-alert/offline-03/${width}-${theme}-closed-link.png`});results.push({width,theme,closedLinkPrivateDetailsAbsent:true,noConfettiReplay:true});
  }

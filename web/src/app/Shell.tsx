@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home } from 'lucide-react'
+import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit'
+export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map'
 const routes = [
+  { path: 'map', label: 'Village map', icon: Map },
   { path: 'today', label: 'Today', icon: Home },
   { path: 'mission-control', label: 'Mission Control', icon: LayoutDashboard },
   { path: 'orbit', label: 'Orbit', icon: Radar },

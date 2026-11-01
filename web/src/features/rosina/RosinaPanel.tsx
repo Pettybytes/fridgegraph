@@ -3,7 +3,7 @@ import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
 import type {OrbitController} from '@/features/orbit/controller'
 import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { Dialog } from 'radix-ui'
 import { MessageCircle, X } from 'lucide-react'
 import { useSession } from '@/features/personas/Session'
@@ -17,14 +17,14 @@ import type {RosinaProgress} from './liveAdapter'
 import {RosinaAvatar} from '@/components/fg/RosinaAvatar'
 import './rosina.css'
 type ThreadMessage = ChatMessage & { actions: CatalogAction[] }
-type PanelProps={dataAdapter?:FrontendAdapter;service?:RosinaAdapter}
+type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:RosinaAdapter}
 export function RosinaPanel(props:PanelProps){
   const {session,getSessionGeneration}=useSession()
   return <PersonaRosinaPanel key={session?.generation??`signed-out:${getSessionGeneration()}`} {...props}/>
 }
 function PersonaRosinaPanel(props:PanelProps){const orbit=useOrbit();return orbit?<ConnectedOrbitPanel {...props} orbit={orbit}/>:<RosinaConversation {...props}/> }
 function ConnectedOrbitPanel(props:PanelProps&{orbit:OrbitController}){useOrbitState(props.orbit);return <RosinaConversation {...props}/> }
-function RosinaConversation({dataAdapter,service,orbit}:PanelProps&{orbit?:OrbitController}){
+function RosinaConversation({dataAdapter,service,orbit,contextCard}:PanelProps&{orbit?:OrbitController}){
   const { session, registerPrivateCleanup, getSessionGeneration, renewSession, authMode } = useSession()
   const calendarScope = useCalendarActionScope(session?.persona.personId)
   const [progress,setProgress]=useState<RosinaProgress>('sending')
@@ -88,6 +88,7 @@ function RosinaConversation({dataAdapter,service,orbit}:PanelProps&{orbit?:Orbit
     const orbitOffer=actions.some(action=>action.id==='prepareOrbitAlert')
     append('ROSINA', orbitOffer&&orbit ? 'I can prepare an Orbit message for you to review. Nothing has been activated.' : response.reply, actions)
   }
+  useEffect(()=>{const close=()=>closePanel();window.addEventListener('rosina:close',close);return()=>window.removeEventListener('rosina:close',close)},[])
   function closePanel() {
     ++requestId.current; abort.current?.abort(); abort.current=null; sent.current=false
     setBusy(false);setError('');setPending(null);setOpen(false);setDismissed(true)
@@ -145,6 +146,7 @@ function RosinaConversation({dataAdapter,service,orbit}:PanelProps&{orbit?:Orbit
       <header><div className="rosina-identity"><RosinaAvatar state={busy?'thinking':'ready'} size={48}/><div><h2>Ask Rosina</h2><p>FridgeGraph's AI family coordinator</p></div></div><button type="button" aria-label="Close Ask Rosina" onClick={closePanel}><X size={18} /></button></header>
       <p className="rosina-source"><strong className={`rosina-mode mode-${adapter.mode}`}>{adapter.mode==='live'?'Live':'Sample answers'}</strong><span>Conversation clears when you switch person</span></p>
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
+        {contextCard}
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
         {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
         {orbit&&<OrbitPhotoChat controller={orbit}/>}
