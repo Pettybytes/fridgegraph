@@ -64,38 +64,60 @@ const CORE = [
 ];
 
 /**
- * TEACHER MIGRATIONS — conditional, never guessed.
- * `feat/teacher-persona` is merged only when `git merge-base --is-ancestor` says so. If it is, the
- * 0070-range files it carries are appended in filename order. If it is not, the plan records the
- * skip and says why — a rehearsal that silently omits a merged migration is worse than one that
- * fails.
+ * TEACHER MIGRATIONS — resolved by FILE PRESENCE at one recorded origin/main SHA.
+ *
+ * Ancestry was the wrong test: a squash merge makes `feat/teacher-persona` a non-ancestor of main
+ * while its files are on main, so an ancestry check reports "not merged" for work that IS there.
+ * The record below is a main commit; the files are listed from that commit's tree and read from it
+ * with `git show`, so the runner does not depend on the working tree carrying them.
+ *
+ * FILE PRESENCE IS NOT APPLIED STATE. A file in the tree says only that the migration exists. What
+ * the database has is probed separately, per migration, after the apply step.
  */
-function teacherMigrations() {
-  let merged = false;
-  try {
-    execFileSync('git', ['merge-base', '--is-ancestor', 'origin/feat/teacher-persona', 'origin/main'], { stdio: 'ignore' });
-    merged = true;
-  } catch { merged = false; }
+const TEACHER_SOURCE_SHA = 'db7dc5739c87276d6810fea42021e0b6e172f859';
+const TEACHER_FILE = /(^|\/)007[0-9]_.*\.sql$/;
 
-  if (!merged) {
-    return { merged: false, files: [], reason: 'origin/feat/teacher-persona is not an ancestor of origin/main' };
+const git = (args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+
+function teacherMigrations() {
+  const sha = process.env.REHEARSAL_TEACHER_SHA ?? TEACHER_SOURCE_SHA;
+
+  try {
+    git(['cat-file', '-e', `${sha}^{commit}`]);
+  } catch {
+    return { sha, files: [], reason: `recorded teacher source ${sha.slice(0, 7)} is not present locally (fetch it)` };
   }
 
-  const files = readdirSync('supabase/migrations')
-    .filter((f) => /^007\d_.*\.sql$/.test(f))
+  // REVALIDATE BEFORE EXECUTION: is the recorded commit still what main is? If main has moved, say so
+  // and require a deliberate refresh rather than silently rehearsing a different tree.
+  let mainSha = null;
+  try { mainSha = git(['rev-parse', 'origin/main']); } catch { /* offline: keep the record */ }
+  const drift = mainSha && mainSha !== sha ? `origin/main is now ${mainSha.slice(0, 7)}` : null;
+
+  const paths = git(['ls-tree', '-r', '--name-only', sha, 'supabase/migrations/'])
+    .split('\n')
+    .filter((f) => TEACHER_FILE.test(f))
     .sort();
-  return { merged: true, files, reason: 'teacher branch merged' };
+
+  // Read the SQL from the recorded commit, not from disk: this checkout may be behind main.
+  const files = paths.map((path) => ({ path, sql: git(['show', `${sha}:${path}`]) }));
+  return { sha, mainSha, drift, files, reason: `${files.length} file(s) at ${sha.slice(0, 7)}` };
 }
 
 const teacher = teacherMigrations();
-const plan = [...CORE, ...teacher.files];
+const plan = [...CORE, ...teacher.files.map((f) => f.path.replace(/^supabase\/migrations\//, ''))];
+const planSql = new Map(teacher.files.map((f) => [f.path.replace(/^supabase\/migrations\//, ''), f.sql]));
 
 console.log('REHEARSAL PLAN (dependency order)');
 for (const f of plan) console.log(`  - ${f}`);
-if (!teacher.merged) console.log(`  - teacher 0070-range: SKIPPED (${teacher.reason})`);
-else console.log(`  - teacher 0070-range: ${teacher.files.length} file(s) included`);
+if (!teacher.files.length) console.log(`  - teacher 0070-range: NONE — ${teacher.reason}`);
+else {
+  console.log(`  - teacher 0070-range: ${teacher.files.length} file(s), source ${teacher.sha.slice(0, 7)}`);
+  for (const f of teacher.files) console.log(`      ${f.path}`);
+  if (teacher.drift) console.log(`      NOTE: ${teacher.drift} — refresh TEACHER_SOURCE_SHA deliberately before applying`);
+}
 
-const missing = plan.filter((f) => !existsSync(`supabase/migrations/${f}`));
+const missing = plan.filter((f) => !existsSync(`supabase/migrations/${f}`) && !planSql.has(f));
 if (missing.length) {
   console.error(`\nMISSING migration file(s): ${missing.join(', ')}`);
   process.exit(1);
@@ -152,6 +174,8 @@ try {
       updated_at timestamptz default now());
     create table orbit_alerts (id text primary key, child_id text, status text, sandbox boolean,
                                last_seen_place_id text);
+    create table school_reports (id text primary key default gen_random_uuid()::text,
+                                 child_id text, body text, created_at timestamptz default now());
     create table demo_reset_audit (id bigserial primary key, actor text, removed jsonb,
                                    at timestamptz default now());
 
@@ -202,7 +226,7 @@ try {
   // ---- apply, in order, asserting each step landed
   for (const file of plan) {
     try {
-      await c.query(body(`supabase/migrations/${file}`));
+      await c.query(planSql.get(file) ?? body(`supabase/migrations/${file}`));
       check(`applied ${file}`, true);
     } catch (e) {
       check(`applied ${file}`, false, e.message);
@@ -278,6 +302,19 @@ try {
   check('0061 — a linked event reads as linked',
     states.some((s) => s.state === 'linked'), JSON.stringify(states));
 
+  // ---- TEACHER: file presence is not applied state. Probe the DB for the objects 0070 creates.
+  if (teacher.files.length) {
+    const policy = await c.query(
+      `select 1 from pg_policies where tablename = 'school_reports' and policyname = 'school_reports_insert'`);
+    check(`teacher applied — policy school_reports_insert exists (source ${teacher.sha.slice(0, 7)})`,
+      policy.rowCount === 1, `${policy.rowCount} policy row(s)`);
+
+    const priv = await c.query(`select has_table_privilege('authenticated','school_reports','INSERT') as ok`);
+    check('teacher applied — authenticated may INSERT school_reports', priv.rows[0].ok === true);
+  } else {
+    console.log('  SKIP  teacher applied-state probes — no teacher migration in the plan');
+  }
+
   // ---- behaviour owned by the focused scripts: run them if the runner was asked to
   const runFocus = process.env.REHEARSAL_RUN_FOCUS === '1';
   console.log(`\nFOCUSED CHECKS: ${runFocus ? 'running' : 'not run (set REHEARSAL_RUN_FOCUS=1)'}`);
@@ -302,7 +339,8 @@ try {
 // ---------------------------------------------------------------------------------------------
 console.log(`
 WINDOW-ONLY STEPS (not run here):
-  1. apply, in order: ${plan.join(', ')}
+  1. apply, in order: ${plan.join(', ')}${teacher.files.length ? `
+     teacher files come from ${teacher.sha}` : ''}
   2. seed auth users:      npx tsx scripts/seed-auth-users.ts
   3. reseed:               npm run db:seed   (places + links are seeded by the migration helpers)
   4. supergraph recompose: reportSchoolDay + the village/day field, then restart the router
