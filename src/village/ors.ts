@@ -67,13 +67,29 @@ export function decodePolyline(encoded: string, precision = 5): GeometryPoint[] 
   return out;
 }
 
-/** Process-local, bounded, keyed on the ids AND the coordinates actually resolved. */
+/**
+ * ORS routing profiles we allow. The profile is part of cache identity: a driving route and a walking
+ * route between the same two places are different results and must never share an entry.
+ */
+export type RouteProfile = 'driving-car' | 'foot-walking' | 'cycling-regular';
+export const ROUTE_PROFILES: readonly RouteProfile[] = ['driving-car', 'foot-walking', 'cycling-regular'];
+export function isRouteProfile(value: unknown): value is RouteProfile {
+  return typeof value === 'string' && (ROUTE_PROFILES as readonly string[]).includes(value);
+}
+
+/** Process-local, bounded, keyed on the PROFILE, the ids AND the coordinates actually resolved. */
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const CACHE_MAX = 500;
 const cache = new Map<string, { at: number; value: RouteResult }>();
 
-const cacheKey = (fromId: string, toId: string, from: GeometryPoint, to: GeometryPoint) =>
-  `${fromId}>${toId}@${from[0].toFixed(6)},${from[1].toFixed(6)}>${to[0].toFixed(6)},${to[1].toFixed(6)}`;
+const cacheKey = (
+  profile: RouteProfile,
+  fromId: string,
+  toId: string,
+  from: GeometryPoint,
+  to: GeometryPoint,
+) =>
+  `${profile}:${fromId}>${toId}@${from[0].toFixed(6)},${from[1].toFixed(6)}>${to[0].toFixed(6)},${to[1].toFixed(6)}`;
 
 type Caller = { lat: number; lng: number };
 
@@ -82,13 +98,14 @@ type Caller = { lat: number; lng: number };
  * authorization for both places before reaching here.
  */
 export async function routeBetween(
+  profile: RouteProfile,
   fromId: string,
   toId: string,
   from: Caller,
   to: Caller,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RouteResult> {
-  const key = cacheKey(fromId, toId, [from.lng, from.lat], [to.lng, to.lat]);
+  const key = cacheKey(profile, fromId, toId, [from.lng, from.lat], [to.lng, to.lat]);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return { ...hit.value, cached: true };
 
@@ -100,7 +117,7 @@ export async function routeBetween(
 
   let response: Response;
   try {
-    response = await fetchImpl(`${base}/v2/directions/driving-car/json`, {
+    response = await fetchImpl(`${base}/v2/directions/${profile}/json`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
@@ -148,6 +165,11 @@ export function allowRoute(personId: string, limitPerMin = 20): boolean {
   hits.push(now);
   buckets.set(personId, hits);
   return true;
+}
+
+/** Test seam: how many entries the cache holds, so a refusal can prove it touched none. */
+export function routeCacheSize(): number {
+  return cache.size;
 }
 
 /** Test seam only. */

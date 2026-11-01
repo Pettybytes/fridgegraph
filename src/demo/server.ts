@@ -26,7 +26,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
-import { routeBetween, allowRoute, RouteUnavailable } from '../village/ors';
+import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
+import { decideRoute, type PlaceLookup } from '../village/routeRequest';
 import { dbFor } from '../db';
 import type { Ctx } from '../authz';
 
@@ -357,38 +358,28 @@ export function createDemoLoginApp() {
     const ctx: Ctx = { today: todayIso(), token };
     const look = async (placeId: string) => {
       const { data, error } = await dbFor(ctx).rpc('place_route_geometry_for', { p_child: childId, p_place: placeId });
-      if (error) return { kind: 'error' as const };
+      if (error) return { kind: 'error' as const } satisfies PlaceLookup;
       const row = (Array.isArray(data) ? data[0] : data) as
         | { id?: string; label?: string; state?: string; latitude?: number | null; longitude?: number | null }
         | null;
-      if (!row?.id) return { kind: 'notfound' as const };
-      return { kind: 'row' as const, row };
+      if (!row?.id) return { kind: 'notfound' as const } satisfies PlaceLookup;
+      return { kind: 'row' as const, row } satisfies PlaceLookup;
     };
 
-    const [from, to] = await Promise.all([look(fromPlaceId), look(toPlaceId)]);
-    // A place the caller cannot see and a place that does not exist get the SAME answer.
-    for (const r of [from, to]) {
-      if (r.kind === 'error') { res.status(502).json({ error: 'LOOKUP_FAILED' }); return; }
-      if (r.kind === 'notfound') { res.status(404).json({ error: 'NOT_FOUND' }); return; }
-    }
-    for (const r of [from, to]) {
-      const row = (r as { row: { label?: string; state?: string; latitude?: number | null; longitude?: number | null } }).row;
-      if (row.state === 'withheld') {
-        res.status(403).json({ error: 'COORDINATES_WITHHELD', place: row.label ?? null });
-        return;
-      }
-      if (row.state === 'absent') {
-        // Authorized but ungeocoded is its own case, not a refusal and not a route.
-        res.status(409).json({ error: 'GEOMETRY_UNAVAILABLE', place: row.label ?? null });
-        return;
-      }
-    }
+    // The profile is part of what a route IS, so it is validated here and travels into cache identity.
+    const profileRaw = req.body?.profile ?? 'driving-car';
+    if (!isRouteProfile(profileRaw)) { res.status(400).json({ error: 'INVALID_PROFILE' }); return; }
 
-    const f = (from as { row: { latitude: number; longitude: number } }).row;
-    const t = (to as { row: { latitude: number; longitude: number } }).row;
+    const [from, to] = await Promise.all([look(fromPlaceId), look(toPlaceId)]);
+    // Every refusal — invisible, nonexistent, withheld, ungeocoded — is decided BEFORE any cache
+    // read or ORS request. `decideRoute` is pure, so this ordering is testable without a network.
+    const decision = decideRoute(from as PlaceLookup, to as PlaceLookup);
+    if (!decision.ok) { res.status(decision.status).json(decision.body); return; }
+
     try {
-      const route = await routeBetween(fromPlaceId, toPlaceId,
-        { lat: f.latitude, lng: f.longitude }, { lat: t.latitude, lng: t.longitude });
+      const route = await routeBetween(profileRaw, fromPlaceId, toPlaceId,
+        { lat: decision.from.lat, lng: decision.from.lng },
+        { lat: decision.to.lat, lng: decision.to.lng });
       res.status(200).json(route);
     } catch (e) {
       if (e instanceof RouteUnavailable) {
