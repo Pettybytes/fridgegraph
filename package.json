@@ -16,7 +16,8 @@
     "db:checksum": "tsx scripts/db.ts checksum",
     "verify:station06": "tsx ops/station06-verify.mjs",
     "suite": "node --import tsx ops/run-suite.mjs",
-    "db:restore-demo": "tsx scripts/db.ts restore:demo"
+    "db:restore-demo": "tsx scripts/db.ts restore:demo",
+    "test:village": "node --import tsx --test src/village/*.test.ts"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",

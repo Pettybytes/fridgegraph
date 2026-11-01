@@ -52,9 +52,21 @@ export type RideEstimate = {
   basis: string; // e.g. "road distance × $/mile, stored estimate"
 };
 
+/**
+ * Where an item's place came from — the backend's three states, never collapsed:
+ *  'linked'    the event→place linkage is readable, so placeId/placeName are present
+ *  'withheld'  a linkage exists but this caller may not read it (the event still renders)
+ *  'unlinked'  the event has no place at all
+ * None of the three grants coordinates: geometry stays behind 0058's own authorization.
+ */
+export type DayPlaceState = 'linked' | 'withheld' | 'unlinked';
+
 export type DayPlan = {
   date: string;
-  items: { eventId: string; title: string; placeId: string | null; placeName: string | null; at: string }[];
+  items: {
+    eventId: string; title: string; placeId: string | null; placeName: string | null;
+    placeState: DayPlaceState; at: string;
+  }[];
 };
 
 /** The map-focus action attached to every route/place answer. `id` is the place or route to

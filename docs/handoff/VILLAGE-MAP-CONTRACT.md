@@ -261,3 +261,68 @@ route is never served someone else's cached route. Geometry is an encoded polyli
    `current_person()` or an owner connection instead of recording meaningless results — the exact
    failure mode that bit me twice in this branch.
 5. Final contract/PR pass and the HANDOFF note.
+
+---
+
+# API READER — implemented 2026-11-01 · **NOT APPLIED / NOT DEPLOYED**
+
+The day read now has its transport and its DayPlan wiring. Migration **0061** is still **staged**:
+`event_day_places` does **not** exist in the live database, so this endpoint answers
+`503 DAY_UNAVAILABLE` there, by design (see "failure is not an empty day" below).
+
+## `POST /api/village/day` (served on 4008, same bearer family as `/api/village/route`)
+
+```jsonc
+// request
+{ "childId": "p_nora", "day": "2026-11-07" }   // day is a calendar date, YYYY-MM-DD
+
+// 200
+{ "childId": "p_nora", "date": "2026-11-07", "items": [
+  { "eventId": "e1", "title": "Soccer", "at": "2026-11-07T15:00:00",
+    "placeId": "rp_field", "placeName": "Riverside Park", "placeState": "linked" },
+  { "eventId": "e2", "title": "Dentist", "at": "2026-11-07T10:00:00",
+    "placeId": null, "placeName": null, "placeState": "withheld" },
+  { "eventId": "e3", "title": "Piano", "at": "2026-11-07T18:00:00",
+    "placeId": null, "placeName": null, "placeState": "unlinked" }
+] }
+```
+
+| status | error | meaning |
+|---|---|---|
+| 401 | `UNAUTHENTICATED` | no / invalid bearer |
+| 400 | `INVALID_REQUEST` | missing `childId`, or `day` is not `YYYY-MM-DD` |
+| **503** | `DAY_UNAVAILABLE` | the read itself failed — **never** rendered as "nothing scheduled" |
+
+**Transport.** The caller's own bearer is forwarded into the per-request RLS client (src/db.ts),
+which calls `event_day_places(p_child, p_day)`. No service role, no re-implementation of the gate.
+
+**Authorization is the accessor's, unchanged.** No schedule authority (`is_parent_of` or
+`has_scope(child,'schedule.read')`) returns **zero rows, not an error**, so "not shared with you" is
+indistinguishable from "nothing scheduled" — deliberate, and not an oracle. The endpoint adds no
+second gate that could turn that into a 403.
+
+**States are explicit and never collapsed:** `linked` (linkage readable, both place fields present),
+`withheld` (a linkage exists but this caller may not read it — event still renders, both fields
+null), `unlinked` (no place on the event). A `withheld`/`unlinked` row never echoes a place id or
+label even if one is present in the payload.
+
+**No coordinates, ever.** The accessor has no coordinate columns, the response has no geometry, and
+`events.location` free text is never parsed. Positions stay behind `place_route_geometry_for` (0058)
+and its own parent/`address.read` gate.
+
+**Failure is not an empty day.** Only a `200` with `items: []` means "nothing scheduled for you".
+A failed RPC (including the function not existing yet), a non-array payload, an unknown `state`, or a
+half-link (`linked` without both id and label) all yield `503 DAY_UNAVAILABLE`; the day fails closed
+rather than dropping an event or inventing a place.
+
+## DayPlan wiring
+
+`src/village/dayPlaces.ts` maps rows → `DayPlan` and is consumed by `dayAnswer` unchanged. Additive
+change to `src/rosina/villageMap.ts` (Claude Code's lane): `DayPlan['items']` gains
+`placeState: 'linked' | 'withheld' | 'unlinked'`; every existing field is preserved.
+
+## Verification in this commit
+
+`npm run typecheck` PASS · `npm run check` 853 files, 0 findings · `npm run test:village` **21/21**
+(13 day-read cases + 8 routing cases; the day cases use a stubbed transport and need no migration).
+Not applied, not deployed, not merged.

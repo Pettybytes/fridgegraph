@@ -28,6 +28,7 @@ import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
 import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
 import { decideRoute, type PlaceLookup } from '../village/routeRequest';
+import { dbDayTransport, isDay, readDayPlan } from '../village/dayPlaces';
 import { dbFor } from '../db';
 import type { Ctx } from '../authz';
 
@@ -412,6 +413,37 @@ export function createDemoLoginApp() {
       }
       res.status(503).json({ error: 'ROUTE_UNAVAILABLE', reason: 'UNEXPECTED' });
     }
+  });
+
+  /**
+   * POST /api/village/day — the authorized day read, and the only source of DayPlan places.
+   *
+   * Body: { childId, day: 'YYYY-MM-DD' }. The caller's own bearer is forwarded to
+   * `event_day_places`, which authorizes on that caller's claims — no schedule authority returns
+   * ZERO ROWS, not an error, so "not shared with you" is indistinguishable from "nothing scheduled"
+   * (that is the documented behaviour and it is not an oracle).
+   *
+   * A failed read is NOT an empty day: 503 DAY_UNAVAILABLE. `placeId`/`placeName` come only from the
+   * accessor's `linked` state; `withheld` and `unlinked` both arrive null and are told apart by
+   * `placeState`. No coordinates are read, returned or derivable here — geometry is 0058's business.
+   */
+  app.post('/api/village/day', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = bearerToken(req.headers.authorization);
+    if (!token) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    const identity = await verifyBearer(req.headers.authorization);
+    if (!identity.ok || !identity.personId) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+
+    const childId = typeof req.body?.childId === 'string' ? req.body.childId : '';
+    const day = typeof req.body?.day === 'string' ? req.body.day : '';
+    if (!childId || !isDay(day)) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+
+    const ctx: Ctx = { today: todayIso(), token };
+    const read = await readDayPlan(dbDayTransport(ctx), { token, childId, day });
+    if (!read.ok) { res.status(503).json({ error: 'DAY_UNAVAILABLE' }); return; }
+
+    // The response carries the day plan only: no place geometry, no location text, no inference.
+    res.status(200).json({ childId, date: read.plan.date, items: read.plan.items });
   });
 
   app.post('/api/demo/reset', async (req: Request, res: Response) => {
