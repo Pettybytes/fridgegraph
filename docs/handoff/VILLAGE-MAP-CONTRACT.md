@@ -73,3 +73,67 @@ venue from an event title.
 2. The existing stored ride estimate: table/field, or am I the first (Claude Code).
 3. Whether `villageMap` should return **all** places for a child or only those with an upcoming
    linked event — I lean to all, with `eventIds` telling the client what is upcoming.
+
+---
+
+# SETTLED — 2026-11-01, all four questions answered
+
+The proposal above stands as written except where this section overrides it. These are decisions, not
+options; implementation follows them.
+
+## 1. Withheld coordinates: authorized labels/cards only
+
+A caller without `address.read` gets **no map pin, no district centroid, no approximate location, no
+route, and no coordinate-derived camera positioning.** There is no "blurred but present" path.
+
+What such a caller *does* get:
+
+- the person appears **at their current event's place** when they have one and that place is public —
+  public places carry coordinates, so this is not a leak;
+- otherwise they appear in the **People list only**, with their **area label**;
+- every authorized place still appears as a label/card with `eventIds`.
+
+`district` is therefore **not needed** and will not be added. Codex: plan for label-only rendering;
+there is nothing to position.
+
+## 2. Inclusion rule: ALL authorized places
+
+`villageMap(childId)` returns **every place the caller is authorized to see for that child**, with
+`eventIds` marking linked events. **"Upcoming" is a filter the client may apply, never the backend's
+inclusion rule.**
+
+## 3. The stored ride estimate exists — confirmed read-only, then reused
+
+Verified against the database catalog, not assumed:
+
+| object | fact |
+|---|---|
+| `candidate_evaluations.estimated_ride_cost_usd` | `numeric` |
+| `candidate_evaluations.distance_miles` | `numeric` |
+| `candidate_evaluations.cost_basis` | `text` |
+| `candidate_evaluations.cost_calculated_at` | `timestamptz` |
+| `_rank_and_advance` | writes all four; body references `haversine` |
+| also present | `estimate_ride_cost_usd`, `_evaluate_candidates`, `pickup_candidates_for` |
+
+**There will be no parallel store.** The existing path is extended so that when a routed **road**
+distance is available it is used, and `cost_basis` records which one applied (`road` vs
+`haversine`). The haversine fallback is kept, never removed, and every written row states its basis.
+**The 0020 approval rule is unchanged** — this changes the number's provenance, never the cap
+decision.
+
+## 4. Authorization, in the backend
+
+- **Both** requested place ids are checked against the selected child **and** the caller before any
+  geometry, distance, duration or cost is returned.
+- **Cache hits are authorized identically.** A cached route is never served to a caller who could
+  not have requested it — the cache key is not a capability.
+- Coordinates are **omitted before anything leaves the server**, not filtered by the client.
+
+## Remaining scope for this branch
+
+0056+ places with gated coordinates and the `address.read` seed (exact grant rows reported from the
+database), calendar linkage, the id-based ORS proxy (server-side polyline decode, cache, per-caller
+rate limit, fail closed `ROUTE_UNAVAILABLE`, `Estimated — not live traffic`), road-distance ride cost
+through the existing `candidate_evaluations` path, and the proof suite (per-persona grants, Priya
+refused, guide read-only, cache-hit authorization, key never exposed, ride cost on road distance with
+the cap decision matching the displayed estimate, reset restores everything).
