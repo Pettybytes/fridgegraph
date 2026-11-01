@@ -1,9 +1,11 @@
 /**
- * The vision suggestions were incomplete (evidence 64: wearGarment + hair omitted even though
- * orbit_vocabulary covers raincoat and braids). Cause: the model was told the five KEYS but not
- * the allowed VALUES, so it emitted synonyms the mapping then dropped — not a parse/mapping bug.
- * Fix: give the model each kind's allowed values and tell it to pick one per visible kind or omit.
- * These tests pin the request (all five kinds + their values) and the response parsing.
+ * The vision suggestions were incomplete (evidence 64: only wearColor/carryColor/carryItem; no
+ * wearGarment or hair, with ZERO values dropped). The request previously gave the model the five
+ * KEYS but not each kind's allowed VALUES, and did not explicitly ask it to consider every kind.
+ * The parse and the vocabulary mapping are correct; this change is to the request only — it now
+ * supplies each kind's allowed values and asks the model to consider all five kinds (omitting any
+ * it cannot see). Whether that improves the live output is for Bentley to measure; unknowns stay
+ * permitted. These tests pin the request (all five kinds + their values) and the response parsing.
  * Run with: npm run test:rosina
  */
 import assert from 'node:assert/strict';

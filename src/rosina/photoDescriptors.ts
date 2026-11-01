@@ -50,8 +50,8 @@ export type VisionImage = { data: Uint8Array; contentType: string };
  */
 export type VisionClient = {
   /** `vocabularyByKind` is this child's controlled vocabulary (allowed values per kind). The
-   *  model is given the allowed values so it can pick an in-vocabulary value for every visible
-   *  kind instead of a synonym that would be dropped; it still omits a kind it cannot see. */
+   *  model is given the allowed values and asked to consider every kind, so it can pick an
+   *  in-vocabulary value for each visible kind; it still omits a kind it cannot see. */
   describe(input: { image: VisionImage; childId: string; vocabularyByKind: ReadonlyMap<string, ReadonlySet<string>>; signal?: AbortSignal }): Promise<VisionResult>;
 };
 
