@@ -1,0 +1,118 @@
+{
+  "name": "FridgeGraph - Orbit activation SMS deep link",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "shippedInactive": true,
+    "purpose": "On Orbit activation, text the operator's own test contact a deep link that OPENS the alert in the web app.",
+    "security": {
+      "linkCarriesNoToken": true,
+      "paramsChooseLandingOnly": "persona and alert are routing hints. They grant nothing: the app still requires a demo session (/api/demo/login) and forwards the caller's real bearer to the graph. Deleting or editing either parameter changes where you land, not what you may read.",
+      "noPhoneInRepo": "the recipient is a GHL contact id supplied by the operator at run time; no phone number is stored in this file",
+      "sendsOnlyThroughAuthorizedPath": "the GHL call uses the configured credential reference; nothing here dials or texts outside it"
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fridgegraph-orbit-activation",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "0f1c9a51-0001-4000-8000-000000000001",
+      "name": "Orbit activated",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-420, 300],
+      "webhookId": "fridgegraph-orbit-activation",
+      "notes": "Body: { alertId, childId, personaId }. Called after orbitActivate succeeds. A retry with the same alertId is harmless: the message just points at the same alert."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the landing link. The two parameters are ROUTING HINTS ONLY.\n// Nothing here mints, carries or accepts a token — access still comes from the demo session\n// established in the browser plus the caller's own bearer.\nconst body = $('Orbit activated').first().json.body ?? $('Orbit activated').first().json;\n\nconst appBase = ($env.FRIDGEGRAPH_APP_URL || 'http://127.0.0.1:5189').replace(/\\/$/, '');\nconst alertId = String(body.alertId || '');\nconst personaId = String(body.personaId || 'kendra');\n\nif (!alertId) {\n  throw new Error('orbit-activation-sms: alertId is required');\n}\nif (!/^oa_[A-Za-z0-9]+$/.test(alertId)) {\n  throw new Error('orbit-activation-sms: alertId does not look like an Orbit alert id');\n}\nif (!/^[a-z0-9_-]+$/i.test(personaId)) {\n  throw new Error('orbit-activation-sms: personaId must be a public persona id');\n}\n\nconst link = `${appBase}/orbit?persona=${encodeURIComponent(personaId)}&alert=${encodeURIComponent(alertId)}`;\n\nreturn [{\n  json: {\n    alertId,\n    personaId,\n    link,\n    message: `FridgeGraph Orbit: ${body.childName ? body.childName + ' - ' : ''}an alert is live. Open it: ${link}`,\n    // The recipient is supplied by the operator (GHL contact id), never a phone number in the repo.\n    contactId: $env.FRIDGEGRAPH_OPERATOR_CONTACT_ID || '',\n  },\n}];"
+      },
+      "id": "0f1c9a51-0002-4000-8000-000000000002",
+      "name": "Build deep link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "conditions": [
+            {
+              "id": "has-contact",
+              "leftValue": "={{ $json.contactId }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0f1c9a51-0003-4000-8000-000000000003",
+      "name": "Operator contact configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-40, 300],
+      "notes": "Fail closed and loudly: no contact id means no send, and the run reports why instead of texting a guess."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.leadconnectorhq.com/conversations/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Version", "value": "2021-04-15" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'SMS', contactId: $json.contactId, message: $json.message }) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "0f1c9a51-0004-4000-8000-000000000004",
+      "name": "Send SMS (GHL)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 220],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_GHL_CREDENTIAL_ID", "name": "GHL - FridgeGraph operator" }
+      },
+      "notes": "The credential is bound in the n8n UI; this file never carries a token. Inactive until the operator activates the workflow."
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { sent: false, reason: 'no operator contact configured (FRIDGEGRAPH_OPERATOR_CONTACT_ID)', alertId: $json.alertId } }];"
+      },
+      "id": "0f1c9a51-0005-4000-8000-000000000005",
+      "name": "Not configured",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 400]
+    }
+  ],
+  "connections": {
+    "Orbit activated": { "main": [[{ "node": "Build deep link", "type": "main", "index": 0 }]] },
+    "Build deep link": { "main": [[{ "node": "Operator contact configured?", "type": "main", "index": 0 }]] },
+    "Operator contact configured?": {
+      "main": [
+        [{ "node": "Send SMS (GHL)", "type": "main", "index": 0 }],
+        [{ "node": "Not configured", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {}
+}

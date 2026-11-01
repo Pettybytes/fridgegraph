@@ -1,0 +1,175 @@
+{
+  "at": "2026-11-01T18:21:09.912Z",
+  "app": "http://127.0.0.1:5189",
+  "alertId": "oa_14e4559f4a88",
+  "checks": [
+    {
+      "label": "a parent reads her child's places",
+      "ok": true,
+      "detail": "3 places: PRACTICE_FIELD,SCHOOL_PICKUP,PARK"
+    },
+    {
+      "label": "a non-parent gets no places for that child",
+      "ok": true,
+      "detail": "count=0"
+    },
+    {
+      "label": "another family reads only its own places",
+      "ok": true,
+      "detail": "2 for Jax"
+    },
+    {
+      "label": "a place from another family is refused on write",
+      "ok": true,
+      "detail": "INTERNAL_SERVER_ERROR"
+    },
+    {
+      "label": "a draft is created with a place",
+      "ok": true,
+      "detail": "oa_14e4559f4a88"
+    },
+    {
+      "label": "the preview names the curated place and the time",
+      "ok": true,
+      "detail": "FridgeGraph Orbit: check-in not recorded for Nora. Wearing: Blue Jacket. Last seen: Eastside Sports Field at 10:00 AM. Reply 1 = With me, 2 = On my way, 3 = Can't help."
+    },
+    {
+      "label": "the preview asks in human words",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "changing the place changes the hash",
+      "ok": true,
+      "detail": "eab0d1b9 -> 40a8aa11"
+    },
+    {
+      "label": "a preview minted before the change cannot activate",
+      "ok": true,
+      "detail": "INTERNAL_SERVER_ERROR"
+    },
+    {
+      "label": "the current preview activates",
+      "ok": true,
+      "detail": "oa_14e4559f4a88"
+    },
+    {
+      "label": "the active alert carries the place",
+      "ok": true,
+      "detail": "Lincoln Elementary School"
+    },
+    {
+      "label": "the message names that place",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "an audience member sees the active alert",
+      "ok": true,
+      "detail": "ACTIVE"
+    },
+    {
+      "label": "the audience sees no close outcome yet",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the audience sees only their own response",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "label": "a frozen audience member sees the location",
+      "ok": true,
+      "detail": "Lincoln Elementary School"
+    },
+    {
+      "label": "a non-audience member sees no alert and no location",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the audience member can respond",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "WITH_ME does not close the alert",
+      "ok": true,
+      "detail": "ACTIVE"
+    },
+    {
+      "label": "an audience member cannot close",
+      "ok": true,
+      "detail": "INTERNAL_SERVER_ERROR"
+    },
+    {
+      "label": "the parent closes it",
+      "ok": true,
+      "detail": "CLOSED"
+    },
+    {
+      "label": "the close records FOUND_SAFE",
+      "ok": true,
+      "detail": "FOUND_SAFE"
+    },
+    {
+      "label": "the close renders the thank-you",
+      "ok": true,
+      "detail": "FridgeGraph Orbit: Nora was found safe and sound. Thank you for being there."
+    },
+    {
+      "label": "a retried close returns the same alert",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the audience still sees the alert after the close",
+      "ok": true,
+      "detail": "CLOSED"
+    },
+    {
+      "label": "the audience sees the close outcome",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the audience sees the thank-you",
+      "ok": true,
+      "detail": "FridgeGraph Orbit: Nora was found safe and sound. Thank you for being there."
+    },
+    {
+      "label": "the audience still sees only their own response",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "an outsider gets the empty status, not an error",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "the demo reset succeeds",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "the reset restores the places",
+      "ok": true,
+      "detail": "3 places"
+    },
+    {
+      "label": "the reset clears the alert",
+      "ok": true,
+      "detail": "null"
+    }
+  ],
+  "passed": 32,
+  "failed": 0,
+  "notes": {
+    "servingCodeAtProof": "feat/orbit-amber (PR B branch) on 4101-4107 + routers 4010/4012, recomposed supergraph",
+    "schema": "0053=true 0054=true",
+    "restoredAfterProof": "subgraphs 4101-4107 and both routers restarted on chore/stack-refresh-e3f2e3b (e3f2e3b); stack-health HEALTHY; six consumer reads 6/6",
+    "mutations": "one alert created and closed by this proof, then the ordinary demo reset (/api/demo/reset) cleared it; places restored by the same reset"
+  }
+}

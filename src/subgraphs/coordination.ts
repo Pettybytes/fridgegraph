@@ -1,6 +1,6 @@
 import { parse } from 'graphql';
 import { GraphQLError } from 'graphql';
-import { requireCaller, refuseDemoGuideWrite, isParentOf, authorizeChild, SCOPE, type Ctx } from '../authz';
+import { requireCaller, refuseDemoGuideWrite, isParentOf, authorizeChild, householdIdsOfChild, SCOPE, type Ctx } from '../authz';
 import { dbFor, rows } from '../db';
 
 /**
@@ -54,6 +54,13 @@ const typeDefs = parse(`
     orbitVocabulary(version: Int): [OrbitVocabularyEntry!]!
 
     """
+    The child's family's recorded places. Parent/guardian only, checked against the child — a place
+    from another family is never reachable here, and a stranger gets the same empty list a
+    nonexistent child gets.
+    """
+    orbitPlaces(childId: ID!): [RecordedPlace!]!
+
+    """
     Care facts for a child, each with its source and its verification. RLS decides visibility:
     parent/guardian, a caregiver holding careplan.read, or the guide on sandbox rows.
     """
@@ -80,6 +87,10 @@ const typeDefs = parse(`
       carryColor: String
       carryItem: String
       photoId: ID
+      """A place id from the child's own family. Not a label: nothing caller-supplied is stored."""
+      lastSeenPlaceId: ID
+      """When the child was last seen there. Both this and the place are bound by the message hash."""
+      lastSeenAt: String
     ): OrbitDraft!
 
     """The exact notification the village would receive, plus the binding version and hash."""
@@ -91,8 +102,8 @@ const typeDefs = parse(`
     """A frozen audience member responds. Appends history; never closes the alert."""
     orbitRespond(alertId: ID!, response: String!): OrbitResponseResult!
 
-    """Parent/guardian only. No response closes the alert by itself."""
-    orbitClose(alertId: ID!): OrbitAlert!
+    """Parent/guardian only. No response closes the alert by itself. Idempotent under retry."""
+    orbitClose(alertId: ID!, outcome: String): OrbitAlert!
   }
 
   type CareFactSource {
@@ -128,6 +139,16 @@ const typeDefs = parse(`
     description: String!
   }
 
+  """
+  A curated place from the child's own family. A label and a kind — never an address, never free
+  text. The only labels that exist are seeded ones, so a caller cannot introduce a place name.
+  """
+  type RecordedPlace {
+    id: ID!
+    kind: String!
+    label: String!
+  }
+
   type OrbitAudienceMember {
     person: Person!
     notifyOrder: Int!
@@ -156,6 +177,16 @@ const typeDefs = parse(`
     share: OrbitShare!
     activatedAt: String
     closedAt: String
+    """FOUND_SAFE once a parent closed it with that outcome; null on older closes."""
+    closeOutcome: String
+    """The exact thank-you the frozen audience received; null until the close."""
+    thankyou: String
+    """
+    Where the child was last seen, from the family's curated places. Visible to a parent/guardian
+    and to a member of the FROZEN audience only — the same rule as the message itself.
+    """
+    lastSeenPlace: RecordedPlace
+    lastSeenAt: String
     audience: [OrbitAudienceMember!]!
     responses: [OrbitResponseEntry!]!
     latestResponses: [OrbitResponseEntry!]!
@@ -167,6 +198,10 @@ const typeDefs = parse(`
     child: Child!
     alertId: ID
     status: String
+    """FOUND_SAFE once closed; null while active, and for a viewer who may not see the alert."""
+    closeOutcome: String
+    """The thank-you, shown to a recipient after the close."""
+    thankyou: String
     audienceCount: Int!
     notifiedCount: Int!
     responseCounts: [OrbitResponseCount!]!
@@ -399,11 +434,12 @@ function orbitResponseEntry(r: Record<string, unknown>) {
  * parent sees everything and an audience member sees only their own row — the mapping never widens it.
  */
 async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
+  requireCaller(ctx);
   const parent = await isParentOf(ctx, String(a.child_id));
   const audience = await rows(
     dbFor(ctx)
       .from('orbit_audience_members')
-      .select('person_id,notify_order,notified_at,notification_outcome,eligible')
+      .select('person_id,notify_order,notified_at,notification_outcome,eligible,thankyou_at,thankyou_outcome')
       .eq('orbit_alert_id', a.id)
       .order('notify_order'),
   );
@@ -412,6 +448,13 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
   );
   const latest = new Map<string, Record<string, unknown>>();
   for (const r of responses) latest.set(String(r.person_id), r);
+
+  // The place and the thank-you are gated in the DATABASE by the frozen-audience rule, not here, so
+  // a caller who is neither a parent nor an audience member gets no row at all.
+  const placeRes = await dbFor(ctx).rpc('orbit_place_for', { p_alert: String(a.id) });
+  const place = Array.isArray(placeRes.data) ? (placeRes.data[0] as Record<string, unknown> | undefined) : undefined;
+  const thankyouRes = await dbFor(ctx).rpc('orbit_thankyou_for', { p_alert: String(a.id) });
+  const thankyou = typeof thankyouRes.data === 'string' ? thankyouRes.data : null;
 
   return {
     id: String(a.id),
@@ -429,6 +472,10 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
     },
     activatedAt: a.activated_at ?? null,
     closedAt: a.closed_at ?? null,
+    closeOutcome: a.close_outcome ?? null,
+    thankyou,
+    lastSeenPlace: place ? { id: String(place.id), kind: String(place.kind), label: String(place.label) } : null,
+    lastSeenAt: a.last_seen_at ?? null,
     audience: audience.map((m) => ({
       person: { id: String(m.person_id) },
       notifyOrder: Number(m.notify_order),
@@ -475,6 +522,8 @@ const resolvers = {
         child: { id: childId },
         alertId: null,
         status: null,
+        closeOutcome: null,
+        thankyou: null,
         audienceCount: 0,
         notifiedCount: 0,
         responseCounts: [],
@@ -501,10 +550,15 @@ const resolvers = {
       const latest = new Map<string, Record<string, unknown>>();
       for (const r of responses) latest.set(String(r.person_id), r);
 
+      const thankyouRes = await dbFor(ctx).rpc('orbit_thankyou_for', { p_alert: String(a.id) });
+      const thankyou = typeof thankyouRes.data === 'string' ? thankyouRes.data : null;
+
       return {
         child: { id: childId },
         alertId: String(a.id),
         status: String(a.status),
+        closeOutcome: a.close_outcome ?? null,
+        thankyou,
         audienceCount: audience.length,
         notifiedCount: audience.filter((m) => m.notified_at !== null).length,
         responseCounts: [...counts.entries()].map(([response, count]) => ({ response, count })),
@@ -551,6 +605,25 @@ const resolvers = {
         verifiedAt: r.verified_at ?? null,
         confidence: String(r.confidence),
       }));
+    },
+
+    orbitPlaces: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      // Child-specific authorization first: a parent/guardian of THIS child, or nothing. RLS then
+      // narrows the rows to her family, and the household filter narrows them again to the
+      // households this child actually belongs to.
+      const parent = await isParentOf(ctx, childId);
+      if (!parent) return [];
+      const households = await householdIdsOfChild(ctx, childId);
+      if (!households.length) return [];
+      const list = await rows(
+        dbFor(ctx)
+          .from('recorded_places')
+          .select('id,kind,label,household_id')
+          .in('household_id', households)
+          .order('label'),
+      );
+      return list.map((r) => ({ id: String(r.id), kind: String(r.kind), label: String(r.label) }));
     },
 
     orbitVocabulary: async (_: unknown, { version }: { version?: number }, ctx: Ctx) => {
@@ -721,6 +794,8 @@ const resolvers = {
         carryColor?: string;
         carryItem?: string;
         photoId?: string;
+        lastSeenPlaceId?: string;
+        lastSeenAt?: string;
       },
       ctx: Ctx,
     ) => {
@@ -733,6 +808,8 @@ const resolvers = {
         p_carry_color: args.carryColor ?? null,
         p_carry_item: args.carryItem ?? null,
         p_photo: args.photoId ?? null,
+        p_last_seen_place: args.lastSeenPlaceId ?? null,
+        p_last_seen_at: args.lastSeenAt ?? null,
       });
       if (error) throw error;
       const a = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
@@ -791,9 +868,12 @@ const resolvers = {
       return { alertId, responseId: String(data), guidance: ORBIT_GUIDANCE };
     },
 
-    orbitClose: async (_: unknown, { alertId }: { alertId: string }, ctx: Ctx) => {
+    orbitClose: async (_: unknown, { alertId, outcome }: { alertId: string; outcome?: string }, ctx: Ctx) => {
       refuseDemoGuideWrite(ctx);
-      const { error } = await dbFor(ctx).rpc('close_orbit_alert', { p_alert: alertId });
+      const { error } = await dbFor(ctx).rpc('close_orbit_alert', {
+        p_alert: alertId,
+        p_outcome: outcome ?? 'FOUND_SAFE',
+      });
       if (error) throw error;
       const found = await rows(dbFor(ctx).from('orbit_alerts').select('*').eq('id', alertId));
       if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
