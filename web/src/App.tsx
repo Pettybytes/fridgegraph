@@ -30,6 +30,7 @@ import { CareInformation } from '@/features/personas/careInformation'
 import { PersonaAccessState } from '@/features/personas/PersonaAccessState'
 import { Today } from '@/features/today/Today'
 import { ChildAccessProvider } from '@/features/personas/childContext'
+import { SignatureVillageRoute } from '@/components/signature'
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   const { session } = useSession()
@@ -67,10 +68,12 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
         today: <Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} />,
         'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /></>,
         orbit:<Orbit/>,
-        'ask-rosina': <section className="route-slot"><h2>Talk with Rosina</h2><p>Ask about what is shared with you. Every change needs your confirmation.</p></section>,
+        'ask-rosina': <div className="rosina-route-anchor"><button type="button" onClick={()=>window.dispatchEvent(new Event('rosina:open'))}>Open Ask Rosina</button></div>,
         'care-information': <><p className="persona-mock">Sample data</p><CareInformation /></>,
         calendar: connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null,
-        village: <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
+        village: authMode === 'live'
+          ? <section className="village-route" aria-label="Living Village workspace"><SignatureVillageRoute client={connection?.client ?? null} /></section>
+          : <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} />
       </ChildAccessProvider>

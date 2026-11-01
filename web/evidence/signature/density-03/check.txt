@@ -1,0 +1,45 @@
+### Result
+[{"width":390,"theme":"light","long":false,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":3},{"width":390,"theme":"light","long":true,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":3},{"width":390,"theme":"dark","long":false,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":3},{"width":390,"theme":"dark","long":true,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":3},{"width":1440,"theme":"light","long":false,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":8},{"width":1440,"theme":"light","long":true,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":8},{"width":1440,"theme":"dark","long":false,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":8},{"width":1440,"theme":"dark","long":true,"labelsDoNotIntersect":true,"negativeControl":true,"reachable":30,"collisions":[],"overflow":false,"visible":8}]
+### Ran Playwright code
+```js
+await (async (page) => {
+ const results=[];
+ for(const width of [390,1440])for(const theme of ['light','dark'])for(const long of [false,true]){
+  await page.setViewportSize({width,height:900});
+  await page.goto('http://127.0.0.1:5189/scripts/signature-density.html'+(long?'?long=1':''));
+  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.documentElement.classList.toggle('dark',theme==='dark')},theme);
+  await page.locator('.sg-person').first().waitFor();await page.waitForTimeout(800);
+  const geometry=await page.evaluate(()=>{
+   const elements=[...document.querySelectorAll('.sg-person-name,.sg-relationship,.sg-child figcaption,.sg-person .sg-portrait,.sg-child .sg-portrait')];
+   const boxes=elements.map(el=>({text:el.textContent,...Object.fromEntries(['left','right','top','bottom'].map(k=>[k,el.getBoundingClientRect()[k]]))}));
+   const collisions=[];for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];if(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top)collisions.push([a.text,b.text])}
+   return {collisions,overflow:document.documentElement.scrollWidth>innerWidth,visible:document.querySelectorAll('.sg-person').length};
+  });
+  if(geometry.collisions.length||geometry.overflow)throw Error(JSON.stringify({width,theme,long,...geometry}));
+  // Negative control: deliberately overlap two labels; the same rectangle predicate must reject it.
+  const detectsCollision=await page.evaluate(()=>{
+   const [a,b]=document.querySelectorAll('.sg-person-name');const original=b.getAttribute('style');
+   const r=a.getBoundingClientRect();b.style.position='fixed';b.style.left=r.left+'px';b.style.top=r.top+'px';
+   // Use translation after layout to account for the transformed portrait's containing block.
+   const moved=b.getBoundingClientRect();b.style.translate=`${r.left-moved.left}px ${r.top-moved.top}px`;
+   const q=b.getBoundingClientRect();const hit=r.left<q.right&&r.right>q.left&&r.top<q.bottom&&r.bottom>q.top;
+   if(original===null)b.removeAttribute('style');else b.setAttribute('style',original);return hit;
+  });
+  if(!detectsCollision)throw Error('Negative control failed to detect overlapping labels');
+  const names=new Set(await page.locator('.sg-person-name').allTextContents());
+  for(const button of await page.locator('.sg-overflow').all()){
+   await button.focus();await page.keyboard.press('Enter');await page.locator('.sg-overflow-panel').waitFor();
+   for(const name of await page.locator('.sg-overflow-panel strong').allTextContents())names.add(name);
+   await page.keyboard.press('Escape');
+   if(await button.getAttribute('aria-expanded')!=='false')throw Error('Overflow did not close by keyboard');
+  }
+  if(names.size!==30)throw Error('Authorized people lost from accessible overflow');
+  await page.screenshot({path:`web/evidence/signature/density-03/${width}-${theme}-${long?'long':'normal'}.png`,fullPage:true});
+  results.push({width,theme,long,labelsDoNotIntersect:true,negativeControl:true,reachable:names.size,...geometry});
+ }
+ return results;
+}
+)(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-01T18-02-15-665Z.log#L19-L26

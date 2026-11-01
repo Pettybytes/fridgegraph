@@ -15,7 +15,7 @@ it('selects Sample answers without a bearer and makes no readiness request',asyn
 it('shows Live without a probe, loading, plain text and only client-validated allowed cards',async()=>{
  let resolve!:(response:Response)=>void
  const request=vi.fn<typeof fetch>(()=>new Promise(r=>{resolve=r}));vi.stubGlobal('fetch',request)
- await enter();expect(screen.getByText('Live')).toBeVisible();expect(request).not.toHaveBeenCalled();send();expect(screen.getByRole('status')).toHaveTextContent('Rosina is checking…');await waitFor(()=>expect(request).toHaveBeenCalledTimes(1))
+ await enter();expect(screen.getByText('Live')).toBeVisible();expect(request).not.toHaveBeenCalled();send();expect(screen.getByRole('status')).toHaveTextContent('Sending your question…');await waitFor(()=>expect(request).toHaveBeenCalledTimes(1));expect(screen.getByRole('status')).toHaveTextContent('Waiting for Rosina’s reply…');expect(screen.queryByText('Talk with Rosina')).not.toBeInTheDocument();expect(screen.getByRole('status')).not.toHaveTextContent(/Checking .*check-in|Looking up/);
  await act(async()=>{resolve(new Response(JSON.stringify({reply:'<img src=x onerror=bad()>Live evidence',actions:[{id:'unknown',args:{}},{id:'open-screen',args:{screen:'https://untrusted.example'}},{id:'open-person',args:{personId:'p_foreign'}},{id:'open-screen',args:{screen:'village'}}]}),{status:200}))})
  const log=screen.getByRole('log');expect(log).toHaveTextContent('<img src=x onerror=bad()>Live evidence');expect(log.querySelector('img,a,script')).toBeNull();expect(within(log).getAllByRole('button')).toHaveLength(1);expect(within(log).getByRole('button',{name:'Open Living Village'})).toBeVisible();vi.unstubAllGlobals()
 })

@@ -20,7 +20,7 @@ Pick by intent:
 ## 2. Boundaries
 
 - **GraphQL**: Apollo Client is the only transport. No second client, no `fetch` to the graph.
-- **Data viz**: D3 owns computation and custom rendering. `react-force-graph-2d` owns the Living Village graph. MapLibre owns geography. Never let two of them own the same visual.
+- **Data viz**: D3 owns computation and custom rendering. The signature Living Village uses a deterministic SVG/DOM portrait composition (Bryan’s explicit 2026-10-31 direction), with fixed relationship-group positions and no force-layout jitter. `react-force-graph-2d` remains only in the separately tested legacy graph. MapLibre owns geography. Never let two of them own the same visual.
 - **Maps**: MapLibre is the default renderer. Mapbox is optional. Never assume a Mapbox token exists.
 - **shadcn/ui**: components are owned source in `src/components/ui`, editable, styled in FridgeGraph's own identity. Not a themed third-party look.
 - **Catalogs** (React Bits, Kokonut UI): copy-paste then own it. Not runtime dependencies. React Bits' upstream licence is `NOASSERTION` — read it before copying any file.

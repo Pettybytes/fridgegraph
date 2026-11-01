@@ -40,3 +40,10 @@ it('renews once after a Rosina 401 but never replays the message or asks visitor
  await screen.findByText('Your perspective is ready again. Please send your question again.')
  expect(logins).toBe(2);expect(messages).toBe(1);expect(screen.queryByText('Please sign in again')).not.toBeInTheDocument();vi.unstubAllGlobals()
 })
+it('labels fixture care data but never labels the live Village as sample data',async()=>{
+ const request=vi.fn<typeof fetch>(async url=>String(url).endsWith('health')?Response.json({personas:[]}):String(url).endsWith('/login')?Response.json(readyBody()):Response.json({errors:[{message:'UNAUTHORIZED',extensions:{code:'UNAUTHORIZED'}}]}))
+ vi.stubGlobal('fetch',request);window.location.hash='#/village'
+ render(<App authAdapter={createLiveAuthAdapter(request)}/>);fireEvent.click(screen.getByRole('button',{name:'Explore as Kendra'}));await screen.findByText('Exploring as Kendra')
+ await screen.findByRole('region',{name:'Living Village workspace'});expect(screen.queryByText('Sample data')).not.toBeInTheDocument()
+ window.location.hash='#/care-information';window.dispatchEvent(new HashChangeEvent('hashchange'));await screen.findByText('Sample data');vi.unstubAllGlobals()
+})

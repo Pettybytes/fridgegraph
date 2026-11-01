@@ -1,0 +1,18 @@
+{
+  "head": "767312f159f81a8fb43a1da159e8297a34ddc95b",
+  "uiCommit": "eac3a83919920773524281870f813bc1a8234e9a",
+  "sourceTree": "cb8a574e2549303af411fd177c245a1d15fa469a",
+  "sourceUnchanged": true,
+  "worktree": "/Users/user/Desktop/bentley/fridgegraph-signature-village-orbit",
+  "branch": "feat/signature-village-orbit",
+  "port": 5189,
+  "backend": "e56434d",
+  "migrations": [
+    "0049",
+    "0050",
+    "0051",
+    "0052"
+  ],
+  "hardHandback": "2026-11-01T04:03:36Z",
+  "recordedAt": "2026-11-01T03:48:03.267565+00:00"
+}
