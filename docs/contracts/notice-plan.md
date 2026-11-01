@@ -16,21 +16,28 @@ so and the feature degrades to review-only rather than inventing a flow.
 
 ## 0. Status — planned vs implemented, and what is stable for Codex
 
-**Nothing in this document is implemented yet.** As of this commit the repo has no notice-plan
-endpoint, pipeline, or sample kit — this is the STEP 0 contract only. Every behavior below is
-**PLANNED** until a later commit lands it with tests; this section is the single source of truth for
-that status and will be updated in place as pieces ship.
+The pipeline is **implemented and unit-tested** (28 cases in `src/rosina/noticePipeline.test.ts` and
+`noticeEndpoint.test.ts`; full `npm run test:rosina` green). The server **integration seam** (the
+real GraphQL-as-caller reads + `requestPickup`, `src/rosina/noticeDeps.ts`, wired in `server.ts`) is
+implemented but **not yet exercised end-to-end** — that happens at the live-proof step, post-merge,
+in a Bentley-reserved sandbox. This section is the single source of truth for status and is updated
+in place as pieces land.
 
 | Section | Stable for Codex to build the UI against? | Status |
 | --- | --- | --- |
-| §1 handler facts (what the backend supports) | n/a — these are verified facts about existing code | **VERIFIED** |
-| §2 request shape, routes, MIME types, size limits | **STABLE — build against this** | PLANNED (not yet implemented) |
-| §4 proposal envelope + example payload | **STABLE — build against this** | PLANNED |
-| §4b clarification question + continuation (`resume`) | **STABLE — build against this** | PLANNED |
-| §5.4 / §2 error shapes & HTTP codes | **STABLE — build against this** | PLANNED |
-| §5 confirm sequence (server-side gates) | STABLE for the `requestPickup` action only | PLANNED |
-| §5.3 dismissal-time → window mapping | STABLE | PLANNED |
+| §1 handler facts (what the backend supports) | n/a — verified facts about existing code | **VERIFIED** |
+| §2 request shape, routes, MIME types, size limits | **STABLE — build against this** | **IMPLEMENTED + unit-tested** |
+| §4 proposal envelope + example payload | **STABLE — build against this** | **IMPLEMENTED + unit-tested** |
+| §4b clarification question + continuation (`resume`) | **STABLE — build against this** | **IMPLEMENTED + unit-tested** |
+| §5.4 / §2 error shapes & HTTP codes | **STABLE — build against this** | **IMPLEMENTED + unit-tested** |
+| §5 confirm sequence (server-side gates) | STABLE for the `requestPickup` action only | **IMPLEMENTED + unit-tested** |
+| §5.3 dismissal-time → window mapping | STABLE | **IMPLEMENTED + unit-tested** |
+| real reads + `requestPickup` wiring (`noticeDeps.ts`, `server.ts`) | n/a — backend seam | IMPLEMENTED, **unexercised until live proof** |
 | §1.2 field-trip / permission-slip confirm action | **NOT STABLE — PENDING inspection** | **UNSUPPORTED in v1** |
+
+The envelope now also returns `claims` (the exact signed `SignedClaims` the client echoes back to
+confirm, verbatim, alongside `signature`). See §5 — at confirm the server overrides `callerId` with
+the authenticated id, so a different caller cannot reuse the token.
 
 **Confirmation is DISABLED for any action not marked verified here.** v1 has exactly **one**
 confirmable action: `requestPickup` (§1.1, parent-only, DB-enforced). Every other change kind —
