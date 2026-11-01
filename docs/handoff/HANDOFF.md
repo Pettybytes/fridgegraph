@@ -3957,3 +3957,15 @@ serving revision with its exact input method before calling voice integrated.
 Next separate task: mobile map label collisions; retain geographic fixtures and compare
 backend place identities by ID. #78 final endpoint readiness and mode-specific routing
 contracts remain dependencies for live map integration.
+
+## Mobile map labels — 2026-11-01
+Base 68e8dc7460b9ab6207d9a65cb1f0907038ec58df; fix/web-map-labels in
+fridgegraph-map-labels. #82 merged at 78406d7; #84 proves the mounted voice round trip on
+that exact UI revision with browser-injected fixture audio. No repeat of finished voice work.
+UI: complete · backend: #78 pending · integrated + tested: mock map layout only.
+390 light/dark before/after and 1440 review: web/evidence/map-labels/receipt.md.
+342 web tests PASS, root typecheck and web build PASS. Caption layout reserves portrait/badge
+space; clusters retain all records in an accessible menu; zoom controls no longer obscured.
+Read-only ID audit confirms synthetic school/riverside IDs are not backend rp_* identities.
+No geographic fixture changed. Real integration preparation is a separate branch; keep Sample
+data until actual authorized live reads flow. No shared-stack requests or reservation needed.
