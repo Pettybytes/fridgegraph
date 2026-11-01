@@ -43,7 +43,7 @@ export function MapView({controller}:{controller:MapController}){
  <a className="vm-calendar-link" href={`#/calendar?day=${state.day}&childId=p_nora&view=day&sampleMap=1`}>Open this day in Family Calendar <ArrowRight size={14}/></a>
  <details className="vm-route-pickers" open={!!route}><summary>Route from… to…</summary><label>From<select aria-label="From" value={from} onChange={e=>setFrom(e.target.value)}>{world.people.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>To<select aria-label="To" value={to} onChange={e=>setTo(e.target.value)}>{world.places.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button disabled={!from||!to||state.routing} onClick={()=>drop(from,to)}>Estimate route</button></details>
  <RideCost controller={controller}/>{state.error&&<p className="vm-error" role="alert">{state.error}</p>}
- <p className="vm-privacy">Shared homes, coarse areas and event places. Never live GPS.</p></div>
+ <p className="vm-privacy">Map restricted: people without a shared home or current public event place appear in this list only. Area labels are never pins. Never live GPS.</p></div>
  </aside>
  </section>
 }

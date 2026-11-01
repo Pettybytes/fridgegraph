@@ -3,12 +3,13 @@ import {createContext,useContext,useEffect,useMemo,useRef,useState,useSyncExtern
 import {Dialog} from 'radix-ui'
 import {useReducedMotion} from 'motion/react'
 import {useSession} from '@/features/personas/Session'
+import {personPoint} from './model'
 import {MapController} from './controller'
 import {createMockMapAdapter} from './mockAdapter'
 const Context=createContext<MapController|null>(null)
 export const useVillageMap=()=>useContext(Context)
 export const useMapState=(controller:MapController)=>useSyncExternalStore(controller.subscribe,controller.getSnapshot)
-export function expandMap(){const go=()=>{flushSync(()=>{location.hash='#/map';window.dispatchEvent(new HashChangeEvent('hashchange'))})};if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.startViewTransition(go);else go()}
+export function expandMap(){if(location.hash.split('?')[0]==='#/map')return;const go=()=>{flushSync(()=>{location.hash='#/map';window.dispatchEvent(new HashChangeEvent('hashchange'))})};if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.startViewTransition(go);else go()}
 export function VillageMapProvider({children}:{children:ReactNode}){
  const {session,registerPrivateCleanup}=useSession()
  const controller=useMemo(()=>session?new MapController(createMockMapAdapter(session.persona.id)):null,[session?.generation])
@@ -36,5 +37,6 @@ function MapContextCard({controller}:{controller:MapController}){
  const state=useMapState(controller),[route,setRoute]=useState(location.hash);useEffect(()=>{const onHash=()=>setRoute(location.hash);window.addEventListener('hashchange',onHash);return()=>window.removeEventListener('hashchange',onHash)},[])
  if(!route.startsWith('#/map')&&state.proposal!=='review')return null
  const s=state.selection,w=state.world,label=s?.kind==='person'?w?.people.find(p=>p.id===s.id)?.name:s?.kind==='place'?w?.places.find(p=>p.id===s.id)?.name:w?.events.find(p=>p.id===s?.id)?.title
- return <section className="vm-rosina-context" aria-label="Map context"><small>Sample map context</small><h3>{label??'Your village, on the map'}</h3><p>No live locations. Dragging only requests a route estimate.</p><button onClick={()=>{expandMap();controller.follow();if(innerWidth<1250)window.dispatchEvent(new Event('rosina:close'))}}>Show on map</button>{state.proposal==='review'&&<><p>Pickup proposal ready for parent review.</p><RideCost controller={controller}/><button onClick={()=>window.dispatchEvent(new Event('map:review-proposal'))}>Review pickup proposal</button><a href="#/mission-control" onClick={()=>window.dispatchEvent(new Event('rosina:close'))}>Review in Mission Control</a></>}</section>
+ const restricted=!!s&&!!w&&(s.kind==='person'?!personPoint(w.people.find(p=>p.id===s.id)!,w):s.kind==='place'?!w.places.find(p=>p.id===s.id)?.point:!w.places.find(p=>p.id===w.events.find(e=>e.id===s.id)?.placeId)?.point)
+ return <section className="vm-rosina-context" aria-label="Map context"><small>Sample map context</small><h3>{label??'Your village, on the map'}</h3><p>No live locations. Dragging only requests a route estimate.</p><button disabled={restricted} onClick={()=>{expandMap();controller.follow();if(innerWidth<1250)window.dispatchEvent(new Event('rosina:close'))}}>Show on map</button>{restricted&&<p>Location restricted. This record appears in the list only.</p>}{state.proposal==='review'&&<><p>Pickup proposal ready for parent review.</p><RideCost controller={controller}/><button onClick={()=>window.dispatchEvent(new Event('map:review-proposal'))}>Review pickup proposal</button><a href="#/mission-control" onClick={()=>window.dispatchEvent(new Event('rosina:close'))}>Review in Mission Control</a></>}</section>
 }

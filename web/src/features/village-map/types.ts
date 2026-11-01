@@ -2,8 +2,8 @@
  * A live transport is pending Bentley's documented wire contract. */
 export type Point = [longitude:number,latitude:number]
 export type Mode = 'Drive'|'Walk'|'Bike'
-export type Place = {id:string;name:string;kind:'school'|'home'|'field'|'park'|'venue';point:Point;addressRead:boolean}
-export type MapPerson = {id:string;name:string;position:{point:Point;label:string;source:'home'|'area'|'event';addressRead:boolean};vehicle:'recorded'|'none'|'unknown'}
+export type Place = {id:string;name:string;kind:'school'|'home'|'field'|'park'|'venue';point?:Point;addressRead:boolean}
+export type MapPerson = {id:string;name:string;position:{point?:Point;placeId?:string;label:string;source:'home'|'area'|'event';addressRead:boolean};vehicle:'recorded'|'none'|'unknown'}
 export type MapEvent = {id:string;day:string;at:string;end:string;title:string;placeId:string|null;peopleIds:string[];status:'PROPOSED'|'CONFIRMED'|'CANCELLED'}
 export type MapWorld = {state:'mock'|'live';people:MapPerson[];places:Place[];events:MapEvent[];days:string[];canApprove:boolean;parentName:string}
 export type RideEstimate = {amountUsd:number;capUsd:number;roadDistanceMiles:number;basis:string;paidRidePath:true;candidateId:string;state:'mock'|'live'}
