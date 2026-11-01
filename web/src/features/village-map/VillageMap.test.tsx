@@ -5,7 +5,7 @@ import {MapController} from './controller'
 import {createMockMapAdapter,sampleRide} from './mockAdapter'
 import {mapCalendar} from './calendar'
 vi.mock('./MapCanvas',()=>({MapCanvas:()=> <div>Map canvas</div>}))
-vi.mock('motion/react',()=>({useReducedMotion:()=>true}))
+vi.mock('./useMapReducedMotion',()=>({useReducedMotion:()=>true}))
 afterEach(cleanup)
 it('dragging onto an event requests a route, never approval; accessible pickers use the same request',async()=>{
  const adapter=createMockMapAdapter('kendra'),route=vi.spyOn(adapter,'route'),controller=new MapController(adapter);await controller.load();render(<MapView controller={controller}/>);

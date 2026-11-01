@@ -1,6 +1,6 @@
 import {lazy,Suspense,useEffect,useRef,useState} from 'react'
 import {ArrowLeft,CalendarDays,Users,Sun,Moon,Car,Footprints,Bike,ChevronDown,ChevronUp,PanelLeftClose,PanelLeftOpen,Play,Pause,RotateCcw,MapPin,ArrowRight,GripVertical,MessageCircle} from 'lucide-react'
-import {useReducedMotion} from 'motion/react'
+import {useReducedMotion} from './useMapReducedMotion'
 import {portraitFor} from '@/components/fg/portraits'
 import {formatTime} from '@/features/calendar/time'
 import {useVillageMap,useMapState,RideCost} from './runtime'

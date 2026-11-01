@@ -1,7 +1,7 @@
 import {flushSync} from 'react-dom'
 import {createContext,useContext,useEffect,useMemo,useRef,useState,useSyncExternalStore,type ReactNode} from 'react'
 import {Dialog} from 'radix-ui'
-import {useReducedMotion} from 'motion/react'
+import {useReducedMotion} from './useMapReducedMotion'
 import {useSession} from '@/features/personas/Session'
 import {personPoint} from './model'
 import {MapController} from './controller'
@@ -19,7 +19,7 @@ export function VillageMapProvider({children}:{children:ReactNode}){
 }
 function ReplayClock({controller}:{controller:MapController}){
  const state=useMapState(controller),reduced=useReducedMotion()
- useEffect(()=>{if(!state.playing||reduced)return;let handle=0,last=performance.now();const tick=(now:number)=>{if(!document.hidden)controller.tick(Math.min(250,now-last));last=now;handle=requestAnimationFrame(tick)};handle=requestAnimationFrame(tick);return()=>cancelAnimationFrame(handle)},[controller,state.playing,reduced]);return null
+ useEffect(()=>{if(reduced&&state.playing){controller.pause();return}if(!state.playing)return;let handle=0,last=performance.now();const tick=(now:number)=>{if(!document.hidden)controller.tick(Math.min(250,now-last));last=now;handle=requestAnimationFrame(tick)};handle=requestAnimationFrame(tick);return()=>cancelAnimationFrame(handle)},[controller,state.playing,reduced]);return null
 }
 export function RideCost({controller}:{controller:MapController}){
  const state=useMapState(controller),ride=state.route?.rideEstimate;if(!ride)return null

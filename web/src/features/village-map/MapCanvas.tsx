@@ -2,7 +2,7 @@ import {setWorkerUrl} from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import {useEffect,useRef,useState} from 'react'
 import Map,{Marker,Source,Layer,type MapRef} from 'react-map-gl/maplibre'
-import {useReducedMotion} from 'motion/react'
+import {useReducedMotion} from './useMapReducedMotion'
 import {MapPin,School,House,Trees,Flag,Building2} from 'lucide-react'
 import {portraitFor} from '@/components/fg/portraits'
 import type {MapController,MapState} from './controller'
@@ -14,6 +14,7 @@ const styleUrls={light:'https://tiles.openfreemap.org/styles/positron',dark:'htt
 const icons={school:School,home:House,park:Trees,field:Flag,venue:Building2}
 export function MapCanvas({controller,state,theme,compact=false,bottom=0,onExpand}:{controller:MapController;state:MapState;theme:'light'|'dark';compact?:boolean;bottom?:number;onExpand?:()=>void}){
  const ref=useRef<MapRef>(null),reduced=useReducedMotion(),[ready,setReady]=useState(false),[failed,setFailed]=useState(false),[camera,setCamera]=useState(0),[cluster,setCluster]=useState<string|null>(null),[dragEpoch,setDragEpoch]=useState(0),[draw,setDraw]=useState(1)
+ useEffect(()=>{if(reduced)ref.current?.stop()},[reduced])
  const {world,route}=state,frame=route?replayFrame(route,state.progress):null
  useEffect(()=>{if(!state.route||reduced){setDraw(1);return}setDraw(0);let handle=0;const start=performance.now();const animate=(now:number)=>{const p=Math.min(1,(now-start)/650);setDraw(p);if(p<1)handle=requestAnimationFrame(animate)};handle=requestAnimationFrame(animate);return()=>cancelAnimationFrame(handle)},[state.route?.id,reduced])
  const token=(name:string)=>{const canvas=document.createElement('canvas'),context=canvas.getContext('2d')!;context.fillStyle=getComputedStyle(document.documentElement).getPropertyValue(name);context.fillRect(0,0,1,1);const [r,g,b]=context.getImageData(0,0,1,1).data;return `rgb(${r},${g},${b})`}
