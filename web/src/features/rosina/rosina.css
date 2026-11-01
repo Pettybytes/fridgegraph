@@ -23,7 +23,7 @@
 .rosina-panel form label { display: block; font-size: .75rem; color: #56667e; margin-bottom: .4rem; }
 .rosina-panel form > div { display: flex; align-items: end; gap: .5rem; }
 .rosina-panel textarea { resize: none; width: 100%; padding: .7rem; border: 1px solid #d4cadd; border-radius: .65rem; font: inherit; font-size: .85rem; min-width: 0; }
-.rosina-panel form button, .rosina-confirm > button { padding: .7rem .9rem; color: white; border-radius: .6rem; background: #7559a1; font-size: .85rem; }
+.rosina-panel form button[type="submit"], .rosina-confirm > button { padding: .7rem .9rem; color: white; border-radius: .6rem; background: #7559a1; font-size: .85rem; }
 .rosina-panel form button:disabled { opacity: .5; }
 .rosina-error { padding: .5rem 1rem; color: #8d3d50; font-size: .8rem; }
 /* Launcher is the resting state on every size: a quiet pill, bottom-right. */
@@ -71,7 +71,7 @@
 .rosina-panel .rosina-message>span{color:var(--fg-primary)}
 .rosina-message.from-person{background:var(--fg-selection)}
 .rosina-action{color:var(--fg-primary);background:var(--fg-surface);border-color:var(--fg-border);font-size:16px}
-.rosina-panel form button{background:var(--fg-primary);color:var(--fg-on-primary);min-height:44px}
+.rosina-panel form button[type="submit"]{background:var(--fg-primary);color:var(--fg-on-primary);min-height:44px}
 .rosina-panel textarea{background:var(--fg-surface);color:var(--fg-ink);border-color:var(--fg-border)}
 .rosina-progress{min-height:72px;padding:16px 0;color:var(--fg-ink)}.rosina-progress strong{font-size:16px;font-weight:500}.rosina-progress span{display:block;font-size:13px;color:var(--fg-muted);margin-top:8px}
 :root[data-focus="1"] .rosina-panel.is-open{left:24px;right:24px;top:24px;bottom:24px;width:auto;height:auto;max-width:1100px;margin:auto;font-size:18px}
@@ -88,3 +88,13 @@ body:has(.rosina-panel.is-open:not([hidden])) .rosina-route-anchor{display:none}
 .rosina-panel .mode-mock{color:var(--fg-primary);background:var(--fg-selection);border-color:var(--fg-primary)}
 .rosina-panel .rosina-error{color:var(--fg-attention)}
 .rosina-confirm{background:var(--fg-surface);color:var(--fg-ink)}
+
+/* Mounted voice control shares the composer row; its credit/status use the full width. */
+.rosina-panel form > .rosina-composer{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end}
+.rosina-composer > textarea{grid-column:1;grid-row:1}
+.rosina-composer > button[type="submit"]{grid-column:2;grid-row:1}
+.rosina-composer > .fg-voice{display:contents}
+.rosina-composer .fg-voice > .fg-iconbtn{grid-column:3;grid-row:1}
+.rosina-composer .fg-voice > :not(.fg-iconbtn){grid-column:1 / -1}
+/* The canonical conversation above renders these once, including validated action cards. */
+.rosina-composer .fg-voice-transcript,.rosina-composer .fg-voice-reply{display:none}

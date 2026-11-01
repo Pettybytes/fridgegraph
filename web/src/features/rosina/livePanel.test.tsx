@@ -15,7 +15,7 @@ it('selects Sample answers without a bearer and makes no readiness request',asyn
 it('shows Live without a probe, loading, plain text and only client-validated allowed cards',async()=>{
  let resolve!:(response:Response)=>void
  const request=vi.fn<typeof fetch>(()=>new Promise(r=>{resolve=r}));vi.stubGlobal('fetch',request)
- await enter();expect(screen.getByText('Live')).toBeVisible();expect(request).not.toHaveBeenCalled();send();expect(screen.getByRole('status')).toHaveTextContent('Sending your question…');await waitFor(()=>expect(request).toHaveBeenCalledTimes(1));expect(screen.getByRole('status')).toHaveTextContent('Waiting for Rosina’s reply…');expect(screen.queryByText('Talk with Rosina')).not.toBeInTheDocument();expect(screen.getByRole('status')).not.toHaveTextContent(/Checking .*check-in|Looking up/);
+ await enter();expect(screen.getByText('Live')).toBeVisible();expect(request).not.toHaveBeenCalled();send();expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).toHaveTextContent('Sending your question…');await waitFor(()=>expect(request).toHaveBeenCalledTimes(1));expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).toHaveTextContent('Waiting for Rosina’s reply…');expect(screen.queryByText('Talk with Rosina')).not.toBeInTheDocument();expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).not.toHaveTextContent(/Checking .*check-in|Looking up/);
  await act(async()=>{resolve(new Response(JSON.stringify({reply:'<img src=x onerror=bad()>Live evidence',actions:[{id:'unknown',args:{}},{id:'open-screen',args:{screen:'https://untrusted.example'}},{id:'open-person',args:{personId:'p_foreign'}},{id:'open-screen',args:{screen:'village'}}]}),{status:200}))})
  const log=screen.getByRole('log');expect(log).toHaveTextContent('<img src=x onerror=bad()>Live evidence');expect(log.querySelector('img,a,script')).toBeNull();expect(within(log).getAllByRole('button')).toHaveLength(1);expect(within(log).getByRole('button',{name:'Open Living Village'})).toBeVisible();vi.unstubAllGlobals()
 })
@@ -54,4 +54,25 @@ it('closing via a catalog navigation card aborts another in-flight request',asyn
  fireEvent.click(screen.getByRole('button',{name:'Open care information'}));expect(signal?.aborted).toBe(true)
  await act(async()=>{resolve(new Response(JSON.stringify({reply:'Late navigation response',actions:[]}),{status:200}))})
  expect(screen.queryByText('Late navigation response')).not.toBeInTheDocument();expect(screen.queryByText(LIVE_FALLBACK)).not.toBeInTheDocument();vi.unstubAllGlobals()
+})
+
+it('keeps voice status and text-progress status independently visible during a text request',async()=>{
+ let resolve!:(response:Response)=>void
+ vi.stubGlobal('fetch',vi.fn<typeof fetch>(()=>new Promise(r=>{resolve=r})))
+ await enter();send()
+ const thread=screen.getByRole('log',{name:'Rosina conversation'})
+ const textStatus=within(thread).getByRole('status')
+ const composer=screen.getByLabelText('Message Rosina').closest('form')!
+ const voiceStatus=within(composer).getByRole('status')
+ expect(voiceStatus).toBeVisible()
+ expect(voiceStatus).toHaveTextContent('Tap to talk to Rosina')
+ expect(textStatus).toBeVisible()
+ expect(textStatus).not.toBe(voiceStatus)
+ await waitFor(()=>expect(textStatus).toHaveTextContent('Waiting for Rosina’s reply…'))
+ expect(screen.getAllByRole('status')).toEqual(expect.arrayContaining([textStatus,voiceStatus]))
+ await act(async()=>{resolve(new Response(JSON.stringify({reply:'The text reply arrived',actions:[]}),{status:200}))})
+ expect(within(thread).queryByRole('status')).not.toBeInTheDocument()
+ expect(voiceStatus).toBeVisible()
+ expect(voiceStatus).toHaveTextContent('Tap to talk to Rosina')
+ vi.unstubAllGlobals()
 })
