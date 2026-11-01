@@ -102,6 +102,17 @@ async function upsert(table: string, rows: Record<string, unknown>[], onConflict
   return rows.length;
 }
 
+/** Call a SECURITY DEFINER helper through PostgREST (service role). */
+async function rpc(fn: string, body: Record<string, unknown>): Promise<unknown> {
+  const res = await fetch(`${base()}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`rpc ${fn} failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return res.json().catch(() => null);
+}
+
 async function del(table: string, filter: string) {
   const res = await fetch(`${base()}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: headers() });
   if (!res.ok) throw new Error(`${table} delete failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
@@ -220,6 +231,13 @@ export async function seedDatabase() {
       : raw;
     total += await upsert(t, rows, CONFLICT[t]);
   }
+
+  // Places LAST: the canonical place rows (0062) reference households, and the event links reference
+  // both the events and those places. Both helpers are idempotent; a fresh seed that skipped them
+  // produced places with no coordinates and no linked events at all.
+  await rpc('seed_recorded_places', {});
+  await rpc('seed_event_place_links', {});
+
   return total;
 }
 
@@ -365,6 +383,13 @@ export async function resetDatabase() {
   // baseline reset/checksum contract is unchanged. Upserts by fixed id, so it is idempotent.
   await seedDatabase();
   await seedSimulated();
+
+  // Geographic seed (0062) — coordinates and the canonical event→place links, restored through the
+  // AUTHORIZED place-reset helper. `recorded_places` is deliberately absent from `TABLES` and
+  // `RESET_SCOPED`: a broad deletion would remove every fixture place, while the helper removes only
+  // non-fixture sandbox rows and re-seeds the canonical set with its coordinates and links.
+  await rpc('reset_demo_places', { p_actor: 'db:reset' });
+
   return deleted;
 }
 

@@ -182,6 +182,16 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
       if (n) restored[table] = (restored[table] ?? 0) + n;
     }
 
+    // Geographic seed (0062): coordinates + canonical event→place links, restored through the
+    // authorized place-reset helper the database already owns. Runs AFTER events are restored, because
+    // it re-applies links to rows that must already exist — and it removes only non-fixture sandbox
+    // places, so no household's fixture rows are deleted wholesale.
+    const places = await c.query('select reset_demo_places($1) as r', [actor]);
+    const placeCounts = (places.rows[0]?.r ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(placeCounts)) {
+      if (Number(v) > 0) restored[k] = Number(v);
+    }
+
     // Disposable Orbit records go through the privileged, database-authorised path (0042).
     // Deleting them here directly would hit the append-only guard, which is the point of the split.
     // Created families are not fixture rows, so the id-scoped loops above never touch them. Their
