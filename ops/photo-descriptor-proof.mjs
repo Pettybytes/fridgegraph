@@ -21,7 +21,7 @@
  * Run with: node --import tsx ops/photo-descriptor-proof.mjs [--record] [--offline-only|--live-only]
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -35,6 +35,10 @@ const RECORD = process.argv.includes('--record');
 const OFFLINE_ONLY = process.argv.includes('--offline-only');
 const LIVE_ONLY = process.argv.includes('--live-only');
 const DO_RESET = !process.argv.includes('--no-reset');
+// `--image <path>` sends a real fixture through the real upload + vision path instead of the
+// blank 1x1 JPEG. Nothing about the result is prefilled or asserted from expectation.
+const IMAGE_ARG = process.argv.indexOf('--image');
+const IMAGE_PATH = IMAGE_ARG > -1 ? process.argv[IMAGE_ARG + 1] : null;
 
 const results = [];
 let failed = 0;
@@ -228,10 +232,12 @@ async function livePhase() {
   const loretta = await login('loretta');
 
   // Upload as the parent: this is the ordinary Orbit path, and the proof cleans it up by reset.
+  const fixture = IMAGE_PATH ? readFileSync(IMAGE_PATH) : TINY_JPEG;
+  const fixtureType = IMAGE_PATH && IMAGE_PATH.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
   const up = await fetch(APP + '/api/orbit/photo?childId=p_nora', {
     method: 'POST',
-    headers: { 'content-type': 'image/jpeg', ...authHeaders(kendra) },
-    body: TINY_JPEG,
+    headers: { 'content-type': fixtureType, ...authHeaders(kendra) },
+    body: fixture,
   });
   const upBody = await up.json().catch(() => null);
   const photoId = upBody?.photoId;
@@ -322,7 +328,16 @@ async function livePhase() {
 
 /* ------------------------------------------------------------------ run */
 
-const receipt = { script: 'photo-descriptor-proof', startedAt: new Date().toISOString(), app: APP, results };
+const receipt = {
+  script: 'photo-descriptor-proof',
+  evidence: process.env.PROOF_EVIDENCE ?? '63',
+  startedAt: new Date().toISOString(),
+  app: APP,
+  fixture: IMAGE_PATH
+    ? { path: IMAGE_PATH, bytes: readFileSync(IMAGE_PATH).length, note: 'fictional test fixture, not app art' }
+    : { note: 'blank 1x1 JPEG' },
+  results,
+};
 
 try {
   if (!LIVE_ONLY) receipt.offline = await offlinePhase();
@@ -352,7 +367,7 @@ receipt.passed = results.filter((r) => r.ok).length;
 receipt.failed = failed;
 const dir = RECORD ? 'docs/evidence' : '.runs';
 mkdirSync(dir, { recursive: true });
-const file = `${dir}/63-photo-descriptor-authority.json`;
+const file = `${dir}/${process.env.PROOF_EVIDENCE ?? '63'}-photo-descriptor-authority.json`;
 writeFileSync(file, JSON.stringify(receipt, null, 2) + '\n');
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} — ${receipt.passed}/${results.length} checks, receipt ${file}`);
 process.exit(failed === 0 ? 0 : 1);
