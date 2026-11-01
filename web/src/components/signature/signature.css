@@ -103,3 +103,6 @@
 .sg-person[data-response=ON_WAY] .sg-response-state{border-color:var(--fg-onway)}
 .sg-person[data-response=WITH_ME] .sg-response-state{border-color:var(--fg-withme)}
 .sg-person[data-response=CANNOT_HELP] .sg-response-state{color:var(--fg-ink)}
+
+/* Leave native arrow room independent of the selected child's name. */
+.sg-workspace select{padding-inline-end:44px}
