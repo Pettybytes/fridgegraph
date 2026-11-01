@@ -15,6 +15,30 @@ import { localizeTimestamps } from './localTime';
 import { applyOutputGuard } from './outputGuard';
 import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
+import { runCaregiverBriefing } from './briefingTool';
+
+/** The local "caregiver briefing" tool: a composed, read-only answer built ONLY from what the
+ * signed-in caller may read for one child and day (src/rosina/briefing*.ts). It is neither an MCP
+ * tool (it composes several reads locally) nor a proposeAction_ card (it changes nothing), so it is
+ * handled in its own branch below. Gated like any childId read: the id must be one of THIS caller's
+ * own MyChildren children; per-scope gating (schedule vs careplan) happens inside the gatherer. */
+const BRIEFING_TOOL_NAME = 'CaregiverBriefing';
+const BRIEFING_TOOL: ModelTool = {
+  type: 'function',
+  function: {
+    name: BRIEFING_TOOL_NAME,
+    description:
+      'Build a short briefing ("what do I need to know for today?" / "brief me for Nora\'s pickup") for ONE child on ONE date, from ONLY what YOU — the signed-in caregiver — are allowed to read. ' +
+      'It reads as you and never borrows a parent\'s permissions, so it shows more for some callers and less for others. ' +
+      'Call it with an exact childId from your own list in the system prompt and a YYYY-MM-DD date, then relay its briefing text to the user as your answer. It changes nothing.',
+    parameters: {
+      type: 'object',
+      properties: { childId: { type: 'string' }, date: { type: 'string' } },
+      required: ['childId', 'date'],
+      additionalProperties: false,
+    },
+  },
+};
 
 /** The app handler (orbitDraft + orbitPreview + the confirm UI) this server build ships with.
  * Paired with the catalog's own `implemented` flag in `decideOrbitAction()` — neither alone is
@@ -257,7 +281,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const childAccessById = new Map(childList.map((c) => [c.id, c]));
 
   const mcpTools = await mcp.listTools();
-  const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), ...ACTION_TOOLS];
+  const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS];
 
   const messages: ModelMessage[] = [
     { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId) },
@@ -343,6 +367,27 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     const actionCalls = parsedCalls.filter(({ call }) => call.name.startsWith(ACTION_TOOL_PREFIX));
 
     for (const { call, args } of mcpCalls) {
+      if (call.name === BRIEFING_TOOL_NAME) {
+        const childId = typeof args.childId === 'string' ? args.childId : '';
+        const date = typeof args.date === 'string' ? args.date : '';
+        const access = childAccessById.get(childId);
+        // Gate: only a child THIS caller has standing with (their own MyChildren). An unknown id and
+        // a malformed date are refused the same way for everyone — no existence oracle. Per-scope
+        // gating (schedule vs careplan) and every read happen inside runCaregiverBriefing, as the
+        // caller; the Demo guide is not special-cased here (she holds no MyChildren children).
+        if (!access || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const code = access ? 'INVALID_DATE' : 'OUT_OF_SCOPE_ID';
+          toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: [code] });
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: code }) });
+          continue;
+        }
+        const briefing = await runCaregiverBriefing({ childId, date, callerId: options.personId, access, mcp }).catch(() => null);
+        if (briefing) toolResultTexts.push(briefing.text);
+        toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: !briefing, errorCodes: briefing ? [] : ['BRIEFING_FAILED'] });
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(briefing ?? { error: 'BRIEFING_FAILED' }) });
+        continue;
+      }
+
       if (!ALLOWED_MCP_TOOL_NAMES.has(call.name)) {
         toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['TOOL_NOT_ALLOWED'] });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'TOOL_NOT_ALLOWED' }) });

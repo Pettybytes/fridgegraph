@@ -418,6 +418,14 @@ GROUNDING — MANDATORY
 
 ${jobAndCalendarTools(selfPersonId)}
 
+BRIEFING
+When the caregiver asks what they need to know for a day ("what do I need to know for today?",
+"brief me for Nora's pickup"), call the CaregiverBriefing tool with the exact childId (from your own
+list above) and a YYYY-MM-DD date, then relay its briefing text as your answer. It composes ONLY
+from what YOU are allowed to read, so say exactly what it returns and nothing more — never add a
+detail it did not include. If it returns a limited-access note or a refusal, pass that on plainly
+rather than filling the gap. It changes nothing.
+
 ACTIONS
 You may propose UI actions ONLY by calling one of the proposeAction_* tools. Calling one does not
 do anything by itself — it only offers the person a card; the card never performs anything until
