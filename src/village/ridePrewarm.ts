@@ -197,7 +197,8 @@ export async function prewarmRideDistances(
 /**
  * Real wiring. Authorizes the caller for the child, then resolves the snapshots the ranking consumes:
  * the child's `locations` school point and each current candidate's `locations` point — the same two
- * rows 0060 reads, so a measurement can only ever match a snapshot that will actually be priced.
+ * rows the ranking reads, ORDERED the way the documented leg is ordered: candidate → pickup (0065).
+ * A measurement therefore matches the snapshot that is actually priced, and never a reversed one.
  */
 export async function prewarmForPickupRequest(
   ctx: Ctx,
@@ -252,13 +253,18 @@ export async function prewarmForPickupRequest(
           .in('owner_id', candidateIds),
       );
 
+      // DIRECTION IS PART OF THE CONTRACT: the leg is the caregiver's trip TO the pickup point
+      // (docs/contracts/pickup-job.md §6 — `CandidateRouteLeg.origin` → `PickupRoute.pickupPoint`).
+      // So `from` is the candidate and `to` is the school, which is also the order 0065 prices.
+      // The store is keyed on the ORDERED snapshot, so storing this backwards would silently fall
+      // back to haversine instead of pricing the wrong leg — and the tests pin the order.
       return origins
         .filter((o) => o.lat != null && o.lng != null)
         .map((o) => ({
           childId,
           candidateId: String(o.owner_id),
-          from: { lat: Number(school.lat), lng: Number(school.lng), placeId: String(school.id ?? '') },
-          to: { lat: Number(o.lat), lng: Number(o.lng), placeId: String(o.id ?? '') },
+          from: { lat: Number(o.lat), lng: Number(o.lng), placeId: String(o.id ?? '') },
+          to: { lat: Number(school.lat), lng: Number(school.lng), placeId: String(school.id ?? '') },
         }));
     },
 

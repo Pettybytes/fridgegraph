@@ -194,13 +194,25 @@ const jobRow = async (job) => (await c.query(
 // candidate exists is correctly refused (see case 4).
 await newJob('j_road');
 await c.query(`select set_config('test.person','p_mom',false)`);
-const w1 = await c.query(
+
+// ASYMMETRIC ON PURPOSE. Two rows exist for the same two points, in opposite directions and with
+// different distances. The documented leg is candidate → pickup, so only the 8.00 mi row may be
+// priced; 12.00 mi is the same trip measured backwards and must not be used.
+const REVERSE_METERS = 12 * 1609.344;
+const wRev = await c.query(
   `select public.store_route_result_authorized('p_nora','driving-car','loc_school','loc_gma',$1,$2,$3,$4,$5,600) as ok`,
-  [SCHOOL.lat, SCHOOL.lng, HOME.lat, HOME.lng, ROAD_METERS]);
-check('the authorized writer stores a real measurement', w1.rows[0].ok === true);
-const storedMiles = Number((await c.query(
+  [SCHOOL.lat, SCHOOL.lng, HOME.lat, HOME.lng, REVERSE_METERS]);
+const w1 = await c.query(
+  `select public.store_route_result_authorized('p_nora','driving-car','loc_gma','loc_school',$1,$2,$3,$4,$5,600) as ok`,
+  [HOME.lat, HOME.lng, SCHOOL.lat, SCHOOL.lng, ROAD_METERS]);
+check('the authorized writer stores a real measurement', wRev.rows[0].ok === true && w1.rows[0].ok === true);
+const forwardMiles = Number((await c.query(
+  `select route_distance_miles($1,$2,$3,$4,'driving-car') as m`,[HOME.lat, HOME.lng, SCHOOL.lat, SCHOOL.lng])).rows[0].m);
+const backMiles = Number((await c.query(
   `select route_distance_miles($1,$2,$3,$4,'driving-car') as m`,[SCHOOL.lat, SCHOOL.lng, HOME.lat, HOME.lng])).rows[0].m);
-check('the store returns the road distance', Math.abs(storedMiles - 8) < 0.01, `${storedMiles} mi`);
+check('the store keeps both directions apart', Math.abs(forwardMiles - 8) < 0.01 && Math.abs(backMiles - 12) < 0.01,
+  `forward=${forwardMiles} backward=${backMiles}`);
+const storedMiles = forwardMiles;
 
 await c.query('select _rank_and_advance($1)', ['j_road']);
 const e1 = await evalRow('j_road');
@@ -211,6 +223,9 @@ check('case 1 — the stored amount is the ROAD cost ($11.20)',
   Math.abs(Number(e1.estimated_ride_cost_usd) - 11.2) < 0.001, String(e1.estimated_ride_cost_usd));
 check('case 1 — the stored miles are the ROAD miles (8.00)',
   Math.abs(Number(e1.distance_miles) - 8) < 0.01, String(e1.distance_miles));
+check('case 1 — the DIRECTION is candidate → pickup, not the reversed 12.00 mi row',
+  Math.abs(Number(e1.distance_miles) - 8) < 0.01 && Math.abs(Number(e1.distance_miles) - 12) > 0.5,
+  String(e1.distance_miles));
 check('case 1 — the basis says stored road distance',
   String(e1.cost_basis).includes('stored road distance'), String(e1.cost_basis));
 check('case 1 — amount and basis describe each other',

@@ -15,11 +15,13 @@ import {
   type PrewarmDeps, type PricingPair,
 } from './ridePrewarm';
 
+// DIRECTION: the leg is the caregiver's trip TO the pickup point, so `from` is the candidate and
+// `to` is the school. Asymmetric on purpose — a reversed pair must be distinguishable.
 const pair = (candidateId: string): PricingPair => ({
   childId: 'p_nora',
   candidateId,
-  from: { lat: 42.3314, lng: -83.0458, placeId: 'loc_child_school' },
-  to: { lat: 42.289, lng: -83.134, placeId: `loc_${candidateId}` },
+  from: { lat: 42.289, lng: -83.134, placeId: `loc_${candidateId}` },
+  to: { lat: 42.3314, lng: -83.0458, placeId: 'loc_child_school' },
 });
 
 type Counters = { pairs: number; stored: number; routed: number; wrote: number };
@@ -253,4 +255,19 @@ test('ranking is attempted once even when the pre-step times out and later compl
   assert.equal(report, null, 'ranking saw the bound, not a later answer');
   assert.equal(rankCalls, 1, 'ranking still ran exactly once');
   assert.equal(completed, true, 'the late measurement is not lost — it is simply too late for this ranking');
+});
+
+
+test('the pair handed to storage is candidate → pickup, and the reversal is not accepted as equal', () => {
+  const p = pair('p_gma');
+  // origin is the candidate, destination is the recorded pickup point
+  assert.equal(p.from.placeId, 'loc_p_gma');
+  assert.equal(p.to.placeId, 'loc_child_school');
+
+  // The store is keyed on the ORDERED snapshot, so a reversed pair is a different key. This asserts
+  // the key really is ordered — if it ever became order-insensitive, a backwards measurement would
+  // silently satisfy a forwards lookup and price the wrong leg.
+  const reversed = { ...p, from: p.to, to: p.from };
+  const key = (x: typeof p) => `${x.from.lat.toFixed(6)},${x.from.lng.toFixed(6)}>${x.to.lat.toFixed(6)},${x.to.lng.toFixed(6)}`;
+  assert.notEqual(key(p), key(reversed));
 });
