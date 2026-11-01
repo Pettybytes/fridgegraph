@@ -14,6 +14,9 @@
  * Run: node ops/stack-health.mjs
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import pg from 'pg';
 
 const APP = process.env.HEALTH_APP ?? 'http://127.0.0.1:5189';
 const MCP_URL = process.env.HEALTH_MCP ?? 'http://127.0.0.1:5051/mcp';
@@ -100,6 +103,71 @@ if (!rosinaPid) {
   check('Rosina is pointed at the live MCP (ROSINA_MCP_URL → 5051)', hasRosinaMcp,
     hasRosinaMcp ? 'ok' : hasWrongName ? 'MCP_URL was set instead — Rosina ignores it' : 'ROSINA_MCP_URL missing or wrong');
 }
+
+// 6. WHAT CODE IS ACTUALLY SERVING (separate fact from schema state)
+const rosinaCwd = (() => {
+  try {
+    return execFileSync('lsof', ['-a', '-p', rosinaPid ?? '0', '-d', 'cwd'], { encoding: 'utf8' }).split('\n')[1]?.split(/\s+/).pop() ?? '';
+  } catch { return ''; }
+})();
+const servingCheckout = rosinaCwd || process.cwd();
+const git = (args) => { try { return execFileSync('git', ['-C', servingCheckout, ...args], { encoding: 'utf8' }).trim(); } catch { return ''; } };
+const servingSha = git(['rev-parse', '--short', 'HEAD']);
+const servingBranch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+console.log(`\n  serving code: ${servingSha || 'unknown'} (${servingBranch || 'unknown'}) at ${servingCheckout}`);
+
+// 7. APPLIED MIGRATION STATE (separate from the code SHA on purpose: a stale binary can run a
+//    current schema, and a current binary can run a stale one)
+const envText = (() => { try { return readFileSync('.env', 'utf8'); } catch { return ''; } })();
+const dbUrl = (envText.split('\n').find((l) => l.startsWith('SUPABASE_DB_URL=')) ?? '').split('=').slice(1).join('=').replace(/["'\s\r]/g, '');
+const db = dbUrl ? new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } }) : null;
+let schemaReady = false;
+if (db) {
+  try {
+    await db.connect();
+    const marks = await db.query(`
+      select
+        to_regclass('public.demo_families') is not null as m0049,
+        exists (select 1 from information_schema.columns where table_name='approvals' and column_name='demo_caller') as m0050,
+        exists (select 1 from information_schema.columns where table_name='demo_families' and column_name='status') as m0051,
+        exists (select 1 from pg_proc where proname='_orbit_reply_choice') as m0052`);
+    const m = marks.rows[0];
+    schemaReady = m.m0049 && m.m0050 && m.m0051 && m.m0052;
+    console.log(`  schema: 0049=${m.m0049} 0050=${m.m0050} 0051=${m.m0051} 0052=${m.m0052}`);
+    check('expected migrations are applied (0049–0052)', schemaReady);
+  } catch (error) {
+    check('expected migrations are applied (0049–0052)', false, error instanceof Error ? error.message : 'db error');
+  }
+} else {
+  check('expected migrations are applied (0049–0052)', false, 'no SUPABASE_DB_URL to verify against');
+}
+
+// 8. DEMO INTEGRITY — a stack can be up and still have an empty demo cast.
+//    `/__reset` used to delete the Cast v2 rows and only ONE wrapper restored them, so "healthy"
+//    ports hid a demo with no Malik care facts. Preflight must call that UNHEALTHY.
+if (db && schemaReady) {
+  try {
+    const malik = Number((await db.query(`select count(*)::int n from care_facts where child_id='p_malik'`)).rows[0].n);
+    const routines = Number((await db.query(`select count(*)::int n from routines`)).rows[0].n);
+    const digestRows = async (table, cols) => (await db.query(`select * from ${table} order by ${cols}`)).rows;
+    const castRows = [
+      ...(await digestRows('care_facts', 'child_id, key')).map((r) => JSON.stringify(r, Object.keys(r).sort())),
+      ...(await digestRows('routines', 'id')).map((r) => JSON.stringify(r, Object.keys(r).sort())),
+      ...(await digestRows('grants', 'id')).map((r) => JSON.stringify(r, Object.keys(r).sort())),
+    ].sort().join('\n');
+    const castSha = createHash('sha256').update(castRows).digest('hex').slice(0, 16);
+    check('demo cast: Malik has 3 care facts', malik === 3, `malik=${malik}`);
+    check('demo cast: seeded routines present', routines >= 32, `routines=${routines}`);
+    check('demo cast: cast checksum is non-empty', castRows.length > 0, `cast=${castSha}`);
+    console.log(`  demo cast: malik=${malik} routines=${routines} checksum=${castSha}`);
+  } catch (error) {
+    check('demo cast integrity readable', false, error instanceof Error ? error.message : 'db error');
+  }
+} else {
+  check('demo cast integrity readable', false, 'database unavailable or schema incomplete');
+}
+
+if (db) { try { await db.end(); } catch { /* already closed */ } }
 
 console.log(`\nRESULT: ${failed === 0 ? 'HEALTHY' : 'UNHEALTHY'} (${failed} failing check${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);
