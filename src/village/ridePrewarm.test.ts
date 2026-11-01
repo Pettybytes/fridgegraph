@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   allowPrewarm, isUsableMeasurement, prewarmRideDistances, resetPrewarmState,
+  trackRidePrewarm, awaitRidePrewarm, resetPrewarmGates, type PrewarmReport,
   type PrewarmDeps, type PricingPair,
 } from './ridePrewarm';
 
@@ -168,4 +169,88 @@ test('measurement validation is strict about the shape the writer will receive',
   assert.equal(isUsableMeasurement({ distanceMeters: '8000', durationSeconds: 600 }), false);
   assert.equal(isUsableMeasurement({ distanceMeters: 8000 }), false);
   assert.equal(isUsableMeasurement({ distanceMeters: 500_001, durationSeconds: 600 }), false);
+});
+
+// ---------------------------------------------------------------------------------------------
+// ORDERING — the pre-step is awaited (or bounded) before ranking, not merely launched first.
+// A launched-but-unsettled warm-up is a race: ranking can price from an empty store and write a
+// haversine basis even though a road measurement lands a moment later. These cases pin the order.
+// ---------------------------------------------------------------------------------------------
+
+const settleAfter = (ms: number, report: Partial<PrewarmReport> = {}): Promise<PrewarmReport> =>
+  new Promise((resolve) => setTimeout(
+    () => resolve({
+      authorized: true, considered: 1, cached: 0, measured: 1, rejected: 0, failed: 0, fallback: 'road', ...report,
+    }),
+    ms,
+  ));
+
+test('a delayed provider is waited for — ranking cannot outrun the measurement', async () => {
+  resetPrewarmGates();
+  trackRidePrewarm('job_delayed', settleAfter(30));
+
+  let rankCalls = 0;
+  const report = await awaitRidePrewarm('job_delayed', 500);
+  rankCalls += 1; // the moment ranking would begin
+
+  assert.equal(rankCalls, 1, 'ranking runs exactly once');
+  assert.equal(report?.measured, 1);
+  assert.equal(report?.fallback, 'road', 'the basis available to ranking is road, not haversine');
+});
+
+test('a provider that never settles is bounded — ranking still runs once, on the labelled fallback', async () => {
+  resetPrewarmGates();
+  trackRidePrewarm('job_hung', new Promise<PrewarmReport>(() => { /* never settles */ }));
+
+  const started = Date.now();
+  const report = await awaitRidePrewarm('job_hung', 25);
+  const elapsed = Date.now() - started;
+
+  assert.equal(report, null, 'a timeout yields no report, never a fabricated one');
+  assert.ok(elapsed >= 20 && elapsed < 500, `bounded wait, took ${elapsed}ms`);
+  // Ranking would proceed exactly once, and 0060 then writes the haversine basis it labels.
+});
+
+test('a failed provider is treated the same as a timeout: no report, ranking proceeds once', async () => {
+  resetPrewarmGates();
+  trackRidePrewarm('job_failed', Promise.reject(new Error('ORS_UNREACHABLE')));
+
+  const report = await awaitRidePrewarm('job_failed', 200);
+  assert.equal(report, null, 'a rejection must not propagate into the ranking path');
+});
+
+test('a job with no registered pre-step never blocks ranking', async () => {
+  resetPrewarmGates();
+  const started = Date.now();
+  const report = await awaitRidePrewarm('job_absent', 1_000);
+  assert.equal(report, null);
+  assert.ok(Date.now() - started < 100, 'no gate means no wait');
+});
+
+test('the gate is one-shot: a second await after it settled does not replay the old report', async () => {
+  resetPrewarmGates();
+  trackRidePrewarm('job_once', settleAfter(5));
+  assert.ok(await awaitRidePrewarm('job_once', 500));
+  assert.equal(await awaitRidePrewarm('job_once', 500), null);
+});
+
+test('ranking is attempted once even when the pre-step times out and later completes', async () => {
+  resetPrewarmGates();
+  let completed = false;
+  const slow = new Promise<PrewarmReport>((resolve) => setTimeout(() => {
+    completed = true;
+    resolve({
+      authorized: true, considered: 1, cached: 0, measured: 1, rejected: 0, failed: 0, fallback: 'road',
+    });
+  }, 60));
+  trackRidePrewarm('job_late', slow);
+
+  let rankCalls = 0;
+  const report = await awaitRidePrewarm('job_late', 15);
+  rankCalls += 1;
+  await new Promise((r) => setTimeout(r, 80)); // the late completion lands
+
+  assert.equal(report, null, 'ranking saw the bound, not a later answer');
+  assert.equal(rankCalls, 1, 'ranking still ran exactly once');
+  assert.equal(completed, true, 'the late measurement is not lost — it is simply too late for this ranking');
 });

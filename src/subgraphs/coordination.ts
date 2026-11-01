@@ -1,7 +1,7 @@
 import { parse } from 'graphql';
 import { GraphQLError } from 'graphql';
 import { requireCaller, refuseDemoGuideWrite, isParentOf, authorizeChild, householdIdsOfChild, SCOPE, type Ctx } from '../authz';
-import { prewarmForPickupRequest } from '../village/ridePrewarm';
+import { prewarmForPickupRequest, trackRidePrewarm, awaitRidePrewarm, type PrewarmReport } from '../village/ridePrewarm';
 import { dbFor, rows } from '../db';
 
 /**
@@ -917,16 +917,21 @@ const resolvers = {
         p_window: window ?? 'afternoon',
       });
       if (error) rpcError(error);
+      const jobId = String(data);
 
       // Pre-step for the initial paid-ride evaluation.
       //
-      // `request_pickup` creates the candidate set and leaves the job `discovering`; ranking (and
-      // therefore any road measurement) happens on a reply, so warming AFTER the response cannot race
-      // it. Detached on purpose: a slow provider must never delay the parent's request, and every
-      // failure here is soft (the evaluation falls back to its labelled haversine basis).
-      void prewarmForPickupRequest(ctx, childId).catch(() => undefined);
+      // The promise is TRACKED, not merely fired: every path that can trigger ranking awaits it (or its
+      // bounded fallback) first, so ranking cannot run against a half-warmed store. It stays detached
+      // from THIS response — a slow provider must not delay the parent — but not from the ranking.
+      trackRidePrewarm(
+        jobId,
+        prewarmForPickupRequest(ctx, childId).catch((): PrewarmReport => ({
+          authorized: false, considered: 0, cached: 0, measured: 0, rejected: 0, failed: 0, fallback: 'not-run',
+        })),
+      );
 
-      return jobById(ctx, String(data));
+      return jobById(ctx, jobId);
     },
 
     acceptPickup: async (
@@ -945,6 +950,11 @@ const resolvers = {
         dbFor(ctx).from('coordination_jobs').select('id,request_version').eq('id', String(a[0].job_id)),
       );
       if (!j.length) throw new GraphQLError('JOB_NOT_FOUND', { extensions: { code: 'JOB_NOT_FOUND' } });
+
+      // Ranking must not begin before the pre-step has settled — or hit its bounded fallback. Awaiting
+      // here is what makes the order real; launching the warm-up first while ranking proceeds is a race.
+      // Bounded by the gate's own timeout, so this can add latency but never an unbounded wait.
+      await awaitRidePrewarm(String(a[0].job_id));
 
       const { error } = await dbFor(ctx).rpc('accept_pickup', {
         p_attempt: attemptId,

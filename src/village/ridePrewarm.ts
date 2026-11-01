@@ -81,6 +81,52 @@ export function resetPrewarmState(): void {
   buckets.clear();
 }
 
+/**
+ * Per-job gates. Ranking must not begin while the pre-step is still in flight: launching it first and
+ * then ranking on a reply is a race, not an order. `request_pickup` tracks the promise; every path
+ * that can trigger ranking awaits it (or its bounded fallback) first.
+ */
+const gates = new Map<string, Promise<PrewarmReport>>();
+
+const EMPTY: PrewarmReport = {
+  authorized: false, considered: 0, cached: 0, measured: 0, rejected: 0, failed: 0, fallback: 'not-run',
+};
+
+/** Register the pre-step for a job. Repeated registration keeps the FIRST promise (one warm-up). */
+export function trackRidePrewarm(jobId: string, promise: Promise<PrewarmReport>): void {
+  if (!gates.has(jobId)) gates.set(jobId, promise);
+}
+
+/**
+ * Wait for the job's pre-step, bounded. Returns the report when it settled in time, or `null` when it
+ * timed out, failed, or was never registered — which the caller must read as "no road measurement,
+ * use the labelled fallback". Never throws, never waits past `timeoutMs`.
+ */
+export async function awaitRidePrewarm(
+  jobId: string,
+  timeoutMs = 8_000,
+): Promise<PrewarmReport | null> {
+  const gate = gates.get(jobId);
+  if (!gate) return null;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const settled = await Promise.race([
+      gate.catch((): null => null),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); }),
+    ]);
+    return settled;
+  } finally {
+    if (timer) clearTimeout(timer);
+    gates.delete(jobId);
+  }
+}
+
+/** Test seam only. */
+export function resetPrewarmGates(): void {
+  gates.clear();
+}
+
 export async function prewarmRideDistances(
   deps: PrewarmDeps,
   options: { maxPairs?: number; budgetMs?: number } = {},
