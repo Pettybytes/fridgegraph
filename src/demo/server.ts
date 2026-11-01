@@ -380,6 +380,30 @@ export function createDemoLoginApp() {
       const route = await routeBetween(profileRaw, fromPlaceId, toPlaceId,
         { lat: decision.from.lat, lng: decision.from.lng },
         { lat: decision.to.lat, lng: decision.to.lng });
+
+      // Persist the REAL road result so the ride estimate prices the SAME distance (one number, one
+      // basis). A cache hit is not re-stored; a refusal never reaches this line at all. A storage
+      // failure must not fail a route the family can already see, so it is logged and swallowed —
+      // but it IS logged, because a silent failure here means ranking quietly stays on haversine.
+      if (!route.cached) {
+        try {
+          await dbFor(ctx).rpc('store_route_result', {
+            p_profile: profileRaw,
+            p_from_place_id: fromPlaceId,
+            p_to_place_id: toPlaceId,
+            p_from_lat: decision.from.lat,
+            p_from_lng: decision.from.lng,
+            p_to_lat: decision.to.lat,
+            p_to_lng: decision.to.lng,
+            p_distance_meters: route.distanceMeters,
+            p_duration_seconds: route.durationSeconds,
+          });
+        } catch (storeError) {
+          console.error('[village:route] road result not stored:',
+            storeError instanceof Error ? storeError.message : 'unknown');
+        }
+      }
+
       res.status(200).json(route);
     } catch (e) {
       if (e instanceof RouteUnavailable) {
