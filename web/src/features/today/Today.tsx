@@ -65,6 +65,10 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           <StatusChip tone="brand" className="fg-today-context">Viewing {childName}</StatusChip>
         </header>
 
+        {/* Next attention — the real Orbit check-in — is the hero of the screen when
+            there is one to act on. */}
+        {attention ? <div className="fg-today-hero">{attention}</div> : null}
+
         {/* Ask Rosina entry */}
         <Surface elevated className="fg-today-rosina">
           <div className="fg-today-rosina-head">
@@ -77,38 +81,37 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           <Composer placeholder={`What’s on ${childName}’s calendar today?`} onSend={() => go('ask-rosina')} sendLabel="Ask Rosina" />
         </Surface>
 
-        {/* Next attention — the real Orbit check-in, self-managing its relevance */}
-        {attention ? <div className="fg-today-attention">{attention}</div> : null}
-
-        {/* Recorded activity */}
-        <Surface className="fg-today-activity" aria-label="Recorded activity">
-          <div className="fg-today-section-head">
-            <h3>Recorded activity</h3>
-            <a className="fg-today-link" href="#/mission-control">Mission Control <Icon.chevron /></a>
-          </div>
-          {mission.loading && !mission.data ? (
-            <div className="fg-skel-list" aria-hidden><span /><span /><span /></div>
-          ) : mission.error && /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(mission.error.message) ? (
-            <p className="fg-today-empty">No records are available to this view.</p>
-          ) : mission.error ? (
-            <InlineFeedback tone="error">I couldn’t check that just now.</InlineFeedback>
-          ) : events.length === 0 ? (
-            <p className="fg-today-empty">No recorded activity to show yet.</p>
-          ) : (
-            <>
-              <ul className="fg-today-events">
-                {events.map((e) => (
-                  <li key={e.id}>
-                    <span className="fg-today-event-dot" data-kind={e.kind} aria-hidden />
-                    <span className="fg-today-event-summary">{recordedSummary(e.summary)}</span>
-                    <time className="fg-today-event-when" dateTime={e.at}>{shortWhen(e.at)}</time>
-                  </li>
-                ))}
-              </ul>
-              <SourceChip>Pickup records{live ? '' : ' · sample'}</SourceChip>
-            </>
-          )}
-        </Surface>
+        {/* Recorded activity — the latest recorded items. Loading and refusal are
+            explicit; when it has loaded with nothing to show, the section is omitted
+            entirely rather than rendering an empty block on the hero screen. */}
+        {(mission.loading && !mission.data) || mission.error || events.length > 0 ? (
+          <Surface className="fg-today-activity" aria-label="Recorded activity">
+            <div className="fg-today-section-head">
+              <h3>Recorded activity</h3>
+              <a className="fg-today-link" href="#/mission-control">Mission Control <Icon.chevron /></a>
+            </div>
+            {mission.loading && !mission.data ? (
+              <div className="fg-skel-list" aria-hidden><span /><span /><span /></div>
+            ) : mission.error && /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(mission.error.message) ? (
+              <p className="fg-today-empty">No records are available to this view.</p>
+            ) : mission.error ? (
+              <InlineFeedback tone="error">I couldn’t check that just now.</InlineFeedback>
+            ) : (
+              <>
+                <ul className="fg-today-events">
+                  {events.map((e) => (
+                    <li key={e.id}>
+                      <span className="fg-today-event-dot" data-kind={e.kind} aria-hidden />
+                      <span className="fg-today-event-summary">{recordedSummary(e.summary)}</span>
+                      <time className="fg-today-event-when" dateTime={e.at}>{shortWhen(e.at)}</time>
+                    </li>
+                  ))}
+                </ul>
+                <SourceChip>Pickup records{live ? '' : ' · sample'}</SourceChip>
+              </>
+            )}
+          </Surface>
+        ) : null}
       </div>
 
       {/* ── Supporting rail ────────────────────────────────────────── */}
@@ -144,6 +147,7 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           {live
             ? <ConnectedVillagePreview client={access?.client ?? null} />
             : <MockVillagePreview childName={childName} />}
+
         </Surface>
       </aside>
     </section>
@@ -184,9 +188,12 @@ function ChildRow({ child, current, sample }: { child: ChildAccess; current?: bo
           {sample ? <StatusChip tone="simulated" icon={false}>Sample</StatusChip> : null}
         </div>
         {child.scopes.length > 0 ? (
-          <div className="fg-childrow-scopes">
-            {child.scopes.map((s) => <span key={s} className="fg-scope-tag">{scopeLabel(s)}</span>)}
-          </div>
+          <details className="fg-childrow-scopes">
+            <summary><span>{child.scopes.length} {child.scopes.length === 1 ? 'area' : 'areas'} shared</span><span className="fg-childrow-scopes-view">View</span></summary>
+            <div className="fg-childrow-scopelist">
+              {child.scopes.map((s) => <span key={s} className="fg-scope-tag">{scopeLabel(s)}</span>)}
+            </div>
+          </details>
         ) : sample ? null : (
           <span className="fg-childrow-noscope">No shared access recorded</span>
         )}
