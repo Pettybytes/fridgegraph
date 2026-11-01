@@ -137,3 +137,31 @@ rate limit, fail closed `ROUTE_UNAVAILABLE`, `Estimated — not live traffic`), 
 through the existing `candidate_evaluations` path, and the proof suite (per-persona grants, Priya
 refused, guide read-only, cache-hit authorization, key never exposed, ride cost on road distance with
 the cap decision matching the displayed estimate, reset restores everything).
+
+---
+
+## OPEN DEFECT in the 0056 draft — found before it was committed
+
+The draft `0056_village_places_coordinates.sql` is **not committed and must not be applied as written.**
+
+**The gate does not tie the place to the child's household.** `place_geometry_for(p_child, p_place)`
+derives `may_see` from the caller's relationship to `p_child` only, and never checks that `p_place`
+belongs to `p_child`'s household. Measured with real claims, rolled back:
+
+| caller | `current_person()` | place in Nora's household | place in **Malik's** household |
+|---|---|---|---|
+| `p_priya` (has grants on `p_nora`) | `p_priya` | `Lincoln Elementary School`, lat masked | **`Maple Grove Park` — served**, lat masked |
+
+So a caller with any grant on the child is served **another family's place row**. Because coordinates
+are masked for anyone without `address.read`, the leak is the label today — but the same defect would
+hand out that family's **coordinates** to an `address.read` holder. This is the cross-family class
+already fixed for alerts in 0053 (a place from another family must answer exactly like one that does
+not exist), and the fix belongs in `place_geometry_for`: resolve the place's household, and require it
+to be one of the child's households — refusing with the same answer as a missing place.
+
+**Second finding — my harness was wrong, not the product.** `p_kendra` resolved `current_person()` to
+**null** in this run, so her result was `none`, not "coordinates withheld". `data/identity-map.json`
+appears to lack a subject for her (Priya resolved fine). Consequence: **the parent/`address.read`
+coordinate path is UNPROVEN** — it has never been demonstrated, and it must not be described as
+working until a harness that actually resolves every persona shows coordinates returned for Kendra
+and Andre and absent for Loretta without `address.read`.
