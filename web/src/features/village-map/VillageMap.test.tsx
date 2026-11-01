@@ -17,3 +17,15 @@ it('dragging onto an event requests a route, never approval; accessible pickers 
 it('reduced motion keeps static route and explicit scrub, with arrival never completion',async()=>{const c=new MapController(createMockMapAdapter('kendra'));await c.load();await c.route('p_gma','school');c.propose();c.acceptOverCap(true);c.approve();render(<MapView controller={c}/>);expect(screen.getByRole('button',{name:'Play route preview'})).toBeDisabled();fireEvent.change(screen.getByLabelText('Route preview progress'),{target:{value:'100'}});expect(screen.getByRole('status')).toHaveTextContent('Pickup completion has not been recorded');expect(c.getSnapshot().playing).toBe(false)})
 it('sample calendar and map project the exact same visible events, without inventing confirmations',async()=>{const world=await createMockMapAdapter('priya').readWorld(),calendar=mapCalendar(world),snapshot=await calendar.readCalendar({childId:'p_nora',from:'2026-11-03',to:'2026-11-03'});expect(snapshot.events.map(e=>e.id)).toEqual(world.events.filter(e=>e.day==='2026-11-03').map(e=>e.id));expect(snapshot.events[0].start).toBe(world.events.find(e=>e.id===snapshot.events[0].id)?.at);expect(snapshot.events.every(e=>e.confirmedBy.state==='missing')).toBe(true);expect(JSON.stringify(snapshot)).not.toMatch(/Kendra|Andre|home/);await expect(calendar.readCalendar({childId:'hidden',from:'2026-11-03',to:'2026-11-03'})).rejects.toThrow('UNAUTHORIZED')})
 it('an unsupported persona gets a refusal without another world',async()=>{const c=new MapController(createMockMapAdapter('dana'));await c.load();render(<MapView controller={c}/>);expect(screen.getByText("This isn't shared with you.")).toBeVisible();expect(screen.queryByText('Maplewood School')).not.toBeInTheDocument()})
+it('labels only mock data, keeps returned labels and blocks unwired live proposals',async()=>{
+ const fixture=createMockMapAdapter('kendra')
+ const live={mode:'live' as const,readWorld:async()=>({...await fixture.readWorld(),state:'live' as const,childId:'authorized-child',canApprove:false,places:(await fixture.readWorld()).places.map(p=>({...p,name:'Returned '+p.name}))}),route:async()=>({...await fixture.route('p_gma','school','Drive'),state:'live' as const,rideEstimate:null})}
+ const c=new MapController(live);await c.load();await c.route('p_gma','school')
+ render(<MapView controller={c}/>)
+ expect(screen.queryByText(/Sample data/)).not.toBeInTheDocument()
+ expect(screen.getByText('Estimated — not live traffic')).toBeVisible()
+ expect(screen.getAllByText('Returned Maplewood School').length).toBeGreaterThan(0)
+ expect(screen.getByRole('link',{name:/Open this day in Family Calendar/})).toHaveAttribute('href','#/calendar?day=2026-11-03&childId=authorized-child&view=day')
+ expect(screen.getByRole('button',{name:/Propose pickup/})).toBeDisabled()
+ c.propose();expect(c.getSnapshot().proposal).toBe('none')
+})
