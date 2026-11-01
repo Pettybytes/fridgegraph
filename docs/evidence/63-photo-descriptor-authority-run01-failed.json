@@ -1,0 +1,125 @@
+{
+  "script": "photo-descriptor-proof",
+  "startedAt": "2026-11-01T21:03:26.480Z",
+  "app": "http://127.0.0.1:5189",
+  "results": [
+    {
+      "layer": "live",
+      "label": "parent uploads a photo through the ordinary Orbit path",
+      "ok": true,
+      "detail": "status=200 bytes=339"
+    },
+    {
+      "layer": "live",
+      "label": "controlled vocabulary readable by the parent",
+      "ok": true,
+      "detail": "entries=55"
+    },
+    {
+      "layer": "live",
+      "label": "Kendra (parent) → 200 with a controlled-vocabulary proposal",
+      "ok": false,
+      "detail": "status=403 model=? source=? keys=none"
+    },
+    {
+      "layer": "live",
+      "label": "every proposed value is inside THIS child's vocabulary",
+      "ok": true,
+      "detail": "no descriptors proposed (empty is valid; nothing invented)"
+    },
+    {
+      "layer": "live",
+      "label": "the model and whether it was live/cached are stated",
+      "ok": false,
+      "detail": "? / ?"
+    },
+    {
+      "layer": "live",
+      "label": "the proposal is review-only: it creates no alert and changes no Orbit state",
+      "ok": true,
+      "detail": "before=none after=none"
+    },
+    {
+      "layer": "live",
+      "label": "Priya (unauthorized) → generic 403",
+      "ok": true,
+      "detail": "status=403 body={\"error\":\"NOT_AUTHORIZED\"}"
+    },
+    {
+      "layer": "live",
+      "label": "a real alert is ACTIVE with a frozen audience (setup for case 3)",
+      "ok": false,
+      "detail": "alert=GRAPHQL_VALIDATION_FAILED status=? audience=?"
+    },
+    {
+      "layer": "live",
+      "label": "confirmed ACTIVE-alert AUDIENCE recipient → the SAME generic 403",
+      "ok": true,
+      "detail": "status=403 body={\"error\":\"NOT_AUTHORIZED\"}"
+    },
+    {
+      "layer": "live",
+      "label": "recipient photo GET during the ACTIVE alert still returns the image",
+      "ok": false,
+      "detail": "status=404 contentType=application/json; charset=utf-8 access=null bytes=21"
+    },
+    {
+      "layer": "live",
+      "label": "the photo GET keeps its own 404 semantics (not the descriptor 403)",
+      "ok": true,
+      "detail": "unknown photo → 404"
+    },
+    {
+      "layer": "live",
+      "label": "ordinary demo reset restores the sandbox",
+      "ok": true,
+      "detail": "status=200"
+    }
+  ],
+  "live": {
+    "photoId": "ph_ee1d0d85d111",
+    "alertId": null
+  },
+  "reset": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "restored": {
+        "people": 16,
+        "households": 5,
+        "children": 1,
+        "household_members": 15,
+        "holidays": 1,
+        "routines": 34,
+        "adult_availability": 1,
+        "holiday_arrangements": 2,
+        "coordination_jobs": 2,
+        "attempts": 3,
+        "expected_checkins": 1,
+        "care_facts": 9,
+        "household_policies": 1,
+        "events": 90
+      },
+      "cleared": {
+        "coordination_jobs": 2,
+        "holidays": 1,
+        "routines": 34,
+        "adult_availability": 1,
+        "holiday_arrangements": 2,
+        "expected_checkins": 1,
+        "care_facts": 9,
+        "households": 1,
+        "people": 2,
+        "household_policies": 1,
+        "orbit_alerts": 1
+      },
+      "demoDecisionsCleared": 0,
+      "createdFamiliesRemoved": 0,
+      "abandonedFamiliesReconciled": 0,
+      "droppedSessionCache": true
+    }
+  },
+  "finishedAt": "2026-11-01T21:03:43.320Z",
+  "passed": 8,
+  "failed": 4
+}

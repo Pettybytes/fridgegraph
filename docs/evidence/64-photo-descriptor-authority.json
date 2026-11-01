@@ -1,0 +1,201 @@
+{
+  "script": "photo-descriptor-proof",
+  "evidence": "64",
+  "startedAt": "2026-11-01T21:22:34.366Z",
+  "app": "http://127.0.0.1:5189",
+  "fixture": {
+    "path": "docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg",
+    "bytes": 362754,
+    "note": "fictional test fixture, not app art"
+  },
+  "results": [
+    {
+      "layer": "offline",
+      "label": "authorized parent → 200 with an in-vocabulary proposal",
+      "ok": true,
+      "detail": "status=200 descriptors={\"wearColor\":\"yellow\"}"
+    },
+    {
+      "layer": "offline",
+      "label": "off-vocabulary value is DROPPED, never forced onto the nearest value",
+      "ok": true,
+      "detail": "dropped=[{\"key\":\"carryItem\",\"value\":\"skateboard\",\"reason\":\"NOT_IN_VOCABULARY\"}]"
+    },
+    {
+      "layer": "offline",
+      "label": "positive control: the success path increments the vision counter exactly once",
+      "ok": true,
+      "detail": "visionCalls=1"
+    },
+    {
+      "layer": "offline",
+      "label": "unauthorized caller → 403 generic, and vision is never invoked",
+      "ok": true,
+      "detail": "status=403 error=NOT_AUTHORIZED visionCalls=0"
+    },
+    {
+      "layer": "offline",
+      "label": "ACTIVE-alert AUDIENCE recipient → the SAME generic 403, vision never invoked",
+      "ok": true,
+      "detail": "status=403 visionCalls=0"
+    },
+    {
+      "layer": "offline",
+      "label": "the two refusals are byte-identical (no existence oracle)",
+      "ok": true,
+      "detail": "{\"error\":\"NOT_AUTHORIZED\"}"
+    },
+    {
+      "layer": "offline",
+      "label": "authorized parent, unknown photo → the SAME generic 403, vision never invoked",
+      "ok": true,
+      "detail": "status=403 visionCalls=0"
+    },
+    {
+      "layer": "offline",
+      "label": "order: authorization precedes the vision-configured branch (403, not 503)",
+      "ok": true,
+      "detail": "status=403"
+    },
+    {
+      "layer": "offline",
+      "label": "order: an authorized parent with no provider configured → 503 (branch is live)",
+      "ok": true,
+      "detail": "status=503"
+    },
+    {
+      "layer": "live",
+      "label": "parent uploads a photo through the ordinary Orbit path",
+      "ok": true,
+      "detail": "status=200 bytes=79141"
+    },
+    {
+      "layer": "live",
+      "label": "controlled vocabulary readable by the parent",
+      "ok": true,
+      "detail": "entries=55"
+    },
+    {
+      "layer": "live",
+      "label": "Kendra (parent) → 200 with a controlled-vocabulary proposal",
+      "ok": true,
+      "detail": "status=200 model=muse-spark-1.3 source=live keys=wearColor,carryColor,carryItem"
+    },
+    {
+      "layer": "live",
+      "label": "every proposed value is inside THIS child's vocabulary",
+      "ok": true,
+      "detail": "{\"wearColor\":\"yellow\",\"carryColor\":\"red\",\"carryItem\":\"backpack\"}"
+    },
+    {
+      "layer": "live",
+      "label": "the model and whether it was live/cached are stated",
+      "ok": true,
+      "detail": "muse-spark-1.3 / live"
+    },
+    {
+      "layer": "live",
+      "label": "the reply is the review-proposal envelope, not a draft or an alert",
+      "ok": true,
+      "detail": "keys=modelId,source,descriptors,dropped,textInImage"
+    },
+    {
+      "layer": "live",
+      "label": "the proposal is review-only: it creates no alert and changes no Orbit state",
+      "ok": true,
+      "detail": "before=none after=none"
+    },
+    {
+      "layer": "live",
+      "label": "Priya (unauthorized) → generic 403",
+      "ok": true,
+      "detail": "status=403 body={\"error\":\"NOT_AUTHORIZED\"}"
+    },
+    {
+      "layer": "live",
+      "label": "a real alert is ACTIVE with a frozen audience (setup for case 3)",
+      "ok": true,
+      "detail": "alert=oa_711c5a6e72b2 status=ACTIVE audience=3"
+    },
+    {
+      "layer": "live",
+      "label": "confirmed ACTIVE-alert AUDIENCE recipient → the SAME generic 403",
+      "ok": true,
+      "detail": "status=403 body={\"error\":\"NOT_AUTHORIZED\"}"
+    },
+    {
+      "layer": "live",
+      "label": "recipient photo GET during the ACTIVE alert still returns the image",
+      "ok": true,
+      "detail": "status=200 contentType=image/jpeg access=AUDIENCE bytes=79141"
+    },
+    {
+      "layer": "live",
+      "label": "the photo GET keeps its own 404 semantics (not the descriptor 403)",
+      "ok": true,
+      "detail": "unknown photo → 404"
+    },
+    {
+      "layer": "live",
+      "label": "the proof closes the alert it activated",
+      "ok": true,
+      "detail": "status=CLOSED"
+    },
+    {
+      "layer": "live",
+      "label": "ordinary demo reset restores the sandbox",
+      "ok": true,
+      "detail": "status=200"
+    }
+  ],
+  "offline": {
+    "photoDir": "/Users/user/.openclaw/tmp/orbit-photos-proof-wSBzyS"
+  },
+  "live": {
+    "photoId": "ph_c6c8467b714c",
+    "alertId": "oa_711c5a6e72b2"
+  },
+  "reset": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "restored": {
+        "people": 16,
+        "households": 5,
+        "children": 1,
+        "household_members": 15,
+        "holidays": 1,
+        "routines": 34,
+        "adult_availability": 1,
+        "holiday_arrangements": 2,
+        "coordination_jobs": 2,
+        "attempts": 3,
+        "expected_checkins": 1,
+        "care_facts": 9,
+        "household_policies": 1,
+        "events": 90
+      },
+      "cleared": {
+        "coordination_jobs": 3,
+        "holidays": 1,
+        "routines": 34,
+        "adult_availability": 1,
+        "holiday_arrangements": 2,
+        "expected_checkins": 1,
+        "care_facts": 9,
+        "households": 1,
+        "people": 2,
+        "household_policies": 1,
+        "orbit_alerts": 1,
+        "orbit_audience_members": 3
+      },
+      "demoDecisionsCleared": 0,
+      "createdFamiliesRemoved": 0,
+      "abandonedFamiliesReconciled": 0,
+      "droppedSessionCache": true
+    }
+  },
+  "finishedAt": "2026-11-01T21:23:00.348Z",
+  "passed": 23,
+  "failed": 0
+}
