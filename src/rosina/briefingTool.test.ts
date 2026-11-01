@@ -1,10 +1,9 @@
 /**
- * Caregiver Briefing wired into the Rosina turn: when the model calls the local `CaregiverBriefing`
- * tool, the service gathers ONLY the caller's authorized reads (as the caller) and composes the
- * briefing. These tests drive the real runRosinaTurn with a scripted model + stubbed MCP and assert
- * the trust boundary at the WIRING level: Loretta reads schedule + care; Priya (care only) never
- * triggers a schedule read; an unknown child is refused before any read. No network.
- * Run: npm run test:rosina
+ * Caregiver Briefing wired into the Rosina turn, with the ACTUAL seeded grants on p_nora: Priya
+ * (sitter: supervise.request + schedule.read + careplan.read) → schedule AND care are read; Loretta
+ * (grandmother: pickup.request + schedule.read + goals.read) → schedule is read but care is NOT (no
+ * careplan.read); an unknown child is refused before any read. Drives the real runRosinaTurn with a
+ * scripted model + stubbed MCP. No network. Run: npm run test:rosina
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -32,6 +31,10 @@ const TOOLS: McpTool[] = [
   { name: 'CheckInStatus', description: 'r', inputSchema: {} },
 ];
 
+// Real seeded grants on p_nora.
+const PRIYA = ['supervise.request', 'schedule.read', 'careplan.read'];
+const LORETTA = ['pickup.request', 'schedule.read', 'goals.read'];
+
 function myChildren(entries: Array<{ id: string; scopes: string[] }>): McpToolCall {
   return { data: { myChildren: entries.map((e) => ({ child: { id: e.id }, scopes: e.scopes })) }, errors: [], isError: false, raw: null };
 }
@@ -56,7 +59,7 @@ const EVENTS = ok({ childEvents: [{ id: 'e1', title: 'School', start: '2026-10-2
 const CARE = ok({ careFacts: [{ id: 'cf1', key: 'Allergy', value: 'peanuts', source: { kind: 'PARENT_CONVERSATION', ref: 'x' }, verifiedBy: { id: 'p_mom' }, verifiedAt: '2026-10-12T00:00:00Z', confidence: 'CONFIRMED' }] });
 const EFFECTIVE = ok({ effectiveScheduleFor: { parent: { id: 'p_kendra', displayName: 'Kendra' }, source: 'WEEKLY', arrangementId: null } });
 
-function options(personId: string, mcp: McpClientLike) {
+function options(personId: string, scopes: string[], mcp: McpClientLike) {
   return {
     message: 'What do I need to know for today?', currentRoute: '#/ask-rosina', history: [], bearer: 'T',
     personId, isGuide: false, provider: 'meta' as const, mcpUrl: 'http://unused/mcp', providerConfig: FAKE_CONFIG,
@@ -68,40 +71,30 @@ function options(personId: string, mcp: McpClientLike) {
   };
 }
 
-test('Loretta (schedule + care) → the briefing reads schedule AND care, as the caller', async () => {
-  const mcp = stubMcp(
-    myChildren([{ id: 'p_nora', scopes: ['schedule.read', 'careplan.read'] }]),
-    { ChildEvents: EVENTS, CareFacts: CARE, EffectiveSchedule: EFFECTIVE, CheckInStatus: denied() },
-  );
-  const res = await runRosinaTurn(options('p_loretta', mcp));
+test('Priya (schedule + care) → the briefing reads schedule AND care, as the caller', async () => {
+  const mcp = stubMcp(myChildren([{ id: 'p_nora', scopes: PRIYA }]), { ChildEvents: EVENTS, CareFacts: CARE, EffectiveSchedule: EFFECTIVE, CheckInStatus: denied() });
+  const res = await runRosinaTurn(options('p_priya', PRIYA, mcp));
   const ev = res.toolCalls.find((t) => t.name === 'CaregiverBriefing');
   assert.ok(ev && !ev.isError, 'briefing ran without error');
   const names = mcp.calls.map((c) => c.name);
   assert.ok(names.includes('ChildEvents'), 'schedule read issued');
   assert.ok(names.includes('CareFacts'), 'care read issued');
-  // every read was for p_nora
   for (const c of mcp.calls.filter((c) => c.name !== 'MyChildren')) assert.equal(c.args.childId, 'p_nora');
 });
 
-test('Priya (care only) → NO schedule read is ever issued', async () => {
-  const mcp = stubMcp(
-    myChildren([{ id: 'p_nora', scopes: ['careplan.read'] }]),
-    { CareFacts: CARE, CheckInStatus: denied() },
-  );
-  const res = await runRosinaTurn(options('p_priya', mcp));
+test('Loretta (schedule, NO careplan) → schedule is read but CareFacts is never issued', async () => {
+  const mcp = stubMcp(myChildren([{ id: 'p_nora', scopes: LORETTA }]), { ChildEvents: EVENTS, EffectiveSchedule: EFFECTIVE, CheckInStatus: denied() });
+  const res = await runRosinaTurn(options('p_gma', LORETTA, mcp));
   const ev = res.toolCalls.find((t) => t.name === 'CaregiverBriefing');
   assert.ok(ev && !ev.isError);
   const names = mcp.calls.map((c) => c.name);
-  assert.equal(names.includes('ChildEvents'), false, 'no schedule read without schedule.read');
-  assert.ok(names.includes('CareFacts'));
+  assert.ok(names.includes('ChildEvents'), 'schedule read issued (Loretta has schedule.read)');
+  assert.equal(names.includes('CareFacts'), false, 'no care read without careplan.read');
 });
 
 test('an unknown child is refused before any read is issued', async () => {
-  const mcp = stubMcp(
-    myChildren([{ id: 'p_nora', scopes: ['schedule.read'] }]),
-    { ChildEvents: EVENTS },
-  );
-  const opts = options('p_stranger', mcp);
+  const mcp = stubMcp(myChildren([{ id: 'p_nora', scopes: LORETTA }]), { ChildEvents: EVENTS });
+  const opts = options('p_stranger', LORETTA, mcp);
   opts.chatFn = scriptedChat([
     chatResult({ toolCalls: [toolCall('t1', 'CaregiverBriefing', { childId: 'p_jax', date: '2026-10-26' })] }),
     chatResult({ content: 'ok' }),

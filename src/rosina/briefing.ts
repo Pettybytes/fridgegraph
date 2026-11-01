@@ -1,9 +1,12 @@
 /**
  * Caregiver Briefing — the DETERMINISTIC composer. "What do I need to know for today?" answered
- * ONLY from what THIS caller may read for the selected child and day. Loretta sees more, Priya sees
- * less, an unrelated caller sees nothing — and that boundary is enforced here by construction, not
- * by a prompt: the composer can only ever word what the gatherer put in the context, and the
- * gatherer only ever populates what the caller's own scopes permit (briefingGather.ts).
+ * ONLY from what THIS caller may read for the selected child and day. Each caregiver's briefing is
+ * exactly their own grant — on p_nora, Priya (sitter: schedule + careplan) sees the schedule AND
+ * care notes; Loretta (grandmother: schedule + pickup + goals) sees the schedule but NOT care notes
+ * (no careplan.read); a parent additionally sees the check-in; an unrelated caller sees nothing. No
+ * caregiver strictly dominates. The boundary is enforced here by construction, not by a prompt: the
+ * composer can only ever word what the gatherer put in the context, and the gatherer only ever
+ * populates what the caller's own scopes permit (briefingGather.ts).
  *
  * Honesty rules, all enforced here:
  *  - "scheduled"/"expected", NEVER presence ("is at", "was seen").
@@ -154,13 +157,16 @@ export function composeBriefing(ctx: BriefingContext): Briefing {
   if (ctx.checkIn === null) unknown.push(`check-in status`);
   if (unknown.length) sections.push({ heading: `Not visible to you`, lines: unknown });
 
-  // Limited access: the caller can see very little — say so plainly rather than pad.
+  // Limited access: the caller can see very LITTLE — say so plainly rather than pad. "Very little"
+  // means nothing substantive at all (no schedule, no role, no care notes, no check-in); seeing the
+  // full day's schedule is NOT limited, even if it is the only section the caller's grant allows
+  // (e.g. Loretta: schedule but no care notes). So this flags only the genuinely sparse case.
   const informative =
     (ctx.events !== null && ctx.events.length > 0 ? 1 : 0) +
     (ctx.role ? 1 : 0) +
     (ctx.careNotes !== null && ctx.careNotes.length > 0 ? 1 : 0) +
     (ctx.checkIn !== null ? 1 : 0);
-  const limitedAccess = informative <= 1;
+  const limitedAccess = informative === 0;
 
   const header = limitedAccess ? [`You have limited access to ${name}'s details.`] : [];
   const text = [
