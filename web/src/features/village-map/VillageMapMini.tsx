@@ -1,3 +1,4 @@
+import './village-map.css'
 import {lazy,Suspense} from 'react'
 import {useVillageMap,useMapState,expandMap,RideCost} from './runtime'
 import type {MapController} from './controller'
