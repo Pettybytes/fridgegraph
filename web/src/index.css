@@ -217,9 +217,9 @@ body,
        reads as a field the content floats over, not a scrolling texture. No motion. */
     background-color: var(--fg-canvas);
     background-image:
-      radial-gradient(1200px 820px at 12% -12%, color-mix(in oklch, var(--rosina-periwinkle) 24%, transparent), transparent 62%),
-      radial-gradient(1020px 720px at 104% -4%, color-mix(in oklch, var(--fg-primary) 16%, transparent), transparent 56%),
-      radial-gradient(1000px 1000px at 50% 118%, color-mix(in oklch, var(--rosina-violet) 15%, transparent), transparent 60%);
+      radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 42%, transparent), transparent 64%),
+      radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 30%, transparent), transparent 58%),
+      radial-gradient(1040px 1040px at 50% 120%, color-mix(in oklch, var(--rosina-violet) 28%, transparent), transparent 62%);
     background-attachment: fixed;
     background-repeat: no-repeat;
     color: var(--fg-ink);
@@ -227,7 +227,14 @@ body,
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
   }
-  @media (prefers-contrast: more) { body { background-image: none; } }
+  /* Dark mode needs higher-opacity glows to read over the dark canvas. */
+  .dark body {
+    background-image:
+      radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 30%, transparent), transparent 60%),
+      radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 34%, transparent), transparent 56%),
+      radial-gradient(1040px 1040px at 50% 122%, color-mix(in oklch, var(--rosina-violet) 30%, transparent), transparent 60%);
+  }
+  @media (prefers-contrast: more) { body, .dark body { background-image: none; } }
   html {
     @apply font-sans;
   }
