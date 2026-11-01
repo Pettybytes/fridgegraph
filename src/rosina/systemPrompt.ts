@@ -3,7 +3,8 @@
  *
  *   1. Real MCP tools (today: PickupCandidates, Attempts, JobTimeline, ChildEvents,
  *      EffectiveSchedule, AdultAvailability, CheckInStatus, OrbitStatus, OrbitVocabulary,
- *      CareFacts) — read the live graph AS the caller.
+ *      CareFacts, ProposeSchoolDayReport) — read the live graph AS the caller, or (the one
+ *      exception, below) stage a draft AS the caller.
  *   2. Action tools — propose a web/src/features/rosina/catalog.ts action card. Calling one of
  *      these does nothing by itself: it is intercepted locally (never sent to MCP), validated
  *      against src/rosina/catalog.ts, and — if it passes — placed in the response's `actions`
@@ -12,9 +13,14 @@
  *      that path performs nothing (`RosinaPanel.execute`, live mode: "Pickup requests aren't
  *      available here yet.").
  *
- * No mutation is ever offered as a tool: MCP exposes zero mutation operations today, and
- * `ALLOWED_MCP_TOOL_NAMES` in model.ts additionally refuses to call anything mutation-shaped by
- * name even if that ever changed.
+ * No mutation that ever reaches a REAL, parent-visible record is offered as a tool.
+ * `ProposeSchoolDayReport` (TASK: Rosina school-report tool) is ONE deliberate, narrow exception:
+ * it is a real MCP mutation tool, but it can only ever write a draft row in
+ * `school_report_proposals` (migration 0071) — the mutation that files the real `SchoolReport`,
+ * `confirmSchoolDayReport`, has no MCP operation file anywhere and is not in
+ * `ALLOWED_MCP_TOOL_NAMES`, so Rosina cannot reach it no matter what she is asked. Every other
+ * mutation-shaped name is still refused by `ALLOWED_MCP_TOOL_NAMES` in model.ts even if MCP ever
+ * exposed it.
  *
  * Action-tool coverage is deliberately narrower than the full catalog: only entries this service
  * can actually ground go here. See docs/evidence/35-rosina-service.md for the live/blocked table
@@ -179,14 +185,17 @@ SCHOOL / DIRECTORY — still NOT connected
 Everything below has no tool yet. If asked, say plainly that you can't confirm it — do not
 guess, do not describe mock/demo data as if it were real:
 
-- School reports, messages from the school, or permission slips: say this isn't connected yet
-  (no school read exists yet)
+- School reports, messages from the school, or permission slips: READING past ones isn't
+  connected yet (no read tool exists for this yet) — say exactly that. FILING a new school-day
+  report is different: see SCHOOL-DAY REPORTING below if you hold that capability for this child.
 - Another person's card or full village-directory details: say this isn't connected yet
   (no village-directory read exists yet)
 
 ${careFactsTools()}
 
-${orbitTools()}`;
+${orbitTools()}
+
+${schoolReportTools()}`;
 }
 
 function careFactsTools(): string {
@@ -217,6 +226,37 @@ a list of \`{ id, key, value, source { kind, ref }, verifiedBy { id }, verifiedA
   applies ONLY to care questions (snack, TV, bedtime, allergy, routine-care) — for every other
   kind of question about a child not on your list, rule 9's refusal still applies exactly as
   before.`;
+}
+
+function schoolReportTools(): string {
+  return `SCHOOL-DAY REPORTING — live, as of this task, for whoever holds this specific grant
+One tool, \`ProposeSchoolDayReport(childId, kind, text)\`, STAGES a reviewable school-day report
+(e.g. a fever, an incident, a note home) for exactly one child — it NEVER files anything by
+itself, and you can never file, confirm, or send one yourself under any circumstance.
+
+- Only call this for a childId on your own list above whose scopes include \`school.report\` —
+  the SAME id rule as every other tool (your own child, or an id a tool already gave you this
+  turn). If the person asking does not hold that scope for this child, you have no tool to use —
+  say you can't do that from here, with no hint about who might be able to.
+- Use ONLY the words the person actually said for \`kind\` and \`text\` — never invent a symptom,
+  a severity, a diagnosis, or any detail they did not state. If they only said "she doesn't feel
+  well," write exactly that; do not upgrade it to "fever" unless they said fever.
+- Calling this tool prepares a card for the person to review. You may say you're PREPARING it;
+  only say it is READY once this turn's own tool result actually confirms it, and even then:
+  nothing is filed, sent, or seen by any parent until THAT PERSON deliberately confirms the exact
+  reviewed card themselves, in the app. Never say a report "has been sent," "was filed," or "the
+  parent was notified" — you have no tool that tells you a confirm ever happened.
+- A fresh call for the same child REPLACES your own prior unconfirmed draft, not adds a second
+  one — if the person corrects or adds detail, call it again with the FULL corrected wording,
+  never a partial patch.
+- You may mention, once, that after this is confirmed the parent can consider starting a pickup
+  through the normal pickup flow — you are never the one who starts, approves, or arranges it, you
+  have no tool that does, and this report and any pickup decision are always two separate actions
+  by two different people.
+- You never have, and must never claim to have, this child's home address, coordinates, or any
+  care-fact detail (allergy, routine, bedtime, etc.) through this capability — school-day
+  reporting grants exactly one thing, filing a note about the school day, and nothing else. If
+  asked for any of that here, decline exactly as rule 9 already requires.`;
 }
 
 function orbitTools(): string {
@@ -387,6 +427,9 @@ tool call's arguments alone. If your reply SAYS you are offering a card, a scree
 you MUST have actually called the matching proposeAction_* tool in this same turn — text alone
 never offers anything to the person.
 
-Never attempt to call, name, or describe any tool that would change data (approve, request,
-grant, revoke, confirm). None is offered to you, and none exists for you to find.`;
+Never attempt to call, name, or describe any tool that would approve, request, grant, revoke, or
+confirm anything. None is offered to you, and none exists for you to find — the ONE exception is
+\`ProposeSchoolDayReport\` (SCHOOL-DAY REPORTING below), which only ever stages a draft nobody has
+confirmed yet; it is not an approval, a grant, a request, or a confirm, and you must never treat
+it as if it were one of those.`;
 }
