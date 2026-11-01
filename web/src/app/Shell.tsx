@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, MessagesSquare, Network, ArrowUpRight, Sprout, CalendarDays, Home } from 'lucide-react'
+import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
 export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit'
 const routes = [
   { path: 'today', label: 'Today', icon: Home },
   { path: 'mission-control', label: 'Mission Control', icon: LayoutDashboard },
-  { path: 'orbit', label: 'Orbit', icon: MessagesSquare },
+  { path: 'orbit', label: 'Orbit', icon: Radar },
   { path: 'calendar', label: 'Family Calendar', icon: CalendarDays },
-  { path: 'ask-rosina', label: 'Ask Rosina', icon: MessagesSquare },
-  { path: 'care-information', label: 'Care information', icon: MessagesSquare },
+  { path: 'ask-rosina', label: 'Ask Rosina', icon: MessageCircle },
+  { path: 'care-information', label: 'Care information', icon: HeartPulse },
   { path: 'village', label: 'Living Village', icon: Network },
 ] as const
 function readRoute(): string { const route = window.location.hash.slice(2).split('?')[0]; return route === 'parent-chat' ? 'ask-rosina' : route || 'today' }
