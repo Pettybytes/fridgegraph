@@ -10,10 +10,36 @@
 }
 
 /* Greeting */
-.fg-today-greet { display: grid; gap: 6px; }
-.fg-today-date { margin: 0; font-size: 13px; color: var(--fg-muted); font-weight: 500; }
-.fg-today-hi { margin: 0; font-size: clamp(24px, 4vw, 32px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; text-wrap: balance; }
-.fg-today-context { margin-top: 4px; justify-self: start; }
+/* Today header is a designed hero band: a deep indigo→violet field (white text keeps AA)
+   with the fridge-hero motif behind it and a coral accent glow. */
+.fg-today-greet {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: grid; gap: 7px;
+  padding: clamp(20px, 3vw, 30px) clamp(20px, 3vw, 30px) clamp(18px, 2.4vw, 24px);
+  border-radius: var(--radius-card-lg);
+  background:
+    /* left-weighted scrim so the white greeting keeps AA over the field + motif */
+    linear-gradient(90deg, color-mix(in oklch, black 42%, transparent) 0%, color-mix(in oklch, black 20%, transparent) 46%, transparent 78%),
+    linear-gradient(134deg, color-mix(in oklch, var(--rosina-navy) 88%, black) 0%, var(--fg-primary) 56%, color-mix(in oklch, var(--rosina-violet) 65%, black) 100%);
+  color: #fff;
+  box-shadow: 0 1px 2px oklch(0.2 0.03 270 / 0.06), 0 18px 40px -24px oklch(0.3 0.12 285 / 0.55);
+}
+/* fridge-hero motif + a coral accent glow, behind the text. */
+.fg-today-greet::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: url(/fridge-hero.svg) center / cover no-repeat;
+  opacity: 0.11; mix-blend-mode: soft-light;
+}
+.fg-today-greet::after {
+  content: ''; position: absolute; z-index: -1; width: 46%; height: 180%; right: -8%; top: -40%;
+  background: radial-gradient(circle, color-mix(in oklch, var(--fg-accent) 55%, transparent), transparent 62%);
+}
+.fg-today-date { margin: 0; font-size: 13px; color: color-mix(in oklch, white 82%, transparent); font-weight: 500; }
+.fg-today-hi { margin: 0; font-size: clamp(24px, 4vw, 32px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; text-wrap: balance; color: #fff; }
+.fg-today-context { margin-top: 6px; justify-self: start; background: color-mix(in oklch, white 90%, transparent); color: var(--rosina-navy); border-color: color-mix(in oklch, white 40%, transparent); }
+.fg-today-context svg { color: var(--fg-primary); }
+@media (prefers-contrast: more) { .fg-today-greet::before { display: none; } }
+@media (prefers-reduced-transparency: reduce) { .fg-today-greet::before { opacity: 0.1; } }
 
 /* Ask Rosina */
 .fg-today-rosina { display: grid; gap: 14px; }
