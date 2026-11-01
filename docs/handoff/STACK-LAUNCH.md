@@ -26,6 +26,25 @@ proving it with a check that goes through the browser's own path.
 `mcp=http://127.0.0.1:5050/mcp`, and fails every model turn. The startup line is the tell: it must say
 `mcp=http://127.0.0.1:5051/mcp`.
 
+## Measured running stack (2026-10-31 23:00Z)
+
+Checked with `ps -o command=` / `ps -E` per PID — not copied from the table above. Note that the
+demo-login listener is a **separate process** here, so `src/main.ts` itself carries no demo-login env.
+
+| PID | Ports | Command (as run) | Env observed on the process |
+|---|---|---|---|
+| 94204 | 4001–4007 | `node --require tsx src/main.ts` | (none of the below) |
+| **24552** | **4008** | `node --import tsx .runs/demo-login-entry.mjs` | `DEMO_LOGIN_ENABLED=1`, `DEMO_LOGIN_PORT=4008` |
+| 94438 | 4101–4107 | `node --require tsx ops/stack-alt.mjs` | `DEMO_CLOCK=1` |
+| 95097 | 4010 / 8090 | `router-v2.18.0 --supergraph supergraph.graphql --config router.yaml` | `APOLLO_KEY` (set, not printed) |
+| 94477 | 4012 / 8092 | `router-v2.18.0 --supergraph supergraph.graphql --config /Users/user/.openclaw/tmp/fridgegraph-alt-router.yaml` | — |
+| **38059** | 4200 | `node --require tsx src/rosina/server.ts` | **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, `ROSINA_PORT=4200` |
+| 94479 | 5051 | `apollo-mcp-server-v2.1.0 /tmp/refresh-mcp.yaml` | — |
+
+All from checkout `fridgegraph-refresh` at **`e56434d`**. The MCP config is a hand-rebased copy of
+`.apollo/mcp.local.yaml` (endpoint 4010→4012, port 5050→5051) because `ops/alt-stack.sh --up` cannot
+generate it.
+
 ## Supergraph
 
 Compose locally; publishing is a separate, deliberate act:
