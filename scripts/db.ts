@@ -349,6 +349,22 @@ export async function resetDatabase() {
     await del('village_event', `id=in.(${synthetic.map((r) => `"${String(r.id)}"`).join(',')})`);
     deleted.village_event = synthetic.length;
   }
+
+  // THE DEMO SEED IS PART OF A RESET'S END STATE.
+  //
+  // This reset seeds first and then deletes every id outside the v1 baseline — which includes the
+  // whole Cast v2 set, because Cast ids are deliberately not baseline ids. Every caller that only
+  // used /__reset (the suite's own reset hook, the proofs, the app) therefore ended up with a demo
+  // that had no cast: no Malik care facts, no Priya grants, no simulated calendar. The restore used
+  // to live in ONE wrapper (`ops/run-suite.mjs`), so any run that reached /__reset another way
+  // silently damaged the demo — which is exactly what happened.
+  //
+  // Restoring here makes the demo state a property of the reset itself rather than of the caller.
+  // It runs AFTER the deletion pass, from the SAME single source `db:seed` uses, and is additive:
+  // `baseline()`, the keep-set above and `checksumDatabase()` are untouched, so the published v1
+  // baseline reset/checksum contract is unchanged. Upserts by fixed id, so it is idempotent.
+  await seedDatabase();
+  await seedSimulated();
   return deleted;
 }
 
