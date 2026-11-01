@@ -7,7 +7,7 @@ export const vocabularyKinds:Record<DescriptorKey,string>={wearColor:'WEAR_COLOR
 export type Vocabulary={kind:string;value:string;version:number}
 export type CheckIn={recorded:boolean;label:string;text:string;dueAt:string|null;guidance:string}
 export type ResponseEntry={person:{id:string;displayName:string};respondedAt:string;response:string}
-export type Alert={id:string;status:string;child:{id:string};message:string|null;share:Descriptors&{photoId:string|null};activatedAt:string|null;closedAt:string|null;audience:{person:{id:string};eligible:boolean}[];responses:ResponseEntry[];latestResponses:ResponseEntry[];guidance:string}
+export type Alert={id:string;status:string;child:{id:string};message:string|null;share:Descriptors&{photoId:string|null};activatedAt:string|null;closedAt:string|null;audience:{person:{id:string;displayName?:string|null};eligible:boolean}[];responses:ResponseEntry[];latestResponses:ResponseEntry[];guidance:string}
 export type Status={alertId:string|null;status:string|null;audienceCount:number;notifiedCount:number;latestResponses:ResponseEntry[];guidance:string}
 export type Preview={draftId:string;draftVersion:number;message:string;messageHash:string;audienceSize:number;guidance:string}
 export type Draft={draftId:string;draftVersion:number;status:string;guidance:string}
@@ -18,7 +18,7 @@ export interface OrbitAdapter{
  upload(childId:string,file:File,signal:AbortSignal):Promise<string>;photo(id:string,signal:AbortSignal):Promise<Blob>
 }
 const RESPONSE=gql`fragment OrbitResponseFields on OrbitResponseEntry{person{id displayName} respondedAt response}`
-const ALERT=gql`fragment OrbitAlertFields on OrbitAlert{id status child{id} message share{wearColor wearGarment hair carryColor carryItem photoId} activatedAt closedAt audience{person{id} eligible} responses{...OrbitResponseFields} latestResponses{...OrbitResponseFields} guidance}${RESPONSE}`
+const ALERT=gql`fragment OrbitAlertFields on OrbitAlert{id status child{id} message share{wearColor wearGarment hair carryColor carryItem photoId} activatedAt closedAt audience{person{id displayName} eligible} responses{...OrbitResponseFields} latestResponses{...OrbitResponseFields} guidance}${RESPONSE}`
 export const CHECK=gql`query WebOrbitCheck($childId:ID!){checkInStatus(childId:$childId){recorded label text dueAt guidance}}`
 export const VOCABULARY=gql`query WebOrbitVocabulary{orbitVocabulary{kind value version}}`
 export const STATUS=gql`query WebOrbitStatus($childId:ID!,$alertId:ID){orbitStatus(childId:$childId,alertId:$alertId){alertId status audienceCount notifiedCount latestResponses{...OrbitResponseFields} guidance}}${RESPONSE}`

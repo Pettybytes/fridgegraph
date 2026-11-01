@@ -1,6 +1,6 @@
 /* Default closed everywhere (honours the component's open=false): a launcher, not
    a docked panel crowding the page. Docks on the right only once opened. */
-.rosina-panel { position: fixed; top: 6.8rem; right: 1.25rem; bottom: 1.25rem; width: 350px; z-index: 25; display: none; flex-direction: column; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: 1.2rem; box-shadow: 0 12px 40px #26344c12; overflow: hidden; color: var(--fg-ink); }
+.rosina-panel { position: fixed; top: 6.8rem; right: 1.25rem; bottom: 1.25rem; width: 350px; z-index: 25; display: none; flex-direction: column; border: 1px solid var(--fg-border); border-radius: 1.2rem; box-shadow: 0 12px 40px #26344c12; overflow: hidden; color: var(--fg-ink); }
 .rosina-panel.is-open { display: flex; }
 .rosina-panel header { display: flex; justify-content: space-between; align-items: start; padding: 1.25rem 1.2rem .75rem; }
 .rosina-panel header h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.025em; }
@@ -61,3 +61,30 @@
 @media(min-width: 1200px) and (max-width: 1700px) { body:has(.rosina-panel.is-open) .mc-layout { grid-template-columns: minmax(0, 1fr); } body:has(.rosina-panel.is-open) .mc-trace { grid-row: auto; grid-column: auto; } }
 
 .rosina-panel[hidden]{display:none}.rosina-launcher.is-reopen{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:.5rem;background:#7559a1;color:white;padding:.8rem 1.2rem;border-radius:2rem;z-index:26}.rosina-source{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.rosina-mode{font-size:.68rem;font-weight:600;padding:.2rem .45rem;border-radius:.3rem}.mode-live{color:#276b48;background:#e5f2eb;border:1px solid #9ac3ad}.mode-mock{color:#7559a1;background:#eee8f4;border:1px dashed #b8a3d0}
+
+.rosina-action{min-height:64px}.rosina-action-status{display:block;font-size:.8rem;line-height:1.5;margin-top:.4rem;color:var(--fg-muted)}
+/* One conversation surface; shared glass supplies solid reduced-transparency fallback. */
+.rosina-panel.fg-glass{color:var(--fg-ink)}
+.rosina-panel header p,.rosina-source,.rosina-welcome p,.rosina-panel form label{color:var(--fg-muted)}
+.rosina-panel header button{min-width:44px;min-height:44px}
+.rosina-panel .rosina-message p{font-size:16px;line-height:1.65}
+.rosina-panel .rosina-message>span{color:var(--fg-primary)}
+.rosina-message.from-person{background:var(--fg-selection)}
+.rosina-action{color:var(--fg-primary);background:var(--fg-surface);border-color:var(--fg-border);font-size:16px}
+.rosina-panel form button{background:var(--fg-primary);color:var(--fg-on-primary);min-height:44px}
+.rosina-panel textarea{background:var(--fg-surface);color:var(--fg-ink);border-color:var(--fg-border)}
+.rosina-progress{min-height:72px;padding:16px 0;color:var(--fg-ink)}.rosina-progress strong{font-size:16px;font-weight:500}.rosina-progress span{display:block;font-size:13px;color:var(--fg-muted);margin-top:8px}
+:root[data-focus="1"] .rosina-panel.is-open{left:24px;right:24px;top:24px;bottom:24px;width:auto;height:auto;max-width:1100px;margin:auto;font-size:18px}
+:root[data-focus="1"] .rosina-panel .rosina-thread{padding:24px 32px}
+:root[data-focus="1"] .rosina-panel .rosina-message{max-width:70ch}
+:root[data-focus="1"] body:has(.rosina-panel.is-open) .workspace{padding-right:0}
+@media(max-width:600px){:root[data-focus="1"] .rosina-panel.is-open{inset:8px}:root[data-focus="1"] .rosina-panel .rosina-thread{padding:16px}}
+body:has(.rosina-panel.is-open:not([hidden])) .rosina-route-anchor{display:none}
+.rosina-route-anchor button{min-height:48px;padding:12px 20px;border-radius:var(--radius-control,12px);background:var(--fg-primary);color:var(--fg-on-primary)}
+.rosina-identity{display:flex;align-items:center;gap:16px}
+.rosina-panel .rosina-welcome>svg,.rosina-panel .rosina-welcome button{color:var(--fg-primary)}
+.rosina-panel .rosina-source,.rosina-panel form{border-color:var(--fg-border)}
+.rosina-panel .mode-live{color:var(--fg-real);background:color-mix(in oklch,var(--fg-real) 8%,var(--fg-surface));border-color:var(--fg-real)}
+.rosina-panel .mode-mock{color:var(--fg-primary);background:var(--fg-selection);border-color:var(--fg-primary)}
+.rosina-panel .rosina-error{color:var(--fg-attention)}
+.rosina-confirm{background:var(--fg-surface);color:var(--fg-ink)}

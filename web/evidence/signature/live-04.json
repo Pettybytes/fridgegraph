@@ -1,0 +1,422 @@
+{
+  "proof": {
+    "passed": false,
+    "checks": [
+      {
+        "check": "Today contains the working portrait village preview",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot today-preview light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot today-preview light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot today-preview dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot today-preview dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Village portraits come only from current authorized read",
+        "pass": true
+      },
+      {
+        "check": "No authority inferred from relationships",
+        "pass": true
+      },
+      {
+        "check": "Selection emphasizes its recorded connection",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-selected light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-selected light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-selected dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-selected dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Escape closes selected person detail",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-entry light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-entry light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-entry dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot village-entry dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Accessible list alternative is operable",
+        "pass": true
+      },
+      {
+        "check": "Authorized child list was read from graph",
+        "pass": true
+      },
+      {
+        "check": "Village child selection uses a returned authorized id",
+        "pass": true
+      },
+      {
+        "check": "Keyboard portrait navigation works with reduced motion",
+        "pass": true
+      },
+      {
+        "check": "Card receipt does not mutate",
+        "pass": true
+      },
+      {
+        "check": "Card click drafts and previews once",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-preview light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-preview light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-preview dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-preview dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Activation persisted one alert",
+        "pass": true
+      },
+      {
+        "check": "Parent roll call is the actual frozen audience",
+        "pass": true
+      },
+      {
+        "check": "Activation never claims delivery or safety",
+        "pass": true
+      },
+      {
+        "check": "Recipient read exposes only own frozen audience row",
+        "pass": true
+      },
+      {
+        "check": "Recipient roll call shows only herself",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot loretta-response light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot loretta-response light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot loretta-response dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot loretta-response dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Parent update matches the persisted recipient response",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot parent-response-update light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot parent-response-update light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot parent-response-update dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot parent-response-update dark mobile",
+        "pass": true
+      },
+      {
+        "check": "WITH_ME remains a report, never closure",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot reported-with-me light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot reported-with-me light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot reported-with-me dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot reported-with-me dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Only explicit parent close ends the alert",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-closed light desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-closed light mobile",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-closed dark desktop",
+        "pass": true
+      },
+      {
+        "check": "Safe screenshot orbit-closed dark mobile",
+        "pass": true
+      },
+      {
+        "check": "Perspective switch never renders the previous child under the new identity",
+        "pass": true
+      },
+      {
+        "check": "Honest unavailable/refused Village for priya",
+        "pass": false
+      }
+    ],
+    "errors": [
+      "Check failed during Scoped Village reads and perspective isolation"
+    ],
+    "stage": "Scoped Village reads and perspective isolation",
+    "failure": {
+      "action": "assertion",
+      "kind": "Error",
+      "timedOut": false
+    },
+    "httpFailures": [],
+    "turns": [
+      {
+        "http": 200,
+        "reply": "Nora's home by 4:00 check-in hasn't been recorded, per check-in status.\nIf a child is missing or in danger, call 911 immediately. Orbit notifies your approved village; it does not replace emergency services.\nI've prepared a preview with yellow raincoat and green backpack — nothing sent, preview only, per allowed descriptors list brown isn't a hairstyle option.\nWhat is her hairstyle? You can add a photo in the app's Orbit screen.",
+        "actionIds": [
+          "prepareOrbitAlert"
+        ]
+      }
+    ],
+    "captures": [
+      {
+        "name": "village-entry-selection",
+        "from": 4.003,
+        "to": 6.777,
+        "file": "web/evidence/signature/live-04/village-entry-selection.mp4"
+      },
+      {
+        "name": "orbit-recipient-response",
+        "from": 1.675,
+        "to": 5.208,
+        "file": "web/evidence/signature/live-04/orbit-recipient-response.mp4"
+      },
+      {
+        "name": "orbit-parent-activation-update",
+        "from": 27.714,
+        "to": 37.352,
+        "file": "web/evidence/signature/live-04/orbit-parent-activation-update.mp4"
+      }
+    ],
+    "recording": "Explicitly requested viewport-only captures; no browser chrome, trace, HAR, storage-state or request-header logging; bearer/media handles held only in process memory"
+  },
+  "lastStage": "Scoped Village reads and perspective isolation",
+  "scan": {
+    "pass": true,
+    "files": [
+      {
+        "file": "docs/evidence/01-kendra-full-view.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/01b-query-plan.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/01c-query-plan-full.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/02-approver-thursday.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/03-supervision-age-boundary.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/04-loretta-goals-careplan-contact.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/05a-walter-no-pickup.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/05c-dana-supervision-jax-empty.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/06a-daniel-careplan-today.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/06b-chris-careplan-expired.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/06c-daniel-goals-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/07a-gary-busroster-allowed.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/07b-gary-schedule-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/07c-gary-careplan-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/08-angela-pickup-verify-vehicles.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/09a-ray-jax-careplan.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/09b-evelyn-jax-careplan.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10a-dana-nora-schedule-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10b-dana-nora-goals-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10c-dana-nora-careplan-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/10d-loretta-jax-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11a-dana-absent-before.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11b-loretta-cannot-approve.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11c-kendra-approves.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11c2-kendra-grants.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11c3-approvals-exist.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11d-dana-now-candidate.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11e-dana-careplan-still-denied.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/11f2-dana-absent-after-reset.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/12-mcp-spike.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/16-edge-auth-and-mcp.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/16b-b5-mcp-reproof.md",
+        "pass": true
+      },
+      {
+        "file": "docs/evidence/25-dana-onboarding-walter.md",
+        "pass": true
+      },
+      {
+        "file": "ops/test-router-graphos.mjs",
+        "pass": true
+      },
+      {
+        "file": "scripts/check-secrets.mjs",
+        "pass": true
+      },
+      {
+        "file": "web/evidence/signature/review-02/person-desktop-light.png",
+        "pass": true
+      },
+      {
+        "file": "web/evidence/signature/review-02/village-desktop-light.png",
+        "pass": true
+      },
+      {
+        "file": "web/evidence/task-w/w2-copy-mobile.png",
+        "pass": true
+      },
+      {
+        "file": "web/package-lock.json",
+        "pass": true
+      }
+    ],
+    "privateMediaObserved": false
+  }
+}
