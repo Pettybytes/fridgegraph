@@ -1,0 +1,29 @@
+/* Existing FridgeGraph tokens and Button primitive; no new visual system. */
+.notice-draft{margin:0 16px 12px;border:1px solid var(--fg-border);border-radius:var(--radius-lg,12px);color:var(--fg-ink);background:var(--fg-surface);flex-shrink:0}
+.notice-draft summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;cursor:pointer;font-size:14px}
+.notice-draft summary:focus-visible{outline:2px solid var(--fg-primary);outline-offset:2px}
+.notice-draft summary strong{margin-left:auto;font-size:12px;font-weight:500;color:var(--fg-primary)}
+.notice-draft-body{padding:0 12px 12px;max-height:45dvh;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;font-size:14px;line-height:1.5}
+.notice-draft-body p{margin:0}
+.notice-local-note{color:var(--fg-muted)}
+.notice-drop{border:1px dashed var(--fg-border);border-radius:8px;padding:12px;display:grid;justify-items:start;gap:6px}
+.notice-drop.is-dragging{border-color:var(--fg-primary);background:var(--fg-selection)}
+.notice-drop small{font-size:12px;color:var(--fg-muted)}
+.notice-draft .notice-control{min-height:44px;white-space:normal}
+.notice-draft textarea{width:100%;min-height:88px;resize:vertical;padding:10px;border:1px solid var(--fg-border);border-radius:8px;background:var(--fg-canvas);color:var(--fg-ink);font:inherit}
+.notice-draft textarea:focus-visible{outline:2px solid var(--fg-primary);outline-offset:2px}
+.notice-files{list-style:none;padding:0;margin:0}
+.notice-files li{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.notice-files li span{min-width:0;overflow-wrap:anywhere}
+.notice-samples{padding:10px;background:var(--fg-canvas);border-radius:8px}
+.notice-draft-actions{display:flex;flex-wrap:wrap;gap:8px}
+.notice-review{display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--fg-border)}
+.notice-review h3{font-size:18px;font-weight:600}.notice-review h4{font-size:15px;font-weight:600}
+.notice-review article{padding:12px 0;border-top:1px solid var(--fg-border)}
+.notice-review blockquote{margin:8px 0;padding-left:10px;border-left:2px solid var(--fg-primary);white-space:pre-wrap;overflow-wrap:anywhere}
+.notice-review dt{font-weight:600;margin-top:10px}.notice-review dd{margin:2px 0 0}
+.notice-review ul{padding-left:18px}.notice-question{display:grid;gap:8px}
+.notice-question input{min-height:44px;padding:8px;border:1px solid var(--fg-border);border-radius:8px;background:var(--fg-canvas);color:var(--fg-ink)}
+.notice-draft .notice-control[data-variant=default]{background:var(--fg-primary);color:var(--fg-on-primary)}
+/* Impeccable side-tab finding is retained deliberately on blockquote only:
+   the rule marks a quoted source passage, not a decorative card accent. */

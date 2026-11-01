@@ -3974,3 +3974,33 @@ contracts remain dependencies for live map integration.
 | 2026-11-01 21:23 | **W-PHOTO-64 OPEN — content-rich fixture run, deadline `2026-11-01T22:05:00Z`.** Reserved before any call. **No restart, no migration, no deploy:** the stack is already serving Rosina **`539a8b4`** (pid 20096) and the graph **`405f7a7`**. Scope: send the committed fictional fixture `docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg` through Kendra's real authenticated upload and the real `POST /api/rosina/photo-descriptors`, then the five cases again, writing **evidence 64** and leaving **63, its blank-image result and `run01-failed` untouched**. Fixture provenance recorded in `docs/evidence/fixtures/PROVENANCE.md` — generating tool and model taken from the generation receipt (`image_generate`, `google/gemini-3.1-flash-image`), everything unsupported marked **unknown**; **no Muse attribution**, because none is verified. Ends with the ordinary demo reset and a sandbox check. | branch `proof/photo-descriptor-authority` | 4200 · 5189 · 4008 | **OPEN to 2026-11-01T22:05:00Z** |
 | 2026-11-01 21:32 | **W-PHOTO-64 RELEASED — content-rich run PASS 23/23; nothing restarted, nothing migrated.** Fixture `docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg` (tool `image_generate`, model `google/gemini-3.1-flash-image`; seed/timings **unknown**; **no Muse attribution**, since `muse-image-1.0` is unverified) sent through Kendra's real upload (362,754 → **79,141** stored bytes) and the real descriptors endpoint. Returned **`wearColor:yellow`, `carryColor:red`, `carryItem:backpack`** — all three inside the child's 55-entry vocabulary, **none dropped**. **Honest omissions:** `hair` and `wearGarment` were not proposed although braided dark hair and a raincoat are visible; `textInImage` was not asserted. Priya **403**, confirmed ACTIVE-alert AUDIENCE **403 byte-identical**, recipient photo GET **200 `image/jpeg`** with `X-Orbit-Access: AUDIENCE`, unknown photo **404**, alert closed, demo reset. **Evidence 63, its blank-image result and `run01-failed` are untouched.** Serving revisions unchanged: Rosina `539a8b4` (20096), graph `405f7a7`. | `proof/photo-descriptor-authority` | 4200 · 5189 · 4008 | **RELEASED — proof PASS, no deploy** |
 | 2026-11-01 21:30 | **CORRECTION (append-only) to the 21:38 and 21:05 rows — 0055 is APPLIED; my "0055 FALSE" was wrong.** Measured from the database, not inferred: all **12** 0055 functions present; **0 of 12** grant EXECUTE to PUBLIC (my earlier "PUBLIC EXECUTE PRESENT" line matched `postgres=X`, which is a grant to `postgres`, not to PUBLIC); `orbit_alerts` table-level SELECT held only by `postgres` and `service_role`; `authenticated` holds **column-level** SELECT on exactly the 15 safe columns and none of the sensitive ones; `orbit_share_for` carries the `status='ACTIVE'` + `_orbit_is_audience_member` post-close gate. The "0055 false" came from probing a `redacted_at` column **that 0055 never creates** — a fabricated probe. `ops/0055-dry-run.mjs` fails only because it asserts the **pre**-migration grant state, which post-apply is necessarily false. **No migration was replayed and no permission was restored.** Tracking metadata is separate and unresolved: `supabase_migrations.schema_migrations` stops at **0011** because `ops/*-apply.mjs` writes no tracking row; 0012–0057 are **not** assumed applied and are not bulk-stamped. | — | — | **CORRECTION** |
+
+## NOTICE → PLAN UI — contract checkpoint, 2026-11-01
+Branch feat/web-notice-plan, worktree fridgegraph-notice-plan-ui, base
+573e6689d8996a7716b1f15ca4c02dbbee4e5baf (#85 merged). #87 remains draft pending #78.
+UI: pending · backend: contract pending · integrated + tested: pending.
+Priority: sample (a), early dismissal versus Nora's pickup. Existing Rosina thread,
+shared UI primitives and private-session cleanup reviewed; no live transport will be enabled
+until the endpoint is both merged and verified deployed. No real pickup/consent writes in mock.
+At checkpoint, feat/rosina-notice-plan exists locally at the base but no pushed contract or
+fictional samples are available. Waiting on docs/contracts/notice-plan.md before defining
+accepted files, request/envelope, clarification or idempotent confirm/error shapes. No guesses,
+source changes, live calls, tests or captures claimed at this checkpoint.
+
+### NOTICE → PLAN stable-section progress — 2026-11-01
+Contract arrived at b0ce3aa; sample (a) at 9103559 on feat/rosina-notice-plan / PR #89.
+Built stable §§2/4/4b: local drop/upload/paste, published MIME/size gates, visible Mock label,
+source-aware review, same-proposal clarification continuation, plain error-code states and
+owner-keyed private cleanup. Exact PNG/PDF bytes and text copied from Claude's committed kit.
+The sample tray loads the same file→input→mock prepare path as a manual drop; arbitrary
+images do not inherit sample facts (content digest must match). No real model or backend calls.
+UI: mock prepare/review complete · backend: planned · integrated + tested: offline only.
+358 web tests PASS, root typecheck and web typecheck/build PASS. No real pickup/consent records.
+
+Confirm remains DISABLED: §4 does not yet specify the full available=true envelope mapping.
+Requested that mapping, exact error JSON/429 retry shape and unreadPages location in PR #89.
+No confirmation method, real transport, action arguments or network retry have been invented.
+The scripted sample review says confirmation is not connected; it does not claim a pickup.
+Review-only captures/recording: web/evidence/notice-plan/review-only/. The earlier shell captures
+are preserved separately. Full sample(a)→confirm and live/deployed acceptance remain pending.
+Live activation requires BOTH merged endpoint and verified deployed revision, in a reserved window.
