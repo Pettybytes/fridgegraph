@@ -18,6 +18,7 @@ export function MapView({controller}:{controller:MapController}){
  useEffect(()=>{document.body.classList.add('village-map-open');const size=()=>setNarrow(innerWidth<=600);window.addEventListener('resize',size);const timer=setTimeout(()=>{if(innerWidth>=1250)window.dispatchEvent(new Event('rosina:open'))},0);return()=>{clearTimeout(timer);document.body.classList.remove('village-map-open');window.removeEventListener('resize',size)}},[])
  const {world,route}=state,events=world?.events.filter(e=>e.day===state.day&&e.status!=='CANCELLED').sort((a,b)=>a.at.localeCompare(b.at))??[],selected=state.selection
  useEffect(()=>{if(world){setFrom(world.people[0]?.id??'');setTo(world.places[0]?.id??'')}},[world?.people.map(p=>p.id).join(',')])
+ useEffect(()=>{if(route){setFrom(route.fromId);setTo(route.toId)}},[route?.id])
  function day(value:string){controller.setDay(value);history.replaceState(null,'',`#/map?day=${value}`)}
  useEffect(()=>{const read=()=>{const value=new URLSearchParams(location.hash.split('?')[1]??'').get('day');if(value)controller.setDay(value)};read();window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read)},[controller,world])
  const drop=(id:string,placeId:string|null)=>{if(placeId){void controller.route(id,placeId);if(narrow)setSheet('collapsed')}}
