@@ -4011,3 +4011,22 @@ carrying a later stamp and 01:15Z deadline. These UI probes occurred around
 00:12–00:16Z before the correction was seen; all previews and live requests
 stopped on discovery. No more live requests until Bentley posts a fresh OPEN
 slot on #78 and repairs the MCP forward-header leg.
+
+### Teacher report card AGENT PROOF SLOT — 2026-11-02, PR #99
+After Bentley restored MCP forwarding and Rosina's GraphQL target, the #99
+browser card passed end to end at UI head
+`668258bded6c1d6d96bccad250ffa2f50d59aa20`. Served graph/demo was
+`c231ba8`, routers `c806f46`, MCP config `cfbbb6a`, Rosina `7fda69d` on
+pid 39469. A real Ms. Whitfield picker session asked Rosina to prepare a
+school-day fever report without filing it; the response carried structured
+proposal `srp_ea00e5a34c0b`. The review card rendered it, and exactly one
+explicit UI Confirm mutation filed report `sr_1621815c7531` with no GraphQL
+errors. The UI showed “Report filed.” This is separate from PR #103's backend
+chat proof and the earlier mixed UI transport isolation. The earlier
+no-proposal failure remains recorded. Screenshots and exact results are in
+`web/evidence/teacher-report/live-2026-11-02/RECEIPT.md`.
+
+UI: complete · backend: served · integrated + tested: PASS for the teacher
+review-to-confirm browser flow. Activity readback is owned by
+feat/web-activity-timeline; Bentley owns the canonical reset. No reset or
+restart was run by this UI lane.
