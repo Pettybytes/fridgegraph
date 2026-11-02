@@ -54,7 +54,8 @@ Priya, Ray, Tasha, Walter`.
 ## 2. Non-negotiable constraints
 
 - **Fictional people only.** No real-person reference photographs are supplied to any model, and none
-  will be. No resemblance to a real individual is a goal.
+  will be. The standard is **no real-person reference and no intentional impersonation** — not a
+  generic "does not resemble anyone" claim, which is neither achievable nor meaningful.
 - **Identity is not inferred from names.** Art is joined by person ID; the name net is exact-only and
   secondary. Nothing in the pipeline may guess an identity.
 - **Keep the current portraits until a replacement is generated, reviewed AND integrated.** No
@@ -62,10 +63,10 @@ Priya, Ray, Tasha, Walter`.
 - **Monogram fallback stays.** Every consumer must still render a person with no artwork.
 - **No provenance inflation.** ChatGPT art is never called Muse; Muse art is never claimed before a
   successful call returns and is recorded.
-- **Children are the sensitive case.** The existing set is photorealistic, minors included. A
-  replacement set should *not* increase realism for the child characters. Recommendation: keep the
-  existing child portraits, or move children to a clearly illustrated style; do not generate new
-  photoreal children without an explicit decision from Bryan.
+- **Children are the sensitive case.** The existing set is photorealistic, minors included, and the
+  replacement set stays in **one consistent photoreal direction — no mixed illustrated/photoreal
+  cast**. Child portraits keep their established appearance and are replaced only within that same
+  direction; a style switch for children alone would break cast coherence and is not proposed here.
 
 ---
 
@@ -94,14 +95,16 @@ One coherent studio, so the picker and the village do not look like a collage of
 Studio portrait of a fictional adult, head and shoulders, centred, eyes to camera,
 calm neutral expression. 85mm portrait lens feel, soft key light from camera-left,
 gentle fill, neutral mid-tone seamless backdrop, muted natural colour, no colour cast.
-Photorealistic but plainly generic — not resembling any real person.
+Photorealistic, consistent with the established cast. No real-person reference and no intentional
+impersonation of any individual.
 Square 1:1 composition with even margin around the head.
 No text, no logos, no brands, no uniforms or insignia, no props, no other people.
 ```
 
-Per-person variation is applied **only** through neutral, non-identifying attributes (age band,
-build, hair length/colour, clothing tone) held in a small table — never through ethnicity or any
-trait that could map to a real individual.
+Per-person variation **must preserve each character's established appearance**: skin tone, hair and
+age stay consistent with the current portraits, so a replacement reads as the same person. Beyond
+those anchors, variation is applied through build, hair length/colour and clothing tone, held in a
+small table. Continuity of the existing cast takes precedence over any generic styling rule.
 
 ## 5. Pilot proposal — ONE image, before any batch
 
@@ -111,7 +114,7 @@ trait that could map to a real individual.
 | Model | `muse-image-1.0` |
 | Request | `n: 1`, `size: "1024x1024"`, `response_format: "b64_json"` |
 | Output | one image, downscaled to 384² for review, original retained |
-| Review gate | (a) reads as the same character as the current Walter; (b) no resemblance to a real person; (c) matches the art direction; (d) monogram fallback untouched; (e) all 7 consuming surfaces still render |
+| Review gate | (a) reads as the same character as the current Walter — same skin tone, hair and age band; (b) **no real-person reference or intentional impersonation**; (c) matches the art direction; (d) monogram fallback untouched; (e) all 7 consuming surfaces still render |
 
 **Nothing else is generated until the pilot is reviewed.** One image, one call.
 
