@@ -13,6 +13,10 @@ Live sandbox coming soon <!-- LIVE LINK: set at hosting -->
 
 A single-mother friend sent me a text: “An assistant built specifically for single moms.”
 
+<img src="docs/assets/origin/origin-message.png" alt="A friend's text suggesting an assistant built specifically for single moms" width="420">
+
+*Her message, shared with permission. The publication crop contains only her words.*
+
 I build systems that help teams coordinate across people, services and responsibilities. Her message made me see the same problem at home: parents carrying the connections in their heads, stitching together school messages, calendars and conversations.
 
 Help can exist all around a child. Coordinating that help is another job.
@@ -22,8 +26,6 @@ FridgeGraph brings those connections into one permissioned view. Rosina reads no
 In the future, the village could grow with the family: agents suggesting useful connections, while people decide whom to trust and what to share.
 
 The goal is simple: help the village handle the logistics so parents can be present.
-
-<!-- ORIGIN IMAGE: insert the cropped, metadata-stripped copy from 01-origin.png once the supplied file is located. Never publish its contact header or reply. -->
 
 ## Three demonstrations
 
