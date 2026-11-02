@@ -253,7 +253,7 @@ function addVillagerError(e: unknown): never {
   ].find((k) => message.includes(k));
   if (byMessage) throw new GraphQLError(byMessage, { extensions: { code: byMessage } });
 
-  // Documented SQLSTATE fallback — see migration 0073's own "ERRCODE discipline" note for why
+  // Documented SQLSTATE fallback — see migration 0074's own "ERRCODE discipline" note for why
   // each code was chosen and which client-facing meanings deliberately collapse together.
   const BY_SQLSTATE: Record<string, string> = {
     '28000': 'UNAUTHENTICATED',

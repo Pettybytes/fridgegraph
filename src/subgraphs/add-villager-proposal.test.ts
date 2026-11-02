@@ -11,7 +11,7 @@
  *     both directly inspectable from source.
  *
  *  2. BEHAVIORAL — a hand-written, in-memory model of propose_add_villager/confirm_add_villager
- *     (migration 0073), driven through the REAL access.ts resolvers via dbFor(ctx).rpc(...), plus
+ *     (migration 0074), driven through the REAL access.ts resolvers via dbFor(ctx).rpc(...), plus
  *     derive.ts's REAL pickupCandidatesFor driven through a fake of pickup_candidates_for /
  *     grant_holders_for (migrations 0008/0010) to prove the confirmed grant actually makes Dana a
  *     pickup candidate. Proves the algorithm; does NOT prove Postgres's own SELECT ... FOR UPDATE
@@ -86,7 +86,7 @@ test('the prompt instructs a clarifying question for an unsupported recurring wi
 });
 
 test('confirm_add_villager never touches contact_methods or household_members — no contact attempt, no linked households', () => {
-  const sql = readFileSync('supabase/migrations/0073_add_villager_proposal.sql', 'utf8');
+  const sql = readFileSync('supabase/migrations/0074_add_villager_proposal.sql', 'utf8');
   assert.equal(sql.includes('contact_methods'), false);
   // Checks for an actual table reference (from/into/update household_members), not prose that
   // merely NAMES the table while explaining this very guarantee in a comment.

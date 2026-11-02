@@ -17,7 +17,7 @@
  * `ProposeSchoolDayReport` (TASK: Rosina school-report tool) and `ProposeAddVillager` (TASK: Add
  * a Villager) are the only two deliberate, narrow exceptions: each is a real MCP mutation tool,
  * but each can only ever write ITS OWN staging table (`school_report_proposals` / migration 0071;
- * `villager_proposals` / migration 0073) — never `school_reports`, `relationships`, or `grants`.
+ * `villager_proposals` / migration 0074) — never `school_reports`, `relationships`, or `grants`.
  * The mutations that actually commit those — `confirmSchoolDayReport`, `confirmAddVillager` —
  * have no MCP operation file anywhere and are not in `ALLOWED_MCP_TOOL_NAMES`, so Rosina cannot
  * reach either one no matter what she is asked. Every other mutation-shaped name is still refused

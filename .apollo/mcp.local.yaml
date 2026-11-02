@@ -58,7 +58,7 @@ introspection:
 # documents for grantAccess/revokeGrant above.
 #
 # ProposeAddVillager.graphql (TASK: Add a Villager) is the SECOND such exception, same shape: it
-# only ever writes villager_proposals (migration 0073), never relationships or grants.
+# only ever writes villager_proposals (migration 0074), never relationships or grants.
 # confirmAddVillager has no operation file here either, for the same reason.
 overrides:
   mutation_mode: explicit

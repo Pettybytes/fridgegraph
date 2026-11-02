@@ -216,7 +216,7 @@ function addVillagerProposalFrom(data: unknown): AddVillagerProposalResult | nul
  *
  * `ProposeAddVillager` (TASK: Add a Villager) is the SECOND such exception. It can only ever stage
  * a draft in `villager_proposals`; it structurally cannot write `relationships` or `grants` (see
- * `.apollo/mcp.local.yaml` and `supabase/migrations/0073_*.sql`). `ConfirmAddVillager` is NOT in
+ * `.apollo/mcp.local.yaml` and `supabase/migrations/0074_*.sql`). `ConfirmAddVillager` is NOT in
  * this set and has no MCP operation file either, for the same reason as `ConfirmSchoolDayReport`.
  */
 const ALLOWED_MCP_TOOL_NAMES = new Set([

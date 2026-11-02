@@ -31,7 +31,7 @@ Every subgraph writes **only its own tables**. Cross-table reads happen through 
 
 `approveRelationship` (village) must also write an `approvals` row, which `access` owns. Federation has no cross-subgraph transaction; this is the **single** intentional cross-table write, and it is why the access layer exposes one approval-recording helper. Do not add a second one without a decision recorded here.
 
-**Second recorded decision — `confirmAddVillager` (access), migration 0073.** This writes
+**Second recorded decision — `confirmAddVillager` (access), migration 0074.** This writes
 `relationships` (village-owned) AND `grants`+`approvals` (access-owned) atomically. It is
 NOT application code in one subgraph reaching into another's table — `access`'s resolver makes
 exactly one `rpc()` call into a single `SECURITY DEFINER` Postgres function

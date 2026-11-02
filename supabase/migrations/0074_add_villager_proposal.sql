@@ -1,4 +1,4 @@
--- 0073 — Add a Villager: PROPOSE (stage, model-callable) / CONFIRM (commit, parent-only).
+-- 0074 — Add a Villager: PROPOSE (stage, model-callable) / CONFIRM (commit, parent-only).
 --
 -- Same shape as the school-report and Orbit propose/confirm pairs (0032, 0071): a server-side row
 -- holds the exact reviewed person/relationship/scopes/window, a version counter bumps on edit, and

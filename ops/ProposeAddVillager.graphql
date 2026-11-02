@@ -1,7 +1,7 @@
 # Rosina tool: ProposeAddVillager — stage a reviewable "add a villager" proposal from the parent's
 # own message. The SECOND mutation operation file in this directory (the first was
 # ProposeSchoolDayReport.graphql), by the same deliberate exception: it only ever writes a draft
-# row to villager_proposals (migration 0073); it never writes relationships or grants.
+# row to villager_proposals (migration 0074); it never writes relationships or grants.
 # confirmAddVillager, the mutation that actually commits them, has no operation file here on
 # purpose — Rosina's tool transport cannot reach it, so a model tool call or generated text can
 # never confirm itself. Authority is the caller's own parent/guardian standing for the child
