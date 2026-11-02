@@ -128,3 +128,27 @@ and the PR could previously only show by reading source.
 Evidence 65's one remaining open item (the `RPC_FAILED` vs. specific-code mapping) is addressed
 separately in PR #101 (`fix(school): map school-report RPC errors by SQLSTATE...`), not re-tested
 here since it was not part of this slot's assigned leg and no refusal occurred in this run.
+
+## Addendum — re-verified after Bentley's Rosina restart (deadline extended to 02:00:00Z)
+
+Rosina 4200 was restarted at `2026-11-02T00:40Z` (unrelated fix: `ROSINA_GRAPHQL_URL` was unset,
+causing the notice-plan reader's 502s — not a defect in this feature). Same code revision
+`7fda69d`, new pid `39469`. Verified health (`GET /api/demo/health`: all personas ready) and the
+new pid alive before any further call.
+
+Re-ran the teacher chat flow against the restarted process, as Ms. Whitfield:
+
+> "Nora twisted her ankle at recess and the nurse thinks someone should pick her up"
+
+Rosina correctly **reused and version-bumped** the earlier, deliberately-unconfirmed
+`srp_b2e9ed44f953` from this same evidence's step 6 (version `1` → `2`) rather than creating a
+third parallel draft — live confirmation of `propose_school_report`'s "re-proposing for the same
+(proposer, child) replaces the prior unconfirmed draft" behavior, persisted correctly across the
+Rosina process restart since only the database (not the process) holds that state.
+
+Confirmed it directly (teacher's own deliberate action): `sr_fa2617d92e2a`, `reportedAt` real.
+Kendra reads `schoolReports(childId:"p_nora")` and now sees **both** reports from this evidence —
+the original fever report (`sr_8d414c57375b`) and this one — nothing lost across the restart.
+
+No further refusal/structural checks were re-run: those are properties of the code (unchanged
+between pids), already proven above. No restart or reset performed by me.
