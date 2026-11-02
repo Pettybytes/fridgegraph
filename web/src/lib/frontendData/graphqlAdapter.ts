@@ -5,7 +5,7 @@ import type { Confirmation, CoordinationJob, FrontendAdapter, MissionControlData
 
 export const JOBS = gql`query WebCoordinationJobs($childId: ID!) {
   coordinationJobs(childId: $childId) {
-    id status version idempotencyKey overLimitCandidate { id displayName }
+    id type status version idempotencyKey overLimitCandidate { id displayName }
     candidateEvaluations { candidate { id displayName } reasonCode available acceptedVia costCalculatedAt distanceMiles estimatedRideCostUsd costBasis }
     confirmation { id job { id } receivedAt candidate { id displayName } approvedBy { id displayName } overLimitApproved }
   }
@@ -18,7 +18,7 @@ export const VILLAGE = gql`query WebVillage($childId: ID!, $villageId: ID!) {
   relationships(childId: $childId) { id from { id displayName } to { id person { id displayName } } type status }
 }`
 type Evaluation = { candidate: { id: string; displayName: string }; reasonCode: ReasonCode | null; available: boolean | null; acceptedVia: string | null; costCalculatedAt: string | null; distanceMiles: number | null; estimatedRideCostUsd: number | null; costBasis: string | null }
-export type JobRead = CoordinationJob & { candidateEvaluations: Evaluation[]; confirmation: Confirmation | null }
+export type JobRead = CoordinationJob & { type?: 'PICKUP' | 'INVITATION' | 'ONBOARDING'; candidateEvaluations: Evaluation[]; confirmation: Confirmation | null }
 type Attempt = { id: string; channel: string; at: string }
 // Derived, not a historical job timeline: only the fact described by a timestamp belongs at it.
 // In particular costCalculatedAt timestamps a cost calculation, never acceptance or a state change.
