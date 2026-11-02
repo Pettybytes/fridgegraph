@@ -65,11 +65,11 @@ export function createLiveMapAdapter(options:{
   const session=current(),profile=routingProfiles[mode],combined=signalFor(signal)
   if(combined.aborted)throw aborted()
   if(!transport.supportedProfiles.includes(profile))throw Error('MODE_UNSUPPORTED')
-  const from=world?.people.find(p=>p.id===fromId),to=world?.places.find(p=>p.id===toId)
-  const origin=world?.places.find(p=>p.id===from?.position.placeId)
-  if(!world||!from||!to)throw Error('NOT_FOUND')
+  const from=world?.people.find(p=>p.id===fromId),placeFrom=fromId.startsWith('place:')?world?.places.find(p=>p.id===fromId.slice(6)):undefined,to=world?.places.find(p=>p.id===toId)
+  const origin=placeFrom??world?.places.find(p=>p.id===from?.position.placeId)
+  if(!world||(!from&&!placeFrom)||!to)throw Error('NOT_FOUND')
   if(!origin)throw Error('LOCATION_NOT_RECORDED')
-  if(!personPoint(from,world)||!origin.point||!to.point)throw Error('COORDINATES_WITHHELD')
+  if((from&&!personPoint(from,world))||!origin.point||!to.point)throw Error('COORDINATES_WITHHELD')
   const input:RouteRequest={childId:session.childId,fromPlaceId:origin.id,toPlaceId:to.id,profile}
   const key=routeRequestKey(session.generation,input)
   // Explicit cancellation always gets its own flight; one caller cannot abort another.

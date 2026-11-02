@@ -29,6 +29,14 @@ it('sends distinct Walk and Bike profiles to the delivered proxy',async()=>{
  expect(request.mock.calls.map(call=>JSON.parse(call[1]!.body as string).profile)).toEqual(['foot-walking','cycling-regular'])
  expect(mapRouteError(Error('MODE_UNSUPPORTED'))).toBe('This travel mode is not supported yet.')
 })
+it('routes between two shared places without assigning a location to an unlocated person',async()=>{
+ const request=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify(wire),{status:200}))
+ const {adapter}=setup(createDeliveredRouteTransport(request));await adapter.readWorld()
+ const result=await adapter.route('place:rp_origin','rp_destination','Walk')
+ expect(result).toMatchObject({fromId:'place:rp_origin',toId:'rp_destination',mode:'Walk',rideEstimate:null})
+ expect(JSON.parse(request.mock.calls[0][1]!.body as string)).toEqual({childId:'child-a',fromPlaceId:'rp_origin',toPlaceId:'rp_destination',profile:'foot-walking'})
+ await expect(adapter.route('place:missing','rp_destination','Drive')).rejects.toThrow('NOT_FOUND')
+})
 it('isolates each profile in its own in-flight cache entry and retains mode-specific outputs',async()=>{
  const request=vi.fn<RouteTransport['request']>(async input=>({...wire,durationSeconds:input.profile==='driving-car'?300:input.profile==='foot-walking'?1800:600}))
  const {adapter}=setup({supportedProfiles:Object.values(routingProfiles),request});await adapter.readWorld()

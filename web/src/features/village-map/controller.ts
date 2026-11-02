@@ -10,11 +10,16 @@ export class MapController{
  getSnapshot=()=>this.state
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener)}}
  private patch(change:Partial<MapState>){if(!this.alive)return;this.state={...this.state,...change};this.listeners.forEach(f=>f())}
- async load(){try{const world=await this.adapter.readWorld(this.abort.signal);this.patch({world,loading:false,error:'',day:world.days.includes(this.state.day)?this.state.day:world.days[0]??this.state.day})}catch(error){const code=error instanceof Error?error.message:'';this.patch({loading:false,error:code==='UNAUTHORIZED'?"This isn't shared with you.":code==='UNAUTHENTICATED'?'Your session ended. Choose a perspective again.':"Couldn't load this just now."})}}
+ async load(){
+  this.abort.abort();this.abort=new AbortController();const revision=++this.revision
+  this.routeTarget=null;this.patch({world:null,loading:true,route:null,routing:false,proposal:'none',selection:null,error:''})
+  try{const world=await this.adapter.readWorld(this.abort.signal);if(this.alive&&revision===this.revision)this.patch({world,loading:false,error:'',day:world.days.includes(this.state.day)?this.state.day:world.days[0]??this.state.day})}
+  catch(error){if(!this.alive||revision!==this.revision)return;const code=error instanceof Error?error.message:'';this.patch({loading:false,error:code==='UNAUTHORIZED'?"This isn't shared with you.":code==='UNAUTHENTICATED'?'Your session ended. Choose a perspective again.':"Couldn't load this just now."})}
+ }
  select(selection:Selection){if(!selection){this.patch({selection});return}const world=this.state.world;if(!world)return;const list=selection.kind==='person'?world.people:selection.kind==='place'?world.places:world.events;if(list.some(item=>item.id===selection.id))this.patch({selection})}
  setDay(day:string){if(this.state.world?.days.includes(day))this.patch({day,selection:null})}
  async route(fromId:string,toId:string,mode:Mode=this.state.mode){
-  const world=this.state.world;if(!world?.people.some(p=>p.id===fromId)||!world.places.some(p=>p.id===toId))return
+  const world=this.state.world;if(!world||!(world.people.some(p=>p.id===fromId)||fromId.startsWith('place:')&&world.places.some(p=>p.id===fromId.slice(6)))||!world.places.some(p=>p.id===toId))return
   this.routeTarget={fromId,toId};this.abort.abort();this.abort=new AbortController();const revision=++this.revision
   this.patch({mode,routing:true,route:null,proposal:'none',acceptedOverCap:false,progress:0,playing:false,error:'',selection:{kind:'place',id:toId}})
   try{const route=await this.adapter.route(fromId,toId,mode,this.abort.signal);if(this.alive&&revision===this.revision){if(route.mode!==mode)throw Error('ROUTE_UNAVAILABLE');this.patch({route,routing:false,following:true,fitRevision:this.state.fitRevision+1})}}catch(error){if(this.alive&&revision===this.revision&&!(error instanceof DOMException&&error.name==='AbortError'))this.patch({routing:false,error:mapRouteError(error)})}

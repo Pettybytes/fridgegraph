@@ -59,6 +59,20 @@ it('shows missing person locations and event place states without inventing pins
  expect(screen.getByRole('option',{name:/Person from graph.*location not provided/})).toBeDisabled()
  expect(screen.getByRole('button',{name:'Estimate route'})).toBeDisabled()
 })
+it('loads a selected Detroit day beyond the initial tabs without keeping stale event data',async()=>{
+ const fixture=createMockMapAdapter('kendra'),sample=await fixture.readWorld(),readWorld=vi.fn(async()=>{
+  const selected=new URLSearchParams(location.hash.split('?')[1]??'').get('day')??'2026-11-03'
+  return {...sample,days:[selected],events:[{id:`event-${selected}`,day:selected,at:`${selected}T16:00:00-05:00`,end:`${selected}T17:00:00-05:00`,title:`Recorded ${selected}`,placeId:null,placeState:'UNLINKED' as const,peopleIds:[],status:'CONFIRMED'}]}
+ })
+ const controller=new MapController({mode:'live',readWorld,route:fixture.route});await controller.load();render(<MapView controller={controller}/>)
+ expect(screen.getByText('Recorded 2026-11-03')).toBeVisible()
+ fireEvent.change(screen.getByLabelText('Choose a Detroit day'),{target:{value:'2026-11-25'}})
+ await screen.findByText('Recorded 2026-11-25')
+ expect(screen.queryByText('Recorded 2026-11-03')).not.toBeInTheDocument()
+ expect(readWorld).toHaveBeenCalledTimes(2)
+ history.replaceState(null,'','#/map')
+ controller.dispose()
+})
 it('shows only a parent or guardian the separately recorded pickup estimate, with basis and cap',async()=>{
  const fixture=createMockMapAdapter('kendra'),sample=await fixture.readWorld()
  const storedRideEstimates=[{jobId:'job-recorded',candidateId:'p_gma',candidateName:'Loretta from graph',amountUsd:12.4,capUsd:10,distanceMiles:8.86,basis:'FridgeGraph synthetic planning estimate: haversine distance x $1.40/mi - not a provider quote',paidRidePath:true as const}]

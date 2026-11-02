@@ -32,3 +32,4 @@
 .vm-cluster-menu button{min-height:44px}
 .vm-map-hint{pointer-events:none}
 @media(max-width:600px){.vm-map-hint{right:68px;max-width:none}.vm-map-controls button{width:44px;height:44px}}
+.vm-date-picker{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-12px 0 18px;color:var(--fg-muted);font-size:11px}.vm-date-picker input{min-width:0;max-width:135px;border:1px solid var(--fg-border);border-radius:8px;background:var(--fg-surface);color:var(--fg-ink);padding:7px;font:inherit}
