@@ -195,15 +195,17 @@ plan() {
 }
 
 up() {
-  preflight
+  # Refusals FIRST. Whether a binary is installed says nothing about whether another stack is running,
+  # and a caller who is about to collide with a live stack should be told that, not "rover not found".
   if [ -f "$PIDFILE" ]; then
     die "$PIDFILE exists — a stack may already be up. Run --down first, or remove the file if it is stale."
   fi
-  for port in $(seq "$SUBGRAPH_BASE" $((SUBGRAPH_BASE + 6))) "$ROUTER_PORT" "$MCP_PORT"; do
+  for port in $(seq "$SUBGRAPH_BASE" $((SUBGRAPH_BASE + 6))) "$ROUTER_PORT" "$MCP_PORT" "$ROSINA_PORT" "$DEMO_LOGIN_PORT"; do
     if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
       die "port $port is already in use — refusing to start over a stack I did not start"
     fi
   done
+  preflight
 
   gen_router_config
   gen_mcp_config
