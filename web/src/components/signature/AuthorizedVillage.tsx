@@ -4,6 +4,7 @@ import {RefreshCw} from 'lucide-react'
 import type {VillageChild} from './types'
 import {VillageRings} from './VillageRings'
 import {readSignatureVillage,type VillageScene} from './villageRead'
+import {sampleDadStatus} from '@/features/shared-status/sampleStatus'
 type Read=<T>(read:()=>Promise<T>)=>Promise<T>
 export type AuthorizedVillageProps={client:ApolloClient|null;child:VillageChild|null;runRead:Read;portraitFor?:(id:string)=>string|undefined}
 type SceneState={owner:ApolloClient|null;childId:string;status:'loading'|'ready'|'refused'|'error';scene?:VillageScene}
@@ -25,7 +26,7 @@ function ConnectedVillage({variant='full',...props}:AuthorizedVillageProps&{vari
  if(!props.child)return <p className="sg-feedback">Choose a child shared with you.</p>
  if(!state||(state.status==='loading'&&!state.scene))return <VillageFeedback status="loading"/>
  if((state.status!=='ready'&&state.status!=='loading')||!state.scene)return <><VillageFeedback status={state.status==='refused'?'refused':'error'}/><button type="button" className="sg-refresh" onClick={()=>setRevision(value=>value+1)}>Try again</button></>
- const scene=state.scene,child={...scene.child,portraitSrc:props.portraitFor?.(scene.child.id)},people=scene.people.map(person=>({...person,portraitSrc:props.portraitFor?.(person.id)}))
+ const scene=state.scene,child={...scene.child,portraitSrc:props.portraitFor?.(scene.child.id)},people=scene.people.map(person=>({...person,portraitSrc:props.portraitFor?.(person.id),sharedStatus:sampleDadStatus(person.id)}))
  return <div data-state="live" aria-busy={state.status==='loading'}><VillageRings key={child.id} child={child} people={people} variant={variant} onOpenVillage={()=>{location.hash='#/village'}}/>{variant==='full'&&<button className="sg-refresh" type="button" onClick={()=>setRevision(value=>value+1)}><RefreshCw size={16}/> Refresh shared records</button>}</div>
 }
 export function AuthorizedVillagePreview(props:AuthorizedVillageProps){return <ConnectedVillage {...props} variant="compact"/>}
