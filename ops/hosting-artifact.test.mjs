@@ -19,12 +19,16 @@ test('the MCP config points at the runtime artifact', () => {
   assert.match(read('.apollo/mcp.local.yaml'), /path:\s*\.\/\.runs\/supergraph\.graphql/);
 });
 
-test('alt-stack composes before it starts a router, and both consumers use .runs', () => {
+test('alt-stack composes OFFLINE before it starts a router, and both consumers use .runs', () => {
   const sh = read('ops/alt-stack.sh');
-  const composeAt = sh.indexOf('rover" supergraph compose');
+  // The entry point moved to ops/compose-offline.mjs (#132): composing from supergraph.yaml required
+  // another running checkout and baked that stack's routing URLs into the artifact.
+  const composeAt = sh.indexOf('ops/compose-offline.mjs');
   const routerAt = sh.indexOf('--supergraph "$ROOT/.runs/supergraph.graphql"');
-  assert.ok(composeAt > -1, 'alt-stack must compose the artifact');
+  assert.ok(composeAt > -1, 'alt-stack must compose via ops/compose-offline.mjs');
   assert.ok(routerAt > composeAt, 'composition must happen before the router starts');
+  assert.ok(sh.includes('--base-port "$SUBGRAPH_BASE"'), 'offline composition must target this stack\'s ports');
+  assert.ok(!/rover" supergraph compose/.test(sh), 'composing from supergraph.yaml reintroduces the other-checkout dependency');
   assert.match(sh, /--schema "\$ROOT\/\.runs\/supergraph\.graphql"/);
 });
 
