@@ -6,7 +6,9 @@ transport:
   port: 5050
 schema:
   source: local
-  path: ./supergraph.graphql
+  # A composed BUILD PRODUCT under .runs/ (gitignored). Never a committed file: that copy went stale
+  # and the MCP loaded a schema without proposeAddVillager. The generator also takes --schema explicitly.
+  path: ./.runs/supergraph.graphql
 operations:
   source: local
   paths:
