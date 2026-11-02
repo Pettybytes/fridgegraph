@@ -258,7 +258,9 @@ to the local subgraphs.
 Tested: full suite, 31/31.
 
 ```bash
-~/.rover/bin/router-v2.18.0 --config router.yaml --supergraph supergraph.graphql
+# compose first: the artifact is a build product under .runs/, never committed
+~/.rover/bin/rover supergraph compose --config supergraph.yaml --elv2-license accept > .runs/supergraph.graphql
+~/.rover/bin/router-v2.18.0 --config router.yaml --supergraph .runs/supergraph.graphql
 ```
 
 **MCP** runs standalone so it survives either router:

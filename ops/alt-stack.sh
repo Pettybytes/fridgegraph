@@ -74,6 +74,12 @@ MSG
 # Config generation — derived, never hand-typed
 # ---------------------------------------------------------------------------
 gen_router_config() {
+  # Compose the supergraph FIRST. The artifact is a build product under .runs/ (gitignored); the
+  # committed copy was retired because it silently went stale and the MCP loaded a schema that lacked
+  # fields the router served (2026-11-02: proposeAddVillager).
+  mkdir -p "$ROOT/.runs"
+  "$HOME/.rover/bin/rover" supergraph compose --config "$ROOT/supergraph.yaml" --elv2-license accept \
+      > "$ROOT/.runs/supergraph.graphql" || die "supergraph composition failed"
   ROUTER_SRC="$ROOT/router.yaml" SUPERGRAPH_SRC="$ROOT/supergraph.yaml" \
   OUT="$ROUTER_CONFIG" ROUTER_PORT="$ROUTER_PORT" HEALTH_PORT="$HEALTH_PORT" \
   SUBGRAPH_BASE="$SUBGRAPH_BASE" python3 - <<'PY'
@@ -116,7 +122,7 @@ gen_mcp_config() {
     --src "$ROOT/.apollo/mcp.local.yaml" \
     --out "$MCP_CONFIG" \
     --root "$ROOT" \
-    --schema "$ROOT/supergraph.graphql" \
+    --schema "$ROOT/.runs/supergraph.graphql" \
     --endpoint "http://127.0.0.1:${ROUTER_PORT}/" \
     --port "$MCP_PORT" || {
       echo 'mcp config generation REFUSED — see the reason above; not starting a config that cannot authenticate'
@@ -155,7 +161,7 @@ up() {
   echo "subgraphs $!" >> "$PIDFILE"
 
   sleep 10
-  nohup "$ROUTER_BIN" --supergraph "$ROOT/supergraph.graphql" --config "$ROUTER_CONFIG" --log error \
+  nohup "$ROUTER_BIN" --supergraph "$ROOT/.runs/supergraph.graphql" --config "$ROUTER_CONFIG" --log error \
     > "${TMPDIR:-/tmp}/fridgegraph-alt-router${SUFFIX}.log" 2>&1 &
   echo "router $!" >> "$PIDFILE"
 

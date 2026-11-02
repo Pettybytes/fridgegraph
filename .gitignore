@@ -10,3 +10,6 @@ dist
 .DS_Store
 var/
 .runs/
+
+# Composed supergraph is a BUILD PRODUCT — compose it, never commit it.
+/supergraph.graphql
