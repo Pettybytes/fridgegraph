@@ -7,11 +7,11 @@
  * simulate the resolver in JS and never enforce a real `RETURNS TABLE` column count the way
  * Postgres does — this script is the thing that would have caught it before it shipped.
  *
- * Disposable only: spins up a throwaway `postgres:16-alpine` container, applies every migration
- * 0001 through 0079 from this checkout plus migration 0080 (the fix, `confirm_add_villager`'s
- * missing `v_grant.granted_by`) fetched from `origin/fix/confirm-add-villager-return` (PR #115,
- * not yet merged), runs the four checks below against real SQL execution, then removes the
- * container unconditionally. Never touches the shared project database; needs no credentials.
+ * Disposable only: spins up a throwaway `postgres:16-alpine` container, applies a curated minimal
+ * migration set (see MIGRATIONS below) including 0080 (the fix, #115, merged to main — adds the
+ * missing `v_grant.granted_by`), runs the four checks below against real SQL execution, then
+ * removes the container unconditionally. Never touches the shared project database; needs no
+ * credentials.
  *
  * NOT wired into `.github/workflows/ci.yml`: that workflow is shared by every PR in this repo and
  * has no Postgres/docker step today, and adding one is a bigger, shared-blast-radius change than
@@ -33,13 +33,11 @@
  * Usage: node ops/confirm-add-villager-return-proof.mjs
  * Requires: docker, git (both already on PATH in this checkout's environment).
  */
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 
-const FIX_BRANCH = 'origin/fix/confirm-add-villager-return';
-const FIX_MIGRATION = 'supabase/migrations/0080_confirm_add_villager_return_columns.sql';
 const CONTAINER = `fg-confirm-villager-proof-${randomUUID().slice(0, 8)}`;
 
 const log = (line) => { process.stdout.write(`${line}\n`); lines.push(line); };
@@ -84,11 +82,15 @@ async function waitForReady(makeClient, attempts = 30) {
 // by 0025, but that file's OTHER statements reference `real_call_authorizations` (created by 0013,
 // an unrelated feature) — rather than pull that whole chain in, its function body is reproduced
 // verbatim below, byte-for-byte, instead of running the full file.
+// 0080 (#115) is the fix: confirm_add_villager's fresh-confirm RETURN QUERY gets the missing
+// v_grant.granted_by appended back on. It's applied separately below (not in this list) because
+// its committed file has its own defect — see the missing-semicolon note in applyMigrations.
 const MIGRATIONS = [
   'supabase/migrations/0001_schema.sql',
   'supabase/migrations/0003_rls.sql',
   'supabase/migrations/0074_add_villager_proposal.sql',
 ];
+const FIX_MIGRATION = 'supabase/migrations/0080_confirm_add_villager_return_columns.sql';
 
 // Verbatim from supabase/migrations/0025_demo_sandbox.sql — only the two functions this test's
 // dependency chain needs, not that migration's broader demo-sandbox RLS policies.
@@ -121,13 +123,12 @@ async function applyMigrations(client) {
   }
   log(`applied ${MIGRATIONS.length} targeted migrations: ${MIGRATIONS.map((p) => p.split('/').pop()).join(', ')}`);
 
-  // Fetch, don't assume present: the fix branch may not be checked out anywhere on disk.
-  sh('git', ['fetch', 'origin', 'fix/confirm-add-villager-return']);
-  let fixSql = sh('git', ['show', `${FIX_BRANCH}:${FIX_MIGRATION}`]);
-  if (!fixSql.includes('granted_by')) fail('fetched 0080 content does not mention granted_by — wrong file?');
+  // 0080 is now merged to main (#115) — read it from this checkout directly.
+  let fixSql = readFileSync(FIX_MIGRATION, 'utf8');
+  if (!fixSql.includes('granted_by')) fail('0080 content does not mention granted_by — wrong file?');
 
-  // SEPARATE DEFECT FOUND, reported independently, not fixed on PR #115 (not this branch's file to
-  // edit): as committed, this file is missing the semicolon terminating `CREATE OR REPLACE
+  // SEPARATE DEFECT FOUND, reported independently, not fixed on main (not this branch's file to
+  // edit): as merged, this file is missing the semicolon terminating `CREATE OR REPLACE
   // FUNCTION ... end $function$` before the trailing `commit;` — confirmed with real `psql -f`
   // (not just this script's wire-protocol path), which fails identically: `syntax error at or
   // near "commit"`. Corrected ONLY in this in-memory copy, for this script's own run.
@@ -139,7 +140,7 @@ async function applyMigrations(client) {
   } catch (e) {
     throw new Error(`applying ${FIX_MIGRATION} (semicolon-corrected copy) failed: ${e instanceof Error ? e.message : String(e)}`);
   }
-  log(`applied ${FIX_MIGRATION} from ${FIX_BRANCH} (PR #115, not merged) — with a missing semicolon before the trailing "commit;" corrected locally for this run only; reported separately, not fixed on that PR`);
+  log(`applied ${FIX_MIGRATION} (#115, merged to main) — with a missing semicolon before the trailing "commit;" corrected locally for this run only; reported separately, not fixed on main`);
 }
 
 async function stubAuth(client) {
