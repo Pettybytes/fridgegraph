@@ -352,8 +352,7 @@ const persona = personaById(personaId) ?? (await familyPersona(personaId));
   a fixed `@example.com` mailbox.
 - **`familyPersona`** resolves **only** rows created through the family registry
   (`src/demo/family.ts:303-306`, table `demo_families`); it never constructs an identity from input.
-- Unknown, or known-but-unseeded, both return **`UNAVAILABLE`** with `UNKNOWN_PERSONA` /
-  `NO_SEEDED_IDENTITY` (`server.ts:184-192`). Identical answers: no oracle for which personas exist.
+- Unknown and known-but-unseeded are **distinguishable**. Both answer `UNAVAILABLE`, but the `reason` differs: `UNKNOWN_PERSONA` for an id not on the allow-list or in the registry, `NO_SEEDED_IDENTITY` for a known persona with no seeded identity (`server.ts:184-192`). **Correction to an earlier draft: the "no oracle" claim is withdrawn.** The reason code tells a caller whether the id exists. Record it as an existence oracle and decide deliberately whether that is acceptable for a public endpoint.
 
 **Verdict: fictional demo personas only.** An arbitrary or real account cannot be minted through this
 endpoint, because the only address ever used is the one stored on the persona row.
@@ -390,7 +389,19 @@ Client identity comes from `resolveClientIp()` (`src/demo/client-ip.ts:23-37`), 
   the first untrusted hop;
 - all hops trusted → the peer itself, which `isResolvedClient()` treats as "no client identity".
 
-So a caller cannot choose the address they are counted against unless they are the proxy.
+**Gap B-3 — the login limiter does not use the trusted-proxy resolver.** `resolveClientIp()` is used
+by **reset** (`server.ts:479`) but **not** by login: login keys on `req.ip ?? req.socket.remoteAddress`
+(`server.ts:181`), and `trust proxy` is **not configured anywhere** in `src/` (grep returns nothing).
+Behind cloudflared every request therefore arrives from `127.0.0.1`, so the login per-IP limit collapses
+into **one global bucket of 60 requests/min for all users**, not 60 per client. It fails closed rather
+than open, but it is not the per-client limit §10.4 above describes.
+
+This is recorded as an **open public-boundary gap** to be fixed under the existing public-boundary
+work, **not** changed in the origin PR: origin handling and limiter identity are separate concerns and
+must not be bundled.
+
+So a caller cannot choose the address they are counted against unless they are the proxy — **true for
+reset, not yet true for login**.
 
 | Limit | Value | Where |
 | --- | --- | --- |
@@ -413,9 +424,10 @@ Refusals are `429` with `Retry-After` on login and `retryAfterMs` on reset.
 3. **per-IP window** (5/min) and **per-person 30 s cooldown**;
 4. **one shared reset lock** (`SHARED_RESET_LOCK`) → concurrent callers get **`409 RESET_IN_FLIGHT`**.
 
-Precision on "parent-only": the code enforces **demo session, guide refused**. It does not test
-parenthood; every allow-list persona that is not the guide is an adult/parent account, so the
-practical effect matches the intent — but the enforcement is the marker, not a parent check.
+Precision on "parent-only": the code enforces **demo session, guide refused**. It does **not** test
+parenthood — nothing in this path verifies the caller is a parent. An earlier draft claimed every
+non-guide persona is a parent account; **that claim is withdrawn**, because it is a property of the
+current fixture list rather than something the code enforces or should be relied on.
 
 **If another judge resets mid-session:** the reset performs `dropPersonaSessionCache()`
 (`src/demo/persona-sessions.ts:208-214`), which increments a generation and clears the cache — so a
@@ -438,10 +450,10 @@ Each must be run through the **public** hostname, and each result recorded separ
 | D5 | any login/reset response body | contains **no** service key, refresh token, or `SUPABASE_*` secret |
 | D6 | 61st login from one IP in 60 s | `429` + `Retry-After` |
 | D7 | 9th login for one persona in 60 s | `429` |
-| D8 | spoof `X-Forwarded-For` from an untrusted path | the counted client is the socket peer, not the claimed address |
+| D8 | reset: spoof `X-Forwarded-For` from an untrusted path | the counted client is the socket peer, not the claimed address (**reset only** — login does not use the resolver, see B-3) |
 | D9 | reset with the **guide** token | `403 DEMO_GUIDE_READ_ONLY` |
 | D10 | reset with a non-demo (normal) session | `403 DEMO_SESSION_REQUIRED` |
-| D11 | two resets in parallel | exactly one `200`; the other `409 RESET_IN_FLIGHT` |
+| D11 | two resets in parallel, **different eligible identities**, both with fresh cooldown and rate state | exactly one `200`; the other `409 RESET_IN_FLIGHT` — same-person overlap is **not** a valid test, because it may correctly answer `429` from the per-person cooldown and would not isolate the shared lock |
 | D12 | judge B resets while judge A is mid-session | record A's actual experience (token valid? data baseline?) — report observed, not assumed |
 | D13 | demo process env at runtime | `DEMO_LOGIN_ENABLED=1` **and** `NODE_ENV` **not** `production` (B-2) |
 | D14 | reset completes | `200` with a report; `droppedSessionCache: true`; cast checksum matches the recorded value |
