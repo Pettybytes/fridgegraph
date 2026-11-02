@@ -1,7 +1,7 @@
 import {fireEvent,render,screen,waitFor,cleanup} from '@testing-library/react'
 import {afterEach,expect,it,vi} from 'vitest'
 import {Fridge} from './Fridge'
-import {loadLayout,saveLayout,type FridgeReader,type Read,type Slot,type Goal} from './model'
+import {authorInk,loadLayout,saveLayout,type FridgeReader,type Read,type Slot,type Goal} from './model'
 afterEach(()=>{cleanup();localStorage.clear();location.hash=''})
 const empty:FridgeReader={read:async()=>({status:'empty'})}
 const props={personId:'parent',childId:'child-a',generation:1,reader:empty}
@@ -12,3 +12,5 @@ it('clears dialogs on a child or persona change and discards late results',async
 it('stores only layout geometry per person, validates malformed storage and tidies it',async()=>{saveLayout('parent',{'sample-sofa':{x:.25,y:.2,width:.16,rotation:2}});expect(loadLayout('other')).toEqual({});render(<Fridge {...props}/>);fireEvent.click(screen.getByRole('button',{name:'Tidy up'}));expect(loadLayout('parent')).toEqual({});localStorage.setItem('fridge-layout:parent','not json');expect(loadLayout('parent')).toEqual({})})
 it('supports keyboard movement only inside the door view',()=>{render(<Fridge {...props}/>);const photo=screen.getByRole('button',{name:'A quiet afternoon'});fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')['sample-sofa'].x).toBeCloseTo(.226)})
 it('removes an Orbit note when the existing controller publishes closure',async()=>{let active=true;let notify=()=>{};const reader:FridgeReader={subscribe(fn){notify=fn;return()=>{}},read:async source=>source==='orbit'&&active?{status:'ready',value:[{id:'orbit',kind:'note',text:'Open Orbit Alert',caption:'Orbit',position:{x:.2,y:.3,width:.1,rotation:0},source:'live',owner:null,destination:'#/orbit'}]}:{status:'empty'}};render(<Fridge {...props} reader={reader}/>);expect(await screen.findByRole('button',{name:'Open Orbit Alert'})).toBeInTheDocument();active=false;notify();await waitFor(()=>expect(screen.queryByRole('button',{name:'Open Orbit Alert'})).not.toBeInTheDocument())})
+
+it('keeps author marker ink stable and unknown authors neutral',()=>{expect(authorInk(null)).toBe('#263a4a');expect(authorInk('recorded-author')).toBe(authorInk('recorded-author'));expect(authorInk('a')).not.toBe(authorInk('b'))})
