@@ -4,6 +4,7 @@ type Query {
   person(id: ID!): Person
   child(id: ID!): Child
   village(id: ID!): Village
+  villageWorld(childId: ID!, asOf: String): VillageWorld!
   households(childId: ID!): [Household!]!
   householdMembers(childId: ID!): [HouseholdMember!]!
   relationships(childId: ID!): [Relationship!]!
@@ -33,6 +34,55 @@ type Person @key(fields: "id") {
 type Child @key(fields: "id") {
   id: ID!
   person: Person
+}
+
+type VillageWorld {
+  village: Village
+  child: Child!
+  people: [VillagePerson!]!
+  places: [VillagePlace!]!
+  events: [VillageDayEvent!]!
+}
+
+type VillagePerson {
+  person: Person!
+  relationship: String
+  homePlaceId: ID
+  areaLabel: String
+  scheduledEventId: ID
+  scheduledPlaceId: ID
+}
+
+type VillagePlace {
+  id: ID!
+  label: String
+  kind: String!
+  lat: Float
+  lng: Float
+  coordinateState: CoordinateState!
+}
+
+enum CoordinateState {
+  SET
+  WITHHELD
+  NOT_RECORDED
+}
+
+type VillageDayEvent {
+  id: ID!
+  title: String!
+  start: String!
+  end: String
+  status: String
+  placeId: ID
+  placeState: PlaceState!
+  personIds: [ID!]!
+}
+
+enum PlaceState {
+  LINKED
+  UNLINKED
+  WITHHELD
 }
 
 type Village {
