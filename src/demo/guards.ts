@@ -52,3 +52,52 @@ export function cooldownRefusal(
 
 /** Bodies are never cacheable: a cached reset response is a lie about the state that follows it. */
 export const NO_STORE = 'no-store';
+
+/**
+ * One reset per identity AT A TIME.
+ *
+ * The cooldown is time-based and does not stop two requests that arrive inside the same millisecond —
+ * both pass the cooldown check before either records itself, and two concurrent `resetDemo()` calls then
+ * interleave inside the database. The advisory lock in `resetDemo` serialises them, but the second one
+ * still runs a full restore against a state the first has already restored.
+ */
+export class InFlightLocks {
+  private readonly active = new Set<string>();
+
+  tryAcquire(key: string): boolean {
+    if (this.active.has(key)) return false;
+    this.active.add(key);
+    return true;
+  }
+
+  release(key: string): void {
+    this.active.delete(key);
+  }
+
+  has(key: string): boolean {
+    return this.active.has(key);
+  }
+
+  get size(): number {
+    return this.active.size;
+  }
+}
+
+export const RESET_IN_FLIGHT: Refusal = { status: 409, body: { error: 'RESET_IN_FLIGHT' } };
+
+/**
+ * Sliding-window limiter, keyed by whatever the caller passes (a resolved client IP, not a persona).
+ * A persona-keyed limit does nothing against a caller that can mint several personas.
+ */
+export function windowRefusal(
+  now: number,
+  hits: readonly number[],
+  windowMs: number,
+  max: number,
+  error: string,
+): Refusal | null {
+  const recent = hits.filter((t) => now - t < windowMs);
+  if (recent.length < max) return null;
+  const retryAfterMs = Math.max(1, windowMs - (now - recent[0]));
+  return { status: 429, body: { error, retryAfterMs } };
+}

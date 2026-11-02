@@ -58,6 +58,9 @@ jobs:
       - name: Demo route guards
         run: npm run test:demo-guards
 
+      - name: Client IP resolution
+        run: node --import tsx --test src/demo/client-ip.test.ts
+
       - name: villageWorld contract
         run: npm run test:village-world
 
