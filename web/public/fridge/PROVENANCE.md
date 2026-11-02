@@ -26,3 +26,11 @@ Edits: RGB conversion, proportional Lanczos resizes and WebP encoding (quality 9
 Kalam Regular and Bold: Copyright (c) 2014, Indian Type Foundry. SIL Open Font License 1.1, reproduced in `fonts/OFL.txt`. Unmodified TTF files obtained from https://github.com/google/fonts/tree/main/ofl/kalam. Served from this app's own `/fridge/fonts/` path; no Google Fonts CSS or third-party font requests.
 
 Apple, school bus, A+, star, heart and flower: original SVG paths drawn in `web/src/features/fridge/Magnet.tsx` for this feature. No external icon assets or generation service. Decorative only.
+
+## Approved Ellison art pack — distinct provenance
+
+Only `packs/ellison/` is Muse Image artwork: model `muse-image-1.0`, supplied in PR #154 at fb91e9cbbe04adfe8f3a2dc880d40287527baf64. All 12 originals retain their verified source SHA-256 hashes. Full prompts, prompt hashes, generation timestamps and derivative hashes are in `packs/ellison/provenance.json`; original creative manifest is preserved as `source-manifest.json`.
+
+Edits: proportional Lanczos resizes to 360, 720 and 1024 pixels wide, RGB conversion, WebP quality 90. No regenerated or retouched content. CSS framing and DOM sample text are presentation only. Bryan's approval mounts this pack by recorded child ID p_nora and explicitly retains the generic sample fallback for other families; that supersedes the older creative manifest's pilot-only/empty-fallback notes. Art is decorative, never an authorized family record or evidence of permission, signature, consent, availability or booking.
+
+The kitchen refrigerator, generic sample scenes and invitation retain the Higgsfield provenance above; they are not credited to Muse.

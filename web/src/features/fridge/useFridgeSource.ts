@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
 import type {FridgeReader,Goal,Read,Slot,Source} from './model'
 
-/** Each source owns its request generation. Orbit notifications cannot refetch the other fields. */
+/** Each authorized source owns its request generation and explicit retry. */
 export function useFridgeSource(reader:FridgeReader,childId:string,source:Source){
  const [state,setState]=useState<Read<Slot[]|Goal[]>>({status:'loading'})
  const request=useRef<AbortController|null>(null)
@@ -18,8 +18,7 @@ export function useFridgeSource(reader:FridgeReader,childId:string,source:Source
  },[reader,childId,source])
  useEffect(()=>{
   refresh()
-  const unsubscribe=source==='orbit'?reader.subscribe?.(refresh):undefined
-  return()=>{unsubscribe?.();sequence.current++;request.current?.abort()}
+  return()=>{sequence.current++;request.current?.abort()}
  },[reader,source,refresh])
  return {state,refresh}
 }

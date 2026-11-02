@@ -1,13 +1,12 @@
 # Fridge Phase 1
 
-Base: db66009 (fetched origin/main). Only this feature, public/fridge, and evidence/fridge-experience are changed. After #151 merged, Bryan authorized the final route mount: The Fridge follows Today in navigation; #/fridge, #/fridge/notes and #/fridge/goals mount ConnectedFridge inside the existing session, child-access and Orbit providers. Preview.tsx is used only by evidence/fridge-experience/preview.html; the production entry does not import it.
+Base: db66009 (fetched origin/main). Only this feature, public/fridge, and evidence/fridge-experience are changed. After #151 merged, Bryan authorized the final route mount: The Fridge follows Today in navigation; #/fridge, #/fridge/notes and #/fridge/goals mount ConnectedFridge inside the existing session and child-access providers. Preview.tsx is used only by evidence/fridge-experience/preview.html; the production entry does not import it.
 
 ## Source inventory, before notes implementation
 
 | Candidate | Existing read | Visibility | Destination / disposition |
 | --- | --- | --- | --- |
 | Care notes | carePlan(childId) { text }, existing CareInformation screen | authorizeChild careplan.read; server enforces parent/grant authority | #/care-information; only recorded text; no invented author |
-| Open Orbit | Existing OrbitController authorized alert snapshot; existing orbitStatus / orbitAlert adapter | controller's caller/child scope and existing recipient redaction; no copied photo/location/descriptors | #/orbit?alertId=…; only ACTIVE; subscription removes on closure |
 | School notices | No list operation in current web contract; school reports are different records | Cannot infer access from school membership | Omitted |
 | Pending proposals | Chat-local proposals, no supported persisted listing read | Signed proposals are not a general list | Omitted |
 | Goals | goals(childId) { id title horizon status } | Existing resolver: parent records, approved-only for a valid goals.read grant, otherwise refusal; server also owns sandbox guide policy | Read-only board; verbatim horizons/status, no inferred deadlines |
@@ -22,8 +21,16 @@ No live backend check was performed. Preview uses clearly labeled sample goals, 
 
 ## Revision 2
 
-Care and Orbit feedback is placed on the left door, with independent retry controls. Only Orbit subscribes to controller notifications; care/goals do not refetch. Request generations discard superseded results per source. Door controls, Escape and hash/history changes share the same view state. The clipped door is inert and aria-hidden, including Retry controls.
+Care feedback is placed on the left door, with an independent retry control. Care and goals are independent reads; neither subscribes to unrelated app notifications. Request generations discard superseded results per source. Door controls, Escape and hash/history changes share the same view state. The clipped door is inert and aria-hidden, including Retry controls.
 
 Local OFL-licensed Kalam replaces the Google Fonts import. Original decorative magnets have no keyboard targets. The goals board labels recorded horizons explicitly and keeps status text readable.
 
-`visualFixture.ts` is imported only by Preview.tsx: its two extra sample papers, mock care text and ACTIVE Orbit state never enter ConnectedFridge. All preview modes are labeled “Mock data · visual preview”; empty/refused/failed cases exercise the actual source-state components under controlled read responses, with no live calls.
+`visualFixture.ts` supplies controlled care/goals reads to evidence-only Preview/AppPreview entries. All preview modes are labeled “Mock data · visual preview”; empty/refused/failed cases exercise actual source-state components with no live calls. The production entry imports neither harness.
+
+## Approved Ellison pack and content revision
+
+All 12 approved images from #154 head fb91e9cbbe04adfe8f3a2dc880d40287527baf64 are copied with three responsive sizes and verified image/prompt hashes. See public/fridge/packs/ellison/provenance.json. The manifest selects this decorative pack only for recorded child ID p_nora (h_a/h_b, v_nora); other child IDs keep the generic sample collage. Selection is independent of display names and does not authorize any record. Seven images are displayed: dog, Navy keepsake, crayon drawing, kitchen candid, retirement card, permission slip and sitter schedule. Other assets remain available without overcrowding the door.
+
+Forms are blank art with DOM titles and Sample labels; dialogs explicitly deny signatures, submissions, bookings or consent records. Dinner and the fictional December 12 baby shower/reveal save-the-date are sample DOM content. No decorative content enters Rosina context. The fridge has no alert dependencies, reads, subscriptions or feedback; the app's alert feature is untouched.
+
+Mounted evidence uses AppPreview with the real App/Session/ChildAccess/ConnectedFridge component tree, mock picker sessions, and a controlled care/goals reader. This override is absent from production. It makes no live requests. The accepted route/nav commit 99840a1 remains unchanged.

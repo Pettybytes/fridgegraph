@@ -28,23 +28,10 @@ it('makes the opposite door inert, including failed read Retry controls',async()
  expect(screen.queryByRole('button',{name:'Retry care notes'})).not.toBeInTheDocument()
  expect(screen.getByRole('button',{name:'Retry goals'})).toBeInTheDocument()
 })
-it('updates only Orbit after controller notifications and drops older Orbit results',async()=>{
- let notify=()=>{};let resolveOld!:(value:{status:'ready';value:[]})=>void
- let orbitCalls=0
- const read=vi.fn<FridgeReader['read']>(async source=>{if(source==='orbit'&&++orbitCalls===2)return new Promise(resolve=>{resolveOld=resolve});return {status:'empty'}})
- const reader:FridgeReader={read,subscribe(fn){notify=fn;return()=>{}}}
- render(<Fridge {...props} reader={reader}/>);await waitFor(()=>expect(read).toHaveBeenCalledTimes(3))
- act(()=>notify());await waitFor(()=>expect(read).toHaveBeenCalledTimes(4))
- act(()=>notify());await waitFor(()=>expect(read).toHaveBeenCalledTimes(5))
- await act(async()=>resolveOld({status:'ready',value:[]}))
- expect(read.mock.calls.filter(([source])=>source==='care')).toHaveLength(1)
- expect(read.mock.calls.filter(([source])=>source==='goals')).toHaveLength(1)
- expect(screen.getAllByText('Nothing posted yet.')).toHaveLength(2)
-})
 it('Retry refreshes only the failed source and cannot hide a separate refusal',async()=>{
- const read=vi.fn<FridgeReader['read']>(async source=>({status:source==='care'?'failed':source==='orbit'?'refused':'empty'}))
+ const read=vi.fn<FridgeReader['read']>(async source=>({status:source==='care'?'failed':'refused'}))
  render(<Fridge {...props} reader={{read}}/>);await screen.findByRole('button',{name:'Retry care notes'})
- fireEvent.click(screen.getByRole('button',{name:'Retry care notes'}));await waitFor(()=>expect(read).toHaveBeenCalledTimes(4))
+ fireEvent.click(screen.getByRole('button',{name:'Retry care notes'}));await waitFor(()=>expect(read).toHaveBeenCalledTimes(3))
  expect(read.mock.calls.filter(([source])=>source==='care')).toHaveLength(2)
- expect(screen.getByText('Not shared with this perspective.')).toBeInTheDocument()
+ expect(screen.getByText("These notes aren't shared with this perspective.")).toBeInTheDocument()
 })
