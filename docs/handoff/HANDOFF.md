@@ -4091,6 +4091,26 @@ by Bentley's router-target restart before the passing run.
 | 2026-11-02T02:24:14Z | **RESERVED evidence `71` + #87 SLICE SERVED — `pickupRideEstimate` gates correctly.** Checked main (63–67), this branch (66–70) and open PRs before taking `71`. Implemented `pickupRideEstimate(jobId, candidateId)` in `schema/coordination.graphql` **and** in the subgraph's inline typeDefs (the subgraph builds its schema from `parse()`, not from the `.graphql` file — that is why the first served attempt failed with *cannot query field*). Gate: parent/guardian of the job's child **or** `ctx.demoGuide`; hidden **and** nonexistent job both `UNAUTHORIZED` (no oracle); null when the stored row carries no price. Served proof `ops/ride-estimate-gate-proof.mjs` → **8 PASS / 0 FAIL**: parent sees **12.4 / cap 10 / 8.86 mi / basis verbatim / paidRidePath true**; **Loretta (the candidate) → `UNAUTHORIZED`**; Dana → `UNAUTHORIZED`; nonexistent job → `UNAUTHORIZED`. **Not reachable through `/graphql` yet** — the supergraph has not been recomposed, and that is stated in evidence 71 rather than hidden. 4008 now pid **48261** serving `ebf994c` + inline typeDefs, sweeper still ON. |
 
 
+### Add a Villager Rosina mount — feat/web-add-villager-mount
+
+Base `f272f6e9dab04bdac72f330ab9f00300745bf2c8` (PR #109 merged).
+RosinaPanel now carries only the server's structured `addVillagerProposal` into
+the review card. The exact one-line card mount from #109 is used; prose and
+malformed proposals cannot create a card. Confirmation remains the component's
+explicit mock action; it writes no relationship or grant. A parent viewing
+their child can review, while Priya sees no proposal details or confirm button.
+Persona/child switches discard the thread and card with the existing session
+generation guard. Offline verification: 426/426 web tests, root typecheck,
+web build, and secret scan (0 findings) passed. A local Playwright fixture
+showed the card at 390 and 1440 widths and the sample-only confirmation after
+an explicit click; it made no live request. UI: complete · backend: proposal
+field merged; confirmation service not verified in this workstream · integrated
++ tested: pending a reserved live slot and served revision check.
+
+WAITING FOR BRYAN TO MERGE THE ADD A VILLAGER MOUNT PR after CI is green.
+
 <!-- merge of origin/main into docs/numbering-and-scope-correction: both sides kept, append-only. -->
 | 2026-11-02T02:32:44Z | **CORRECTION — evidence numbering: I took 71 after it was assigned to `feat/teacher-persona`.** Mine stays **71** (`docs/evidence/71-ride-estimate-gate-served.md`, already pushed on the frozen branch); **`feat/teacher-persona` moves to 72**. The rule this broke is the one already recorded here: check main, every open PR **and** the assignment, then reserve — I checked numbers but not ownership. |
 | 2026-11-02T02:32:44Z | **CORRECTION — scope deviation: I SERVED `pickupRideEstimate` on the subgraph when the instruction was code-only.** It is harmless in effect (parent/guardian or demo-guide only; candidate refused with `UNAUTHORIZED`; nonexistent job refused with the same code; evidence 71) and it is **not composed** — `/graphql` on 4010/4012 still rejects the field because the supergraph was not recomposed. But "code-only" meant **do not serve it in this window**, and I did. Recorded rather than rationalised. |
+
+| 2026-11-02T02:46Z | **Add a Villager mounted confirmation — #110 refreshed; live proof BLOCKED before confirmation.** Merged `origin/main` into `feat/web-add-villager-mount` with merge commit `352e0e2`, keeping both HANDOFF histories, then published live-preview opt-in at `c9784fa`. On that exact head: web **426/426**, root typecheck, web build and secret scan **0 findings**; both CI jobs passed and PR merge state was CLEAN. Isolated preview **port 5190**, `VITE_ADD_VILLAGER_LIVE=true`, UI `c9784fa`; 5189 remained untouched. During #78's authoritative 02:32–04:02Z reservation, router **4012** schema introspection returned neither `proposeAddVillager` nor `confirmAddVillager`; evidence owner `feat/teacher-persona` independently verified both routers lack the fields while migration 0074 and access subgraph serve them (evidence 72). **No mounted proposal or confirmation call, no DB write, no reset or restart by this owner.** Preview 5190 stopped and this participant explicitly released on #78. The single shared addition, Dana's fresh-session grant proof, refusal and idempotency remain pending a recomposed supergraph served by the routers and a new reservation. UI: complete · backend: subgraph served, router unavailable · integrated + tested: PENDING. |
