@@ -95,6 +95,7 @@ const typeDefs = parse(`
     id: ID!
   }
 
+
   type ChildAccess {
     child: Child!
     """Exactly the scopes held for THIS child — no inference, no union across children."""
@@ -328,6 +329,33 @@ async function requireSupervisionAccess(ctx: Ctx, childId: string): Promise<void
   throw deny();
 }
 
+/**
+ * What a guide may see. READ-ONLY by design: no `pickup.request`, no `pickup.verify`, no
+ * `supervise.request`. A guide observes sandbox families; it never acts for them.
+ */
+export const GUIDE_READ_SCOPES: readonly string[] = [
+  SCOPE.schedule,
+  SCOPE.careplan,
+  SCOPE.school,
+  SCOPE.contacts,
+  SCOPE.transport,
+  SCOPE.goals,
+] as const;
+
+/**
+ * EVERY sandbox child, resolved through the guide's OWN RLS-scoped client so the `demo_guide_*`
+ * SELECT policies (0025) decide it. `p_demo_guide` has **no memberships and no grants by design**,
+ * so enumeration cannot be derived from the caller's own authority — the reason `myChildren`
+ * returned `[]` for the one persona whose job is to see the whole sandbox.
+ */
+export async function guideChildIds(ctx: Ctx): Promise<string[]> {
+  if (ctx.demoGuide !== true) return [];
+  const members = await rows(
+    dbFor(ctx).from('household_members').select('person_id, role').eq('role', 'child'),
+  );
+  return [...new Set(members.map((m) => String(m.person_id)))].sort();
+}
+
 const resolvers = {
   Query: {
     grants: async (
@@ -456,6 +484,14 @@ const resolvers = {
       requireCaller(ctx);
       const callerId = ctx.callerId!;
       const today = ctx.today;
+
+      // A guide enumerates the sandbox, not its own authority: it holds no memberships and no grants,
+      // so the two branches below would return [] for it. Read-only scopes only — the write gates
+      // (refuseDemoGuideWrite) are untouched and still refuse the guide.
+      if (ctx.demoGuide === true) {
+        const ids = await guideChildIds(ctx);
+        return ids.map((id) => ({ child: { id }, scopes: [...GUIDE_READ_SCOPES].sort() }));
+      }
 
       // (a) children the caller has authority over, via a parent/guardian membership.
       const memberships = await rows(
