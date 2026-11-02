@@ -29,3 +29,21 @@ it('labels only mock data, keeps returned labels and blocks unwired live proposa
  expect(screen.getByRole('button',{name:/Propose pickup/})).toBeDisabled()
  c.propose();expect(c.getSnapshot().proposal).toBe('none')
 })
+it('hides the amount, basis and cap when a viewer may see the route but not pickup costs',async()=>{
+ const fixture=createMockMapAdapter('kendra'),world=await fixture.readWorld(),result=await fixture.route('p_gma','school','Drive')
+ const c=new MapController({mode:'mock',readWorld:async()=>({...world,canReadCost:false,canApprove:false}),route:async()=>result})
+ await c.load();await c.route('p_gma','school');render(<MapView controller={c}/>)
+ expect(screen.getByRole('region',{name:'Route estimate'})).toBeVisible()
+ expect(screen.queryByText(/Rideshare to school/)).not.toBeInTheDocument()
+ expect(screen.queryByText(/road-distance estimate/)).not.toBeInTheDocument()
+ expect(screen.queryByText(/Over Kendra's/)).not.toBeInTheDocument()
+})
+it('labels a stored haversine-basis amount as a straight-line approximation',async()=>{
+ const fixture=createMockMapAdapter('kendra'),world=await fixture.readWorld(),result=await fixture.route('p_gma','school','Drive')
+ const basis='FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi'
+ const c=new MapController({mode:'mock',readWorld:async()=>world,route:async()=>({...result,rideEstimate:{...sampleRide,basis}})})
+ await c.load();await c.route('p_gma','school');render(<MapView controller={c}/>)
+ expect(screen.getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+ expect(screen.getByText(basis)).toBeVisible()
+ expect(screen.getByText(/Rideshare to school · Est. \$12.40/)).toBeVisible()
+})

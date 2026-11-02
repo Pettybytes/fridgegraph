@@ -60,7 +60,9 @@ export function createLiveMapAdapter(options:{
   current();if(combined.aborted)throw aborted()
   if(result.state!=='live')throw Error('WORLD_READ_UNAVAILABLE') // Never promote fixtures.
   // A live read never acquires approval authority through this preparation seam.
-  world={...result,childId:session.childId,canApprove:false}
+  // The served route read does not prove pickup-cost authority. Keep cost hidden
+  // until the separate parent/guardian-gated stored estimate read is delivered.
+  world={...result,childId:session.childId,canApprove:false,canReadCost:false}
   return world
  },async route(fromId,toId,mode,signal){
   const session=current(),profile=routingProfiles[mode],combined=signalFor(signal)

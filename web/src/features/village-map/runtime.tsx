@@ -22,14 +22,14 @@ function ReplayClock({controller}:{controller:MapController}){
  useEffect(()=>{if(reduced&&state.playing){controller.pause();return}if(!state.playing)return;let handle=0,last=performance.now();const tick=(now:number)=>{if(!document.hidden)controller.tick(Math.min(250,now-last));last=now;handle=requestAnimationFrame(tick)};handle=requestAnimationFrame(tick);return()=>cancelAnimationFrame(handle)},[controller,state.playing,reduced]);return null
 }
 export function RideCost({controller}:{controller:MapController}){
- const state=useMapState(controller),ride=state.route?.rideEstimate;if(!ride)return null
- return <div className="vm-ride"><strong>Rideshare to school · Est. ${ride.amountUsd.toFixed(2)}</strong><p>No vehicle on record. Paid-ride path in this sample scenario.</p><p>{ride.amountUsd>ride.capUsd?'Over':'Within'} {state.world?.parentName}'s ${ride.capUsd.toFixed(0)} ride limit</p><small>{ride.basis}</small></div>
+ const state=useMapState(controller),ride=state.route?.rideEstimate;if(!ride||!state.world?.canReadCost)return null
+ return <div className="vm-ride"><strong>Rideshare to school · Est. ${ride.amountUsd.toFixed(2)}</strong><p>No vehicle on record. Paid-ride path in this sample scenario.</p><p>{ride.amountUsd>ride.capUsd?'Over':'Within'} {state.world.parentName}'s ${ride.capUsd.toFixed(0)} ride limit</p>{/\bhaversine\b/i.test(ride.basis)&&<p>Straight-line approximation — may understate road cost</p>}<small>{ride.basis}</small></div>
 }
 function ProposalConfirm({controller}:{controller:MapController}){
  const state=useMapState(controller),[open,setOpen]=useState(false)
  useEffect(()=>{const review=()=>setOpen(true);window.addEventListener('map:review-proposal',review);return()=>window.removeEventListener('map:review-proposal',review)},[])
  useEffect(()=>{if(state.proposal!=='review')setOpen(false)},[state.proposal])
- const ride=state.route?.rideEstimate,over=!!ride&&ride.amountUsd>ride.capUsd
+ const ride=state.route?.rideEstimate,over=!!state.world?.canReadCost&&!!ride&&ride.amountUsd>ride.capUsd
  return <Dialog.Root open={open&&state.proposal==='review'} onOpenChange={setOpen}><Dialog.Portal><Dialog.Overlay className="vm-confirm-backdrop"/><Dialog.Content className="vm-confirm fg-glass"><Dialog.Title>Review pickup proposal</Dialog.Title><Dialog.Description>Sample proposal only. This does not assign a caregiver, contact anyone or book a ride.</Dialog.Description><p>{state.world?.people.find(p=>p.id===state.route?.fromId)?.name} → {state.world?.places.find(p=>p.id===state.route?.toId)?.name}</p><RideCost controller={controller}/>{over&&<label><input type="checkbox" checked={state.acceptedOverCap} onChange={e=>controller.acceptOverCap(e.target.checked)}/>I explicitly accept this sample option above the ride limit.</label>}<button disabled={!state.world?.canApprove||(over&&!state.acceptedOverCap)} onClick={()=>{if(controller.approve())setOpen(false)}}>Approve sample proposal</button>{!state.world?.canApprove&&<p>Only an authorized parent can approve.</p>}<Dialog.Close>Keep reviewing</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
 }
 export function MapRosinaContext(){const controller=useVillageMap();return controller?<MapContextCard controller={controller}/>:null}

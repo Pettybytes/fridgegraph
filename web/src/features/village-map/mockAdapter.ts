@@ -20,7 +20,7 @@ const events=days.flatMap(day=>[
 ])
 // No-driver night: explicitly synthetic paid-ride path, not inferred from a route or calendar gap.
 // Stored MOCK road result. Cost is supplied, never computed by browser pricing logic.
-export const sampleRide={amountUsd:12.4,capUsd:10,roadDistanceMiles:8.86,basis:'Stored sample road-distance estimate: 8.86 mi × $1.40/mi; estimate, not a provider quote.',paidRidePath:true as const,candidateId:'p_gma',state:'mock' as const}
+export const sampleRide={amountUsd:12.4,capUsd:10,distanceMiles:8.86,basis:'Stored sample road-distance estimate: 8.86 mi × $1.40/mi; estimate, not a provider quote.',paidRidePath:true as const,candidateId:'p_gma',state:'mock' as const}
 const points:Point[]=[[-83.112,42.368],[-83.105,42.365],[-83.099,42.36],[-83.092,42.356],[-83.084,42.352],[-83.076,42.348],[-83.069,42.345]]
 const times:Record<Mode,number>={Drive:1080,Walk:10200,Bike:3000}
 export function createMockMapAdapter(personaId:string):VillageMapAdapter{
@@ -29,7 +29,7 @@ export function createMockMapAdapter(personaId:string):VillageMapAdapter{
   if(!parent&&!limited)throw Error('UNAUTHORIZED')
   const visible=parent?people:people.filter(p=>['p_nora','p_priya',...(personaId==='loretta'?['p_gma']:[])].includes(p.id))
   const ids=new Set(visible.map(p=>p.id))
-  return structuredClone({state:'mock',people:visible,places:places.filter(p=>p.kind!=='home'||parent),events:events.filter(e=>e.peopleIds.some(id=>ids.has(id))).map(e=>({...e,peopleIds:e.peopleIds.filter(id=>ids.has(id))})),days,canApprove:parent,parentName:parent?'Kendra':'Parent'})
+  return structuredClone({state:'mock',people:visible,places:places.filter(p=>p.kind!=='home'||parent),events:events.filter(e=>e.peopleIds.some(id=>ids.has(id))).map(e=>({...e,peopleIds:e.peopleIds.filter(id=>ids.has(id))})),days,canApprove:parent,canReadCost:parent,parentName:parent?'Kendra':'Parent'})
  }
  return {mode:'mock',readWorld:async()=>world(),route:async(fromId,toId,mode,signal)=>{
   if(signal?.aborted)throw new DOMException('Aborted','AbortError')

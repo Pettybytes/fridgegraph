@@ -4032,3 +4032,30 @@ data · backend: route/day served, world/Walk/Bike/stored ride-cost reads
 pending · integrated + tested: route/day transport PASS, full map PENDING.
 Runtime remains mock until a real authorized world read is delivered; #87
 stays draft. No reset or restart was run by this UI lane.
+
+### Village map cost display guard — 2026-11-02, PR #87 draft
+
+Bryan confirmed the #87 world/estimate wire agreement while Bentley builds
+`villageWorld` and `pickupRideEstimate`; neither operation is called by #87
+until it is served and verified. The correction on #78
+(issue comment 6567656703) narrows the stored estimate, basis, distance,
+calculated time and household cap to the child's parent/guardian only; the
+Demo guide is excluded. Map live routing still returns `rideEstimate: null`
+and forces the internal cost visibility flag off. The mock route's stored
+road-distance sample remains parent-only. A haversine-basis amount now shows
+“Straight-line approximation — may understate road cost” while retaining the
+recorded basis; Mission Control uses the same warning, and its Demo-guide
+sample hides the amount, basis and cap. No pricing calculation or backend
+authorization changed. A first new Demo-guide test run failed because its
+mock session omitted the server's guide mark and therefore showed the
+existing access boundary; after correcting the setup (same assertions),
+the focused suite passed 43/43. UI: copy/privacy guard complete · backend:
+world and stored estimate pending · integrated + tested: pending the served
+reads and authorized live proof. PR #87 remains DRAFT.
+
+Local Playwright mock check: Kendra's map showed the labeled $12.40
+road-distance sample; after switching to Priya, no rideshare amount appeared.
+The full-screen map currently covers the shell's Switch person chip and main
+navigation for pointer use at the checked desktop width. I moved to Today
+before switching in this check; that map-shell access defect remains open
+outside this cost/transport change. No shared-stack request was made.

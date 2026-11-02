@@ -5,7 +5,7 @@ import {personPoint} from './model'
 import type {MapWorld,Mode} from './types'
 const wire:RouteWire={distanceMeters:1609.344,durationSeconds:300,geometry:{type:'LineString',coordinates:[[-83,42],[-83.1,42.1]]},source:'openrouteservice',cached:false,disclaimer:'Estimated — not live traffic'}
 // Controlled wire-independent projection, not claimed as a seeded place or delivered world read.
-const world:MapWorld={state:'live',people:[{id:'person-a',name:'Authorized Person',position:{source:'event',placeId:'rp_origin',label:'Returned venue label',addressRead:false},vehicle:'unknown'}],places:[{id:'rp_origin',name:'Returned venue label',kind:'venue',point:[-83,42],addressRead:false},{id:'rp_destination',name:'Backend school label',kind:'school',point:[-83.1,42.1],addressRead:false}],events:[],days:['2026-11-03'],canApprove:true,parentName:'Parent'}
+const world:MapWorld={state:'live',people:[{id:'person-a',name:'Authorized Person',position:{source:'event',placeId:'rp_origin',label:'Returned venue label',addressRead:false},vehicle:'unknown'}],places:[{id:'rp_origin',name:'Returned venue label',kind:'venue',point:[-83,42],addressRead:false},{id:'rp_destination',name:'Backend school label',kind:'school',point:[-83.1,42.1],addressRead:false}],events:[],days:['2026-11-03'],canApprove:true,canReadCost:true,parentName:'Parent'}
 function setup(transport?:RouteTransport){
  let session:MapSession|null={generation:1,childId:'child-a',accessToken:'test-only-session-a'}
  const adapter=createLiveMapAdapter({getSession:()=>session,readWorld:async()=>structuredClone(world),...(transport?{transport}:{})})
@@ -42,6 +42,7 @@ it('keeps backend IDs/labels, refuses fixtures and never invents ride cost or ap
  const {adapter}=setup({supportedProfiles:['driving-car'],request:async()=>wire})
  expect((await adapter.readWorld()).places).toEqual(world.places)
  expect((await adapter.readWorld()).canApprove).toBe(false)
+ expect((await adapter.readWorld()).canReadCost).toBe(false)
  expect(await adapter.route('person-a','rp_destination','Drive')).toMatchObject({state:'live',rideEstimate:null,distanceMiles:1})
  const mock=createLiveMapAdapter({getSession:()=>({generation:1,childId:'x',accessToken:'test-only-session'}),readWorld:async()=>({...world,state:'mock'})})
  await expect(mock.readWorld()).rejects.toThrow('WORLD_READ_UNAVAILABLE')
