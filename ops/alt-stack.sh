@@ -78,8 +78,12 @@ gen_router_config() {
   # committed copy was retired because it silently went stale and the MCP loaded a schema that lacked
   # fields the router served (2026-11-02: proposeAddVillager).
   mkdir -p "$ROOT/.runs"
-  "$HOME/.rover/bin/rover" supergraph compose --config "$ROOT/supergraph.yaml" --elv2-license accept \
-      > "$ROOT/.runs/supergraph.graphql" || die "supergraph composition failed"
+  # Compose from COMMITTED SDL, not from supergraph.yaml. That file points each subgraph at 4001-4007,
+  # so composing from it silently required another running checkout AND baked the wrong routing URLs
+  # into the artifact. This launcher starts alone.
+  node "$ROOT/ops/compose-offline.mjs" \
+      --out "$ROOT/.runs/supergraph.graphql" \
+      --base-port "$SUBGRAPH_BASE" || die "offline supergraph composition failed"
   ROUTER_SRC="$ROOT/router.yaml" SUPERGRAPH_SRC="$ROOT/supergraph.yaml" \
   OUT="$ROUTER_CONFIG" ROUTER_PORT="$ROUTER_PORT" HEALTH_PORT="$HEALTH_PORT" \
   SUBGRAPH_BASE="$SUBGRAPH_BASE" python3 - <<'PY'
