@@ -1,9 +1,19 @@
 import {formatTime,localDay} from '@/features/calendar/time'
 import type {StoredMissionControl} from '@/lib/frontendData/deliveredAdapter'
 import type {SchoolReport} from './schoolReports'
+import type {VillagerAddition} from './villagerAdditions'
 export type Entry={id:string;at:string;day:string;kind:'PROPOSED'|'APPROVED'|'DECLINED'|'SIMULATED'|'REPORTED'|'RECORDED'|'CONFIRMED';who:string;what:string;href?:string;place?:string}
 export type Slip={id:string;title:string;history:{decision:string;at:string;approver:{id:string}}[]}
-export function activityEntries(data:StoredMissionControl,slips:Slip[],people:Record<string,string>={},reports:SchoolReport[]=[]):Entry[]{
+/** Literal rendering of the exact recorded scope strings — never a guess at intent beyond what
+ * was actually granted. */
+export function villagerScopesLabel(scopes:string[]):string{
+ const has=(s:string)=>scopes.includes(s)
+ if(has('pickup.request')&&has('schedule.read'))return 'pickup and schedule access'
+ if(has('pickup.request'))return 'pickup access'
+ if(has('schedule.read'))return 'schedule access'
+ return 'village access'
+}
+export function activityEntries(data:StoredMissionControl,slips:Slip[],people:Record<string,string>={},reports:SchoolReport[]=[],villagerAdditions:VillagerAddition[]=[]):Entry[]{
  const entries:Entry[]=[]
  const add=(entry:Omit<Entry,'day'>)=>{if(Number.isFinite(Date.parse(entry.at)))entries.push({...entry,day:localDay(entry.at)})}
  for(const run of data.recordedRuns){
@@ -26,6 +36,10 @@ export function activityEntries(data:StoredMissionControl,slips:Slip[],people:Re
   if(!day)continue
   const precise=report.reportedAt&&Number.isFinite(Date.parse(report.reportedAt))?report.reportedAt:null
   entries.push({id:`school:${report.id}`,at:precise??day,day,kind:'REPORTED',who:'School report',what:report.text})
+ }
+ for(const addition of villagerAdditions){
+  const who=people[addition.addedBy.id]??'A parent'
+  add({id:`villager:${addition.id}`,at:addition.confirmedAt,kind:'CONFIRMED',who,what:`Added ${addition.person.displayName} — ${villagerScopesLabel(addition.scopes)}.`,href:'#/village',place:'Village'})
  }
  return entries.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))
 }

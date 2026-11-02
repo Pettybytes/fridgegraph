@@ -114,6 +114,7 @@ type ProposalState = {
   expires_at: string;
   confirmed_relationship_id: string | null;
   confirmed_grant_id: string | null;
+  confirmed_at: string | null;
 };
 
 const ALLOWED_SCOPES = new Set(['pickup.request', 'schedule.read']);
@@ -152,6 +153,9 @@ class FakeDb {
     if (name === 'household_members') return rowsQuery(this.world.householdMembers);
     if (name === 'grants') return rowsQuery(this.world.grants);
     if (name === 'capabilities') return rowsQuery(this.world.capabilities);
+    if (name === 'villager_proposals') {
+      return rowsQuery([...this.world.proposals.values()].map(toVillagerProposalRow));
+    }
     throw new Error(`unstubbed table: ${name}`);
   }
 
@@ -217,6 +221,7 @@ class FakeDb {
       expires_at: expiresAt,
       confirmed_relationship_id: null,
       confirmed_grant_id: null,
+      confirmed_at: null,
     };
     this.world.proposals.set(row.id, row);
     return toProposalRow(row);
@@ -255,6 +260,7 @@ class FakeDb {
     this.world.grants.push(grant);
     prop.confirmed_relationship_id = String(rel.id);
     prop.confirmed_grant_id = String(grant.id);
+    prop.confirmed_at = new Date().toISOString();
     return toConfirmRow(rel, grant);
   }
 
@@ -290,12 +296,25 @@ function rowsQuery(table: Row[]) {
     select() { return builder; },
     eq(col: string, val: unknown) { filters.push((r) => r[col] === val); return builder; },
     in(col: string, vals: unknown[]) { const s = new Set(vals); filters.push((r) => s.has(r[col] as never)); return builder; },
+    not(col: string, op: string, val: unknown) {
+      if (op !== 'is') throw new Error(`unstubbed not() operator: ${op}`);
+      filters.push((r) => val === null ? r[col] !== null && r[col] !== undefined : r[col] !== val);
+      return builder;
+    },
     then(onf: (v: { data: unknown; error: null }) => unknown, onr?: unknown) {
       const data = table.filter((r) => filters.every((f) => f(r)));
       return Promise.resolve({ data, error: null }).then(onf, onr as never);
     },
   };
   return builder;
+}
+
+function toVillagerProposalRow(p: ProposalState): Row {
+  return {
+    id: p.id, proposer_id: p.proposer_id, child_id: p.child_id, person_id: p.person_id,
+    relationship_type: p.relationship_type, scopes: p.scopes,
+    confirmed_relationship_id: p.confirmed_relationship_id, confirmed_at: p.confirmed_at,
+  };
 }
 
 function toProposalRow(p: ProposalState): Row {
@@ -528,6 +547,54 @@ test("Dana, signed in as herself, sees exactly Nora with exactly her granted sco
   assert.equal(mine.length, 1, 'Dana sees exactly one child — not her own, not any other family');
   assert.equal(mine[0].child.id, 'p_nora');
   assert.deepEqual(mine[0].scopes, ['pickup.request']);
+});
+
+// ---------------------------------------------------------------------------------------------
+// 2b. villagerAdditions — the Activity (web) read this TASK adds, sourced from villager_proposals'
+//     own confirmed_at/confirmed_relationship_id, never from grants/approvals (which cannot tell
+//     this flow apart from a plain grantAccess call).
+// ---------------------------------------------------------------------------------------------
+
+test('villagerAdditions is empty until confirm actually runs — a staged, unconfirmed proposal is not an addition', async () => {
+  const world = newWorld();
+  seedDanaAndNora(world);
+  const kendra = ctxFor('p_mom', world);
+  await access.Mutation.proposeAddVillager(
+    null, { childId: 'p_nora', personName: 'Dana Coleman', scopes: ['pickup.request'] }, kendra,
+  );
+  const additions = await access.Query.villagerAdditions(null, { childId: 'p_nora' }, kendra);
+  assert.deepEqual(additions, []);
+});
+
+test('after confirm, villagerAdditions reports exactly who added whom, with what scopes, and a real confirmedAt', async () => {
+  const world = newWorld();
+  seedDanaAndNora(world);
+  const kendra = ctxFor('p_mom', world);
+  const proposal = await access.Mutation.proposeAddVillager(
+    null, { childId: 'p_nora', personName: 'Dana Coleman', scopes: ['pickup.request'] }, kendra,
+  );
+  const before = Date.now();
+  await access.Mutation.confirmAddVillager(null, { proposalId: proposal.id, version: proposal.version }, kendra);
+
+  const additions = await access.Query.villagerAdditions(null, { childId: 'p_nora' }, kendra);
+  assert.equal(additions.length, 1);
+  assert.equal(additions[0].personId, 'p_dana', 'the villager who was added');
+  assert.equal(additions[0].addedById, 'p_mom', 'the parent who confirmed it');
+  assert.deepEqual(additions[0].scopes, ['pickup.request']);
+  assert.ok(Date.parse(additions[0].confirmedAt) >= before, 'confirmedAt is a real timestamp, not a placeholder');
+});
+
+test('villagerAdditions adds no code-side authorization beyond RLS — it must not widen villager_proposals_read\'s proposer-only boundary', () => {
+  // The FakeDb above has no RLS to enforce this live, so this is a structural check on the real
+  // resolver's source: it must rely ENTIRELY on villager_proposals' own read policy (proposer_id
+  // = current_person()), never add an isParentOf(childId) check that would let a co-parent who
+  // never proposed it see someone else's confirmation.
+  const source = readFileSync('src/subgraphs/access.ts', 'utf8');
+  const body = source.slice(
+    source.indexOf('villagerAdditions: async'),
+    source.indexOf('\n  },', source.indexOf('villagerAdditions: async')),
+  );
+  assert.equal(/isParentOf\(/.test(body), false, 'villagerAdditions must not add its own parent-of check — RLS alone decides visibility');
 });
 
 // ---------------------------------------------------------------------------------------------

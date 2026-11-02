@@ -42,6 +42,17 @@ const typeDefs = parse(`
     A scope grants only what it names: careplan.read never implies schedule reads, pickup or approval.
     """
     myChildren: [ChildAccess!]!
+
+    """
+    Completed Add-a-Villager confirmations for this child — sourced from villager_proposals' own
+    confirmed_relationship_id/confirmed_grant_id/confirmed_at columns (0074), set exactly once by
+    confirm_add_villager itself. Deliberately NOT derived from grants/approvals: those tables
+    cannot distinguish a villager addition from an ordinary grantAccess call, and inferring that
+    distinction from timing would be a guess, not a stored fact. Caller-scoped by
+    villager_proposals' own existing read policy (proposer_id = current_person()) — this read adds
+    no new visibility beyond what that policy already allows.
+    """
+    villagerAdditions(childId: ID!): [VillagerAddition!]!
   }
 
   type Mutation {
@@ -183,6 +194,20 @@ const typeDefs = parse(`
     type: String!
     status: String!
   }
+
+  """A completed Add-a-Villager confirmation. Distinct from AddVillagerProposal, which is the
+  staged, unconfirmed draft — this exists only once confirm_add_villager has actually run."""
+  type VillagerAddition {
+    id: ID!
+    child: Child!
+    """The villager who was added."""
+    person: Person!
+    """The parent who confirmed the addition."""
+    addedBy: Person!
+    relationshipType: String!
+    scopes: [String!]!
+    confirmedAt: String!
+  }
 `);
 
 type GrantShape = {
@@ -231,6 +256,26 @@ const toProposal = (row: Record<string, unknown>): ProposalShape => ({
   validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : null,
   createdAt: String(row.created_at),
   expiresAt: String(row.expires_at),
+});
+
+type VillagerAdditionShape = {
+  id: string;
+  childId: string;
+  personId: string;
+  addedById: string;
+  relationshipType: string;
+  scopes: string[];
+  confirmedAt: string;
+};
+
+const toVillagerAddition = (row: Record<string, unknown>): VillagerAdditionShape => ({
+  id: String(row.id),
+  childId: String(row.child_id),
+  personId: String(row.person_id),
+  addedById: String(row.proposer_id),
+  relationshipType: String(row.relationship_type),
+  scopes: (row.scopes as string[]) ?? [],
+  confirmedAt: String(row.confirmed_at),
 });
 
 /**
@@ -544,6 +589,21 @@ const resolvers = {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([id, scopes]) => ({ child: { id }, scopes }));
     },
+
+    villagerAdditions: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      // No explicit isParentOf check here: villager_proposals' own read policy (proposer_id =
+      // current_person()) already fully decides visibility, same posture as the `approvals`
+      // query above. Filtering by childId narrows the result; it is not the security boundary.
+      const data = await rows(
+        dbFor(ctx)
+          .from('villager_proposals')
+          .select('id,proposer_id,child_id,person_id,relationship_type,scopes,confirmed_at')
+          .eq('child_id', childId)
+          .not('confirmed_relationship_id', 'is', null),
+      );
+      return data.map(toVillagerAddition);
+    },
   },
 
   Mutation: {
@@ -687,6 +747,12 @@ const resolvers = {
   VillagerRelationship: {
     from: (r: { from: { id: string } }) => r.from,
     to: (r: { to: { id: string } }) => r.to,
+  },
+
+  VillagerAddition: {
+    child: (v: VillagerAdditionShape) => ({ id: v.childId }),
+    person: (v: VillagerAdditionShape) => ({ id: v.personId }),
+    addedBy: (v: VillagerAdditionShape) => ({ id: v.addedById }),
   },
 };
 
