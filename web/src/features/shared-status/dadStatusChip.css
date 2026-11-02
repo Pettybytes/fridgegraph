@@ -1,0 +1,3 @@
+.dad-status-group{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;max-width:100%}
+.dad-status-chip.fg-chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.dad-status-eta{white-space:normal}
