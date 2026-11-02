@@ -941,27 +941,30 @@ const resolvers = {
     ) => {
       refuseDemoGuideWrite(ctx);
       const callerId = requireCaller(ctx);
-      // The contract requires the job's requestVersion, so read the Attempt's job first.
-      const a = await rows(
-        dbFor(ctx).from('attempts').select('id,job_id').eq('id', attemptId),
+      // The contract requires the job's requestVersion. Reading the job through the caller's own RLS
+      // worked for parents and failed for the candidate it belongs to: `coordination_jobs` is
+      // parent-only. `candidate_attempt_context` (0068) returns the pair ONLY when the attempt is
+      // hers, so a foreign or nonexistent attempt yields one generic refusal — no existence oracle.
+      const context = await rows(
+        dbFor(ctx).rpc('candidate_attempt_context', { p_attempt: attemptId }),
       );
-      if (!a.length) throw new GraphQLError('ATTEMPT_NOT_FOUND', { extensions: { code: 'ATTEMPT_NOT_FOUND' } });
-      const j = await rows(
-        dbFor(ctx).from('coordination_jobs').select('id,request_version').eq('id', String(a[0].job_id)),
-      );
-      if (!j.length) throw new GraphQLError('JOB_NOT_FOUND', { extensions: { code: 'JOB_NOT_FOUND' } });
+      if (!context.length) {
+        throw new GraphQLError('ATTEMPT_NOT_FOUND', { extensions: { code: 'ATTEMPT_NOT_FOUND' } });
+      }
+      const jobId = String(context[0].job_id);
+      const requestVersion = Number(context[0].request_version);
 
       // Ranking must not begin before the pre-step has settled — or hit its bounded fallback. Awaiting
       // here is what makes the order real; launching the warm-up first while ranking proceeds is a race.
       // Bounded by the gate's own timeout, so this can add latency but never an unbounded wait.
-      await awaitRidePrewarm(String(a[0].job_id));
+      await awaitRidePrewarm(jobId);
 
       const { error } = await dbFor(ctx).rpc('accept_pickup', {
         p_attempt: attemptId,
         p_available: available,
         p_decline: declineReason ?? null,
         p_entry: 'CANDIDATE_JWT',
-        p_request_version: Number(j[0].request_version),
+        p_request_version: requestVersion,
       });
       if (error) rpcError(error);
 
@@ -969,7 +972,7 @@ const resolvers = {
         dbFor(ctx)
           .from('candidate_evaluations')
           .select('candidate_id,reason_code,available,decline_reason,accepted_via,estimated_ride_cost_usd,cost_basis,distance_miles,location_provenance,cost_calculated_at')
-          .eq('job_id', String(a[0].job_id)),
+          .eq('job_id', jobId),
       );
       const mine = e.find((x) => String(x.candidate_id) === String(callerId));
       if (!mine) throw new GraphQLError('NOT_FOUND', { extensions: { code: 'NOT_FOUND' } });
