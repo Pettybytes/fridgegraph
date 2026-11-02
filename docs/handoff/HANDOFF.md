@@ -4056,3 +4056,24 @@ No live notice or pickup request has been sent from this branch. A Bentley reser
 and served-revision receipt are required before enabling the flag and running sample (a).
 Offline after the merge: 386 web tests / 64 files PASS, root typecheck PASS,
 web typecheck/build PASS, staged secret scan 884 files / 0 findings.
+
+### NOTICE → PLAN served preview proof — 2026-11-02, PR #90 draft
+UI revision `66cc717f39388f2a249c19eb4b266c45d5eb0dcd` ran on preview
+port 5209 with `VITE_NOTICE_PLAN_LIVE=true` only in that preview. Served demo
+and graph were `c806f46`; Rosina was `7fda69d`. Mock checks remain separate:
+386/386 web tests across 64 files passed, with root/web typecheck, web build
+and secret scan passing. Kendra's real picker session was READY, but reviewing
+the published sample-(a) PNG and its pasted text each returned HTTP 502
+`NOTICE_ERROR`; the UI showed a friendly failure. There was no proposal,
+confirmation or pickup request. The exact authenticated `NoticeEvents` query
+for the handler's 2026-10-26 scenario date returned 200, one event and a WEEKLY
+schedule. The served prepare path still needs repair and a new proof.
+
+UI: complete in mock and live-capable · backend: served but notice prepare
+failed · integrated + tested: PENDING. Bryan assigned the single real
+sample-(a) confirmation in the next reserved window to this UI preview;
+feat/rosina-service will observe the resulting job. The W-PROOFS-ONLY slot was
+released around 00:09Z, despite an earlier row carrying a later stamp and
+01:15Z deadline. These UI probes occurred around 00:12–00:16Z before that
+correction was seen; all previews and live requests stopped when it was read.
+No more live requests until Bentley posts a fresh OPEN slot on #78.
