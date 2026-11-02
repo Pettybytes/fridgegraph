@@ -97,3 +97,23 @@ correction is auditable. **Where this section and anything above disagree, this 
    `recorded_places` is household-scoped (0053, no `child_id`); the geometry helper is
    `place_route_geometry_for(p_child, p_place)` (0058); and `village_places_for_child(p_child)` (0075)
    — the function the map resolver actually calls — was missing and is now included.
+
+---
+
+## Comment-only correction to the migration file — 2026-11-02
+
+The retracted sentence ("today they write as the caller") was removed from the migration's inline
+comment. **The executable statement was not touched.**
+
+| | |
+| --- | --- |
+| Executable GRANT | `grant select on table public.shared_statuses to service_role;` — line 28, **unchanged** |
+| Diff scope | **comments only** (verified: `git diff` shows no `+`/`-` on any executable line) |
+| Previous hash | `142cb8da1c4a4ad5d174a4ab0fb7e889e7e5862ab2e93fb5f05e034a4257e66b` |
+| **New hash** | **`b32642abd3cc8665974905de03f25a2c101128f163fd44e28f66e5fd26f2a868`** |
+| File state | **still unapplied** — no database has executed it |
+| Rehearsal | **not re-run.** A comment-only edit cannot change SQL semantics, and repeating the fg81 run would imply new evidence where none exists. |
+
+Replacement wording now states the two paths accurately: the canonical reset uses its **own
+server-side PostgreSQL connection**, while `scripts/db.ts` seed/reset goes through **service-role
+PostgREST** and remains ungranted.

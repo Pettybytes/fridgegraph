@@ -12,10 +12,13 @@
 -- applied migration 0076 is NOT modified — this is forward-only.
 --
 -- WHAT THIS DOES *NOT* FIX
--- SELECT does not repair the service-role seed/upsert/delete paths. The reset and seed routines
--- that write `shared_statuses` do not gain INSERT/UPDATE/DELETE here and would still be refused if
--- they ever ran as `service_role`; today they write as the caller. Repairing writes is a separate
--- decision with its own proof, not a side effect of making the checksum readable.
+-- SELECT does not repair the service-role maintenance write paths, and they are not one path:
+--   * the canonical reset uses its OWN server-side PostgreSQL connection, so this grant is
+--     irrelevant to it;
+--   * `scripts/db.ts` seed/reset goes through SERVICE-ROLE PostgREST, so those writes remain
+--     ungranted here and are NOT repaired by this migration.
+-- Repairing either is a separate decision with its own proof, not a side effect of making the
+-- checksum readable.
 --
 -- ROLLBACK
 -- `revoke select on table public.shared_statuses from service_role;` — additive and reversible,

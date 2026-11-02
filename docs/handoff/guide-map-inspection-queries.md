@@ -53,10 +53,20 @@ From `0075_village_places_for_child.sql`:
 | **coordinates** (`latitude, longitude`) | `is_parent_of(child)` **or** `has_scope(child,'address.read')` | NULL together, `state='withheld'` |
 | no catalog coordinates at all | — | `state='absent'` |
 
-**A likely guide result, to be confirmed rather than assumed:** the guide's derived scopes observed on
-`54e8abe` were `careplan.read, contacts.read, goals.read, schedule.read, school.read, transport.read` —
-**`schedule.read` present, `address.read` absent.** On that basis the expected shape is **labels
-returned, coordinates withheld**. That is a hypothesis to test, not a result to report.
+**The guide's scopes in G1 are synthetic and must NOT be used to predict the SQL gates.**
+
+`myChildren` returns `scopes` from the **`GUIDE_READ_SCOPES` constant** (`src/subgraphs/access.ts:336`,
+returned at `:493`) — a display-level read set compiled into the resolver. **Those are not rows in
+`grants`.** The guide holds **no memberships and no grants by design**, so the constant says nothing
+about what `has_scope(p_child, …)` computes.
+
+Consequently:
+
+- The SQL helper's `has_scope` result for the guide is **UNVERIFIED**. Do not infer it from G1.
+- **Labels may be absent.** If `schedule.read` is not actually held, `village_places_for_child`
+  returns **no row at all** — and that is a correct answer, not a bug.
+- A previously written expectation ("labels returned, coordinates withheld") was derived from those
+  synthetic scopes and is **withdrawn as an expectation**. Measure first (R5), then predict.
 
 **Do not assume a same-family place returns a row to the guide.** It may return labels, it may return
 nothing, and either is a finding to interpret against the gates above.
@@ -120,7 +130,16 @@ GET /rest/v1/recorded_places?select=id,household_id,kind,label,sandbox,fixture,c
 There is **no `child_id`** to filter on. Household scoping means this read is *not* the child-scoped
 answer — R1 is. Treat R3 as a cross-check of catalogue contents, not as the map read.
 
-**R4 — context only, not map** `POST /rest/v1/rpc/can_view_shared_status {"p_person":"p_dad"}` —
+**R4 — the actual gate inputs for the guide (read-only, run BEFORE interpreting G2/R1)**
+```
+POST /rest/v1/rpc/has_scope
+{"p_child":"<id from G1>","p_scope":"schedule.read"}
+```
+Repeat with `"address.read"`. These two booleans are the **real** gate inputs. Record them; they are
+what G2 and R1 are judged against — not the synthetic `scopes` array from G1. `has_scope` is a plain
+read; it changes nothing.
+
+**R5 — context only, not map** `POST /rest/v1/rpc/can_view_shared_status {"p_person":"p_dad"}` —
 record, do not re-litigate here.
 
 ## Recording table
@@ -134,7 +153,8 @@ record, do not re-litigate here.
 | R1 | guide | | | must agree with G2 |
 | R2 | guide | | | row / no row, both meaningful |
 | R3 | guide | | | catalogue cross-check |
-| R4 | guide | | | shared-status context |
+| R4 | guide | | | **real gate inputs** — `schedule.read`, `address.read` |
+| R5 | guide | | | shared-status context |
 
 Then, separately: "the UI refuses the guide on the map; the backend returns **X** for the same
 caller." Two facts, not one.
