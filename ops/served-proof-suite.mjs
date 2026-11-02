@@ -209,6 +209,8 @@ if (walk.status === 200 && route.status === 200) {
 console.log('\n3. PRICING — the job through the graph, then the row through a read-only database check');
 const jobId = process.env.PROOF_JOB_ID ?? process.env.PROOF_PRICING_JOB;
 if (!jobId) {
+  // A check must not vanish because its input is absent: an unreported assertion reads as a pass.
+  blocked('the job is readable through the graph', 'no PROOF_JOB_ID supplied');
   blocked('paid-ride estimate agreement',
     'needs a job with a paid-ride evaluation; set PROOF_JOB_ID (created through the real request+reply path)');
 } else {

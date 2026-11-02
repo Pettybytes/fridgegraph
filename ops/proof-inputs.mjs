@@ -72,7 +72,7 @@ function plan() {
   console.log('   then:    PROOF_NOGEOM_PLACE=' + PLACE_ID + ' node ops/served-proof-suite.mjs\n');
   console.log('2. PRICING / OPERATOR EVIDENCE');
   console.log(`   login as kendra through ${BASE}/api/demo/login (real JWT)`);
-  console.log('   mutation: requestPickup(childId, day) → job id (real request path, real candidate set)');
+  console.log('   mutation: requestPickup(childId, asOf) → job id (real request path, real candidate set)');
   console.log('   reply:    the candidate answers through the webhook chain; this script does NOT invent it');
   console.log('   then:     PROOF_JOB_ID=<job> node ops/evaluation-agreement.mjs  (OPERATOR EVIDENCE)\n');
   console.log('3. ROUTE-PREWARM RACE (disposable database)');
@@ -148,8 +148,8 @@ async function pricingJob() {
     return { status: r.status, body: await r.json().catch(() => null) };
   };
   const m = await gql(
-    `mutation($child: ID!, $day: String!) { requestPickup(childId: $child, day: $day) { id } }`,
-    { child, day });
+    `mutation($child: ID!, $asOf: String!) { requestPickup(childId: $child, asOf: $asOf) { id } }`,
+    { child, asOf: day });
   const jobId = m.body?.data?.requestPickup?.id;
   console.log(`  requestPickup HTTP ${m.status} → ${jobId ?? JSON.stringify(m.body?.errors?.[0] ?? {})}`);
   if (!jobId) process.exit(1);
@@ -162,8 +162,65 @@ async function pricingJob() {
   console.log(`        PROOF_JOB_ID=${jobId} node ops/evaluation-agreement.mjs`);
 }
 
+async function pricingReply() {
+  if (!yes) { console.log('REFUSED: pricing-reply writes a real evaluation; pass --yes inside a reserved window.'); process.exit(2); }
+  const jobId = arg('job', null);
+  const persona = arg('persona', 'loretta');
+  if (!jobId) { console.log('BLOCKED: --job is required (created by pricing-job)'); process.exit(3); }
+
+  const login = await fetch(`${BASE}/api/demo/login`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ personaId: persona }),
+  });
+  const body = await login.json().catch(() => null);
+  if (body?.status !== 'READY' || !body?.session?.access_token) {
+    console.log(`BLOCKED: ${persona} login ${body?.status ?? login.status}${body?.reason ? ` (${body.reason})` : ''}`);
+    process.exit(3);
+  }
+  const token = body.session.access_token;
+  const gql = async (q, v) => {
+    const r = await fetch(process.env.SERVED_ROUTER ?? 'http://127.0.0.1:4010/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query: q, variables: v }),
+    });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  };
+
+  // The Attempt type has no candidate field; jobTimeline pairs each attempt with its candidate.
+  const tl = await gql(
+    `query($job: ID!) { jobTimeline(jobId: $job) { at kind attemptId candidate { id displayName } } }`,
+    { job: jobId });
+  const events = tl.body?.data?.jobTimeline ?? [];
+  const want = persona === 'loretta' ? 'loretta' : persona;
+  const hit = events.find((e) => e.attemptId && String(e.candidate?.displayName ?? '').toLowerCase().includes(want))
+    ?? events.find((e) => e.attemptId);
+  if (!hit) {
+    console.log(`BLOCKED: no attempt for ${jobId} in the timeline (${events.length} events)`);
+    process.exit(3);
+  }
+  console.log(`  attempt ${hit.attemptId} · candidate ${hit.candidate?.displayName ?? '?'} · kind ${hit.kind}`);
+
+  let out = await gql(
+    `mutation($a: ID!, $av: Boolean!) { acceptPickup(attemptId: $a, available: $av) { id } }`,
+    { a: hit.attemptId, av: true });
+  if (out.body?.errors) {
+    out = await gql(
+      `mutation($a: ID!, $av: Boolean!) { acceptPickup(attemptId: $a, available: $av) { __typename } }`,
+      { a: hit.attemptId, av: true });
+  }
+  const err = out.body?.errors?.[0]?.message;
+  console.log(`  acceptPickup HTTP ${out.status}${err ? ` — ${err}` : ' — recorded'}`);
+  if (err) process.exit(1);
+
+  const st = await gql(`query($job: ID!) { job(id: $job) { id status overLimitCandidateId } }`, { job: jobId });
+  console.log(`  job ${jobId} status=${st.body?.data?.job?.status ?? '?'} overLimit=${st.body?.data?.job?.overLimitCandidateId ?? 'none'}`);
+  console.log(`\n  NEXT: PROOF_JOB_ID=${jobId} node ops/evaluation-agreement.mjs`);
+}
+
 if (cmd === 'plan') plan();
 else if (cmd === 'create-409') await create409();
 else if (cmd === 'cleanup-409') await cleanup409();
 else if (cmd === 'pricing-job') await pricingJob();
+else if (cmd === 'pricing-reply') await pricingReply();
 else { console.log('unknown command: ' + cmd); process.exit(2); }
