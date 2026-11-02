@@ -1,13 +1,44 @@
-# FridgeGraph
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/hero-dark.svg">
+  <img src="docs/assets/readme/hero-light.svg" alt="FridgeGraph. Rosina prepares; parents decide. The village around a child, connected. Powered by Meta Muse Spark 1.3 and Muse Voice Transcribe 1.0. An illustrative notice, voice message and care note form a proposal that a parent explicitly approves." width="1280">
+</picture>
 
-When a child's plans change, a parent becomes the coordination system.
-FridgeGraph connects the village around that child, with Rosina helping carry the logistics.
+**School changes. Caregivers coordinate. Parents stay in control.**
 
-Live sandbox coming soon <!-- LIVE LINK: set at hosting -->
+<a href="#explore-the-demo"><img src="docs/assets/readme/nav-explore-the-demo.svg" alt="Explore the demo"></a>
+<a href="#see-it-work"><img src="docs/assets/readme/nav-see-it-work.svg" alt="See it work"></a>
+<a href="#meet-rosina"><img src="docs/assets/readme/nav-meet-rosina.svg" alt="Meet Rosina"></a>
+<a href="#architecture"><img src="docs/assets/readme/nav-architecture.svg" alt="Architecture"></a>
+<a href="#evidence-index"><img src="docs/assets/readme/nav-evidence.svg" alt="Evidence"></a>
 
-![Kendra reviewing an early-dismissal notice and the proposed pickup request](web/evidence/notice-plan/live-2026-11-02/sample-a-review-desktop.png)
+Live sandbox coming soon <!-- LIVE LINK: set at hosting --> · [Static hero](docs/assets/readme/hero-static.svg)
 
-*Live preview of a proposal from sample notice (a). The parent has not confirmed a pickup in this frame; the notice image is a published sample.* [Browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md)
+<a id="meet-rosina"></a>
+## Meta Muse: three roles, two models
+
+|  | Family benefit | Observed result |
+| --- | --- | --- |
+| **READ**<br>**Muse Spark 1.3** | A school notice becomes structured changes and a proposed plan. Verified pasted text can be quoted; image/PDF text is a transcription. | [Sample notice conflict and reviewed request](docs/evidence/67-rosina-notice-briefing-live.md); [browser proof](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
+| **SEE**<br>**Muse Spark 1.3 vision** | A parent can review photo descriptors drawn from the child's **55 allowed vocabulary values**. | [Three descriptor kinds proposed from the fictional test photo](docs/evidence/64-photo-descriptor-authority.md); [refusal and zero-call checks](docs/evidence/63-photo-descriptor-authority.md). |
+| **LISTEN**<br>**Muse Voice Transcribe 1.0** | Spoken input becomes text for Rosina's conversation. | [Corrected backend round trip](docs/evidence/61b-voice-backend-corrected.md); [separate mounted playback proof](web/evidence/design/run-voice-roundtrip/RECEIPT.md). |
+
+Muse Spark also powers Rosina's conversation and tool use. ElevenLabs generates reply speech; it is separate from Meta transcription.
+
+<a id="see-it-work"></a>
+## See it work
+
+**School notice → parent review → recorded pickup request.** Kendra used a published sample early-dismissal image. Rosina transcribed its change, compared it with the recorded pickup time, and prepared a request. The reviewed proposal specified `requestPickup` for the afternoon window. Kendra confirmed once; the resulting job was **discovering**, with pickup **not arranged yet**.
+
+<a href="web/evidence/notice-plan/live-2026-11-02/sample-a-review-desktop.png"><img src="docs/assets/readme/notice-review.png" alt="Live browser capture: the transcribed early dismissal, recorded schedule conflict and proposed pickup action before confirmation" width="360"></a>
+<a href="web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png"><img src="docs/assets/readme/notice-result.png" alt="Live browser capture after Kendra's separate confirmation: pickup request created; pickup not arranged yet" width="360"></a>
+
+<details><summary>Replay the two recorded browser frames</summary>
+
+<img src="docs/assets/readme/notice-replay.gif" alt="Labeled replay of the committed live review and request-result frames; no completed pickup is shown" width="360">
+
+</details>
+
+*Source: committed Kendra browser captures of live sample-(a) preparation and one authenticated confirmation. The replay only alternates those captured states; it is not a new live call. [Full receipt and served revisions](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md).*
 
 ## Why I built it
 
@@ -19,6 +50,8 @@ A single-mother friend sent me a text: “An assistant built specifically for si
 
 I build systems that help teams coordinate across people, services and responsibilities. Her message made me see the same problem at home: parents carrying the connections in their heads, stitching together school messages, calendars and conversations.
 
+At home, the family fridge becomes the shared interface: calendars, notes and magnets. The parent still connects everything behind it.
+
 Help can exist all around a child. Coordinating that help is another job.
 
 FridgeGraph brings those connections into one permissioned view. Rosina reads notices, prepares plans and helps caregivers coordinate. Parents decide what happens, who joins and what each person can see.
@@ -27,17 +60,57 @@ In the future, the village could grow with the family: agents suggesting useful 
 
 The goal is simple: help the village handle the logistics so parents can be present.
 
+The sandbox uses fictional people and records. The origin message is real, shared with permission and identifying details removed.
+
 ## Three demonstrations
 
 1. **A school notice changes the plan.** Rosina finds the conflict with the recorded schedule and prepares a request for parent review. The [live notice proof](docs/evidence/67-rosina-notice-briefing-live.md) and [browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md) show the separate confirmation.
 2. **The village grows, with permission.** A parent reviews Dana's exact access and confirms a bounded `pickup.request` grant. The [latest proof correction](docs/evidence/72-add-villager-live.md#superseding-correction-append-only--the-third-slots-pass-record-above-is-kept-not-rewritten) leaves Dana's own discovery and real concurrent confirms unproven.
 3. **Orbit brings the village together.** A parent approves activation, caregivers can report what they know, and the parent closes the alert. A caregiver response supports coordination; it does not independently verify safety. The [Orbit proof](docs/evidence/60-orbit-redesign.md) and [post-close redaction proof](docs/evidence/62-orbit-redaction.md) keep those states separate.
 
+## From understanding to action
+
+The diagram shows the family workflow, not a live event stream. Rosina can store a draft or proposal before confirmation; the consequential pickup request is a separate parent action.
+
+```mermaid
+flowchart LR
+  A["Voice or notice / photo"] --> B["Rosina prepares<br/>with authorized records"]
+  B --> C["Reviewed proposal"]
+  C --> D["Parent confirms"]
+  D --> E["Recorded action"]
+  classDef meta fill:#E3E7FF,stroke:#4654AD,color:#252638
+  classDef records fill:#FBFAF6,stroke:#4654AD,color:#252638
+  classDef draft fill:#F8E4DF,stroke:#E88775,color:#252638
+  classDef human fill:#4654AD,stroke:#4654AD,color:#FFFFFF
+  classDef action fill:#E2F0EA,stroke:#396F60,color:#252638
+  class A meta
+  class B records
+  class C draft
+  class D human
+  class E action
+```
+
+Meta interprets or transcribes the input. Rosina reads only what the signed-in caller may see. A parent reviews the proposal and explicitly confirms. Deterministic services apply policy and record the action; a caregiver's response is still a report, not verified presence.
+
+## Observed results
+
+| Model role | Observed result | Evidence |
+| --- | --- | --- |
+| Muse Spark · notice and conversation | Sample-(a) conflict identified against a recorded pickup time; parent reviewed and made one separate request, then the job was **discovering**. | [67](docs/evidence/67-rosina-notice-briefing-live.md), [browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md) |
+| Muse Spark vision | Three of five descriptor kinds proposed from a fictional photo; unauthorized paths made zero model calls. | [63](docs/evidence/63-photo-descriptor-authority.md), [64](docs/evidence/64-photo-descriptor-authority.md) |
+| Muse Voice Transcribe | Corrected backend speech-to-text round trip; mounted reply playback proved separately using injected fixture audio. | [61b](docs/evidence/61b-voice-backend-corrected.md), [UI receipt](web/evidence/design/run-voice-roundtrip/RECEIPT.md) |
+| Deterministic access policy, not a model decision | Kendra's exact Dana grant and refusals were recorded. Dana's own discovery and live concurrent confirms remain unproven. | [72 and its correction](docs/evidence/72-add-villager-live.md#superseding-correction-append-only--the-third-slots-pass-record-above-is-kept-not-rewritten) |
+
+Evidence numbers are record identifiers, not a total of independent passed tests. The full boundaries are in the [capability matrix](#what-is-working-and-what-remains-open).
+
 ## How it's built
 
-Apollo Federation connects seven domain subgraphs. Rosina's tools carry the signed-in person's identity; services and database policies enforce what that person may read or change.
+<a id="architecture"></a>
+### Architecture
 
-All people and data in this repository are fictional.
+Rosina uses Muse Spark for conversation, notice reading and photo suggestions. Its authorized tool path carries the signed-in person's token through Apollo MCP Server to Apollo Router and seven domain subgraphs over Supabase Postgres RLS. Features also have direct authenticated API paths where implemented. The notice and Add a Villager confirmations use separate authenticated UI/server operations; neither confirmation sits in the model's tool lane. Draft/proposal storage may happen before that consequential action. Services and database policies enforce what the caller may read or change.
+
+GHL and n8n carry calls, texts, callbacks and dispatch in the evidenced workflow. Real outbound outreach is disabled for the judges' path. The [topology](#router-topology-main--tested-rollback), [subgraph ownership](#the-seven-subgraphs-and-what-each-owns) and [security boundary](#security) are detailed below.
 
 **Find the local setup below:** [Install and run](#install-and-run) · [Ports](#ports) · [Security](#security) · [Evidence index](#evidence-index)
 
@@ -83,7 +156,7 @@ Each present-tense capability below points to merged implementation and a record
 
 | Capability | Implementation and observed boundary |
 | --- | --- |
-| Notice → Plan | [Notice endpoint](src/rosina/noticeEndpoint.ts) + [evidence 67](docs/evidence/67-rosina-notice-briefing-live.md): a verified text passage can be quoted against the recorded schedule, then shown for review before a separate parent confirmation creates a pickup request. Image/PDF text is a **transcription**, not a verified quotation. The live run used sample (a); evidence 67 records that its runtime model attribution cannot independently be proved from the deployed process revision. [Browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
+| Notice → Plan | [Notice endpoint](src/rosina/noticeEndpoint.ts) + [evidence 67](docs/evidence/67-rosina-notice-briefing-live.md): a verified text passage can be quoted against the recorded schedule, then shown for review before a separate parent confirmation creates a pickup request. Image/PDF text is a **transcription**, not a verified quotation. The sample-(a) response identified `muse-spark-1.3`; the historical pickup-backend revision behind the subsequent request remains unresolved in the [handoff trace](docs/handoff/HANDOFF.md#L4121). [Browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
 | Caregiver Briefing | [Briefing tool](src/rosina/briefingTool.ts) + [evidence 67](docs/evidence/67-rosina-notice-briefing-live.md): Loretta saw Nora's schedule without care notes; Priya's different grant exposed schedule and care notes. Neither saw parent-only check-in status. School reports are not yet a briefing source. |
 | Teacher reports in Activity | [School report resolver](src/subgraphs/school.ts) and [Activity](web/src/features/activity/Activity.tsx) + [evidence 65](docs/evidence/65-teacher-report-live.md), [66](docs/evidence/66-teacher-report-live-chat.md): Ms. Whitfield proposed through Rosina, confirmed through a separate authenticated mutation, and Kendra read the report. Activity labels it **REPORTED**, never a diagnosis or pickup confirmation. |
 | Orbit Alert | [Orbit coordination](src/subgraphs/coordination.ts) + [evidence 60](docs/evidence/60-orbit-redesign.md), [62](docs/evidence/62-orbit-redaction.md): parent-approved activation, caregiver responses, and parent closure. After **FOUND_SAFE**, recipients see only the outcome and thank-you, not the photo, place or descriptors. A response does not independently verify safety. |
@@ -105,6 +178,7 @@ The seed defines [two baseline networks](src/fixtures.ts) and [four additive Cas
 
 Deterministic policy and database enforcement decide outcomes. ElevenLabs supplies Rosina's speech. GHL and n8n carry calls and texts within the evidenced, disabled-outreach boundary.
 
+<a id="explore-the-demo"></a>
 ### Judges: verify in 2 minutes
 
 When the shared sandbox is hosted, open **Explore as…**, choose **Kendra**, and inspect the Village, Activity and Mission Control. In Rosina, use the published early-dismissal notice sample and review the proposed plan before any confirmation; the [browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md) shows this exact path. Choose **Priya** to see the narrower permissions and the missing parent confirm action. A fixture replay is labeled **fixture** or **simulation**; it is not a live model call or a delivered message. The sample notice is a fixture input, while evidence 67 documents a live model preparation. Repeated answers may come from a recorded or cached result; only a receipt that says **live** establishes a fresh model call. The public sandbox link is pending hosting.
@@ -244,7 +318,7 @@ Evidence numbers identify records, **not** a count of independent passed tests. 
 | [64](docs/evidence/64-photo-descriptor-authority.md) | Fictional content-rich fixture through Muse Spark vision; three descriptor kinds returned. |
 | [65](docs/evidence/65-teacher-report-live.md) | Authenticated teacher report confirm and parent read; chat leg initially blocked. |
 | [66](docs/evidence/66-teacher-report-live-chat.md) | Teacher proposal through Rosina chat; separate confirm and parent read. |
-| [67](docs/evidence/67-rosina-notice-briefing-live.md) | Notice → Plan and caregiver briefing, with failed first run and runtime-attribution limit retained. |
+| [67](docs/evidence/67-rosina-notice-briefing-live.md) | Notice → Plan and caregiver briefing, with the failed first run retained; response model ID observed, historical pickup-backend revision unresolved in the [trace](docs/handoff/HANDOFF.md#L4121). |
 | [68](docs/evidence/68-mcp-forward-headers.md) | MCP authorization-header forwarding repair. |
 | [69](docs/evidence/69-pricing-sweeper-over-policy.md) | Sweeper writes over-cap synthetic estimate; no booking. |
 | [70](docs/evidence/70-grandma-accepts-in-app.md) | Loretta's in-app willingness and parent-approval wait; caregiver sees no cost fields. |
