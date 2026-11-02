@@ -27,6 +27,8 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
+import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
+import { resolveClientIp } from './client-ip';
 import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
 import { decideRoute, type PlaceLookup } from '../village/routeRequest';
 import { dbDayTransport, isDay, readDayPlan } from '../village/dayPlaces';
@@ -122,6 +124,15 @@ export function createDemoLoginApp() {
   // One reset at a time per person: a reset is expensive and destructive.
   const lastResetAt = new Map<string, number>();
   const RESET_COOLDOWN_MS = 30_000;
+  // Public-boundary state. NOTE: the loopback guard below is NOT public protection — behind cloudflared
+  // every request arrives from 127.0.0.1, so the socket peer proves nothing. These two are what actually
+  // bound a public caller: a per-CLIENT-IP window (a persona-keyed limit is useless against a caller who
+  // can mint personas) and a one-at-a-time lock per identity (the cooldown does not close the
+  // same-millisecond race between two overlapping resets).
+  const RESET_IP_WINDOW_MS = 60_000;
+  const RESET_IP_MAX = 5;
+  const resetIpHits = new Map<string, number[]>();
+  const resetLocks = new InFlightLocks();
   const lastFamilyAt = new Map<string, number>();
   const FAMILY_COOLDOWN_MS = 5_000;
   app.disable('x-powered-by');
@@ -465,10 +476,23 @@ export function createDemoLoginApp() {
     if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
 
     const now = Date.now();
+    const clientIp = resolveClientIp(req.socket.remoteAddress ?? '', req.header('x-forwarded-for'));
+    const ipHits = (resetIpHits.get(clientIp) ?? []).filter((t) => now - t < RESET_IP_WINDOW_MS);
+    const ipRefusal = windowRefusal(now, ipHits, RESET_IP_WINDOW_MS, RESET_IP_MAX, 'RESET_IP_RATE_LIMITED');
+    if (ipRefusal) { res.status(ipRefusal.status).json(ipRefusal.body); return; }
+
     const last = lastResetAt.get(identity.personId) ?? 0;
     const throttled = cooldownRefusal(now, last, RESET_COOLDOWN_MS, 'RESET_RATE_LIMITED');
     if (throttled) { res.status(throttled.status).json(throttled.body); return; }
+
+    // ONE lock for the shared resource. `resetDemo` rewrites people/households/grants/relationships/
+    // shared_statuses, so a per-identity lock would let two resets run concurrently over the same rows.
+    if (!resetLocks.tryAcquire(SHARED_RESET_LOCK)) {
+      res.status(RESET_IN_FLIGHT.status).json(RESET_IN_FLIGHT.body); return;
+    }
     lastResetAt.set(identity.personId, now);
+    ipHits.push(now);
+    resetIpHits.set(clientIp, ipHits);
 
     try {
       const { resetDemo } = await import('./reset');
@@ -479,6 +503,9 @@ export function createDemoLoginApp() {
     } catch (error) {
       console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
       res.status(500).json({ error: 'RESET_FAILED' });
+    } finally {
+      // Released on EVERY path, so a failed reset cannot wedge the shared lock out of future attempts.
+      resetLocks.release(SHARED_RESET_LOCK);
     }
   });
 

@@ -37,6 +37,13 @@ HEALTH_PORT="${ALT_HEALTH_PORT:-8092}"
 MCP_PORT="${ALT_MCP_PORT:-5051}"
 # The check probes the stack this script just started, so it must be told the MCP port too.
 export ALT_MCP_URL="${ALT_MCP_URL:-http://127.0.0.1:${MCP_PORT}/mcp}"
+# Rosina is part of the stack, not an afterthought. Both URLs must point at THIS stack: the MCP URL is
+# a /mcp endpoint (identity forwarding) and the GraphQL URL is the ROUTER (authorized reads). Pointing
+# ROSINA_GRAPHQL_URL at the MCP port answers every notice request with 502.
+ROSINA_PORT="${ALT_ROSINA_PORT:-4200}"
+ROSINA_MCP_URL="${ALT_ROSINA_MCP_URL:-http://127.0.0.1:${MCP_PORT}/mcp}"
+ROSINA_GRAPHQL_URL="${ALT_ROSINA_GRAPHQL_URL:-http://127.0.0.1:${ROUTER_PORT}/}"
+DEMO_LOGIN_PORT="${ALT_DEMO_LOGIN_PORT:-4108}"
 ROUTER_BIN="$HOME/.rover/bin/router-v2.18.0"
 MCP_BIN="$HOME/.rover/bin/apollo-mcp-server-v2.1.0"
 
@@ -143,16 +150,62 @@ assert_mcp_config() {
 }
 
 # ---------------------------------------------------------------------------
+# Bounded readiness instead of `sleep N`: a fixed sleep is either too short (flaky) or too long (slow),
+# and it hides a process that died on startup until the next step fails for an unrelated reason.
+wait_for_port() {
+  local port="$1" label="$2" timeout_s="${3:-45}" log="${4:-}"
+  local i=0
+  while [ "$i" -lt $((timeout_s * 4)) ]; do
+    if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then return 0; fi
+    sleep 0.25
+    i=$((i + 1))
+  done
+  printf 'alt-stack: %s did not listen on %s within %ss' "$label" "$port" "$timeout_s" >&2
+  [ -n "$log" ] && printf ' — see %s' "$log" >&2
+  printf '\n' >&2
+  return 1
+}
+
+plan() {
+  local blockers=0
+  printf 'alt-stack: PLAN (dry run — nothing will be started)\n'
+  printf '  subgraphs  %s-%s   ops/stack-alt.mjs (ALT_PORT_BASE=%s, DEMO_CLOCK=%s)\n' \
+    "$SUBGRAPH_BASE" "$((SUBGRAPH_BASE + 6))" "$SUBGRAPH_BASE" "${DEMO_CLOCK:-0}"
+  printf '  router     %s       %s --supergraph .runs/supergraph.graphql --config %s\n' \
+    "$ROUTER_PORT" "$ROUTER_BIN" "$ROUTER_CONFIG"
+  printf '  mcp        %s       %s %s (schema from .runs/supergraph.graphql)\n' "$MCP_PORT" "$MCP_BIN" "$MCP_CONFIG"
+  printf '  rosina     %s       ROSINA_MCP_URL=%s ROSINA_GRAPHQL_URL=%s\n' "$ROSINA_PORT" "$ROSINA_MCP_URL" "$ROSINA_GRAPHQL_URL"
+  printf '  demo login %s       DEMO_LOGIN_ENABLED=1 (off without it: 4001-4007 serve while /api/demo/* 502s)\n' "$DEMO_LOGIN_PORT"
+
+  for bin in "$ROUTER_BIN" "$MCP_BIN" "$ROOT/node_modules/.bin/tsx"; do
+    [ -x "$bin" ] || { printf '  BLOCKER missing binary: %s\n' "$bin"; blockers=$((blockers + 1)); }
+  done
+  for port in $(seq "$SUBGRAPH_BASE" $((SUBGRAPH_BASE + 6))) "$ROUTER_PORT" "$MCP_PORT" "$ROSINA_PORT" "$DEMO_LOGIN_PORT"; do
+    if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+      printf '  BLOCKER port %s already in use — this launcher never takes over a stack it did not start\n' "$port"
+      blockers=$((blockers + 1))
+    fi
+  done
+  [ -f "$PIDFILE" ] && { printf '  BLOCKER %s exists — a stack may already be up\n' "$PIDFILE"; blockers=$((blockers + 1)); }
+
+  printf '  does NOT run: reset, seed, migrations, tunnel, or any shared-stack action\n'
+  if [ "$blockers" -gt 0 ]; then printf 'alt-stack: PLAN BLOCKED (%s)\n' "$blockers"; return 3; fi
+  printf 'alt-stack: PLAN OK\n'
+  return 0
+}
+
 up() {
-  preflight
+  # Refusals FIRST. Whether a binary is installed says nothing about whether another stack is running,
+  # and a caller who is about to collide with a live stack should be told that, not "rover not found".
   if [ -f "$PIDFILE" ]; then
     die "$PIDFILE exists — a stack may already be up. Run --down first, or remove the file if it is stale."
   fi
-  for port in $(seq "$SUBGRAPH_BASE" $((SUBGRAPH_BASE + 6))) "$ROUTER_PORT" "$MCP_PORT"; do
+  for port in $(seq "$SUBGRAPH_BASE" $((SUBGRAPH_BASE + 6))) "$ROUTER_PORT" "$MCP_PORT" "$ROSINA_PORT" "$DEMO_LOGIN_PORT"; do
     if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
       die "port $port is already in use — refusing to start over a stack I did not start"
     fi
   done
+  preflight
 
   gen_router_config
   gen_mcp_config
@@ -164,16 +217,28 @@ up() {
     > "${TMPDIR:-/tmp}/fridgegraph-alt-subgraphs${SUFFIX}.log" 2>&1 &
   echo "subgraphs $!" >> "$PIDFILE"
 
-  sleep 10
+  wait_for_port "$((SUBGRAPH_BASE + 6))" "subgraphs" 45 "${TMPDIR:-/tmp}/fridgegraph-alt-subgraphs${SUFFIX}.log" \
+    || { down; return 1; }
   nohup "$ROUTER_BIN" --supergraph "$ROOT/.runs/supergraph.graphql" --config "$ROUTER_CONFIG" --log error \
     > "${TMPDIR:-/tmp}/fridgegraph-alt-router${SUFFIX}.log" 2>&1 &
   echo "router $!" >> "$PIDFILE"
 
-  sleep 8
+  wait_for_port "$ROUTER_PORT" "router" 30 "${TMPDIR:-/tmp}/fridgegraph-alt-router${SUFFIX}.log" \
+    || { down; return 1; }
   nohup "$MCP_BIN" "$MCP_CONFIG" > "${TMPDIR:-/tmp}/fridgegraph-alt-mcp${SUFFIX}.log" 2>&1 &
   echo "mcp $!" >> "$PIDFILE"
 
-  sleep 6
+  wait_for_port "$MCP_PORT" "mcp" 30 "${TMPDIR:-/tmp}/fridgegraph-alt-mcp${SUFFIX}.log" \
+    || { down; return 1; }
+
+  ROSINA_PORT="$ROSINA_PORT" ROSINA_MCP_URL="$ROSINA_MCP_URL" ROSINA_GRAPHQL_URL="$ROSINA_GRAPHQL_URL" \
+    nohup "$ROOT/node_modules/.bin/tsx" "$ROOT/src/rosina/server.ts" \
+    > "${TMPDIR:-/tmp}/fridgegraph-alt-rosina${SUFFIX}.log" 2>&1 &
+  echo "rosina $!" >> "$PIDFILE"
+
+  wait_for_port "$ROSINA_PORT" "rosina" 30 "${TMPDIR:-/tmp}/fridgegraph-alt-rosina${SUFFIX}.log" \
+    || { down; return 1; }
+
   printf 'alt-stack: up (pids in %s)\n' "$PIDFILE"
   check
 }
@@ -229,6 +294,7 @@ check() {
 
 case "${1:-}" in
   --up) up ;;
+  --dry-run) plan ;;
   --check) check ;;
   --down) down ;;
   --gen)
@@ -237,5 +303,5 @@ case "${1:-}" in
     assert_mcp_config
     printf 'alt-stack: configs generated and validated (no process started)\n'
     ;;
-  *) printf 'usage: %s --up | --check | --down | --gen\n' "$0" >&2; exit 2 ;;
+  *) printf 'usage: %s --up | --dry-run | --check | --down | --gen\n' "$0" >&2; exit 2 ;;
 esac
