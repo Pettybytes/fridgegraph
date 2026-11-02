@@ -13,7 +13,7 @@ import {
   requireCaller,
   type Ctx,
 } from '../authz';
-import { ageOn } from '../derive';
+import { ageOn, detroitDay } from '../derive';
 import { dbFor, one, rows } from '../db';
 
 /**
@@ -77,7 +77,7 @@ const typeDefs = parse(`
 
   \"\"\"An adult the caller may see in this child's world.\"\"\"
   type VillagePerson {
-    person: Person!
+    person: VillagePersonRef!
     \"\"\"The RECORDED relationship label, when one exists. Never used to grant authority.\"\"\"
     relationship: String
     \"\"\"Null without address access. Never derived from a schedule or a role.\"\"\"
@@ -85,6 +85,12 @@ const typeDefs = parse(`
     areaLabel: String
     scheduledEventId: ID
     scheduledPlaceId: ID
+  }
+
+  """Only what a world may reveal about a person: no contacts, no grants, no capabilities."""
+  type VillagePersonRef {
+    id: ID!
+    displayName: String!
   }
 
   type VillagePlace {
@@ -305,45 +311,27 @@ const resolvers = {
         });
       }
 
-      // Places: every candidate is re-authorized by the database through place_route_geometry_for,
-      // which decides visibility and coordinate release for THIS child and THIS caller. A refusal is
-      // skipped rather than widened: the map simply has no pin for it.
-      const placeIds = new Set<string>();
-      const childPlaces = await rows(
-        dbFor(ctx).from('locations').select('id').eq('owner_type', 'CHILD').eq('owner_id', childId),
+      // Places: ONE read, gated in the database (0075). Labels for anyone with `schedule.read` on
+      // this child; coordinates only with address access, and null together otherwise. The source is
+      // the curated `recorded_places` catalog (school / practice / park) — never `locations`, whose
+      // rows are private home coordinates that feed ride pricing. A home may only appear later as
+      // `VillagePerson.homePlaceId`, gated by address access, once a gated home place exists.
+      const placeRows = await rows(
+        dbFor(ctx).rpc('village_places_for_child', { p_child: childId }),
       );
-      for (const l of childPlaces) placeIds.add(String(l.id));
-      if (peopleIds.size > 0) {
-        const personPlaces = await rows(
-          dbFor(ctx).from('locations').select('id').eq('owner_type', 'PERSON').in('owner_id', [...peopleIds]),
-        );
-        for (const l of personPlaces) placeIds.add(String(l.id));
-      }
-
-      const places: Array<Record<string, unknown>> = [];
-      for (const placeId of placeIds) {
-        const { data, error } = await dbFor(ctx).rpc('place_route_geometry_for', {
-          p_child: childId,
-          p_place: placeId,
-        });
-        if (error) continue;
-        const row = (Array.isArray(data) ? data[0] : data) as
-          | { id?: string; label?: string | null; state?: string; latitude?: number | null; longitude?: number | null }
-          | null;
-        if (!row?.id) continue;
-        const state = String(row.state ?? 'absent');
-        places.push({
-          id: String(row.id),
-          label: row.label == null ? null : String(row.label),
-          // The place catalog carries no kind column yet; the field exists so the adapter does not
-          // need a wire break when it does. It is NOT a guess about what the place is.
-          kind: 'PLACE',
-          lat: row.latitude == null ? null : Number(row.latitude),
-          lng: row.longitude == null ? null : Number(row.longitude),
+      // FAIL CLOSED: an empty array is a statement about the family, a database error is not.
+      const places = placeRows.map((r) => {
+        const state = String(r.state ?? 'absent');
+        return {
+          id: String(r.id),
+          label: r.label == null ? null : String(r.label),
+          kind: String(r.kind ?? 'PLACE'),
+          lat: r.latitude == null ? null : Number(r.latitude),
+          lng: r.longitude == null ? null : Number(r.longitude),
           coordinateState:
             state === 'granted' ? 'SET' : state === 'withheld' ? 'WITHHELD' : 'NOT_RECORDED',
-        });
-      }
+        };
+      });
 
       // The selected day's events. `placeState` distinguishes "no place recorded" from "place
       // withheld", so the UI never has to guess which one it is looking at.
@@ -355,7 +343,7 @@ const resolvers = {
       );
       const visiblePlaceIds = new Set(places.map((p) => String(p.id)));
       const events = eventRows
-        .filter((e) => String(e.start_at).slice(0, 10) === day)
+        .filter((e) => detroitDay(String(e.start_at)) === day)
         .map((e) => {
           const placeId = e.place_id == null ? null : String(e.place_id);
           const linked = placeId !== null && visiblePlaceIds.has(placeId);

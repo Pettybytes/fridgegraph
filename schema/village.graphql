@@ -45,12 +45,18 @@ type VillageWorld {
 }
 
 type VillagePerson {
-  person: Person!
+  person: VillagePersonRef!
   relationship: String
   homePlaceId: ID
   areaLabel: String
   scheduledEventId: ID
   scheduledPlaceId: ID
+}
+
+"""Only what a world may reveal about a person: no contacts, no grants, no capabilities."""
+type VillagePersonRef {
+  id: ID!
+  displayName: String!
 }
 
 type VillagePlace {
