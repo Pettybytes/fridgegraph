@@ -1,0 +1,66 @@
+<!doctype html>
+<!--
+  FICTIONAL sample notice (c) for the Notice → Plan pipeline — the FIELD-TRIP / PERMISSION-SLIP
+  case. This is REVIEW-ONLY: there is no consent-request mutation in the graph (the only consent
+  action, approveConsent, approves a PRE-EXISTING slip), so the pipeline presents the facts and
+  offers NO confirm action (contract §1.2). The trip returns before regular dismissal, so there is
+  no pickup conflict. Lincoln Elementary = g_school. No real people/addresses/logos. Rendered to
+  PNG + PDF by ops/render-notice-samples.mjs.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Lincoln Elementary — Grade 3 Field Trip Permission</title>
+<style>
+  :root { color-scheme: light; }
+  html, body { margin: 0; padding: 0; background: #f4f5f7; }
+  .page { width: 816px; min-height: 1056px; margin: 0 auto; background: #fff; box-sizing: border-box;
+          padding: 72px 84px; font-family: Georgia, 'Times New Roman', serif; color: #1b1f24; line-height: 1.5; }
+  .masthead { display: flex; align-items: center; gap: 18px; border-bottom: 3px solid #1f3a5f; padding-bottom: 18px; }
+  .crest { width: 56px; height: 56px; border-radius: 50%; background: #1f3a5f; color: #fff; display: flex;
+           align-items: center; justify-content: center; font-weight: 700; font-size: 22px; font-family: Arial, sans-serif; }
+  .school { font-family: Arial, sans-serif; }
+  .school h1 { margin: 0; font-size: 22px; color: #1f3a5f; letter-spacing: 0.3px; }
+  .school p { margin: 2px 0 0; font-size: 12px; color: #55606e; }
+  .doc-title { margin: 34px 0 6px; font-family: Arial, sans-serif; font-size: 20px; color: #2e6b3e; text-transform: uppercase; letter-spacing: 1px; }
+  .meta { font-family: Arial, sans-serif; font-size: 13px; color: #55606e; margin-bottom: 26px; }
+  p { font-size: 16px; }
+  .slip { border: 1px dashed #9aa4b1; border-radius: 6px; padding: 18px 20px; margin-top: 28px; font-family: Arial, sans-serif; font-size: 14px; }
+  .slip h2 { margin: 0 0 10px; font-size: 15px; color: #1f3a5f; }
+  .line { display: inline-block; border-bottom: 1px solid #1b1f24; min-width: 220px; height: 1em; }
+  .fine { margin-top: 40px; font-size: 12px; color: #7a8491; font-family: Arial, sans-serif; border-top: 1px solid #e3e6ea; padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="masthead">
+    <div class="crest">LE</div>
+    <div class="school">
+      <h1>Lincoln Elementary School</h1>
+      <p>Maplewood Village · Office of the Principal</p>
+    </div>
+  </div>
+
+  <div class="doc-title">Grade 3 Field Trip — Permission</div>
+  <div class="meta">To: Families of Grade 3 students &nbsp;·&nbsp; Posted: Monday, November 2, 2026</div>
+
+  <p>Dear Families,</p>
+
+  <p>Grade 3 will visit the Maplewood Nature Center on Friday, November 13, 2026, from 9:30 AM to
+  2:00 PM. Students will travel by bus and return to school in time for regular dismissal, so pickup
+  times are unchanged.</p>
+
+  <p>Please sign and return the permission slip below by Friday, November 6, 2026. Students without a
+  signed slip will remain at school with a supervised class.</p>
+
+  <div class="slip">
+    <h2>Permission Slip — Grade 3 Nature Center Visit</h2>
+    <p>I give permission for my child <span class="line"></span> to attend the Grade 3 field trip
+    to the Maplewood Nature Center on November 13, 2026.</p>
+    <p>Parent/Guardian signature: <span class="line"></span> &nbsp; Date: <span class="line" style="min-width:120px"></span></p>
+  </div>
+
+  <div class="fine">This is a fictional notice created for the FridgeGraph demo. Any names are invented.</div>
+</div>
+</body>
+</html>

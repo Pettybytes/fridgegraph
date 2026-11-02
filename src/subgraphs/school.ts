@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { parse } from 'graphql';
+import { GraphQLError } from 'graphql';
 import {
   SCOPE,
   authorizeChild,
   deny,
+  hasScope,
   householdIdsOfChild,
   isParentOf,
   refuseDemoGuideWrite,
@@ -24,6 +26,22 @@ const typeDefs = parse(`
 
   type Mutation {
     approveConsent(slipId: ID!): SlipDecision!
+    reportSchoolDay(childId: ID!, kind: String!, text: String!): SchoolReport!
+
+    """
+    Stages a reviewable school-day report — the Rosina tool this is wired to may call this on the
+    signed-in teacher's behalf, but it never files anything by itself. A fresh call for the same
+    child replaces any prior unconfirmed draft and bumps \`version\`.
+    """
+    proposeSchoolDayReport(childId: ID!, kind: String!, text: String!): SchoolReportProposal!
+
+    """
+    Files the EXACT reviewed proposal as a real SchoolReport — this is the signed-in teacher's own
+    deliberate confirm. Never reachable from Rosina's tool transport (no MCP operation exists for
+    it): a model tool call or generated text can never confirm itself. Idempotent: confirming the
+    same proposal twice (sequentially or concurrently) returns the SAME report both times.
+    """
+    confirmSchoolDayReport(proposalId: ID!, version: Int!): SchoolReport!
   }
 
   type Person @key(fields: "id") {
@@ -40,6 +58,21 @@ const typeDefs = parse(`
     kind: String!
     text: String!
     at: String!
+    """When this report was actually filed (server clock, never client-supplied). Null for every
+    historical/fixture row and any row filed before this field existed — null means time not
+    recorded, never filed at some unknown instant."""
+    reportedAt: String
+  }
+
+  """A staged, reviewable school-day report. Writing nothing to SchoolReport until confirmed."""
+  type SchoolReportProposal {
+    id: ID!
+    version: Int!
+    child: Child!
+    kind: String!
+    text: String!
+    createdAt: String!
+    expiresAt: String!
   }
 
   type PermissionSlip {
@@ -62,6 +95,74 @@ const typeDefs = parse(`
 type SlipRow = { id: string; child_id: string; title: string; signed: boolean };
 
 type DecisionRow = { approver_id: string; decision: string; at: string };
+
+type ReportRow = {
+  id: string;
+  child_id: string;
+  kind: string;
+  text: string;
+  at: string;
+  reported_at?: string | null;
+};
+
+type ProposalRow = {
+  id: string;
+  child_id: string;
+  kind: string;
+  text: string;
+  version: number;
+  created_at: string;
+  expires_at: string;
+};
+
+function toReport(r: ReportRow) {
+  return {
+    id: String(r.id),
+    child: { id: String(r.child_id) },
+    kind: String(r.kind),
+    text: String(r.text),
+    at: String(r.at).slice(0, 10),
+    reportedAt: r.reported_at == null ? null : String(r.reported_at),
+  };
+}
+
+function toProposal(r: ProposalRow) {
+  return {
+    id: String(r.id),
+    version: Number(r.version),
+    child: { id: String(r.child_id) },
+    kind: String(r.kind),
+    text: String(r.text),
+    createdAt: String(r.created_at),
+    expiresAt: String(r.expires_at),
+  };
+}
+
+/**
+ * Maps a `propose_school_report`/`confirm_school_report` RPC failure's raw Postgres message to a
+ * clean GraphQLError — same shape as coordination.ts's `rpcError`. The RPC's own RAISE EXCEPTION
+ * literal (e.g. "PROPOSAL_EXPIRED") is the code; anything unrecognized stays opaque.
+ */
+function schoolReportProposalError(e: unknown): never {
+  const message = e instanceof Error ? e.message : String(e);
+  const known = [
+    'UNAUTHENTICATED', 'UNAUTHORIZED', 'DEMO_GUIDE_READ_ONLY', 'SCHOOL_REPORT_KIND_REQUIRED',
+    'SCHOOL_REPORT_TEXT_REQUIRED', 'PROPOSAL_NOT_FOUND', 'PROPOSAL_EXPIRED', 'PROPOSAL_STALE',
+  ];
+  const code = known.find((k) => message.includes(k)) ?? 'RPC_FAILED';
+  throw new GraphQLError(code, { extensions: { code } });
+}
+
+/**
+ * Who may FILE a school-day report: a `school.report` grant holder, same shape as every other
+ * scope check. Deliberately NOT `authorizeChild` / `isParentOf` — filing a report is staff writing
+ * TO a parent, never a parent writing about their own child, so a parent with no such grant is
+ * refused here exactly like anyone else. Reading the filed report stays on `school.read`
+ * (`authorizeChild`, unchanged) and that already includes every parent.
+ */
+async function mayReportSchoolDay(ctx: Ctx, childId: string, onDate: string): Promise<boolean> {
+  return hasScope(ctx, childId, SCOPE.schoolReport, onDate);
+}
 
 function toDecision(slipId: string, childId: string, d: DecisionRow) {
   return {
@@ -128,16 +229,10 @@ const resolvers = {
       const data = await rows(
         dbFor(ctx)
           .from('school_reports')
-          .select('id,child_id,kind,text,at')
+          .select('id,child_id,kind,text,at,reported_at')
           .eq('child_id', childId),
       );
-      return data.map((r) => ({
-        id: String(r.id),
-        child: { id: String(r.child_id) },
-        kind: String(r.kind),
-        text: String(r.text),
-        at: String(r.at).slice(0, 10),
-      }));
+      return data.map((r) => toReport(r as ReportRow));
     },
     permissionSlips: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       await authorizeChild(ctx, childId, SCOPE.school);
@@ -200,9 +295,74 @@ const resolvers = {
       if (!decided) throw deny();
       return toDecision(String(slip.id), childId, decided);
     },
+
+    reportSchoolDay: async (
+      _: unknown,
+      { childId, kind, text }: { childId: string; kind: string; text: string },
+      ctx: Ctx,
+    ) => {
+      // The guide observes and never decides (same rule as approveConsent); refused again in the
+      // database (0070's school_reports_insert policy checks school.report, which the guide never
+      // holds).
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+
+      if (!(await mayReportSchoolDay(ctx, childId, ctx.today))) throw deny();
+
+      const id = `sr_${randomUUID()}`;
+      const inserted = (await one(
+        dbFor(ctx)
+          .from('school_reports')
+          .insert({ id, child_id: childId, kind, text, at: ctx.today })
+          .select('id,child_id,kind,text,at,reported_at')
+          .maybeSingle(),
+      )) as ReportRow | null;
+      if (!inserted) throw deny();
+      return toReport(inserted);
+    },
+
+    proposeSchoolDayReport: async (
+      _: unknown,
+      { childId, kind, text }: { childId: string; kind: string; text: string },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('propose_school_report', {
+        p_child: childId,
+        p_kind: kind,
+        p_text: text,
+      });
+      if (error) schoolReportProposalError(error);
+      const row = (Array.isArray(data) ? data[0] : data) as ProposalRow;
+      return toProposal(row);
+    },
+
+    confirmSchoolDayReport: async (
+      _: unknown,
+      { proposalId, version }: { proposalId: string; version: number },
+      ctx: Ctx,
+    ) => {
+      // The guide observes and never decides, same as every other write in this file. Rosina's
+      // own tool transport can never reach this resolver at all (no MCP operation file exists for
+      // it) — this guard is defense in depth, not the primary gate.
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('confirm_school_report', {
+        p_proposal: proposalId,
+        p_version: version,
+      });
+      if (error) schoolReportProposalError(error);
+      const row = (Array.isArray(data) ? data[0] : data) as ReportRow;
+      return toReport(row);
+    },
   },
 
   SchoolReport: {
+    child: (r: { child: { id: string }; childId?: string }) => r.child ?? { id: r.childId },
+  },
+
+  SchoolReportProposal: {
     child: (r: { child: { id: string }; childId?: string }) => r.child ?? { id: r.childId },
   },
 
