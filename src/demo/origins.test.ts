@@ -102,9 +102,19 @@ async function withServer(
 ): Promise<void> {
   const app = express();
   app.use(createOriginGate(allowed));
-  // Stub downstream: represents the real routes' authentication requirement.
+  // Demo login is intentionally NOT an authenticated route: it mints an allow-listed demo session
+  // with no existing bearer. A 401 here would be meaningless, so this stub succeeds.
   app.post('/api/demo/login', (_req, res) => {
-    res.status(401).json({ error: 'UNAUTHENTICATED' });
+    res.status(200).json({ ok: true });
+  });
+  // Separate protected mock route: exists only to prove the origin gate is not an authorization
+  // substitute. It says nothing about real demo-login authentication.
+  app.post('/api/protected', (req, res) => {
+    if (typeof req.headers.authorization !== 'string') {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+    res.json({ ok: true });
   });
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', () => resolve()));
@@ -118,15 +128,16 @@ async function withServer(
 
 const allowed = parseAllowedAppOrigins(APP);
 
-test('configured https origin reaches the downstream route (and is still unauthenticated)', async () => {
+test('configured https origin reaches the demo login route', async () => {
   await withServer(allowed, async (base) => {
     const res = await fetch(`${base}/api/demo/login`, {
       method: 'POST',
       headers: { origin: APP, 'content-type': 'application/json' },
       body: '{"personaId":"kendra"}',
     });
-    assert.equal(res.status, 401);
-    assert.deepEqual(await res.json(), { error: 'UNAUTHENTICATED' });
+    // Demo login is unauthenticated by design; success here means the gate admitted the origin.
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { ok: true });
     assert.equal(res.headers.get('access-control-allow-origin'), APP);
     assert.equal(res.headers.get('vary'), 'Origin');
   });
@@ -147,16 +158,25 @@ test('unlisted, lookalike and opaque origins are refused with 403', async () => 
   });
 });
 
-test('a missing Origin does NOT bypass authentication', async () => {
+test('a missing Origin does NOT bypass authentication on a protected route', async () => {
   await withServer(allowed, async (base) => {
-    const res = await fetch(`${base}/api/demo/login`, {
+    const res = await fetch(`${base}/api/protected`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: '{"personaId":"kendra"}',
+      body: '{}',
     });
-    // Passes the origin gate, then is refused by the route: the gate is not an auth substitute.
+    // Passes the origin gate (no header), then is refused by the PROTECTED route's own auth check.
     assert.equal(res.status, 401);
     assert.deepEqual(await res.json(), { error: 'UNAUTHENTICATED' });
+
+    // And the same route succeeds with a bearer, which proves the 401 was the auth check and not
+    // the gate refusing silently.
+    const withAuth = await fetch(`${base}/api/protected`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer dummy-not-a-secret' },
+      body: '{}',
+    });
+    assert.equal(withAuth.status, 200);
   });
 });
 
@@ -167,7 +187,7 @@ test('localhost still works through the middleware', async () => {
       headers: { origin: 'http://localhost:5173', 'content-type': 'application/json' },
       body: '{}',
     });
-    assert.equal(res.status, 401); // reaches the route, i.e. not an origin refusal
+    assert.equal(res.status, 200); // reaches the route, i.e. not an origin refusal
   });
 });
 
