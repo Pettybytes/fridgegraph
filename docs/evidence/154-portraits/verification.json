@@ -1,0 +1,259 @@
+{
+  "portrait_count": 37,
+  "unique_person_ids": 37,
+  "matches_fixtures": true,
+  "fixture_id_count": 37,
+  "demo_guide_portrait": false,
+  "all_portrait_hashes_match": true,
+  "all_pack_hashes_match": true,
+  "hash_rows": [
+    {
+      "personId": "p_mom",
+      "ok": true,
+      "sha256": "b03ea4520b824544d98e02120a91eaa417c39a5577188282dfba00a6fbaba0a9"
+    },
+    {
+      "personId": "p_dad",
+      "ok": true,
+      "sha256": "47b22eb8e2fc227f36e2a9a8ab7c1cb520b9f4f1fe039269e5d8ab7af0b3841b"
+    },
+    {
+      "personId": "p_gma",
+      "ok": true,
+      "sha256": "6b7274b9c90f345c45b00c794eddb3258e4c9ce881d92e8d65bcbe39d2ceb12a"
+    },
+    {
+      "personId": "p_walter",
+      "ok": true,
+      "sha256": "047d0169f0efca61b70050aeaa0c5728057e0cc5383989900dc3e45fd687573e"
+    },
+    {
+      "personId": "p_gloria",
+      "ok": true,
+      "sha256": "108cade120e017330455f57c60d17f172359f9fea491674d532959ae47930824"
+    },
+    {
+      "personId": "p_tasha",
+      "ok": true,
+      "sha256": "1acf4076ea9d21a6b12d02372ed8981fba952025a235f47cdca59a861711351a"
+    },
+    {
+      "personId": "p_bryan",
+      "ok": true,
+      "sha256": "d1aad352dcaa46c0fb91d68a79bd3118a55d9f98115e75ef8ab255b8bc4f889a"
+    },
+    {
+      "personId": "p_nora",
+      "ok": true,
+      "sha256": "8493a493edb73dceecd90ed68272790488fc561c153319eb7b071a300a067703"
+    },
+    {
+      "personId": "p_max",
+      "ok": true,
+      "sha256": "1e1c21868a5b7a1a532b002c8c65e6b8958a888bf58676349c368711192e175b"
+    },
+    {
+      "personId": "p_leo",
+      "ok": true,
+      "sha256": "d6c036e069612117087534a5ab1204b68a13da159c6370b3bbb0a048a89b9e96"
+    },
+    {
+      "personId": "p_dana",
+      "ok": true,
+      "sha256": "d9aa2bcfe276c59cab262b072e757ee2dea2bedc60664ed7304496ec1c312f05"
+    },
+    {
+      "personId": "p_ray",
+      "ok": true,
+      "sha256": "ca9e48a549b61fb8523bb8837780307036441071f06a75e88c42e7fb08a8a5a8"
+    },
+    {
+      "personId": "p_jax",
+      "ok": true,
+      "sha256": "3d64e0f7043e3fd5a0605f509a334cc037d0145ac191f01962637f6b12443a32"
+    },
+    {
+      "personId": "p_dwayne",
+      "ok": true,
+      "sha256": "6902ffbd3ac1d921ebaaa7f24166e39959555aba57ed9db94d60624d6a9b25db"
+    },
+    {
+      "personId": "p_cassandra",
+      "ok": true,
+      "sha256": "cf132d52be3976251e79b3151de8daf58490ed435bca0d7ccfdf7fa78a99b617"
+    },
+    {
+      "personId": "p_malik",
+      "ok": true,
+      "sha256": "59967f0c456a3fd43bb8caf5d963d101d71b40eb23a2736f7d550aedecf3920d"
+    },
+    {
+      "personId": "p_simone",
+      "ok": true,
+      "sha256": "2f3f04f6e475072c5ab2d0a34a203788df7e5f4f885fe43014cf1bd7b7d5b312"
+    },
+    {
+      "personId": "p_denise",
+      "ok": true,
+      "sha256": "3150a7891533dc5e98f2348b47660fd042b08978626487d1eb8d3969b6035b87"
+    },
+    {
+      "personId": "p_micah",
+      "ok": true,
+      "sha256": "76439bd2f8d15957858c43812df1c3532dec07579049a8d8a6a5152523d69091"
+    },
+    {
+      "personId": "p_avery",
+      "ok": true,
+      "sha256": "47930b8aa6d1fb4f49d12e5bcb570cffa375644588857aa349973a6b2137c70f"
+    },
+    {
+      "personId": "p_rosa",
+      "ok": true,
+      "sha256": "d4d606ba15735c7c90382d3ab4d6847e19d4b4a8723c1385b01f94f6215c9147"
+    },
+    {
+      "personId": "p_tomas",
+      "ok": true,
+      "sha256": "ba35f85760fb1042623cb4b641ba4937f76bb654452bb3ff0c2a9cab7962ea6f"
+    },
+    {
+      "personId": "p_emma",
+      "ok": true,
+      "sha256": "485e72f60dcd2146f5ac12a85a81caf69b327daeeb3eef17d5efa47c50acdb58"
+    },
+    {
+      "personId": "p_felicia",
+      "ok": true,
+      "sha256": "e5e42482e2c4ecab0846db43a9b8cb0682385e1362e3be7a46a8740f8865a524"
+    },
+    {
+      "personId": "p_taylor",
+      "ok": true,
+      "sha256": "20fc4d1c5cfde88af4318e950c69f7e536ccd4a1a254504e5b1cb2ab59f3aeb6"
+    },
+    {
+      "personId": "p_skye",
+      "ok": true,
+      "sha256": "e9066aac2afd83bf0e5cfd26ba5e69c0be7885f5684a94b3d6e2bd10f9a712f9"
+    },
+    {
+      "personId": "p_marcus",
+      "ok": true,
+      "sha256": "1a61f5c6b1f55e2a2053a245b01c58aad903a3747dc1185870c1f3da0e50ad57"
+    },
+    {
+      "personId": "p_oscar",
+      "ok": true,
+      "sha256": "9944e1d00f7ff34c4d17be45ad877c2bd15cce310d3b1f25dfa62c95811cf7d1"
+    },
+    {
+      "personId": "p_priya",
+      "ok": true,
+      "sha256": "82eed769186c5ae2b0a2141f411b1618e4c936622266a10a039908de5bd2715f"
+    },
+    {
+      "personId": "p_okafor",
+      "ok": true,
+      "sha256": "12bd1e5806ba25944f04432652399b05522d1788431fb1cb589f0c1ff6511f60"
+    },
+    {
+      "personId": "p_price",
+      "ok": true,
+      "sha256": "67420a0d41ec95a14cbbc9d3b4d479678b22a725c758a0051c776fa994da5142"
+    },
+    {
+      "personId": "p_monique",
+      "ok": true,
+      "sha256": "62d840f607100052834fcc3932ef6b53922a297024aeada7bc26071015507d12"
+    },
+    {
+      "personId": "p_evelyn",
+      "ok": true,
+      "sha256": "2d02bf8b4b8d7259d5c67a972bd08f9c646fa2cd4666c035bdbed772f2216be3"
+    },
+    {
+      "personId": "p_whitfield",
+      "ok": true,
+      "sha256": "adf348d9d71bad30c56e45a8173d853f252afa5ccd349043c9f1fe017c89a00f"
+    },
+    {
+      "personId": "p_jennings",
+      "ok": true,
+      "sha256": "2c542b41cc4879c6d4c15ab5b7dbde7a5f5705204c3fbb79f4268b965d032a44"
+    },
+    {
+      "personId": "p_holt",
+      "ok": true,
+      "sha256": "0e80ae5a50ebb263365c8db10560c3ed3be4147768a716e7ab18d8bf1a895a27"
+    },
+    {
+      "personId": "p_chris",
+      "ok": true,
+      "sha256": "a34b2ab585bcdb31097678d1d12203657e66cfa737888dee2aa5fed7067f0002"
+    },
+    {
+      "personId": "pack_dog",
+      "ok": true,
+      "sha256": "a167e7bdc579b5bbb6a1215c0693a2a14c4c6e91d507db02bcfad160f4090bfd"
+    },
+    {
+      "personId": "pack_walter_navy",
+      "ok": true,
+      "sha256": "d9d2d0fba05ac7a0936ea187f4686647efa9e2cb6edd51427b66385845cd01e6"
+    },
+    {
+      "personId": "pack_loretta_card",
+      "ok": true,
+      "sha256": "d7c392562d2f8483acee223a3653641024501220dab34cdcfabfeba72249088f"
+    },
+    {
+      "personId": "pack_crayon_family",
+      "ok": true,
+      "sha256": "7b8c56624bf73cf539348004f76085e6a5eff982d37cefab68bf0e491484ee06"
+    },
+    {
+      "personId": "pack_candid_kitchen",
+      "ok": true,
+      "sha256": "3e2096d241666ff97aa46bdc7b216df21b2a6dde60ddd84989730b41c4501cdd"
+    },
+    {
+      "personId": "pack_candid_porch",
+      "ok": true,
+      "sha256": "7fe3a80fb4ef66e90b1dcd3ba1e1bbb456d75fb1b1e3b3ca378f2c4232531430"
+    },
+    {
+      "personId": "pack_candid_soccer",
+      "ok": true,
+      "sha256": "70cad7e68583678ed37d41afdbbe8fcfa4ab914508806924c6aa2c9e4c6cb22e"
+    },
+    {
+      "personId": "pack_permission_slip",
+      "ok": true,
+      "sha256": "7d4093953f43abd0bf77b889a8c42e73cdddc5a5abfbf4dc6f54994697323ae4"
+    },
+    {
+      "personId": "pack_sitter_schedule",
+      "ok": true,
+      "sha256": "92de6e73e96fe187447ae38fc7d90c94b589090f8a9ef2e765637f56a5168936"
+    },
+    {
+      "personId": "pack_holiday",
+      "ok": true,
+      "sha256": "f2ac3212fb47f038c9292d43e8158a2578a9fa7b91f752e3d78f36b06f6fdb5b"
+    },
+    {
+      "personId": "pack_birthday",
+      "ok": true,
+      "sha256": "684410942d53df9bfa75533790598884ec4849e6dff5542ac274508b2760aff7"
+    },
+    {
+      "personId": "pack_keepsake",
+      "ok": true,
+      "sha256": "338cde47f9674915aa4a1b73f4e15376d8c3b9d1318b6212e47f148d2d9c7a7b"
+    }
+  ],
+  "provenance_forbidden_strings_found": [],
+  "staged_paths_resolve": true,
+  "cost_label": "CALCULATED from documented $0.01/image pricing \u2014 not billing independently verified"
+}

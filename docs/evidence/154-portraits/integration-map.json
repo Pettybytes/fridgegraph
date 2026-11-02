@@ -1,0 +1,298 @@
+[
+  {
+    "personId": "p_mom",
+    "displayName": "Kendra Ellison",
+    "sourceFile": "portraits-1024/p_mom.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_mom",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_dad",
+    "displayName": "Andre Ellison",
+    "sourceFile": "portraits-1024/p_dad.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_dad",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_gma",
+    "displayName": "Loretta Brooks",
+    "sourceFile": "portraits-1024/p_gma.png",
+    "intendedRepoPath": "web/src/assets/portraits/Brooks.png",
+    "manifestKey": "p_gma",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_walter",
+    "displayName": "Walter Ellison",
+    "sourceFile": "portraits-1024/p_walter.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_walter",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_gloria",
+    "displayName": "Gloria Ellison",
+    "sourceFile": "portraits-1024/p_gloria.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_gloria",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_tasha",
+    "displayName": "Tasha Ellison",
+    "sourceFile": "portraits-1024/p_tasha.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_tasha",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_bryan",
+    "displayName": "Bryan Brooks",
+    "sourceFile": "portraits-1024/p_bryan.png",
+    "intendedRepoPath": "web/src/assets/portraits/Brooks.png",
+    "manifestKey": "p_bryan",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_nora",
+    "displayName": "Nora Ellison",
+    "sourceFile": "portraits-1024/p_nora.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_nora",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_max",
+    "displayName": "Max Ellison",
+    "sourceFile": "portraits-1024/p_max.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_max",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_leo",
+    "displayName": "Leo Ellison",
+    "sourceFile": "portraits-1024/p_leo.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ellison.png",
+    "manifestKey": "p_leo",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_dana",
+    "displayName": "Dana Coleman",
+    "sourceFile": "portraits-1024/p_dana.png",
+    "intendedRepoPath": "web/src/assets/portraits/Coleman.png",
+    "manifestKey": "p_dana",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_ray",
+    "displayName": "Ray Coleman",
+    "sourceFile": "portraits-1024/p_ray.png",
+    "intendedRepoPath": "web/src/assets/portraits/Coleman.png",
+    "manifestKey": "p_ray",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_jax",
+    "displayName": "Jax Coleman",
+    "sourceFile": "portraits-1024/p_jax.png",
+    "intendedRepoPath": "web/src/assets/portraits/Coleman.png",
+    "manifestKey": "p_jax",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_dwayne",
+    "displayName": "Dwayne Ferris",
+    "sourceFile": "portraits-1024/p_dwayne.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ferris.png",
+    "manifestKey": "p_dwayne",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_cassandra",
+    "displayName": "Cassandra Ferris",
+    "sourceFile": "portraits-1024/p_cassandra.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ferris.png",
+    "manifestKey": "p_cassandra",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_malik",
+    "displayName": "Malik Ferris",
+    "sourceFile": "portraits-1024/p_malik.png",
+    "intendedRepoPath": "web/src/assets/portraits/Ferris.png",
+    "manifestKey": "p_malik",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_simone",
+    "displayName": "Simone Lee",
+    "sourceFile": "portraits-1024/p_simone.png",
+    "intendedRepoPath": "web/src/assets/portraits/Lee.png",
+    "manifestKey": "p_simone",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_denise",
+    "displayName": "Denise Lee",
+    "sourceFile": "portraits-1024/p_denise.png",
+    "intendedRepoPath": "web/src/assets/portraits/Lee.png",
+    "manifestKey": "p_denise",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_micah",
+    "displayName": "Micah Lee",
+    "sourceFile": "portraits-1024/p_micah.png",
+    "intendedRepoPath": "web/src/assets/portraits/Lee.png",
+    "manifestKey": "p_micah",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_avery",
+    "displayName": "Avery Lee",
+    "sourceFile": "portraits-1024/p_avery.png",
+    "intendedRepoPath": "web/src/assets/portraits/Lee.png",
+    "manifestKey": "p_avery",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_rosa",
+    "displayName": "Rosa Castellano",
+    "sourceFile": "portraits-1024/p_rosa.png",
+    "intendedRepoPath": "web/src/assets/portraits/Castellano.png",
+    "manifestKey": "p_rosa",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_tomas",
+    "displayName": "Tom\u00e1s Castellano",
+    "sourceFile": "portraits-1024/p_tomas.png",
+    "intendedRepoPath": "web/src/assets/portraits/Castellano.png",
+    "manifestKey": "p_tomas",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_emma",
+    "displayName": "Emma Castellano",
+    "sourceFile": "portraits-1024/p_emma.png",
+    "intendedRepoPath": "web/src/assets/portraits/Castellano.png",
+    "manifestKey": "p_emma",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_felicia",
+    "displayName": "Felicia Reyes",
+    "sourceFile": "portraits-1024/p_felicia.png",
+    "intendedRepoPath": "web/src/assets/portraits/Reyes.png",
+    "manifestKey": "p_felicia",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_taylor",
+    "displayName": "Taylor Reyes",
+    "sourceFile": "portraits-1024/p_taylor.png",
+    "intendedRepoPath": "web/src/assets/portraits/Reyes.png",
+    "manifestKey": "p_taylor",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_skye",
+    "displayName": "Skye Reyes",
+    "sourceFile": "portraits-1024/p_skye.png",
+    "intendedRepoPath": "web/src/assets/portraits/Reyes.png",
+    "manifestKey": "p_skye",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_marcus",
+    "displayName": "Marcus Reyes",
+    "sourceFile": "portraits-1024/p_marcus.png",
+    "intendedRepoPath": "web/src/assets/portraits/Reyes.png",
+    "manifestKey": "p_marcus",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_oscar",
+    "displayName": "Oscar Alvarez",
+    "sourceFile": "portraits-1024/p_oscar.png",
+    "intendedRepoPath": "web/src/assets/portraits/Alvarez.png",
+    "manifestKey": "p_oscar",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_priya",
+    "displayName": "Priya Nair",
+    "sourceFile": "portraits-1024/p_priya.png",
+    "intendedRepoPath": "web/src/assets/portraits/Nair.png",
+    "manifestKey": "p_priya",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_okafor",
+    "displayName": "Daniel Okafor",
+    "sourceFile": "portraits-1024/p_okafor.png",
+    "intendedRepoPath": "web/src/assets/portraits/Okafor.png",
+    "manifestKey": "p_okafor",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_price",
+    "displayName": "Angela Price",
+    "sourceFile": "portraits-1024/p_price.png",
+    "intendedRepoPath": "web/src/assets/portraits/Price.png",
+    "manifestKey": "p_price",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_monique",
+    "displayName": "Monique Davis",
+    "sourceFile": "portraits-1024/p_monique.png",
+    "intendedRepoPath": "web/src/assets/portraits/Davis.png",
+    "manifestKey": "p_monique",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_evelyn",
+    "displayName": "Evelyn Carter",
+    "sourceFile": "portraits-1024/p_evelyn.png",
+    "intendedRepoPath": "web/src/assets/portraits/Carter.png",
+    "manifestKey": "p_evelyn",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_whitfield",
+    "displayName": "Ms. Whitfield",
+    "sourceFile": "portraits-1024/p_whitfield.png",
+    "intendedRepoPath": "web/src/assets/portraits/Whitfield.png",
+    "manifestKey": "p_whitfield",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_jennings",
+    "displayName": "Carol Jennings",
+    "sourceFile": "portraits-1024/p_jennings.png",
+    "intendedRepoPath": "web/src/assets/portraits/Jennings.png",
+    "manifestKey": "p_jennings",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_holt",
+    "displayName": "Gary Holt",
+    "sourceFile": "portraits-1024/p_holt.png",
+    "intendedRepoPath": "web/src/assets/portraits/Holt.png",
+    "manifestKey": "p_holt",
+    "rule": "map by person ID only; never by first name"
+  },
+  {
+    "personId": "p_chris",
+    "displayName": "Chris Harlan",
+    "sourceFile": "portraits-1024/p_chris.png",
+    "intendedRepoPath": "web/src/assets/portraits/Harlan.png",
+    "manifestKey": "p_chris",
+    "rule": "map by person ID only; never by first name"
+  }
+]
