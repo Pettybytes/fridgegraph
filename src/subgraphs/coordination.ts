@@ -18,6 +18,13 @@ const typeDefs = parse(`
 
   type Query {
     coordinationJobs(childId: ID): [CoordinationJob!]!
+    """
+    The STORED paid-ride estimate for one candidate on one job, with the household cap that judges it.
+    Parent/guardian of the job's child, or the server-verified demo guide, only. Null when the stored
+    evaluation carries no price (drivers / non-paid paths). A hidden or nonexistent job is refused with
+    the same generic UNAUTHORIZED — never an empty answer that reveals existence.
+    """
+    pickupRideEstimate(jobId: ID!, candidateId: ID!): PickupRideEstimate
     attempts(jobId: ID): [Attempt!]!
     informationRequests(childId: ID): [InformationRequest!]!
     confirmations(childId: ID): [Confirmation!]!
@@ -282,6 +289,17 @@ const typeDefs = parse(`
     candidateEvaluations: [CandidateEvaluation!]!
     overLimitCandidate: Person
     confirmation: Confirmation
+  }
+
+  type PickupRideEstimate {
+    jobId: ID!
+    candidateId: ID!
+    estimatedRideCostUsd: Float
+    costBasis: String
+    distanceMiles: Float
+    costCalculatedAt: String
+    householdCapUsd: Float
+    paidRidePath: Boolean!
   }
 
   type CandidateEvaluation {
