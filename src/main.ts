@@ -36,5 +36,14 @@ await startDemoLogin();
 // caller, so a job whose window elapsed stayed `discovering` forever and no decision was ever written.
 // Crash-isolated on purpose: a pool with an error listener (an idle drop must not kill 4008), deps that
 // never throw, and a startup that only logs — the demo API must serve whether or not the database is up.
-const sweeper = await startPgDiscoverySweeper({ intervalMs: 15_000, batchLimit: 25 });
-if (sweeper.started) console.log('[fridgegraph] discovery sweeper started (interval 15s, batch 25)');
+// Guarded explicitly. startPgDiscoverySweeper is written not to reject, and this catch is the second
+// line of defence: a sweeper that cannot start must never take the seven subgraphs or the demo login
+// with it. (Removing the await would only turn a rejection into an unhandled one.)
+let sweeperStarted = false;
+try {
+  const sweeper = await startPgDiscoverySweeper({ intervalMs: 15_000, batchLimit: 25 });
+  sweeperStarted = sweeper.started;
+} catch (e) {
+  console.error('[fridgegraph] discovery sweeper failed to start —', e instanceof Error ? e.message : e);
+}
+if (sweeperStarted) console.log('[fridgegraph] discovery sweeper started (interval 15s, batch 25)');
