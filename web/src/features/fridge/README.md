@@ -1,6 +1,6 @@
 # Fridge Phase 1
 
-Base: db66009 (fetched origin/main). Only this feature, public/fridge, and evidence/fridge-experience are changed. No app route is registered. ConnectedFridge is ready for a later explicit mount inside existing session, child-access and Orbit providers. Preview.tsx is used only by evidence/fridge-experience/preview.html; the production entry does not import it.
+Base: db66009 (fetched origin/main). Only this feature, public/fridge, and evidence/fridge-experience are changed. After #151 merged, Bryan authorized the final route mount: The Fridge follows Today in navigation; #/fridge, #/fridge/notes and #/fridge/goals mount ConnectedFridge inside the existing session, child-access and Orbit providers. Preview.tsx is used only by evidence/fridge-experience/preview.html; the production entry does not import it.
 
 ## Source inventory, before notes implementation
 
@@ -18,7 +18,7 @@ Samples are supplied separately from live source slots. Four paper colors are su
 
 Door regions measured from the 2336×3504 image: left x=.19, y=.09, w=.306, h=.47; right x=.505, y=.09, w=.309, h=.47. Coordinates remain relative to the original image at every zoom. Drag works in collage focus only, with Alt+arrow keyboard alternative. Tidy up is local layout only.
 
-No live backend check was performed. Preview uses clearly labeled sample goals, empty notes, and controlled refusal/failure states. Routing and navigation await Bryan's explicit authorization after #151. School notices and proposal listing remain unsupported. Goal editing remains Phase 2.
+No live backend check was performed. Preview uses clearly labeled sample goals, empty notes, and controlled refusal/failure states. Routing and navigation are mounted; capture review and deployment remain pending. School notices and proposal listing remain unsupported. Goal editing remains Phase 2.
 
 ## Revision 2
 
