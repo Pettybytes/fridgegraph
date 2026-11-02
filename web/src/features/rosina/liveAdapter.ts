@@ -1,4 +1,5 @@
 import type {RosinaAdapter,RosinaRequest,RosinaResponse} from './adapter'
+import {parseSchoolReportProposal} from './schoolReport'
 export const LIVE_FALLBACK="I couldn't check that just now. Please try again in a moment."
 export class RosinaCancelled extends Error { constructor(){super('Rosina request cancelled');this.name='AbortError'} }
 export type RosinaProgress='sending'|'waiting'|'reading'
@@ -33,7 +34,7 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
     if(!response.ok)return {reply:LIVE_FALLBACK,actions:[]}
     const body:unknown=await response.json()
     if(!body||typeof body!=='object'||!('reply' in body)||typeof body.reply!=='string'||!('actions' in body)||!Array.isArray(body.actions))return {reply:LIVE_FALLBACK,actions:[]}
-    return {reply:body.reply,actions:body.actions}
+    return {reply:body.reply,actions:body.actions,schoolReportProposal:'schoolReportProposal'in body?parseSchoolReportProposal(body.schoolReportProposal):null}
    })()
    const result=await Promise.race([work,aborted])
    if(cancelled()||controller.signal.aborted)throw new RosinaCancelled()
