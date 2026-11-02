@@ -4083,3 +4083,33 @@ released around 00:09Z, despite an earlier row carrying a later stamp and
 01:15Z deadline. These UI probes occurred around 00:12–00:16Z before that
 correction was seen; all previews and live requests stopped when it was read.
 No more live requests until Bentley posts a fresh OPEN slot on #78.
+
+### NOTICE → PLAN AGENT PROOF SLOT — 2026-11-02, PR #90 draft
+Bentley posted a fresh slot on #78, then paused agents to correct Rosina's
+notice schedule-reader target. The pre-restart UI Review returned 502
+`NOTICE_ERROR`; that failed result is preserved. After “agents resume,” Rosina
+4200 served `7fda69d` with the router target corrected, alongside graph/demo
+`c231ba8`, routers `c806f46`, MCP `cfbbb6a`. At UI head
+`5e92da704433c1cf6956b61f777ba27db1144515`, the real Kendra picker and
+sample-(a) tray produced one signed `requestPickup` proposal. Exactly one
+explicit UI Confirm returned job `job_2f32d2a49d204d75ba39810e2fbaa66d`
+in `discovering`; Mission Control read it back without claiming pickup was
+arranged. Priya's real picker could review the notice but had no Confirm
+button. No second pickup request, reset or restart was run by this UI lane.
+Full served revisions, outcomes and screenshot names are in
+`web/evidence/notice-plan/live-2026-11-02/RECEIPT.md`.
+
+UI: complete in mock and live-capable · backend: served, sample-(a) prepare
+and confirm proven · integrated + tested: sample (a) and Priya boundary PASS;
+broader notice samples (b)/(c) and briefing remain with feat/rosina-service.
+#90 stays draft until that service evidence and final review are reconciled.
+Bentley owns the canonical reset after the slot.
+
+**AGENT PROOF SLOT addendum:** feat/rosina-service's independent live receipt
+on #78 observed the exact same sample-(a) job, not a duplicate. It also
+passed sample (b)'s clarification/resume, sample (c)'s review-only refusal
+and the distinct Loretta/Priya briefing scopes. The browser proof plus that
+service receipt cover #90's intended live integration. UI: complete ·
+backend: served · integrated + tested: PASS for the specified Notice → Plan
+flows. Keep the failed 502 receipts as historical failures; they were fixed
+by Bentley's router-target restart before the passing run.
