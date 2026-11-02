@@ -37,15 +37,25 @@ const SANDBOX_TABLES = [
   // (sandbox defaults true) — nothing is restored for it, only cleared. Unlike shared_statuses,
   // there is no canonical seeded note, so it belongs here, not in ID_TABLES.
   'fridge_notes',
+  // goals (0083, staged): ALSO sandbox-cleared, same mechanism as Cast v2's own sandboxed tables
+  // (care_facts/routines, below) — cleared here, then the canonical two restored by upsert in
+  // RESTORE_ORDER. Found live in review: `goals` was first added to ID_TABLES ONLY, which
+  // restores the two known fixture ids but leaves every OTHER goal (anything a judge creates live
+  // through createGoal) permanently un-clearable — a real demo-pollution gap. Ownership is the
+  // `sandbox` column, explicit and server-defaulted (true) on every insert; never inferred from an
+  // id prefix, and never "every goal belonging to a fixture child" — a genuinely non-demo goal
+  // (sandbox=false, set explicitly, never by this code) survives every reset untouched.
+  'goals',
 ] as const;
 
 /** Tables whose fixture rows are identified by their own primary key, not by a sandbox flag. */
 const ID_TABLES = [
   'households', 'people', 'children', 'household_members', 'household_policies', 'grants',
   'relationships', 'shared_statuses',
-  // goals (0083, staged): a pre-existing gap — goals was never in this list, so editing a goal's
-  // status/title/period/completedAt persisted across resets indefinitely. pkOf('goals') is the
-  // default (['id']), so no entry is needed there.
+  // goals (0083, staged): restores the two canonical seeded rows by their own known id, AFTER the
+  // SANDBOX_TABLES pass above has cleared every sandboxed goal (including these two) — the same
+  // two-step shape Cast v2 itself uses (clear sandboxed rows, then upsert canonical content back).
+  // pkOf('goals') is the default (['id']), so no entry is needed there.
   'goals',
 ] as const;
 
@@ -91,18 +101,20 @@ function fixtures(): Record<string, Row[]> {
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     }],
     // The two canonical seeded goals (src/fixtures.ts), byte-for-byte including the new period/
-    // completed_at columns (0083) — a demo edit (title changed, marked complete, re-proposed)
-    // reverts to exactly this shape on reset, same as every other ID_TABLES member.
+    // completed_at/sandbox columns (0083) — a demo edit (title changed, marked complete,
+    // re-proposed, deleted outright) reverts to exactly this shape on reset. `sandbox: true` is
+    // stated explicitly here, not left to the column default, so restore always reasserts it even
+    // if a live write somehow cleared it.
     goals: [
       {
         id: 'goal_reading', child_id: 'p_nora', title: 'Reading level 3 by June',
         owner_id: 'p_mom', proposed_by_id: null, horizon: 'June 2027', status: 'APPROVED',
-        period: null, completed_at: null,
+        period: null, completed_at: null, sandbox: true,
       },
       {
         id: 'goal_passing', child_id: 'p_nora', title: 'Left-foot passing this season',
         owner_id: null, proposed_by_id: 'p_marcus', horizon: '2026 season', status: 'PROPOSED',
-        period: null, completed_at: null,
+        period: null, completed_at: null, sandbox: true,
       },
     ],
   };

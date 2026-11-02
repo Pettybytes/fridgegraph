@@ -30,6 +30,7 @@ goal is for parents. This contract does not touch that policy.
 | --- | --- | --- |
 | `period` | `text`, nullable, `check (period in ('DAY','WEEK','MONTH'))` | An **optional**, explicitly-chosen cadence. Never inferred from `horizon`. |
 | `completed_at` | `timestamptz`, nullable | Set only by an explicit `completeGoal`/`uncompleteGoal` call. **Independent of `status`** — an `APPROVED` goal can be completed or not; a `PROPOSED` goal can even carry a stale `completed_at` from before it was re-proposed (the UI's job to render sensibly, not this layer's to prevent — re-proposing is out of scope here since there is no re-propose flow yet). |
+| `sandbox` | `boolean`, default `true` | Demo-content provenance, same convention as `fridge_notes` and every other `SANDBOX_TABLES` member — **not exposed on the `Goal` GraphQL type**, purely reset bookkeeping. See §3; added after an incorrect first cut where a demo-created goal could never be cleared. |
 
 `horizon` (existing, free text) is untouched — `period` is additive, not a replacement. A goal may
 have a `horizon` of `"June 2027"` and no `period`, or a `period` of `MONTH` and no `horizon`, or
@@ -202,17 +203,44 @@ and is not built.
 
 - `fridge_notes` joins `SANDBOX_TABLES` — every row is `sandbox = true` by default (§2), so reset's
   existing blanket `delete where sandbox is true` clears **all** fridge notes on every reset, same
-  mechanism as `coordination_jobs`/`attempts`/`care_facts`. No new reset code; one line added.
-- `goals` joins `ID_TABLES` (it was never there before this PR — a pre-existing gap: editing a
-  goal's `status`/`title` persisted across resets forever). Fixtures restore the two canonical
-  seeded rows (`goal_reading`, `goal_passing`) byte-for-byte, including the new `period: null`,
-  `completed_at: null` — a demo-edited goal (title changed, marked complete, re-proposed) reverts
-  to exactly its seed shape. `pkOf('goals')` is the default (`['id']`) — no change needed there.
-- Both additions are scoped exactly as their own content: `fridge_notes` touches nothing but its
-  own sandboxed rows; `goals` touches nothing but the two fixture ids it owns. Neither widens any
-  existing `SANDBOX_TABLES`/`ID_TABLES` member's own boundary.
+  mechanism as `coordination_jobs`/`attempts`/`care_facts`.
 
-## 4. What this PR does NOT do
+- `goals` joins **both** `SANDBOX_TABLES` and `ID_TABLES`, the same two-step shape Cast v2 itself
+  already uses for its own sandboxed content (`care_facts`/`routines`): cleared by the blanket
+  `sandbox = true` delete, then the two canonical rows restored by upsert in `RESTORE_ORDER`,
+  afterward. **Corrected from the first cut of this PR**, which put `goals` in `ID_TABLES` only
+  (restore-by-known-id) — review caught that this left every OTHER goal, including anything a
+  judge creates live through `createGoal`, permanently un-clearable: a real demo-pollution bug, not
+  a hypothetical one. Fixed by adding the same `sandbox` column every other demo-content table
+  already carries (§1), rather than inferring ownership from an id prefix or deleting every goal
+  for a fixture child (which would also delete a genuinely non-demo goal for the same child, if one
+  ever existed) — ownership is the column, explicit and server-defaulted, full stop.
+
+  - `createGoal`'s resolver never sets `sandbox` itself — the column's own `default true` handles
+    every insert made through the app. The fixture rows in `reset.ts` restate `sandbox: true`
+    explicitly rather than relying on the default, so restore always reasserts it even if a live
+    write somehow cleared it.
+  - Proven in `ops/fridge-phase2-reset-proof.mjs` by contrast, not in isolation: a demo-created goal
+    (`sandbox: true`) for the *same child* as the canonical seeds is removed (check 3); an
+    otherwise-identical goal for that same child with `sandbox: false` (set only by the proof
+    script, simulating a hypothetical non-demo row — nothing in this PR ever writes `false`)
+    survives completely untouched (check 4). The contrast is the actual proof that this is
+    column-driven, not child- or id-driven.
+
+- Both additions are scoped exactly as their own content: `fridge_notes` touches nothing outside
+  its own sandboxed rows; `goals` touches nothing outside its own sandboxed rows and its two known
+  fixture ids. Neither widens any existing `SANDBOX_TABLES`/`ID_TABLES` member's own boundary.
+
+## 4. Deploy ordering — migration BEFORE code, not after
+
+This migration must be applied **before** this PR's code is deployed — the reverse of the usual
+additive-column safety order. `village.ts`'s `goals` query resolver unconditionally selects
+`period, completed_at` (`GOAL_COLUMNS`); deploying the code first makes every `goals` read fail
+with `column "period" does not exist` until `0083` lands. Recorded here explicitly so Bentley's
+apply window does not default to the normal "ship code, migrate later" sequencing — this one is
+migration-first.
+
+## 5. What this PR does NOT do
 
 - No live application anywhere. Migration `0083` is staged only, rehearsed exclusively on a
   disposable, loopback-bound Postgres container this session created and removed.

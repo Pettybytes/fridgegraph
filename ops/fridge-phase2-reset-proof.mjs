@@ -2,8 +2,10 @@
 /**
  * Real-Postgres proof that `resetDemo()` (src/demo/reset.ts) — the ACTUAL canonical reset
  * transaction, not a hand-written imitation — correctly wires Phase 2 (migration 0083, STAGED):
- * fridge notes are cleared as scoped demo content, goals restore to their exact seeded shape, and
- * neither touches a record outside its own scope.
+ * fridge notes are cleared as scoped demo content, the two canonical seeded goals restore to
+ * their exact shape, a DEMO-CREATED goal (explicit sandbox=true, not an id-prefix guess) is
+ * removed, and a genuinely unrelated non-demo goal (explicit sandbox=false) for the SAME child
+ * survives untouched — proving ownership is the column, not the child or the id.
  *
  * Same methodology as `ops/demo-reset-shared-status-proof.mjs`: SSL-enabled disposable
  * `postgres:16-alpine`, every real migration applied except 0040 (needs the application-level
@@ -17,10 +19,16 @@
  *      canonical seed shape — including period/completed_at back to their seeded (null) values.
  *   2. The second seeded goal (`goal_passing`, PROPOSED, proposed by a non-parent coach) restores
  *      too — proving the restore isn't accidentally scoped to only one row.
- *   3. A live-created goal with a NON-fixture id is left completely untouched — ID_TABLES never
- *      performs a blanket wipe, only delete-then-reinsert by its own known ids.
- *   4. A sandbox-marked fridge note is removed by reset (scoped demo content).
- *   5. A non-sandbox fridge note is left completely untouched — the blanket delete is scoped to
+ *   3. A DEMO-CREATED goal (sandbox=true, the default createGoal always writes, a non-fixture id
+ *      for the SAME child as the canonical seeds) is REMOVED by reset — ownership is the explicit
+ *      `sandbox` column, not an id prefix and not "every goal belonging to this child" (the next
+ *      check proves that distinction is real, not assumed).
+ *   4. An UNRELATED, genuinely non-demo goal (sandbox=false, set explicitly — never by this code —
+ *      for the SAME child as the canonical seeds) survives reset completely untouched, proving
+ *      check 3 removed it because of its sandbox flag, not because of its child or its id.
+ *   5. A sandbox-marked fridge note is removed by reset (scoped demo content) — the existing,
+ *      unchanged behavior, reconfirmed alongside the corrected goals behavior above.
+ *   6. A non-sandbox fridge note is left completely untouched — the blanket delete is scoped to
  *      `sandbox = true` only, never every row in the table.
  *
  * Usage: node --import tsx ops/fridge-phase2-reset-proof.mjs
@@ -143,9 +151,22 @@ async function main() {
     update goals set title = 'Left-foot passing — EDITED', status = 'APPROVED'
      where id = 'goal_passing';
   `);
-  // A live-created goal with a NON-fixture id — must survive reset untouched.
+  // A DEMO-CREATED goal — sandbox=true explicitly, exactly what createGoal's resolver always
+  // writes (the column's own default, restated here so the proof does not depend on the DEFAULT
+  // clause continuing to exist). Same child as the canonical seeds, on purpose — this is exactly
+  // the case a naive "delete every goal belonging to p_nora except the two known ids" or an
+  // id-prefix heuristic would get right BY ACCIDENT; the next insert proves it is the sandbox
+  // column doing the work, not the child or the id shape.
   await client.query(`
-    insert into goals (id, child_id, title, proposed_by_id, status) values ('goal_live_created', 'p_nora', 'A goal created live, not in the seed', 'p_mom', 'APPROVED')
+    insert into goals (id, child_id, title, proposed_by_id, status, sandbox)
+    values ('goal_live_created', 'p_nora', 'A goal created live during the demo', 'p_mom', 'APPROVED', true)
+  `);
+  // An UNRELATED, genuinely non-demo goal — sandbox=false, set explicitly (never by application
+  // code; nothing in this PR ever writes false here). Same child, same proximity to the canonical
+  // seeds as the row above — the only difference is the sandbox flag. Must survive untouched.
+  await client.query(`
+    insert into goals (id, child_id, title, proposed_by_id, status, sandbox)
+    values ('goal_unrelated_nondemo', 'p_nora', 'A real, non-demo goal — never touched by reset', 'p_mom', 'APPROVED', false)
   `);
 
   // A sandbox-marked fridge note (what the real postFridgeNote mutation always creates — sandbox
@@ -184,22 +205,31 @@ async function main() {
   }
   log('check 2 PASS: the second seeded goal (PROPOSED, proposed by a non-parent) restores too');
 
-  // --- Check 3: a live-created, non-fixture goal is completely untouched ---
-  const live = (await verify.query("select * from goals where id = 'goal_live_created'")).rows[0];
-  if (!live) fail('check 3 FAILED: a live-created goal (non-fixture id) was deleted by reset — ID_TABLES performed a blanket wipe');
-  if (live.title !== 'A goal created live, not in the seed') fail(`check 3 FAILED: live goal was altered: ${JSON.stringify(live)}`);
-  log('check 3 PASS: a live-created goal with a non-fixture id survives reset completely untouched — no blanket wipe');
+  // --- Check 3: the demo-created goal (sandbox=true) is REMOVED ---
+  const demoCreated = await verify.query("select * from goals where id = 'goal_live_created'");
+  if (demoCreated.rows.length !== 0) {
+    fail(`check 3 FAILED: a demo-created goal (sandbox=true) survived reset — it must be cleared for the next judge: ${JSON.stringify(demoCreated.rows)}`);
+  }
+  log('check 3 PASS: a demo-created goal (explicit sandbox=true) is removed by reset — scoped demo content cleared, same as fridge notes');
 
-  // --- Check 4: the sandbox-marked fridge note is cleared ---
+  // --- Check 4: the unrelated non-demo goal (sandbox=false), same child, survives untouched ---
+  const unrelated = (await verify.query("select * from goals where id = 'goal_unrelated_nondemo'")).rows[0];
+  if (!unrelated) fail('check 4 FAILED: an unrelated non-demo goal (sandbox=false) was deleted by reset');
+  if (unrelated.title !== 'A real, non-demo goal — never touched by reset' || unrelated.sandbox !== false) {
+    fail(`check 4 FAILED: the unrelated goal was altered: ${JSON.stringify(unrelated)}`);
+  }
+  log('check 4 PASS: an unrelated non-demo goal (explicit sandbox=false) for the SAME child survives reset completely untouched — ownership is the column, not the child or the id (proven by contrast with check 3)');
+
+  // --- Check 5: the sandbox-marked fridge note is cleared ---
   const clearedNote = await verify.query("select * from fridge_notes where id = 'fnote_live'");
-  if (clearedNote.rows.length !== 0) fail(`check 4 FAILED: the sandbox fridge note survived reset: ${JSON.stringify(clearedNote.rows)}`);
-  log('check 4 PASS: a sandbox-marked fridge note is removed by reset — scoped demo content cleared');
+  if (clearedNote.rows.length !== 0) fail(`check 5 FAILED: the sandbox fridge note survived reset: ${JSON.stringify(clearedNote.rows)}`);
+  log('check 5 PASS: a sandbox-marked fridge note is removed by reset — scoped demo content cleared');
 
-  // --- Check 5: the non-sandbox fridge note survives untouched ---
+  // --- Check 6: the non-sandbox fridge note survives untouched ---
   const survivingNote = (await verify.query("select * from fridge_notes where id = 'fnote_permanent'")).rows[0];
-  if (!survivingNote) fail('check 5 FAILED: a non-sandbox fridge note was deleted by reset');
-  if (survivingNote.text !== 'Not demo-sandboxed — must survive reset') fail(`check 5 FAILED: the non-sandbox note was altered: ${JSON.stringify(survivingNote)}`);
-  log('check 5 PASS: a non-sandbox fridge note is left completely untouched — the blanket delete is scoped to sandbox=true only');
+  if (!survivingNote) fail('check 6 FAILED: a non-sandbox fridge note was deleted by reset');
+  if (survivingNote.text !== 'Not demo-sandboxed — must survive reset') fail(`check 6 FAILED: the non-sandbox note was altered: ${JSON.stringify(survivingNote)}`);
+  log('check 6 PASS: a non-sandbox fridge note is left completely untouched — the blanket delete is scoped to sandbox=true only');
 
   await verify.end();
   log('ALL CHECKS PASS');

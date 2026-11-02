@@ -10,6 +10,20 @@
 -- beyond what was asked (nothing previously enforced that), added because it is cheap and closes
 -- a real gap in the existing `for all` write policy.
 --
+-- `sandbox` (new, default true): explicit demo-content provenance, same convention as every other
+-- SANDBOX_TABLES member (fridge_notes included). Reset must clear demo-CREATED goals (anything a
+-- judge creates live through createGoal), not just restore the two canonical seeded ones — found
+-- live in review: the first cut only put `goals` in reset.ts's ID_TABLES (restore-by-known-id),
+-- which left every OTHER goal, including judge-created ones, permanently un-clearable. Ownership
+-- is this column, never inferred from an id prefix or from "belongs to a fixture child" (a real,
+-- non-demo goal for the same child must survive untouched — explicit sandbox=false, not guessed).
+--
+-- DEPLOY ORDERING: this migration must be applied BEFORE the code in this PR is deployed. The
+-- `goals` query resolver (village.ts) unconditionally selects `period, completed_at` — deploying
+-- the code first makes every `goals` read fail with "column does not exist" until this migration
+-- lands. Opposite of the usual additive-column-then-code order; stated explicitly so Bentley's
+-- apply window does not default to the normal sequencing.
+--
 -- FRIDGE NOTES — owned by `village` (same subgraph as goals/care_plans: parent-authored,
 -- child-scoped content, no cross-table write). RLS decides WHO may attempt a write;
 -- `_fridge_notes_guard` (BEFORE UPDATE trigger) decides WHICH COLUMNS that attempt may actually
@@ -23,7 +37,8 @@ begin;
 
 alter table goals
   add column if not exists period text check (period in ('DAY', 'WEEK', 'MONTH')),
-  add column if not exists completed_at timestamptz;
+  add column if not exists completed_at timestamptz,
+  add column if not exists sandbox boolean not null default true;
 
 create or replace function _goals_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
