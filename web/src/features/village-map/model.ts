@@ -1,4 +1,4 @@
-import type {Point,RouteResult,MapPerson,MapWorld} from './types'
+import type {Point,RouteResult,MapEvent,MapPerson,MapWorld} from './types'
 // One simulation clock; every displayed replay value derives from this progress.
 export function replayFrame(route:RouteResult,progress:number){
  const p=Math.max(0,Math.min(1,progress)),segments=route.geometry.length-1,index=Math.min(segments-1,Math.floor(p*segments)),fraction=p===1?1:p*segments-index,a=route.geometry[index],b=route.geometry[index+1]
@@ -15,4 +15,10 @@ export function personPoint(person:MapPerson|undefined,world:MapWorld):Point|und
  if(person.position.source==='home')return person.position.addressRead?person.position.point:undefined
  if(person.position.source==='event'){const place=world.places.find(p=>p.id===person.position.placeId);return place?.kind!=='home'?place?.point:undefined}
  return undefined
+}
+
+export function eventPlaceLabel(event:MapEvent,world:MapWorld):string{
+ if(event.placeState==='WITHHELD')return 'Place details not shared with you'
+ if(event.placeState==='UNLINKED')return 'No place linked to this event'
+ return world.places.find(place=>place.id===event.placeId)?.name??'Place label not shared'
 }

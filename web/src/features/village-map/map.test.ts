@@ -4,7 +4,7 @@ import {MapController} from './controller'
 import {replayFrame,unclutter,personPoint} from './model'
 describe('village map boundaries and state',()=>{
  it('Kendra has explicit mock address permission; Priya gets no home records or hidden identities',async()=>{
-  const k=await createMockMapAdapter('kendra').readWorld(),p=await createMockMapAdapter('priya').readWorld();expect(k.places.some(p=>p.kind==='home'&&p.addressRead)).toBe(true);expect(p.places.some(p=>p.kind==='home')).toBe(false);expect(p.people.some(p=>p.position.source==='home')).toBe(false);expect(JSON.stringify(p)).not.toMatch(/Kendra|Loretta|p_mom|p_gma/);await expect(createMockMapAdapter('priya').route('p_gma','home','Drive')).rejects.toThrow('UNAUTHORIZED')
+  const k=await createMockMapAdapter('kendra').readWorld(),p=await createMockMapAdapter('priya').readWorld();expect(k.canReadCost).toBe(true);expect(p.canReadCost).toBe(false);expect(k.places.some(p=>p.kind==='home'&&p.addressRead)).toBe(true);expect(p.places.some(p=>p.kind==='home')).toBe(false);expect(p.people.some(p=>p.position.source==='home')).toBe(false);expect(JSON.stringify(p)).not.toMatch(/Kendra|Loretta|p_mom|p_gma/);await expect(createMockMapAdapter('priya').route('p_gma','home','Drive')).rejects.toThrow('UNAUTHORIZED')
  })
  it('unknown and forbidden routes have the same refusal',async()=>{const a=createMockMapAdapter('priya');await expect(a.route('unknown','school','Walk')).rejects.toThrow('UNAUTHORIZED');await expect(a.route('p_priya','school','Walk')).rejects.toThrow('UNAUTHORIZED')})
  it('route request and mode switch read only; stored ride amount/basis remain independent of walking ETA',async()=>{
