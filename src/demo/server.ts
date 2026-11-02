@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
+import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
 import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
 import { decideRoute, type PlaceLookup } from '../village/routeRequest';
 import { dbDayTransport, isDay, readDayPlan } from '../village/dayPlaces';
@@ -451,21 +452,22 @@ export function createDemoLoginApp() {
   });
 
   app.post('/api/demo/reset', async (req: Request, res: Response) => {
-    const addr = req.socket.remoteAddress ?? '';
-    if (!(addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) {
+    // A reset response describes state that is about to change; caching it would outlive its truth.
+    res.setHeader('Cache-Control', NO_STORE);
+    if (!isLoopback(req.socket.remoteAddress ?? '')) {
       res.status(403).json({ error: 'LOOPBACK_ONLY' }); return;
     }
-    const authorization = req.header('authorization');
-    const identity = await verifyBearer(authorization);
+    const identity = await verifyBearer(req.header('authorization'));
+    const refusal = identityRefusal(identity);
+    if (refusal) { res.status(refusal.status).json(refusal.body); return; }
+    // Defensive narrowing: `identityRefusal` refuses every non-ok case, so this is unreachable — but the
+    // compiler needs the discriminated union narrowed before `personId` can be read.
     if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
-    if (!identity.demo) { res.status(403).json({ error: 'DEMO_SESSION_REQUIRED' }); return; }
-    if (identity.demoGuide) { res.status(403).json({ error: 'DEMO_GUIDE_READ_ONLY' }); return; }
 
     const now = Date.now();
     const last = lastResetAt.get(identity.personId) ?? 0;
-    if (now - last < RESET_COOLDOWN_MS) {
-      res.status(429).json({ error: 'RESET_RATE_LIMITED', retryAfterMs: RESET_COOLDOWN_MS - (now - last) }); return;
-    }
+    const throttled = cooldownRefusal(now, last, RESET_COOLDOWN_MS, 'RESET_RATE_LIMITED');
+    if (throttled) { res.status(throttled.status).json(throttled.body); return; }
     lastResetAt.set(identity.personId, now);
 
     try {
@@ -478,6 +480,14 @@ export function createDemoLoginApp() {
       console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
       res.status(500).json({ error: 'RESET_FAILED' });
     }
+  });
+
+  // Method guard: `/api/demo/reset` is POST-only. Without this, a GET falls through to the parameterised
+  // routes and answers 404, which reads like "no such endpoint" rather than "wrong method".
+  app.all('/api/demo/reset', (req: Request, res: Response) => {
+    res.setHeader('Allow', 'POST');
+    res.setHeader('Cache-Control', NO_STORE);
+    res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
   });
 
   /**
