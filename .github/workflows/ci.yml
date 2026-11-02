@@ -61,6 +61,9 @@ jobs:
       - name: Client IP resolution
         run: node --import tsx --test src/demo/client-ip.test.ts
 
+      - name: Reset admission (shared lock)
+        run: node --import tsx --test src/demo/reset-admission.test.ts
+
       - name: Launcher offline compose
         run: npm run test:launcher-compose
 

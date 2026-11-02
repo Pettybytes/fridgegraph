@@ -86,6 +86,13 @@ export class InFlightLocks {
 export const RESET_IN_FLIGHT: Refusal = { status: 409, body: { error: 'RESET_IN_FLIGHT' } };
 
 /**
+ * A reset touches SHARED tables — people, households, grants, relationships, shared_statuses — not a
+ * per-identity slice. A lock keyed by person therefore serialises nothing: Dana's reset and Kendra's
+ * reset run concurrently against the same rows. One lock for the shared resource, or none at all.
+ */
+export const SHARED_RESET_LOCK = 'reset-demo';
+
+/**
  * Sliding-window limiter, keyed by whatever the caller passes (a resolved client IP, not a persona).
  * A persona-keyed limit does nothing against a caller that can mint several personas.
  */

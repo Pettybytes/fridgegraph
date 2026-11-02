@@ -27,7 +27,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
-import { InFlightLocks, RESET_IN_FLIGHT, windowRefusal } from './guards';
+import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
 import { resolveClientIp } from './client-ip';
 import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
 import { decideRoute, type PlaceLookup } from '../village/routeRequest';
@@ -485,7 +485,9 @@ export function createDemoLoginApp() {
     const throttled = cooldownRefusal(now, last, RESET_COOLDOWN_MS, 'RESET_RATE_LIMITED');
     if (throttled) { res.status(throttled.status).json(throttled.body); return; }
 
-    if (!resetLocks.tryAcquire(identity.personId)) {
+    // ONE lock for the shared resource. `resetDemo` rewrites people/households/grants/relationships/
+    // shared_statuses, so a per-identity lock would let two resets run concurrently over the same rows.
+    if (!resetLocks.tryAcquire(SHARED_RESET_LOCK)) {
       res.status(RESET_IN_FLIGHT.status).json(RESET_IN_FLIGHT.body); return;
     }
     lastResetAt.set(identity.personId, now);
@@ -502,8 +504,8 @@ export function createDemoLoginApp() {
       console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
       res.status(500).json({ error: 'RESET_FAILED' });
     } finally {
-      // Released on EVERY path, so a failed reset cannot wedge the identity out of future attempts.
-      resetLocks.release(identity.personId);
+      // Released on EVERY path, so a failed reset cannot wedge the shared lock out of future attempts.
+      resetLocks.release(SHARED_RESET_LOCK);
     }
   });
 
