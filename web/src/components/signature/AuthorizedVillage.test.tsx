@@ -12,3 +12,18 @@ it('refusal and upstream failure remain distinct from an authorized empty child 
  const base={client:null,child:null,childChoices:[],onSelectChild:vi.fn(),runRead:<T,>(fn:()=>Promise<T>)=>fn()}
  const view=render(<SignatureVillage {...base} childListState="empty"/>);expect(screen.getByText('No records are available to this view.')).toBeInTheDocument();view.rerender(<SignatureVillage {...base} childListState="refused"/>);expect(screen.getByText("This isn't shared with you")).toBeInTheDocument();view.rerender(<SignatureVillage {...base} childListState="error"/>);expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this just now")
 })
+it('shows the approved Dad sample only for an authorized selected person, never as a live status',async()=>{
+ const client=new ApolloClient({cache:new InMemoryCache(),link:new ApolloLink(()=>new Observable<FetchResult>(observer=>{
+  observer.next({data:{child:{person:{id:'p_nora',displayName:'Nora'}},householdMembers:[],relationships:[
+   {id:'dad',from:{id:'p_dad',displayName:'Andre'},to:{id:'p_nora'},type:'parent',status:'ACTIVE'},
+   {id:'other',from:{id:'p_other',displayName:'Another person'},to:{id:'p_nora'},type:'caregiver',status:'ACTIVE'},
+  ]}});observer.complete()
+ }))})
+ render(<SignatureVillage client={client} child={{id:'p_nora',name:'Nora'}} childChoices={[{id:'p_nora',name:'Nora'}]} childListState="ready" onSelectChild={vi.fn()} runRead={fn=>fn()}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Andre parent'}));
+ expect(screen.getByRole('complementary',{name:'Selected person details'})).toHaveTextContent('Changing a diaper');
+ expect(screen.getByRole('status',{name:/Sample shared status/})).toHaveTextContent('ETA: unknown');
+ fireEvent.click(screen.getByRole('button',{name:'Another person caregiver'}));
+ expect(screen.queryByRole('status',{name:/Sample shared status/})).not.toBeInTheDocument();
+ client.stop()
+})
