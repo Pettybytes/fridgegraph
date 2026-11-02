@@ -4217,3 +4217,41 @@ estimate still pending · integrated + tested: PENDING for the full map. PR
 | 2026-11-02T03:38:24Z | **0080 APPLIED (window N+1, option a) — `confirm_add_villager` now returns 10 columns.** #115 merged `03:36:17Z` (`58e8cec`); both participants released (`feat/web-graphql-adapter` **03:34:57Z**). Deployed definition **before** sha256 `d472ddd79aecab461a63c3f7…` with a **9**-column final `RETURN QUERY`; **after** sha256 `159b280af0116435a0307797…` with **10**, including `v_grant.granted_by`. `CREATE OR REPLACE` only — **no restart**. `stack-health` **HEALTHY (0 failing)**, 13 operation documents valid. **Defect found at apply time:** the merged 0080 was missing the `;` after `end $function$` (generated from `pg_get_functiondef`, which omits it), so it could not run as merged; applied with the corrected text and fixed in the file by this PR. **`0080` is authoritative; the `0076` reservation stays released.** |
 | 2026-11-02T03:38:24Z | **`vp_9c8114984df1` EXPIRED** — `expires_at 2026-11-02T03:32:12.736Z`, 330 s past at check, `confirmed_at` null. The original confirm proof cannot be completed on it; a fresh `proposeAddVillager` is required, and **I do not call it** — that write belongs to the proof owner. |
 | 2026-11-02T03:41:10Z | **Permanent real-Postgres test for #115's `confirm_add_villager` fix — ALL 4 CHECKS PASS, and the test is verified to actually catch the bug (red against unfixed `0074`, green against `0080`).** No migration taken (deliberately — #115's `0080` is the authoritative fix; this is code-only test infrastructure). `ops/confirm-add-villager-return-proof.mjs` spins up a disposable `postgres:16-alpine` container (removed unconditionally, even on failure), applies a curated minimal migration set (`0001`, `0003`, `0074`, plus `is_demo_guide`/`is_demo_caller` extracted verbatim from `0025` to avoid pulling in that file's unrelated `real_call_authorizations` dependency from `0013`) rather than all 79 files — running the full chain fails on seed-data foreign keys that only resolve once `scripts/db.ts`'s full Cast v2 fixture seeding has also run, out of scope for a narrow regression test of one function. Fetches migration `0080` live from `origin/fix/confirm-add-villager-return` (PR #115, not merged) via `git show` rather than committing a copy. **Four checks, all real SQL execution, no FakeDb:** (1) first confirm returns all 10 declared columns and writes exactly one relationship activation + one grant + one approvals row; (2) an identical repeat confirm returns the same result and writes nothing further; (3) a stale version (re-proposed and bumped since) is refused (`PROPOSAL_STALE`) with zero writes; (4) a caller who never proposed it is refused (`UNAUTHORIZED`) with zero writes. **Separately found and reported, not fixed here:** PR #115's `0080` file as committed is missing the semicolon terminating `CREATE OR REPLACE FUNCTION ... end $function$` before the trailing `commit;` — confirmed independently with real `psql -f` (not just this script's wire-protocol path), which fails identically (`syntax error at or near "commit"`). This script corrects it ONLY in an in-memory copy for its own run; `0080` itself is untouched, per instruction never to edit someone else's migration. **NOT wired into `.github/workflows/ci.yml`** — that workflow is shared by every PR and has no Postgres/docker step today; adding one is a bigger, shared-blast-radius decision than this one bug-fix test PR should make unilaterally, even though GitHub's `ubuntu-latest` runners do have Docker preinstalled and could run it. Recorded run (not committed — `.runs/` is gitignored, matching every other `ops/*-proof.mjs` script): all four checks PASS, full log in the PR description. Root cause confirmed exactly as diagnosed: `confirm_add_villager`'s fresh-confirm branch returns 9 of 10 declared columns; `0080` adds the missing `granted_by`. typecheck + secret scan clean. PR opens next, referencing #115. Code-only; Bentley applies. | `test/confirm-add-villager-return-proof` @ (pending commit) | — | **4/4 PASS — real Postgres, PR next** |
+
+### Village map live-world preparation — 2026-11-02, PR #87 draft
+
+Merged fetched `origin/main` `ccfac30` into `feat/web-map-live-adapter` with
+merge commit `43f677d`; prior HANDOFF workstreams and evidence remain intact.
+The merged code defines `villageWorld(childId, asOf)` and
+`pickupRideEstimate(jobId, candidateId)`. This web slice reads those exact
+operations behind `VITE_VILLAGE_MAP_LIVE=true`; with the flag absent, the map
+continues to say Sample data. No shared-stack call was made in this preparation.
+
+UI: live-capable on the documented graph shape. Five Detroit calendar days are
+read through the current persona's bearer and selected child. The current
+`villageWorld` resolver gives no person-to-place associations: those people
+stay in the list with “No location provided for this person in this map”; no
+person pin, substitute centroid, route origin or claim of presence is created.
+Authorized place IDs and labels are preserved; `WITHHELD` and `NOT_RECORDED`
+coordinates create no pin. Event `LINKED`, `WITHHELD` and `UNLINKED` states
+have distinct wording, and empty `personIds` never become decorative faces.
+A selected child outside the mock scenario never inherits Nora's fixture.
+The route proxy now receives distinct `driving-car`, `foot-walking` and
+`cycling-regular` profiles, each isolated by profile in the request key.
+
+Stored pickup prices are read only through `pickupRideEstimate` after a
+parent/guardian session retrieves recorded jobs. The Demo guide and limited
+personas do not request or display them. A `haversine` basis is labeled
+“Straight-line approximation — may understate road cost”; a real zero stays
+visible. The price is shown as a separately recorded pickup estimate, because
+the delivered response names job and candidate but **does not name a map
+route or destination place**. The browser cannot truthfully attach it to an
+arbitrary drag route without that missing association; it does not calculate
+or substitute a price. Live pickup proposal/approval remains disabled.
+
+Backend: schema merged and 0075 applied per the recorded #112 proof; serving
+through the main routers is **not verified by this UI lane**. Integrated +
+tested: PENDING SLOT B with real picker sessions, authorization and route
+checks. Offline focused map suite 40/40, full web suite 449/449, root
+typecheck and web build passed before this append; final staged secret scan
+and exact-head CI are reported in the PR after publishing.

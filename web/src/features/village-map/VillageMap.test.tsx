@@ -47,3 +47,28 @@ it('labels a stored haversine-basis amount as a straight-line approximation',asy
  expect(screen.getByText(basis)).toBeVisible()
  expect(screen.getByText(/Rideshare to school · Est. \$12.40/)).toBeVisible()
 })
+it('shows missing person locations and event place states without inventing pins or participants',async()=>{
+ const fixture=createMockMapAdapter('kendra'),sample=await fixture.readWorld()
+ const world={...sample,state:'live' as const,people:[{id:'p_recorded',name:'Person from graph',position:{source:'unavailable' as const,label:'No location provided for this person in this map',addressRead:false},vehicle:'unknown' as const}],places:[{id:'rp_withheld',name:'Place label from graph',kind:'park' as const,addressRead:false}],events:[{id:'e_withheld',day:'2026-11-03',at:'2026-11-03T17:00:00Z',end:'2026-11-03T18:00:00Z',title:'Event from graph',placeId:null,placeState:'WITHHELD' as const,peopleIds:[],status:'CONFIRMED'}],days:['2026-11-03'],canReadCost:false,canApprove:false}
+ const controller=new MapController({mode:'live',readWorld:async()=>world,route:async()=>{throw Error('LOCATION_NOT_RECORDED')}})
+ await controller.load();render(<MapView controller={controller}/>)
+ expect(screen.getByText('Place details not shared with you')).toBeVisible()
+ expect(screen.queryByText('Place not recorded')).not.toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:/People/}))
+ expect(screen.getByText('No location provided for this person in this map')).toBeVisible()
+ expect(screen.getByRole('option',{name:/Person from graph.*location not provided/})).toBeDisabled()
+ expect(screen.getByRole('button',{name:'Estimate route'})).toBeDisabled()
+})
+it('shows only a parent or guardian the separately recorded pickup estimate, with basis and cap',async()=>{
+ const fixture=createMockMapAdapter('kendra'),sample=await fixture.readWorld()
+ const storedRideEstimates=[{jobId:'job-recorded',candidateId:'p_gma',candidateName:'Loretta from graph',amountUsd:12.4,capUsd:10,distanceMiles:8.86,basis:'haversine',paidRidePath:true as const}]
+ const world={...sample,state:'live' as const,canReadCost:true,storedRideEstimates,rideReadState:'ready' as const}
+ const parent=new MapController({mode:'live',readWorld:async()=>world,route:fixture.route});await parent.load();render(<MapView controller={parent}/>)
+ expect(screen.getByRole('region',{name:'Recorded pickup ride estimates'})).toHaveTextContent('Loretta from graph · Rideshare option · Est. $12.40')
+ expect(screen.getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+ expect(screen.getByText(/Over the household's \$10\.00 ride limit/)).toBeVisible()
+ cleanup()
+ const limited=new MapController({mode:'live',readWorld:async()=>({...world,canReadCost:false,storedRideEstimates:[]}),route:fixture.route});await limited.load();render(<MapView controller={limited}/>)
+ expect(screen.queryByRole('region',{name:'Recorded pickup ride estimates'})).not.toBeInTheDocument()
+ expect(screen.queryByText(/\$12\.40/)).not.toBeInTheDocument()
+})

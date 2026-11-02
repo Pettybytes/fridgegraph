@@ -11,7 +11,7 @@ function setup(transport?:RouteTransport){
  const adapter=createLiveMapAdapter({getSession:()=>session,readWorld:async()=>structuredClone(world),...(transport?{transport}:{})})
  return {adapter,setSession:(s:MapSession|null)=>{session=s}}
 }
-it('uses the documented ID-only proxy and current bearer, never coordinates or invented profile fields',async()=>{
+it('uses the documented ID-only proxy with an explicit profile and current bearer, never coordinates',async()=>{
  const request=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify(wire),{status:200}))
  const {adapter,setSession}=setup(createDeliveredRouteTransport(request));await adapter.readWorld()
  await adapter.route('person-a','rp_destination','Drive')
@@ -19,13 +19,15 @@ it('uses the documented ID-only proxy and current bearer, never coordinates or i
  await adapter.route('person-a','rp_destination','Drive')
  expect(request).toHaveBeenCalledTimes(2) // Completed results never bypass server authorization.
  expect(request.mock.calls[0][0]).toBe('/api/village/route')
- expect(JSON.parse(request.mock.calls[0][1]!.body as string)).toEqual({childId:'child-a',fromPlaceId:'rp_origin',toPlaceId:'rp_destination'})
+ expect(JSON.parse(request.mock.calls[0][1]!.body as string)).toEqual({childId:'child-a',fromPlaceId:'rp_origin',toPlaceId:'rp_destination',profile:'driving-car'})
  expect(request.mock.calls[1][1]!.headers).toMatchObject({Authorization:'Bearer test-only-session-renewed'})
 })
-it('rejects Walk and Bike before HTTP while the delivered proxy is Drive-only',async()=>{
- const request=vi.fn(),{adapter}=setup(createDeliveredRouteTransport(request));await adapter.readWorld()
- for(const mode of ['Walk','Bike'] as const)await expect(adapter.route('person-a','rp_destination',mode)).rejects.toThrow('MODE_UNSUPPORTED')
- expect(request).not.toHaveBeenCalled();expect(mapRouteError(Error('MODE_UNSUPPORTED'))).toBe('This travel mode is not supported yet.')
+it('sends distinct Walk and Bike profiles to the delivered proxy',async()=>{
+ const request=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify(wire),{status:200})),{adapter}=setup(createDeliveredRouteTransport(request));await adapter.readWorld()
+ await adapter.route('person-a','rp_destination','Walk')
+ await adapter.route('person-a','rp_destination','Bike')
+ expect(request.mock.calls.map(call=>JSON.parse(call[1]!.body as string).profile)).toEqual(['foot-walking','cycling-regular'])
+ expect(mapRouteError(Error('MODE_UNSUPPORTED'))).toBe('This travel mode is not supported yet.')
 })
 it('isolates each profile in its own in-flight cache entry and retains mode-specific outputs',async()=>{
  const request=vi.fn<RouteTransport['request']>(async input=>({...wire,durationSeconds:input.profile==='driving-car'?300:input.profile==='foot-walking'?1800:600}))

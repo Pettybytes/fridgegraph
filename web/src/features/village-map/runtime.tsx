@@ -3,16 +3,34 @@ import {createContext,useContext,useEffect,useMemo,useRef,useState,useSyncExtern
 import {Dialog} from 'radix-ui'
 import {useReducedMotion} from './useMapReducedMotion'
 import {useSession} from '@/features/personas/Session'
+import {useChildAccess} from '@/features/personas/childContext'
 import {personPoint} from './model'
+import type {MapWorld} from './types'
 import {MapController} from './controller'
 import {createMockMapAdapter} from './mockAdapter'
+import {createLiveMapAdapter} from './liveAdapter'
+import {createVillageWorldReader} from './worldReader'
 const Context=createContext<MapController|null>(null)
 export const useVillageMap=()=>useContext(Context)
 export const useMapState=(controller:MapController)=>useSyncExternalStore(controller.subscribe,controller.getSnapshot)
 export function expandMap(){if(location.hash.split('?')[0]==='#/map')return;const go=()=>{flushSync(()=>{location.hash='#/map';window.dispatchEvent(new HashChangeEvent('hashchange'))})};if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.startViewTransition(go);else go()}
 export function VillageMapProvider({children}:{children:ReactNode}){
- const {session,registerPrivateCleanup}=useSession()
- const controller=useMemo(()=>session?new MapController(createMockMapAdapter(session.persona.id)):null,[session?.generation])
+ const {session,getCurrentSession,registerPrivateCleanup,runRead}=useSession(),child=useChildAccess()
+ const selectedChildId=child?.selectedChildId??session?.scope.childId
+ const selectedRef=useRef(selectedChildId);selectedRef.current=selectedChildId
+ const client=child?.client
+ const controller=useMemo(()=>{
+  if(!session||!selectedChildId)return null
+  const live=import.meta.env.VITE_VILLAGE_MAP_LIVE==='true'&&!!session.accessToken
+  if(live&&!client)return new MapController({mode:'live',readWorld:async()=>{throw Error('WORLD_READ_UNAVAILABLE')},route:async()=>{throw Error('WORLD_READ_UNAVAILABLE')}})
+  if(live&&client){
+   const getSession=()=>{const current=getCurrentSession();return current&&selectedRef.current?{generation:current.generation,childId:selectedRef.current,accessToken:current.accessToken,canReadCost:(current.persona.parent||current.persona.guardian===true)&&current.marks?.demoGuide!==true,parentName:current.persona.name}:null}
+   return new MapController(createLiveMapAdapter({getSession,readWorld:createVillageWorldReader(client,runRead)}))
+  }
+  // The synthetic scenario describes Nora only. A different focused child never inherits it.
+  if(selectedChildId!==session.scope.childId)return new MapController({mode:'mock',readWorld:async()=>{throw Error('UNAUTHORIZED')},route:async()=>{throw Error('UNAUTHORIZED')}})
+  return new MapController(createMockMapAdapter(session.persona.id))
+ },[session?.generation,selectedChildId,client,getCurrentSession,runRead])
  const attachment=useRef(0),latest=useRef(controller);latest.current=controller
  useEffect(()=>{if(!controller)return;const owner=++attachment.current;void controller.load();const remove=registerPrivateCleanup(controller.dispose);return()=>{remove();queueMicrotask(()=>{if(latest.current!==controller||attachment.current===owner)controller.dispose()})}},[controller,registerPrivateCleanup])
  return <Context.Provider value={controller}>{controller&&<ReplayClock controller={controller}/>} {children}{controller&&<ProposalConfirm controller={controller}/>}</Context.Provider>
@@ -24,6 +42,21 @@ function ReplayClock({controller}:{controller:MapController}){
 export function RideCost({controller}:{controller:MapController}){
  const state=useMapState(controller),ride=state.route?.rideEstimate;if(!ride||!state.world?.canReadCost)return null
  return <div className="vm-ride"><strong>Rideshare to school · Est. ${ride.amountUsd.toFixed(2)}</strong><p>No vehicle on record. Paid-ride path in this sample scenario.</p><p>{ride.amountUsd>ride.capUsd?'Over':'Within'} {state.world.parentName}'s ${ride.capUsd.toFixed(0)} ride limit</p>{/\bhaversine\b/i.test(ride.basis)&&<p>Straight-line approximation — may understate road cost</p>}<small>{ride.basis}</small></div>
+}
+export function StoredRideCosts({world}:{world:MapWorld}){
+ if(world.state!=='live'||!world.canReadCost)return null
+ return <section className="vm-stored-rides" aria-label="Recorded pickup ride estimates">
+  <h3>Recorded pickup ride estimates</h3>
+  {world.rideReadState==='refused'?<p>This pickup cost isn't shared with you.</p>
+   :world.rideReadState==='unavailable'?<p>Couldn't load stored pickup costs just now.</p>
+   :!world.storedRideEstimates?.length?<p>No paid-ride estimate is recorded for this child.</p>
+   :world.storedRideEstimates.map(ride=><article key={`${ride.jobId}:${ride.candidateId}`}>
+    <strong>{ride.candidateName} · Rideshare option · Est. ${ride.amountUsd.toFixed(2)}</strong>
+    <p>Stored for a pickup request. This is separate from any map route you select.</p>
+    <p>{ride.basis==='haversine'?'Straight-line approximation — may understate road cost':ride.basis==='road'?'Stored road-distance estimate — not a provider quote':'Cost basis not described in this record'}</p>
+    {ride.capUsd===null?<p>Household ride limit not recorded.</p>:<p>{ride.amountUsd>ride.capUsd?'Over':'Within'} the household's ${ride.capUsd.toFixed(2)} ride limit.</p>}
+   </article>)}
+ </section>
 }
 function ProposalConfirm({controller}:{controller:MapController}){
  const state=useMapState(controller),[open,setOpen]=useState(false)

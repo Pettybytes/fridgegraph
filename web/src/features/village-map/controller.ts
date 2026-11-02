@@ -10,7 +10,7 @@ export class MapController{
  getSnapshot=()=>this.state
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener)}}
  private patch(change:Partial<MapState>){if(!this.alive)return;this.state={...this.state,...change};this.listeners.forEach(f=>f())}
- async load(){try{const world=await this.adapter.readWorld(this.abort.signal);this.patch({world,loading:false,error:'',day:world.days.includes(this.state.day)?this.state.day:world.days[0]??this.state.day})}catch(error){this.patch({loading:false,error:error instanceof Error&&error.message==='UNAUTHORIZED'?"This isn't shared with you.":"Couldn't load this just now."})}}
+ async load(){try{const world=await this.adapter.readWorld(this.abort.signal);this.patch({world,loading:false,error:'',day:world.days.includes(this.state.day)?this.state.day:world.days[0]??this.state.day})}catch(error){const code=error instanceof Error?error.message:'';this.patch({loading:false,error:code==='UNAUTHORIZED'?"This isn't shared with you.":code==='UNAUTHENTICATED'?'Your session ended. Choose a perspective again.':"Couldn't load this just now."})}}
  select(selection:Selection){if(!selection){this.patch({selection});return}const world=this.state.world;if(!world)return;const list=selection.kind==='person'?world.people:selection.kind==='place'?world.places:world.events;if(list.some(item=>item.id===selection.id))this.patch({selection})}
  setDay(day:string){if(this.state.world?.days.includes(day))this.patch({day,selection:null})}
  async route(fromId:string,toId:string,mode:Mode=this.state.mode){
