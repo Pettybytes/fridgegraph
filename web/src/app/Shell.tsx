@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map, List } from 'lucide-react'
+import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map, List, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map' | 'activity'
+export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map' | 'activity' | 'invitations'
 const routes = [
   { path: 'map', label: 'Village map', icon: Map },
   { path: 'today', label: 'Today', icon: Home },
@@ -11,6 +11,7 @@ const routes = [
   { path: 'activity', label: 'Activity', icon: List },
   { path: 'orbit', label: 'Orbit', icon: Radar },
   { path: 'calendar', label: 'Family Calendar', icon: CalendarDays },
+  { path: 'invitations', label: 'Invitations', icon: Mail },
   { path: 'ask-rosina', label: 'Ask Rosina', icon: MessageCircle },
   { path: 'care-information', label: 'Care information', icon: HeartPulse },
   { path: 'village', label: 'Living Village', icon: Network },
@@ -38,7 +39,7 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
     <div className="workspace">
       <header className="topbar"><span>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</span><span className="demo-badge">{mode === 'mock' ? 'Fictional demo' : 'Connected'}</span></header>
       <main id="main" tabIndex={-1}>
-        <div className="page-heading"><div><h1>{current?.label ?? 'Page not found'}</h1></div></div>
+        <div className={cn('page-heading', route === 'ask-rosina' && 'sr-only')}><div><h1>{current?.label ?? 'Page not found'}</h1></div></div>
         {current ? slots[current.path] ?? <section className="route-slot" aria-label={`${current.label} workspace`}><div className="slot-symbol"><current.icon size={32} aria-hidden="true" /></div><h2>{current.label === 'Living Village' ? 'Room for your Living Village' : `Your ${current.label.toLowerCase()} workspace`}</h2><p>{current.path === 'village' ? `The people and relationships around ${scope.childName} will come together here.` : 'This workspace is ready for the next feature.'}</p><a href={current.path === 'village' ? '#/mission-control' : '#/village'}>{current.path === 'village' ? 'Back to Mission Control' : 'Explore Living Village'}<ArrowUpRight size={16} aria-hidden="true" /></a></section>
         : <section className="route-slot"><h2>This page isn't here.</h2><a href="#/mission-control">Go to Mission Control</a></section>}
       </main>

@@ -32,7 +32,8 @@ it('panel close aborts and suppresses a late result with no fallback or error',a
  vi.stubGlobal('fetch',vi.fn<typeof fetch>((_,options)=>{signal=options?.signal as AbortSignal;return new Promise(r=>{resolve=r})}));await enter();send();await waitFor(()=>expect(signal).toBeDefined())
  fireEvent.click(screen.getByRole('button',{name:'Close Ask Rosina'}));expect(signal?.aborted).toBe(true)
  await act(async()=>{resolve(new Response(JSON.stringify({reply:'Late private result',actions:[]}),{status:200}))})
- fireEvent.click(screen.getByRole('button',{name:'Ask Rosina'}))
+ const launcher=document.querySelector<HTMLButtonElement>('.rosina-launcher')
+ expect(launcher).toHaveAccessibleName('Ask Rosina');expect(launcher).toHaveAttribute('aria-expanded','false');fireEvent.click(launcher!)
  expect(screen.queryByText('Late private result')).not.toBeInTheDocument();expect(screen.queryByText(LIVE_FALLBACK)).not.toBeInTheDocument();expect(screen.queryByRole('alert')).not.toBeInTheDocument();vi.unstubAllGlobals()
 })
 it('persona switch discards a late live result and all previous persona messages',async()=>{

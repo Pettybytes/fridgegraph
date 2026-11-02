@@ -10,6 +10,8 @@ export type VillagePerson = {
  /** Only when an authority read explicitly supplied it. Never derived from relationship. */
  response?: {kind:string;label:string;at?:string;fresh?:boolean}
  authorityLabel?: string
+ /** Explicitly sourced status only. Never inferred from calendar or activity. */
+ sharedStatus?: import('@/features/shared-status/DadStatusChip').SharedStatus | null
 }
 export type VillageChild = {id:string;name:string;portraitSrc?:string}
 export type VillageRingsProps = {
