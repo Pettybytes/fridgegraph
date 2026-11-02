@@ -21,6 +21,7 @@ operations:
     - ./ops/OrbitVocabulary.graphql
     - ./ops/CareFacts.graphql
     - ./ops/MyChildren.graphql
+    - ./ops/ProposeSchoolDayReport.graphql
 introspection:
   introspect:
     enabled: false
@@ -46,6 +47,14 @@ introspection:
 # is a configuration gate, not per-invocation approval. Identity, action authorization, parent
 # approval and idempotency are enforced downstream, by the subgraph resolvers and Postgres RLS,
 # with the caller's own token. Adding a write operation here must not be treated as granting it.
+#
+# ProposeSchoolDayReport.graphql (TASK: Rosina school-report tool) is the FIRST mutation operation
+# file actually exposed through this config — a deliberate, narrow exception, not a reversal. It
+# only ever writes a draft row to school_report_proposals (migration 0071); it never writes
+# school_reports. confirmSchoolDayReport, the mutation that files the real, parent-visible report,
+# has NO operation file anywhere in this directory, so it is not exposed in any mutation_mode —
+# Rosina's tool transport structurally cannot reach it, the same guarantee this file already
+# documents for grantAccess/revokeGrant above.
 overrides:
   mutation_mode: explicit
 

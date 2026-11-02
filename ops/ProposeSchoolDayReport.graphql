@@ -1,0 +1,20 @@
+# Rosina tool: ProposeSchoolDayReport — stage a reviewable school-day report from the teacher's
+# own message. This is the ONE mutation operation file in this directory, by deliberate exception:
+# it NEVER writes a real, parent-visible SchoolReport — only a draft row in
+# school_report_proposals (migration 0071). The real write, confirmSchoolDayReport, has no
+# operation file here on purpose: Rosina's tool transport cannot reach it, so a model tool call or
+# generated text can never confirm itself. Authority is the caller's own `school.report` grant,
+# never a hardcoded persona name.
+mutation ProposeSchoolDayReport($childId: ID!, $kind: String!, $text: String!) {
+  proposeSchoolDayReport(childId: $childId, kind: $kind, text: $text) {
+    id
+    version
+    child {
+      id
+    }
+    kind
+    text
+    createdAt
+    expiresAt
+  }
+}
