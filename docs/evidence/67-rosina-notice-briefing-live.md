@@ -1,4 +1,7 @@
-# Evidence 65 — Rosina Notice→Plan + Caregiver Briefing, live (AGENT PROOF SLOT)
+# Evidence 67 — Rosina Notice→Plan + Caregiver Briefing, live (AGENT PROOF SLOT)
+
+(Renumbered 65 → 67: 65 is `65-teacher-report-live.md` on main; 66 is claimed by PR #103
+`66-teacher-report-live-chat.md` and `feat/village-map-backend` `66-mcp-forward-headers.md`.)
 
 Append-only. This records the live checks for `feat/rosina-service`'s leg of the AGENT PROOF SLOT on
 PR #78. Failed/blocked results are preserved, not overwritten.
