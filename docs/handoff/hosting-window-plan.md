@@ -306,3 +306,153 @@ their own windows. A cold start restores **processes**, never data.
 - No wildcard CORS, at any point, even temporarily.
 - No merging of this plan or of #144.
 - No removal of the UI guide guard (see `guide-map-inspection-queries.md`).
+
+---
+
+## 10. Public demo-login exposure (added 2026-11-02)
+
+**Status: PLAN ONLY.** Judges need demo login through the tunnel, so `/api/demo/login` and
+`/api/demo/reset` **will be internet-reachable**. Loopback binding is not protection behind
+cloudflared: every request arrives with socket peer `127.0.0.1`, and `src/demo/client-ip.ts` says so
+in its own header comment. Everything below is read from code at `5cfa121`, with `file:line` so it can
+be re-checked rather than trusted.
+
+### 10.1 Two blockers found while writing this
+
+**B-1 — an `https://` origin is refused today.** `originAllowed()` (`src/demo/server.ts:117-120`)
+accepts **only** `http://localhost` and `http://127.0.0.1`. It runs as middleware on every demo route
+(`:145`). A browser on `https://app.<domain>` sends `Origin: https://app.<domain>` and receives
+**403 `ORIGIN_NOT_ALLOWED`** — for login *and* reset. A public browser demo cannot work until this
+allow-list includes the real app origin.
+
+*Note:* the same check returns `true` when there is **no** `Origin` header (`:118`), so `curl` and
+non-browser callers are unaffected. The gate blocks exactly the judges it is meant to admit.
+
+**B-2 — `NODE_ENV=production` does not "disable the picker", it kills the endpoint.**
+`startDemoLogin()` (`src/demo/server.ts:579-583`) returns `false` and logs
+`[demo-login] refusing to start with NODE_ENV=production`. The demo therefore stays available only
+when **`DEMO_LOGIN_ENABLED=1` and `NODE_ENV` is not `production`**. Any hosting recipe that sets
+`NODE_ENV=production` "for safety" silently removes demo login entirely — the opposite of the intent.
+
+### 10.2 Which identities `/api/demo/login` can mint
+
+The request body accepts **one field**: `personaId`, a string ≤64 chars (`src/demo/server.ts:173-178`).
+There is no email, password, person id or role in the contract, so a caller cannot name an account
+they were not offered.
+
+Resolution is allow-list first, registry second (`:182`):
+
+```ts
+const persona = personaById(personaId) ?? (await familyPersona(personaId));
+```
+
+- **`personaById`** matches only the fixed `DEMO_PERSONAS` allow-list
+  (`src/demo/personas.ts:35-177`): `demo-guide`, `kendra`, `andre`, `loretta`, `priya`, `dana`,
+  `jax-family`, `rosa`, `felicia`, `simone`, `whitfield`, `dwayne` — each with a fixed `personId` and
+  a fixed `@example.com` mailbox.
+- **`familyPersona`** resolves **only** rows created through the family registry
+  (`src/demo/family.ts:303-306`, table `demo_families`); it never constructs an identity from input.
+- Unknown, or known-but-unseeded, both return **`UNAVAILABLE`** with `UNKNOWN_PERSONA` /
+  `NO_SEEDED_IDENTITY` (`server.ts:184-192`). Identical answers: no oracle for which personas exist.
+
+**Verdict: fictional demo personas only.** An arbitrary or real account cannot be minted through this
+endpoint, because the only address ever used is the one stored on the persona row.
+
+### 10.3 What the returned session is allowed to do
+
+Minting is two steps, and the two keys never mix (`src/demo/session.ts:60-110`):
+
+1. **service-role** `admin.generateLink({ type:'magiclink', email: persona.email })` — server-side only,
+   used to *create* a link, never a session;
+2. **publishable-key** `verifyOtp({ token_hash, type:'magiclink' })` — produces an ordinary **user**
+   session.
+
+The response is checked before it is trusted (`session.ts:88-104`): the authenticated subject must map
+back to the requested `personId` (`MINT_IDENTITY_MISMATCH`), `app_metadata.demo` must be `true`
+(`MINT_MARKER_MISSING`), and the guide marker must agree with the persona (`MINT_MARKER_MISSING`).
+Any failure throws — there is no fallback session.
+
+What crosses the wire: `access_token`, `token_type`, `expires_in`, `expires_at`
+(`src/demo/personas.ts:245-251`). The **refresh token stays in the server process**; the service key
+never reaches the browser and is never in a response body.
+
+**Privilege statement to verify, not assume:** the browser holds a **`role=authenticated`** JWT with
+`app_metadata.demo=true`. It is *not* a service-role token, and every authorization decision is still
+made by RLS and the subgraphs against that user token. The service key's only role is minting the
+magic link server-side.
+
+### 10.4 Rate limiting and admission seen through the tunnel
+
+Client identity comes from `resolveClientIp()` (`src/demo/client-ip.ts:23-37`), and the rule matters:
+
+- peer **not** in the trusted set → the `X-Forwarded-For` header is **ignored**, socket peer used;
+- peer **is** trusted (default `127.0.0.1`, `::1`) → walk `X-Forwarded-For` **right to left**, return
+  the first untrusted hop;
+- all hops trusted → the peer itself, which `isResolvedClient()` treats as "no client identity".
+
+So a caller cannot choose the address they are counted against unless they are the proxy.
+
+| Limit | Value | Where |
+| --- | --- | --- |
+| login per client IP | **60 / 60 s** | `server.ts:80-81` |
+| login per persona | **8 / 60 s** | `server.ts:82-83` |
+| reset per client IP | **5 / 60 s** | `server.ts:132-133` |
+| reset per person | **30 s cooldown** | `server.ts:126` |
+| created-family | **5 s cooldown** | `server.ts:135` |
+| request body | **2 kb** | `server.ts:139` |
+
+Refusals are `429` with `Retry-After` on login and `retryAfterMs` on reset.
+
+### 10.5 Reset admission and concurrent judges
+
+`POST /api/demo/reset` (`server.ts:465-515`) requires, in order:
+
+1. **loopback socket peer** (`:468`) — note this is *not* public protection behind cloudflared;
+2. **`identityRefusal`** (`src/demo/guards.ts:34-39`): not `UNAUTHENTICATED`, must be **demo**
+   (`DEMO_SESSION_REQUIRED`), and the **guide is refused** (`DEMO_GUIDE_READ_ONLY`);
+3. **per-IP window** (5/min) and **per-person 30 s cooldown**;
+4. **one shared reset lock** (`SHARED_RESET_LOCK`) → concurrent callers get **`409 RESET_IN_FLIGHT`**.
+
+Precision on "parent-only": the code enforces **demo session, guide refused**. It does not test
+parenthood; every allow-list persona that is not the guide is an adult/parent account, so the
+practical effect matches the intent — but the enforcement is the marker, not a parent check.
+
+**If another judge resets mid-session:** the reset performs `dropPersonaSessionCache()`
+(`src/demo/persona-sessions.ts:208-214`), which increments a generation and clears the cache — so a
+mint that *raced* the reset is discarded and re-minted against the new generation (`:88-95`). But an
+**access token already issued stays valid** until its own expiry; it is a Supabase JWT, not something
+the cache can revoke. The observable result for the other judge is therefore: **token still works,
+data snaps back to baseline underneath them** — a stale view, not a bounce to login. Record what
+actually happens; do not claim either "they are logged out" or "nothing changes".
+
+### 10.6 Pass conditions for the hosting window
+
+Each must be run through the **public** hostname, and each result recorded separately.
+
+| # | Condition | Pass means |
+| --- | --- | --- |
+| D1 | `https://app.<domain>` login as `kendra` | `READY` with a session — proves B-1 was fixed, not worked around |
+| D2 | login with an unknown `personaId` | `UNAVAILABLE` / `UNKNOWN_PERSONA`, **no token in the body** |
+| D3 | login body with `email`/`password`/`personId` instead of `personaId` | `400 INVALID_REQUEST`; extra fields ignored |
+| D4 | decode the returned `access_token` | `role=authenticated`; `app_metadata.demo=true`; **no** service-role claim |
+| D5 | any login/reset response body | contains **no** service key, refresh token, or `SUPABASE_*` secret |
+| D6 | 61st login from one IP in 60 s | `429` + `Retry-After` |
+| D7 | 9th login for one persona in 60 s | `429` |
+| D8 | spoof `X-Forwarded-For` from an untrusted path | the counted client is the socket peer, not the claimed address |
+| D9 | reset with the **guide** token | `403 DEMO_GUIDE_READ_ONLY` |
+| D10 | reset with a non-demo (normal) session | `403 DEMO_SESSION_REQUIRED` |
+| D11 | two resets in parallel | exactly one `200`; the other `409 RESET_IN_FLIGHT` |
+| D12 | judge B resets while judge A is mid-session | record A's actual experience (token valid? data baseline?) — report observed, not assumed |
+| D13 | demo process env at runtime | `DEMO_LOGIN_ENABLED=1` **and** `NODE_ENV` **not** `production` (B-2) |
+| D14 | reset completes | `200` with a report; `droppedSessionCache: true`; cast checksum matches the recorded value |
+
+### 10.7 Decisions this section forces
+
+1. **Decide the origin allow-list change before the window.** B-1 is not a tuning item; without it
+   there is no public browser demo. It needs its own reviewed change and its own proof (D1).
+2. **Never set `NODE_ENV=production` on the demo process** (B-2). If a hosting recipe requires it for
+   other reasons, the demo endpoint must be split out or the recipe changed — not quietly accepted.
+3. **Publish the reset semantics to judges** if resets are shared: a concurrent judge gets `409`, and
+   a mid-session reset leaves them with a valid token over restored data.
+4. **Do not treat loopback as a control.** Two independent defences are what bound a public caller:
+   the trusted-proxy client IP and the per-identity lock.
