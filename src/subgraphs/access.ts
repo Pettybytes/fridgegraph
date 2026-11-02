@@ -245,24 +245,35 @@ const toProposal = (row: Record<string, unknown>): ProposalShape => ({
  */
 function addVillagerError(e: unknown): never {
   const message = e instanceof Error ? e.message : String(e);
-  const known = [
+  const byMessage = [
     'UNAUTHENTICATED', 'DEMO_GUIDE_READ_ONLY', 'UNAUTHORIZED',
     'VILLAGER_SCOPES_REQUIRED', 'VILLAGER_SCOPE_NOT_ALLOWED', 'VILLAGER_NOT_FOUND',
     'VILLAGER_NAME_AMBIGUOUS', 'VILLAGER_RELATIONSHIP_TYPE_NOT_ALLOWED',
     'PROPOSAL_NOT_FOUND', 'PROPOSAL_EXPIRED', 'PROPOSAL_STALE',
-  ];
-  const byMessage = known.find((k) => message.includes(k));
+  ].find((k) => message.includes(k));
   if (byMessage) throw new GraphQLError(byMessage, { extensions: { code: byMessage } });
 
-  const sqlstate = (e as { code?: string } | null)?.code;
-  const byCode: Record<string, string> = {
-    '42501': 'UNAUTHORIZED',
-    P0002: 'PROPOSAL_NOT_FOUND', // also VILLAGER_NOT_FOUND; not_found is not_found either way
-    '22023': 'VILLAGER_SCOPE_NOT_ALLOWED', // also a few other validation meanings
+  // Documented SQLSTATE fallback — see migration 0073's own "ERRCODE discipline" note for why
+  // each code was chosen and which client-facing meanings deliberately collapse together.
+  const BY_SQLSTATE: Record<string, string> = {
+    '28000': 'UNAUTHENTICATED',
+    '42501': 'UNAUTHORIZED', // also covers DEMO_GUIDE_READ_ONLY
+    P0002: 'NOT_FOUND', // covers VILLAGER_NOT_FOUND and PROPOSAL_NOT_FOUND alike
     '40001': 'PROPOSAL_STALE',
+    '22023': 'VILLAGER_PROPOSAL_INVALID', // scopes/name/relationship-type/expired — see migration
   };
-  const code = (sqlstate && byCode[sqlstate]) ?? 'RPC_FAILED';
-  throw new GraphQLError(code, { extensions: { code } });
+  const sqlstate = (e as { code?: unknown } | null)?.code;
+  const byCode = typeof sqlstate === 'string' ? BY_SQLSTATE[sqlstate] : undefined;
+  if (byCode) throw new GraphQLError(byCode, { extensions: { code: byCode } });
+
+  const correlationId = randomUUID();
+  // Never the message/details/hint fields here — this branch is specifically for an error that
+  // matched NEITHER known signal, so those fields cannot be assumed to be this file's own static
+  // strings.
+  console.error(
+    `[access.addVillagerError] unmapped RPC error correlationId=${correlationId} sqlstate=${typeof sqlstate === 'string' ? sqlstate : 'unknown'}`,
+  );
+  throw new GraphQLError('RPC_FAILED', { extensions: { code: 'RPC_FAILED', correlationId } });
 }
 
 /** Writes the audit row for a grant decision. `access` owns `approvals`. */

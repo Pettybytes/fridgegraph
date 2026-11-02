@@ -19,6 +19,19 @@
 -- `confirm_add_villager` NEVER makes the villager a parent/guardian (role is never written, and the
 -- relationship type is never one of 'parent'/'guardian'), and NEVER touches `household_members` —
 -- the two families' households are never linked by this flow.
+--
+-- ERRCODE discipline (learned live from school-report's 0071, see evidence 65 and the fix in
+-- src/subgraphs/school.ts's addVillagerError-equivalent): the TS layer maps these RPC failures by
+-- SQLSTATE as a documented fallback behind message-substring matching, because a deployed
+-- PostgREST's `message` field has no guaranteed-verbatim contract — `code` does. Every RAISE
+-- EXCEPTION below gets an explicit ERRCODE for exactly that reason, chosen so the fallback map
+-- stays small and each code's CLIENT-FACING meaning collapses only where that is actually fine:
+-- UNAUTHENTICATED=28000; UNAUTHORIZED+DEMO_GUIDE_READ_ONLY=42501 (both "insufficient privilege",
+-- collapsing is no-oracle-friendly); VILLAGER_NOT_FOUND+PROPOSAL_NOT_FOUND=P0002 (both "nothing
+-- resolvable"); PROPOSAL_STALE=40001; VILLAGER_SCOPES_REQUIRED+VILLAGER_SCOPE_NOT_ALLOWED+
+-- VILLAGER_NAME_AMBIGUOUS+VILLAGER_RELATIONSHIP_TYPE_NOT_ALLOWED+PROPOSAL_EXPIRED=22023 (all
+-- "this proposal/input needs fixing or redoing" by SQLSTATE alone; message-matching, tried first,
+-- still tells these apart whenever the deployment's message is reliable).
 
 begin;
 
@@ -73,7 +86,7 @@ declare
   v_row villager_proposals;
 begin
   v_caller := current_person();
-  if v_caller is null then raise exception 'UNAUTHENTICATED'; end if;
+  if v_caller is null then raise exception 'UNAUTHENTICATED' using errcode = '28000'; end if;
   if is_demo_guide() then raise exception 'DEMO_GUIDE_READ_ONLY' using errcode = '42501'; end if;
   if not is_parent_of(p_child) then raise exception 'UNAUTHORIZED' using errcode = '42501'; end if;
 
@@ -158,7 +171,7 @@ as $$
 declare v_prop villager_proposals; v_caller text; v_rel relationships; v_grant grants; v_rid text; v_gid text;
 begin
   v_caller := current_person();
-  if v_caller is null then raise exception 'UNAUTHENTICATED'; end if;
+  if v_caller is null then raise exception 'UNAUTHENTICATED' using errcode = '28000'; end if;
   if is_demo_guide() then raise exception 'DEMO_GUIDE_READ_ONLY' using errcode = '42501'; end if;
 
   select * into v_prop from villager_proposals where id = p_proposal for update;
