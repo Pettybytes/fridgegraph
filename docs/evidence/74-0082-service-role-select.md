@@ -64,3 +64,36 @@ A first pass returned `0` for `authenticated` — that was the replica's simplif
 - PR staged, **not merged**, **not applied live**.
 - No live database touched by this change; the only execution was inside disposable `fg81`.
 - No tunnel, no dial, no SMS, no scopes, no permission widening.
+
+---
+
+## Corrections — superseding notes, 2026-11-02
+
+Appended rather than rewriting the sections above, so the earlier wording stays visible and the
+correction is auditable. **Where this section and anything above disagree, this section wins.**
+
+1. **#143 is MERGED**, not pending. `W-DEPLOY-54e8abe` landed as **`c4d190c`** (2026-11-02T19:06:21Z).
+   Any earlier reference to it being open is superseded.
+2. **The allocation finding is "no migrations", not "HANDOFF only".** PR #141 and #142 contain **web
+   changes** and also touch `HANDOFF.md`; the reason they do not consume `0082` is that **neither adds
+   a migration**. The conclusion (`0082` free) is unchanged; the reason is corrected. #68 adds neither.
+3. **A local PostgREST is optional, and only for an offline HTTP rehearsal.** It is **not a
+   prerequisite for the apply.** Live `db:checksum` verification runs against the **intended Supabase
+   PostgREST endpoint** in a freshly reserved window. Removing the earlier "pending a local
+   PostgREST" framing: nothing about applying 0082 waits on a local endpoint.
+4. **The maintenance-write statement above was wrong and is retracted.** The line "today they write
+   as the caller" does not describe the two paths correctly:
+   - the **canonical reset** uses its **own server-side PostgreSQL connection**;
+   - **`scripts/db.ts` seed/reset** goes through **service-role PostgREST**.
+   `SELECT`-only therefore leaves those **maintenance writes unresolved**, and that is the accurate
+   statement. Neither is a live breakage claimed here; repairing either is a separate change with its
+   own proof.
+   - **Note on file state:** the applied-candidate migration file's inline comment still carries the
+     superseded "write as the caller" wording. The SQL is **accepted unchanged** and was deliberately
+     not edited; **this section supersedes that comment.**
+5. **The rehearsal label stays narrow: SQL privilege proof only.** Stated once here rather than
+   repeated throughout; the fg81 result proves the grant delta, not PostgREST or JWT behaviour.
+6. **Map query pack corrected separately** (`docs/handoff/guide-map-inspection-queries.md`):
+   `recorded_places` is household-scoped (0053, no `child_id`); the geometry helper is
+   `place_route_geometry_for(p_child, p_place)` (0058); and `village_places_for_child(p_child)` (0075)
+   — the function the map resolver actually calls — was missing and is now included.
