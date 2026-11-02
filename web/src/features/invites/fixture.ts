@@ -1,6 +1,7 @@
 import type { InviteCreator, InviteResponse } from './invite'
 
-const FIXTURE_PROMPT_HASH = 'fixture:hand-authored-birthday-art-v1'
+// SHA-256 of the backend's art-only Birthday party prompt in PR #130.
+const FIXTURE_PROMPT_HASH = 'e69fe61faeab3d95c1f963fe57da321cc371e6a42786a08cd274146e8177450f'
 let artBase64: Promise<string> | null = null
 
 async function sampleArt(signal?: AbortSignal): Promise<string> {
@@ -22,8 +23,8 @@ export function createMockInvite(childFirstName: string): InviteCreator {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     return {
       status: 'READY', clarification: null,
-      event: { childFirstName, occasion: 'Birthday party', date: '2026-11-07', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Riverside Pavilion' },
-      art: { mimeType: 'image/png', width: 1000, height: 1400, base64, quietArea: { x: 148, y: 516, w: 704, h: 704 } },
+      event: { childFirstName, occasion: 'Birthday party', date: '2026-11-15', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Maple Hall' },
+      art: { mimeType: 'image/png', width: 1024, height: 1024, base64, quietArea: { x: 96, y: 600, w: 832, h: 328 } },
       provenance: { source: 'FIXTURE', model: null, cached: false, promptHash: FIXTURE_PROMPT_HASH },
     } satisfies InviteResponse
   }

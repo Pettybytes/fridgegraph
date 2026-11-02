@@ -23,7 +23,7 @@ export type InviteProvenance = {
 }
 export type InviteResponse = {
   status: 'READY' | 'NEEDS_CLARIFICATION'
-  clarification: string | null
+  clarification: { question: string } | null
   event: InviteEvent
   art: InviteArt | null
   provenance: InviteProvenance
@@ -35,9 +35,10 @@ export function inviteCredit(provenance: InviteProvenance): string {
 }
 
 export function inviteError(error: unknown): { state: 'refused' | 'failed'; message: string } {
-  const value = error as { status?: number; code?: string; retryAfterMs?: number; errors?: { extensions?: { code?: string; retryAfterMs?: number } }[] } | null
-  const code = value?.code ?? value?.errors?.[0]?.extensions?.code
+  const value = error as { status?: number; code?: string; error?: string; retryAfterMs?: number; errors?: { extensions?: { code?: string; retryAfterMs?: number } }[] } | null
+  const code = value?.code ?? value?.error ?? value?.errors?.[0]?.extensions?.code
   const status = value?.status
+  if (status === 400 || code === 'INVALID_REQUEST') return { state: 'failed', message: 'The invitation request is invalid. Check the event details and try again.' }
   if (status === 401 || code === 'UNAUTHENTICATED') return { state: 'refused', message: 'Your session ended. Choose a perspective again.' }
   if (status === 403 || code === 'UNAUTHORIZED') return { state: 'refused', message: 'Only a parent or guardian of this child can prepare an invitation. No art was generated.' }
   if (code === 'BUDGET_EXHAUSTED') return { state: 'failed', message: 'Image generation is unavailable because the demo budget is exhausted. No invitation art was returned.' }
