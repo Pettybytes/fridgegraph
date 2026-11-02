@@ -49,6 +49,9 @@ jobs:
       - name: Health operation coverage
         run: npm run test:health-coverage
 
+      - name: Reset provenance contract
+        run: npm run test:reset-provenance
+
       - name: villageWorld contract
         run: npm run test:village-world
 
