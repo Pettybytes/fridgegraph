@@ -90,17 +90,25 @@ for (const rel of paths) {
   try { doc = parse(readFileSync(file, 'utf8')); }
   catch (e) { console.log(`  FAIL  ${rel} — syntax: ${e instanceof Error ? e.message : String(e)}`); mcpBad += 1; routerBad += 1; continue; }
   const mcpErrors = validate(mcpSchema, doc);
-  const routerErrors = routerSchema ? validate(routerSchema, doc) : [];
+  const routerErrors = routerSchema ? validate(routerSchema, doc) : null;
   if (mcpErrors.length) mcpBad += 1;
-  if (routerErrors.length) routerBad += 1;
-  if (!mcpErrors.length && !routerErrors.length) { console.log(`  PASS  ${rel}`); continue; }
-  if (mcpErrors.length) console.log(`  FAIL  ${rel} — not in the MCP schema: ${mcpErrors[0].message}`);
-  else console.log(`  FAIL  ${rel} — not in the router schema: ${routerErrors[0].message}`);
+  if (routerErrors && routerErrors.length) routerBad += 1;
+  if (!mcpErrors.length && routerErrors && !routerErrors.length) { console.log(`  PASS  ${rel}`); continue; }
+  if (mcpErrors.length) { console.log(`  FAIL  ${rel} — not in the MCP schema: ${mcpErrors[0].message}`); continue; }
+  if (!routerErrors) { console.log(`  ????  ${rel} — MCP schema ok; router schema UNKNOWN`); continue; }
+  console.log(`  FAIL  ${rel} — not in the router schema: ${routerErrors[0].message}`);
 }
 
-const verdict = mcpBad === 0 && routerBad === 0;
+// A missing router schema is NOT a pass. Local results are still reported so a single failure reason is
+// visible, but the combined check requires BOTH schemas to have been obtained and validated.
+const routerObtained = routerSchema !== null;
+const verdict = mcpBad === 0 && routerObtained && routerBad === 0;
 console.log(`\nMCP schema validity: ${mcpBad ? `${mcpBad} invalid` : 'valid'}`);
-console.log(`Router API validity: ${routerSchema ? (routerBad ? `${routerBad} invalid` : 'valid') : `UNKNOWN (${routerReason ?? 'router unreachable'})`}`);
+console.log(`Router API validity: ${routerObtained ? (routerBad ? `${routerBad} invalid` : 'valid') : `UNKNOWN — schema not obtained (${routerReason ?? 'router unreachable'})`}`);
 console.log('Runtime routability: UNKNOWN — this check never executes an operation.');
-console.log(verdict ? 'MCP SCHEMA CHECK PASS' : 'MCP SCHEMA CHECK FAILED');
+if (!routerObtained) {
+  console.log('MCP SCHEMA CHECK INCOMPLETE — the router schema was not obtained, so the combined check cannot pass.');
+} else {
+  console.log(verdict ? 'MCP SCHEMA CHECK PASS' : 'MCP SCHEMA CHECK FAILED');
+}
 process.exit(verdict ? 0 : 1);

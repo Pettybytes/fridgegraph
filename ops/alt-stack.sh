@@ -116,6 +116,7 @@ gen_mcp_config() {
     --src "$ROOT/.apollo/mcp.local.yaml" \
     --out "$MCP_CONFIG" \
     --root "$ROOT" \
+    --schema "$ROOT/supergraph.graphql" \
     --endpoint "http://127.0.0.1:${ROUTER_PORT}/" \
     --port "$MCP_PORT" || {
       echo 'mcp config generation REFUSED — see the reason above; not starting a config that cannot authenticate'
