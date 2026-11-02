@@ -968,15 +968,20 @@ const resolvers = {
       });
       if (error) rpcError(error);
 
-      const e = await rows(
-        dbFor(ctx)
-          .from('candidate_evaluations')
-          .select('candidate_id,reason_code,available,decline_reason,accepted_via,estimated_ride_cost_usd,cost_basis,distance_miles,location_provenance,cost_calculated_at')
-          .eq('job_id', jobId),
+      // Status only. Cost, basis, distance and provenance are parent/guardian reads under the agreed
+      // #87 contract, so a candidate accepting her own attempt is given her own outcome and nothing
+      // about money — `evalFromRow` fills those fields with null from the absent keys.
+      const outcome = await rows(
+        dbFor(ctx).rpc('candidate_attempt_outcome', { p_attempt: attemptId }),
       );
-      const mine = e.find((x) => String(x.candidate_id) === String(callerId));
-      if (!mine) throw new GraphQLError('NOT_FOUND', { extensions: { code: 'NOT_FOUND' } });
-      return evalFromRow(mine as Record<string, unknown>);
+      if (!outcome.length) throw new GraphQLError('NOT_FOUND', { extensions: { code: 'NOT_FOUND' } });
+      return evalFromRow({
+        candidate_id: callerId,
+        reason_code: outcome[0].reason_code,
+        available: outcome[0].available,
+        decline_reason: outcome[0].decline_reason,
+        accepted_via: outcome[0].accepted_via,
+      });
     },
 
     approvePickup: async (
