@@ -75,11 +75,11 @@ The sandbox uses fictional people and records. The origin message is real, share
 The diagram shows the family workflow, not a live event stream. Rosina can store a draft or proposal before confirmation; the consequential pickup request is a separate parent action.
 
 ```mermaid
-flowchart LR
-  A["Voice or notice / photo"] --> B["Rosina prepares<br/>with authorized records"]
-  B --> C["Reviewed proposal"]
+flowchart TB
+  A["Voice / notice / photo"] --> B["Rosina reads<br/>authorized records"]
+  B --> C["Proposal for review"]
   C --> D["Parent confirms"]
-  D --> E["Recorded action"]
+  D --> E["Action recorded"]
   classDef meta fill:#E3E7FF,stroke:#4654AD,color:#252638
   classDef records fill:#FBFAF6,stroke:#4654AD,color:#252638
   classDef draft fill:#F8E4DF,stroke:#E88775,color:#252638
