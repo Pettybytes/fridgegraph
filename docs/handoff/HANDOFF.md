@@ -4012,6 +4012,8 @@ carrying a later stamp and 01:15Z deadline. These UI probes occurred around
 stopped on discovery. No more live requests until Bentley posts a fresh OPEN
 slot on #78 and repairs the MCP forward-header leg.
 
+| 2026-11-02 00:34 | **Fix PR for evidence 65's open finding — school-report RPC errors now map by SQLSTATE, not message text.** `schoolReportProposalError` (`src/subgraphs/school.ts`) tries message-substring matching first (unchanged, still the more specific signal when it works), then falls back to a documented SQLSTATE map set by migration 0071's own RAISE EXCEPTION statements (`42501→UNAUTHORIZED`, `P0002→PROPOSAL_NOT_FOUND`, `40001→PROPOSAL_STALE`, `22023→SCHOOL_REPORT_INVALID` — one known, pre-existing overlap: 0071 reuses 22023 for three distinct raises that SQLSTATE alone can't separate, documented in the code, not papered over). An error matching neither signal logs ONE line — a correlation id + the SQLSTATE only, **never** raw message/details/hint — and returns that same correlation id to the client inside a generic `RPC_FAILED`. Does not touch migration 0071 (already applied, cannot be edited) or `addVillagerError` (`feat/add-villager`, not yet merged — that branch should pick up the same pattern before its own PR, not duplicate the old bug). Tests use real `@supabase/supabase-js` `PostgrestError` fixtures, not the old fake-RPC plain `Error` — 19/19 PASS (5 new); full `test:rosina` 159/159; typecheck/secret-scan clean. No migration, no live deployment touched. | `fix/school-report-error-mapping` @ `4ce49a3` | — | **PR #101 OPEN — CI pending** |
+
 ### Teacher report card AGENT PROOF SLOT — 2026-11-02, PR #99
 After Bentley restored MCP forwarding and Rosina's GraphQL target, the #99
 browser card passed end to end at UI head
