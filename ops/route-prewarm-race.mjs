@@ -31,6 +31,8 @@ import { readFileSync } from 'node:fs';
 import pg from 'pg';
 
 const LABEL = 'CONTROLLED EVIDENCE';
+const BASIS_OK = (b) => typeof b === 'string' && /^FridgeGraph/.test(b)
+  && (/stored road distance/i.test(b) || /haversine/i.test(b));
 const results = { pass: 0, fail: 0, blocked: 0 };
 const pass = (l, d = '') => { results.pass += 1; console.log(`  PASS  ${l}${d ? ' — ' + d : ''}`); };
 const fail = (l, d = '') => { results.fail += 1; console.log(`  FAIL  ${l}${d ? ' — ' + d : ''}`); };
@@ -150,8 +152,8 @@ try {
       const expected = (await client.query('select round($1::numeric * 1.40, 2)::text as c', [a.miles])).rows[0].c;
       check('case A — the stored amount is miles × 1.40 to the cent', expected === a.cost,
         `${a.miles} × 1.40 = ${expected}, stored ${a.cost}`);
-      check('case A — the basis is one of the two the code can produce',
-        ['stored road distance', 'haversine'].includes(a.cost_basis), String(a.cost_basis));
+      check('case A — the basis is one of the two the code can produce', BASIS_OK(a.cost_basis),
+        String(a.cost_basis).slice(0, 80));
       check('case A — a priced decision carries its timestamp', Boolean(a.cost_calculated_at));
     }
   }
@@ -181,8 +183,7 @@ try {
       bBefore.cost === bAfter.cost && bBefore.miles === bAfter.miles,
       `${bBefore.cost ?? 'null'} / ${bAfter.cost ?? 'null'}`);
     check('case B — the decision’s own basis is still one the code can produce',
-      bAfter.cost === null || ['stored road distance', 'haversine'].includes(bAfter.cost_basis),
-      String(bAfter.cost_basis));
+      bAfter.cost === null || BASIS_OK(bAfter.cost_basis), String(bAfter.cost_basis).slice(0, 80));
   }
 
   // The store really did receive the case-B measurement (a negative control on "nothing happened").

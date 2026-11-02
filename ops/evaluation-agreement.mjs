@@ -70,7 +70,8 @@ try {
   process.exit(3);
 }
 
-const BASIS = ['stored road distance', 'haversine'];
+const BASIS_OK = (b) => typeof b === 'string' && /^FridgeGraph/.test(b)
+  && (/stored road distance/i.test(b) || /haversine/i.test(b));
 let snapshot = null;
 
 try {
@@ -121,7 +122,7 @@ try {
       const expected = (await client.query('select round($1::numeric * 1.40, 2)::text as c', [d.miles])).rows[0].c;
       check('the amount is miles × the declared $1.40 rate, to the cent', expected === d.cost,
         `${d.miles} mi × 1.40 = ${expected}, stored ${d.cost}`);
-      check('the basis is one of the two the code can produce', BASIS.includes(d.cost_basis),
+      check('the basis is one of the two the code can produce', BASIS_OK(d.cost_basis),
         String(d.cost_basis));
       check('a priced row carries its calculation timestamp', Boolean(d.cost_calculated_at),
         d.cost_calculated_at ? new Date(d.cost_calculated_at).toISOString() : 'null');

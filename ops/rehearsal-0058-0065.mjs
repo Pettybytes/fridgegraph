@@ -182,6 +182,7 @@ try {
       discovery_timeout_seconds int default 60, over_limit_candidate_id text, failure_reason text);
     create table candidate_evaluations (
       id text primary key default gen_random_uuid()::text, job_id text, candidate_id text,
+      request_version int,
       reason_code text, available boolean, decline_reason text, accepted_via text,
       late_reply boolean, distance_miles numeric, estimated_ride_cost_usd numeric,
       cost_basis text, location_provenance text, cost_calculated_at timestamptz,
@@ -416,7 +417,15 @@ console.log(`\nFOCUSED CHECKS: ${runFocus ? 'running' : 'not run (set REHEARSAL_
     }
   }
 } finally {
-  await c.query('rollback').catch(() => undefined);
+  // A disposable target may be KEPT so a later harness can run against the applied slice. This is
+  // opt-in and impossible against the project database.
+  const keep = process.env.REHEARSAL_COMMIT === '1' && process.env.REHEARSAL_ALLOW_PROJECT !== '1';
+  if (keep) {
+    await c.query('commit').catch((e) => { console.error('COMMIT failed:', e.message); });
+    console.log('REHEARSAL COMMITTED (disposable target kept for a follow-on harness)');
+  } else {
+    await c.query('rollback').catch(() => undefined);
+  }
   await c.end();
 }
 
