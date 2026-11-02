@@ -70,8 +70,8 @@ test('ride answer states when the estimate is over the cap', () => {
 
 test('day answer lists that day’s events and places', () => {
   const day: DayPlan = { date: '2026-11-07', items: [
-    { eventId: 'e1', title: 'Soccer', placeId: 'place_field', placeName: 'Tigers field', at: '2026-11-07T15:00' },
-    { eventId: 'e2', title: 'Dentist', placeId: null, placeName: null, at: '2026-11-07T10:00' },
+    { eventId: 'e1', title: 'Soccer', placeId: 'place_field', placeName: 'Tigers field', placeState: 'linked', at: '2026-11-07T15:00' },
+    { eventId: 'e2', title: 'Dentist', placeId: null, placeName: null, placeState: 'unlinked', at: '2026-11-07T10:00' },
   ] };
   const a = dayAnswer(day);
   assert.deepEqual(a.numbers, day.items);

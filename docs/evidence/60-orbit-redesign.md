@@ -1,5 +1,8 @@
 # Evidence 60 — Orbit redesign backend (places, alert binding, close outcome, audience read)
 
+> **Current expected value (post-#92/#96, measured 2026-11-02): `f022ccf8311e7561`.**
+> The `823cb76928f50c9f` values below are the measurements **at that revision** and stay as recorded.
+
 **Branch `feat/orbit-amber` from `main` `e3f2e3b`.**
 Migrations **0053** (recorded places) and **0054** (close outcome + thank-you), applied 2026-11-01
 inside the reserved W-ORBIT-B window and verified live; the stack was then restored to

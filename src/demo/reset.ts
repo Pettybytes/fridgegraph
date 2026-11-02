@@ -182,6 +182,16 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
       if (n) restored[table] = (restored[table] ?? 0) + n;
     }
 
+    // Geographic seed (0062): coordinates + canonical event→place links, restored through the
+    // authorized place-reset helper the database already owns. Runs AFTER events are restored, because
+    // it re-applies links to rows that must already exist — and it removes only non-fixture sandbox
+    // places, so no household's fixture rows are deleted wholesale.
+    const places = await c.query('select reset_demo_places($1) as r', [actor]);
+    const placeCounts = (places.rows[0]?.r ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(placeCounts)) {
+      if (Number(v) > 0) restored[k] = Number(v);
+    }
+
     // Disposable Orbit records go through the privileged, database-authorised path (0042).
     // Deleting them here directly would hit the append-only guard, which is the point of the split.
     // Created families are not fixture rows, so the id-scoped loops above never touch them. Their
@@ -193,6 +203,13 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     // SINGLE audit row this reset writes, as numbers with no ids or names.
     const decisions = await c.query('select reset_demo_decisions() as n');
     demoDecisionsCleared = Number(decisions.rows[0]?.n ?? 0);
+
+    // School-report leftovers (0073). Scoped to proposals authored by a demo identity, plus the
+    // reports those proposals confirmed. A direct `reportSchoolDay` filing has no provenance column,
+    // so it is deliberately NOT covered here rather than guessed at by time or id prefix.
+    const school = await c.query('select reset_demo_school_reports() as r');
+    const schoolCounts = (school.rows[0]?.r ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(schoolCounts)) if (Number(v) > 0) cleared[k] = Number(v);
 
     const orbit = await c.query('select reset_demo_orbit($1, $2::jsonb) as r', [
       actor,
