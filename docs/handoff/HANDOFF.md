@@ -1,3 +1,4 @@
+<!-- SLOT STATUS (read this first): no window is open as of 2026-11-02T00:14Z. Every "OPEN to …" string below belongs to a historical RESERVED row and is superseded by its RELEASED row; the live slot, deadline and per-process serving revisions are posted as a comment on PR #78. -->
 <!-- Latest W4b publication: PR #32 is READY FOR REVIEW. See final readiness entry below. -->
 
 ## Current frontend review — Village Map PR #81
