@@ -26,7 +26,9 @@
     "health:operations": "node ops/validate-operations.mjs",
     "test:village-world": "node --test ops/village-world-contract.test.mjs",
     "compose:local": "rover supergraph compose --config supergraph.local.yaml --elv2-license accept > supergraph.local.graphql",
-    "test:reset-provenance": "node --test ops/reset-villager-provenance.test.mjs"
+    "test:reset-provenance": "node --test ops/reset-villager-provenance.test.mjs",
+    "test:mcp-schema": "node --test ops/mcp-schema-selection.test.mjs",
+    "check:mcp-schema": "node ops/mcp-schema-check.mjs"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",

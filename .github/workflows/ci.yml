@@ -52,6 +52,9 @@ jobs:
       - name: Reset provenance contract
         run: npm run test:reset-provenance
 
+      - name: MCP schema selection
+        run: npm run test:mcp-schema
+
       - name: villageWorld contract
         run: npm run test:village-world
 
