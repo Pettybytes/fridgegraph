@@ -11,5 +11,5 @@ export function ConnectedFridge(){
  const reader=useMemo<FridgeReader>(()=>evidenceReader??(access?.client?createFridgeReader(access.client,access.runRead):{read:async()=>({status:'failed'})}),[evidenceReader,access?.client,access?.runRead])
  if(!session||!access)return <p>Choose a perspective to open the fridge.</p>
  const art=familyArt(access.selectedChildId)
- return <Fridge personId={session.persona.personId} childId={access.selectedChildId} generation={session.generation} reader={reader} readOnly={session.marks?.demoGuide} sampleSlots={art.slots} artLabel={art.label}/>
+ return <Fridge personId={session.persona.personId} childId={access.selectedChildId} generation={session.generation} reader={reader} readOnly={session.marks?.demoGuide||session.persona.id==='demo-guide'} sampleSlots={art.slots} artLabel={art.label}/>
 }
