@@ -20,3 +20,9 @@ PNG metadata contains job IDs but no prompts: prompt on file with Bryan.
 | `Using-the-same-mother-and-8-year-old-dau.png` | `sofa` | `842cbdaf-dc22-45cd-96e7-e68b7d114848` | 2048×1360 |
 
 Edits: RGB conversion, proportional Lanczos resizes and WebP encoding (quality 90). No image generation, retouching or crop. The fridge original is also retained as fridge-front.png. CSS frames and DOM invitation text overlay the assets without altering them.
+
+## Local handwriting fonts and original magnets (visual revision)
+
+Kalam Regular and Bold: Copyright (c) 2014, Indian Type Foundry. SIL Open Font License 1.1, reproduced in `fonts/OFL.txt`. Unmodified TTF files obtained from https://github.com/google/fonts/tree/main/ofl/kalam. Served from this app's own `/fridge/fonts/` path; no Google Fonts CSS or third-party font requests.
+
+Apple, school bus, A+, star, heart and flower: original SVG paths drawn in `web/src/features/fridge/Magnet.tsx` for this feature. No external icon assets or generation service. Decorative only.
