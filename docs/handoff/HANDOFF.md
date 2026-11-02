@@ -4014,3 +4014,21 @@ cannot truthfully drop Sample data. The W-PROOFS-ONLY slot was released around
 These UI probes occurred around 00:12–00:16Z before the correction was seen;
 all previews and live requests stopped on discovery. No more live requests
 until Bentley posts a fresh OPEN slot on #78.
+
+### Village map AGENT PROOF SLOT — 2026-11-02, PR #87 draft
+The fresh #78 slot served graph/demo `c231ba8`, routers `c806f46`, MCP
+config `cfbbb6a`, Rosina `7fda69d`. At #87 UI head
+`4b2322d99ae577b3fd1e43b0e4bdaac285d2de1b`, real Kendra and Priya
+picker sessions each read Nora's 2026-09-01 day: HTTP 200, one linked item,
+canonical school ID `rp_cf07653bee9c` and backend label preserved.
+Kendra's Drive route from canonical h_a park `rp_d68289d2cfb4` returned
+200, 7187 m and 89 GeoJSON points; #87's delivered transport accepted it.
+Priya received 403 `COORDINATES_WITHHELD`, no geometry or distance; the
+transport preserved the refusal. No writes occurred. Detailed evidence is
+in `web/evidence/map-live-preparation/served-2026-11-02.md`.
+
+UI: delivered route transport prepared, fixture world still labeled Sample
+data · backend: route/day served, world/Walk/Bike/stored ride-cost reads
+pending · integrated + tested: route/day transport PASS, full map PENDING.
+Runtime remains mock until a real authorized world read is delivered; #87
+stays draft. No reset or restart was run by this UI lane.
