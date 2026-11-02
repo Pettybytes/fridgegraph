@@ -15,9 +15,22 @@
  * carry `authorization` or `mutation_mode` is not `explicit`.
  *
  * Usage:
- *   node ops/gen-mcp-config.mjs --out /tmp/mcp.yaml --root . --endpoint http://127.0.0.1:4010/ --port 5051
- *   node ops/gen-mcp-config.mjs --out … --self-check     (validate the committed file only)
+ *   node ops/gen-mcp-config.mjs --out /tmp/mcp.yaml --root . \
+ *        --schema /path/to/composed-supergraph.graphql \
+ *        --endpoint http://127.0.0.1:4010/ --port 5051 [--expect-fields a,b,c]
+ *   node ops/gen-mcp-config.mjs --self-check
+ *
+ * `--schema` is REQUIRED to generate. The artifact is an input, never inferred: `.apollo/mcp.local.yaml`
+ * names `./supergraph.graphql`, and a committed copy of that file goes stale the moment routers compose
+ * a new one. The MCP then loads a schema that lacks fields the router serves — measured 2026-11-02 as
+ * `ERROR field proposeAddVillager not found` while the tool list still contained the tool.
+ *
+ * `--self-check` is explicitly NON-GENERATING. It validates the committed source file's shape and the
+ * generator's own invariants. It writes nothing, and it says nothing about whether any deployment
+ * schema artifact is current or valid.
  */
+import { createHash } from 'node:crypto';
+import { isAbsolute, join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -34,7 +47,7 @@ export function topLevelKeys(text) {
   return keys;
 }
 
-export function generate(srcText, { root, endpoint, port }) {
+export function generate(srcText, { root, endpoint, port, schema, expectFields = [] }) {
   const keys = topLevelKeys(srcText);
   if (!keys.length) throw new Error('source config has no top-level keys; refusing');
 
@@ -52,9 +65,36 @@ export function generate(srcText, { root, endpoint, port }) {
     }
   }
   if (root) {
-    out = out
-      .replace(/^(\s*)path:\s*\.\/supergraph\.graphql\s*$/m, `$1path: ${root}/supergraph.graphql`)
-      .replace(/^(\s*-\s+)\.\/ops\/([^\s]+\.graphql)\s*$/gm, `$1${root}/ops/$2`);
+    out = out.replace(/^(\s*-\s+)\.\/ops\/([^\s]+\.graphql)\s*$/gm, `$1${root}/ops/$2`);
+  }
+  if (schema) {
+    // Explicit, and checked: the file must exist and carry the fields the config's operations need.
+    const schemaPath = isAbsolute(schema) ? schema : join(root ?? process.cwd(), schema);
+    const schemaText = readFileSync(schemaPath, 'utf8');
+    // Key on the schema block's own `path:` ENTRY, line by line. The committed config may legitimately
+    // name ./.runs/supergraph.graphql, a temp artifact or anything else — what matters is that the
+    // generated config carries the path and hash of the artifact actually composed. Matching one
+    // literal filename made every real generation throw once the config changed.
+    const lines = out.split('\n');
+    const schemaIdx = lines.findIndex((l) => /^schema:\s*$/.test(l));
+    if (schemaIdx < 0) throw new Error('the source config has no schema: block; --schema has nothing to rebase');
+    let pathIdx = -1;
+    for (let i = schemaIdx + 1; i < lines.length; i += 1) {
+      if (lines[i].trim() === '' || lines[i].startsWith('#')) continue;
+      if (!/^[ \t]/.test(lines[i])) break;                       // left the schema block
+      if (/^[ \t]+path:\s*\S+\s*$/.test(lines[i])) { pathIdx = i; break; }
+    }
+    if (pathIdx < 0) throw new Error('the schema: block has no path: entry; --schema has nothing to rebase');
+    const indent = (lines[pathIdx].match(/^([ \t]+)/) ?? ['', '  '])[1];
+    lines[pathIdx] = `${indent}path: ${schemaPath}`;
+    out = lines.join('\n');
+    const missing = expectFields.filter((f) => !schemaText.includes(f));
+    if (missing.length) {
+      throw new Error(`schema ${schemaPath} is missing expected field(s): ${missing.join(', ')} — refusing to point the MCP at a stale artifact`);
+    }
+    const digest = createHash('sha256').update(schemaText).digest('hex');
+    out = `# mcp_schema_path: ${schemaPath}\n# mcp_schema_sha256: ${digest}\n` + out;
+    console.log(`mcp schema -> ${schemaPath} sha256=${digest.slice(0, 24)}…`);
   }
 
   // Key parity. This is the check that would have caught the missing forward_headers.
@@ -82,18 +122,44 @@ export function generate(srcText, { root, endpoint, port }) {
 function args() {
   const a = process.argv.slice(2);
   const get = (n, d) => { const i = a.indexOf(`--${n}`); return i >= 0 && a[i + 1] ? a[i + 1] : d; };
-  return { out: get('out', null), root: get('root', process.cwd()), endpoint: get('endpoint', null), port: get('port', null), src: get('src', SRC_DEFAULT), selfCheck: a.includes('--self-check') };
+  return {
+    out: get('out', null),
+    root: get('root', process.cwd()),
+    endpoint: get('endpoint', null),
+    port: get('port', null),
+    src: get('src', SRC_DEFAULT),
+    // The MCP schema artifact is an INPUT, never inferred: a committed supergraph.graphql goes stale the
+    // moment routers compose a new one, and the MCP then rejects operations the router serves.
+    schema: get('schema', null),
+    expectFields: (get('expect-fields', '') || '').split(',').map((x) => x.trim()).filter(Boolean),
+    selfCheck: a.includes('--self-check'),
+  };
 }
 
 async function main() {
-  const { out, root, endpoint, port, src, selfCheck } = args();
+  const { out, root, endpoint, port, src, schema, expectFields, selfCheck } = args();
   const srcText = readFileSync(src, 'utf8');
-  const result = generate(srcText, { root, endpoint, port });
+
   if (selfCheck) {
-    console.log(`MCP CONFIG SELF-CHECK PASS — ${result.keys.length} top-level keys, ${result.operations} operation(s), forward_headers=authorization, mutation_mode=explicit`);
+    // Non-generating by construction: no --schema, no write, and the message claims nothing about a
+    // deployment artifact.
+    const checked = generate(srcText, { root, endpoint, port });
+    console.log(`MCP CONFIG SELF-CHECK PASS (source file only) — ${checked.keys.length} top-level keys, `
+      + `${checked.operations} operation(s), forward_headers=authorization, mutation_mode=explicit. `
+      + 'This does NOT validate any deployment schema artifact and generates no config.');
     return;
   }
-  if (!out) { console.error('REFUSED: --out is required unless --self-check'); process.exit(2); }
+
+  // Refuse BEFORE any output is produced: a config generated without knowing which schema the MCP will
+  // load is exactly the defect this generator exists to prevent.
+  if (!schema) {
+    console.error('REFUSED: --schema <composed supergraph.graphql> is required to generate an MCP config. '
+      + 'No config was written. (Use --self-check for a non-generating source-file check.)');
+    process.exit(2);
+  }
+  if (!out) { console.error('REFUSED: --out is required (no config was written)'); process.exit(2); }
+
+  const result = generate(srcText, { root, endpoint, port, schema, expectFields });
   writeFileSync(out, result.text, { mode: 0o600 });
   console.log(`mcp config -> ${out} (${result.keys.length} keys, ${result.operations} operations, forward_headers=authorization)`);
 }
