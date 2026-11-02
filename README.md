@@ -1,82 +1,49 @@
 # FridgeGraph
 
-**It takes a village to raise a child. FridgeGraph gives that village a way to work together.**
+When a child's plans change, a parent becomes the coordination system.
+FridgeGraph connects the village around that child, with Rosina helping carry the logistics.
 
-Families run on information that has no API, so parents become human routers.
-School emails, soccer schedules, bus routes, pickup plans, allergy plans, two households raising the
-same child, a grandmother who prefers a phone call and an uncle who only answers texts.
-The information exists, but it lives everywhere, and when something changes a parent is left
-connecting the dots, checking who's allowed to help, and calling around.
+Live sandbox coming soon <!-- LIVE LINK: set at hosting -->
 
-FridgeGraph turns that scattered village into one permission-aware graph, with **Muse**, the
-village's coordinator (powered by Meta's Muse Spark), handling the logistics so parents can be present.
+![Kendra reviewing an early-dismissal notice and the proposed pickup request](web/evidence/notice-plan/live-2026-11-02/sample-a-review-desktop.png)
 
-## The living village
-- **Everyone has a place:** parents in two households, grandparents, aunts and uncles, siblings,
-  sitters, teachers, the bus driver, the coach, and the parents of a child's friends.
-- **Relationships aren't permissions.** Being Nora's coach lets Marcus post practice changes.
-  It doesn't let him see her care plan or pick her up.
-- **Parents set the rules, as data:** who may pick up, who may supervise and from what age,
-  which parent approves on which day.
-- **The village changes.** A new person joins when a parent approves the relationship, not when
-  code changes. Birthdays change who's eligible on their own.
+*Live preview of a proposal from sample notice (a). The parent has not confirmed a pickup in this frame; the notice image is a published sample.* [Browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md)
 
-## What Muse will do
-When Nora needs an early pickup, Muse will check who is authorized, ask each person on the channel
-they prefer, wait for a real yes, move on when someone can't help, and only call the pickup confirmed
-when the right parent has approved and the adult has accepted. When information is missing, Muse will
-ask the person who knows instead of guessing. When a parent introduces someone new, Muse will propose
-what they may do and wait for the parent's approval.
+## Why I built it
 
-**The village grows. The graph evolves. Parents stay in control.**
+A single-mother friend sent me a text: “An assistant built specifically for single moms.”
 
-## The architecture behind the village
-Seven independently owned domains, composed into one Apollo supergraph:
-- **village:** people, households, relationships, capabilities, care plans
-- **access:** grants, delegations, approvals, household policies
-- **coordination:** jobs, contact attempts, information requests, confirmations
-- **schedule:** school days and family events
-- **school:** reports and permission slips
-- **transport:** bus rosters and vehicles
-- **activities:** teams, practices and changes
+I build systems that help teams coordinate across people, services and responsibilities. Her message made me see the same problem at home: parents carrying the connections in their heads, stitching together school messages, calendars and conversations.
 
-Apollo MCP Server gives Muse a governed set of tools on that graph, running as the person who asked.
-**Federation connects the information. Authorization establishes trust. Muse coordinates the action.**
+Help can exist all around a child. Coordinating that help is another job.
 
-## The bigger question
-FridgeGraph starts with the logistics of raising a child, but it explores something larger: how AI
-agents can coordinate across independently owned systems and human relationships while respecting
-the authority people actually delegated.
+FridgeGraph brings those connections into one permissioned view. Rosina reads notices, prepares plans and helps caregivers coordinate. Parents decide what happens, who joins and what each person can see.
 
-## Status
-**Working today**
-- Seven Apollo Federation subgraphs, composed locally and registered in GraphOS (fridgegraph@dev)
-- Field-level authorization in every subgraph, with regression evidence
-- Runtime relationship activation and scoped, time-bound grants
-- Supabase Auth sign-in for fictional demo identities; ES256 JWTs verified in every subgraph
-- Server-side mapping from verified user IDs to village identities
-- Apollo MCP Server forwarding the caller's token to the protected graph
-- All services bound to localhost
+In the future, the village could grow with the family: agents suggesting useful connections, while people decide whom to trust and what to share.
 
-**Router-level JWT is ON in the main topology.** The main router (`router.graphos.yaml`, 4010,
-health 8090) runs connected to GraphOS, fetches its schema from there, and is licensed — it rejects
-malformed, `alg:none`, `HS256` and tampered tokens at the edge with `AUTH_ERROR` (evidence `16`).
-A *missing* token is still not stopped at the edge, so every subgraph keeps verifying independently.
-The offline rollback is tested; see "Router topology" below.
+The goal is simple: help the village handle the logistics so parents can be present.
 
-**Coming this week:** Muse reasoning and tool use with Meta's Muse Spark · the pickup coordination job
-with real calls and texts and labeled test responders · Add a Villager by conversation · live screens
-and a village health dashboard · voice signing and check-ins.
+<!-- ORIGIN IMAGE: insert the cropped, metadata-stripped copy from 01-origin.png once the supplied file is located. Never publish its contact header or reply. -->
 
-*All people and data in this repo are fictional.*
+## Three demonstrations
+
+1. **A school notice changes the plan.** Rosina finds the conflict with the recorded schedule and prepares a request for parent review. The [live notice proof](docs/evidence/67-rosina-notice-briefing-live.md) and [browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md) show the separate confirmation.
+2. **The village grows, with permission.** A parent reviews Dana's exact access and confirms a bounded `pickup.request` grant. The [latest proof correction](docs/evidence/72-add-villager-live.md#superseding-correction-append-only--the-third-slots-pass-record-above-is-kept-not-rewritten) leaves Dana's own discovery and real concurrent confirms unproven.
+3. **Orbit brings the village together.** A parent approves activation, caregivers can report what they know, and the parent closes the alert. A caregiver response supports coordination; it does not independently verify safety. The [Orbit proof](docs/evidence/60-orbit-redesign.md) and [post-close redaction proof](docs/evidence/62-orbit-redaction.md) keep those states separate.
 
 ## How it's built
+
+Apollo Federation connects seven domain subgraphs. Rosina's tools carry the signed-in person's identity; services and database policies enforce what that person may read or change.
+
+All people and data in this repository are fictional.
+
+**Find the local setup below:** [Install and run](#install-and-run) · [Ports](#ports) · [Security](#security) · [Evidence index](#evidence-index)
 
 ### Install and run
 
 ```bash
 npm install
-npx tsx scripts/seed-auth-users.ts   # create the 13 demo auth users (idempotent)
+npx tsx scripts/seed-auth-users.ts   # create/reuse fictional demo auth users (idempotent)
 DEMO_CLOCK=1 npm start                # 7 subgraphs in one process, 4001-4007
                                       # DEMO_CLOCK=1 lets tests pass x-demo-date as the clock;
                                       # without it the real local date is always used
@@ -107,6 +74,56 @@ curl -s http://127.0.0.1:4010/ \
   -H "authorization: Bearer $TOKEN" \
   -d '{"query":"{ pickupCandidates(childId: \"p_nora\", asOf: \"2026-10-26\") { person { displayName } reason } }"}'
 ```
+
+### What is working, and what remains open
+
+Each present-tense capability below points to merged implementation and a recorded check. A proposal, report, simulated contact, caregiver response and confirmation are different states.
+
+| Capability | Implementation and observed boundary |
+| --- | --- |
+| Notice → Plan | [Notice endpoint](src/rosina/noticeEndpoint.ts) + [evidence 67](docs/evidence/67-rosina-notice-briefing-live.md): a verified text passage can be quoted against the recorded schedule, then shown for review before a separate parent confirmation creates a pickup request. Image/PDF text is a **transcription**, not a verified quotation. The live run used sample (a); evidence 67 records that its runtime model attribution cannot independently be proved from the deployed process revision. [Browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
+| Caregiver Briefing | [Briefing tool](src/rosina/briefingTool.ts) + [evidence 67](docs/evidence/67-rosina-notice-briefing-live.md): Loretta saw Nora's schedule without care notes; Priya's different grant exposed schedule and care notes. Neither saw parent-only check-in status. School reports are not yet a briefing source. |
+| Teacher reports in Activity | [School report resolver](src/subgraphs/school.ts) and [Activity](web/src/features/activity/Activity.tsx) + [evidence 65](docs/evidence/65-teacher-report-live.md), [66](docs/evidence/66-teacher-report-live-chat.md): Ms. Whitfield proposed through Rosina, confirmed through a separate authenticated mutation, and Kendra read the report. Activity labels it **REPORTED**, never a diagnosis or pickup confirmation. |
+| Orbit Alert | [Orbit coordination](src/subgraphs/coordination.ts) + [evidence 60](docs/evidence/60-orbit-redesign.md), [62](docs/evidence/62-orbit-redaction.md): parent-approved activation, caregiver responses, and parent closure. After **FOUND_SAFE**, recipients see only the outcome and thank-you, not the photo, place or descriptors. A response does not independently verify safety. |
+| Photo suggestions | [Photo descriptor endpoint](src/rosina/photoEndpoint.ts) + [evidence 63](docs/evidence/63-photo-descriptor-authority.md), [64](docs/evidence/64-photo-descriptor-authority.md): Muse Spark vision proposes values from a child's controlled vocabulary for parent review. Evidence 64 used a **fictional Gemini-generated test fixture**; the model populated three of five descriptor kinds. No alert was created by the suggestion call. |
+| Voice | [Voice turn backend](ops/voice-turn-server.mjs), [mounted control](web/src/features/voice/RosinaVoiceButton.tsx) + corrected [backend evidence 61b](docs/evidence/61b-voice-backend-corrected.md) and [mounted playback receipt](web/evidence/design/run-voice-roundtrip/RECEIPT.md): Meta transcribed fixture audio, Rosina replied as the signed-in caller, and ElevenLabs speech played through the mounted UI. The browser proof used injected fixture audio, not a physical microphone. |
+| Pickup with a paid-ride gate | [Coordination resolver](src/subgraphs/coordination.ts) + [evidence 69](docs/evidence/69-pricing-sweeper-over-policy.md), [70](docs/evidence/70-grandma-accepts-in-app.md), [71](docs/evidence/71-ride-estimate-gate-served.md): Loretta accepted as willing, with no vehicle on record; a synthetic $12.40 estimate exceeded the $10 household cap, moving the job to **awaiting parent approval**. No ride was booked and there were zero confirmations. Evidence 71 tested the price read on the coordination subgraph, not the composed router. |
+| Add a Villager | [Access mutations](src/subgraphs/access.ts) and [review card](web/src/features/add-villager/AddVillagerReview.tsx) + [evidence 72](docs/evidence/72-add-villager-live.md): Kendra confirmed Dana's exact `pickup.request` grant; Dana received no parent or guardian authority, and other roles were refused. The [latest correction](docs/evidence/72-add-villager-live.md#superseding-correction-append-only--the-third-slots-pass-record-above-is-kept-not-rewritten) leaves Dana's own Nora discovery and real concurrent Postgres confirms **unproven**. Sequential retries returned the same result. |
+| Real phone call | [Dispatch path](docs/ops/session-3-dial-path.md) + [evidence 33](docs/evidence/33-session-3-real-call.md): one real dial was placed and logged for 25 seconds, then interrupted without a recorded decision. The separate Web Call said “Yes”; it did not test the “no car” reply. This is not a successful pickup or voice-decision proof. |
+| GHL and n8n | [Workflow definitions](docs/n8n/) and [evidence 30](docs/evidence/30-level-b-sms-noanswer.md), [33](docs/evidence/33-session-3-real-call.md): GHL supplies the call/text channel and n8n carries callbacks and dispatch logic. The judges' path keeps outbound real outreach disabled; an injected webhook or simulated notification is labeled as such. Live SMS is not enabled for judges. |
+
+**Planned, not built:** a week-ahead scan, real outreach for judges, Invites, and Muse Image village portraits. The shipped fictional [portraits](web/src/components/fg/portraits.ts) were generated with ChatGPT, not Muse Image.
+
+The seed defines [two baseline networks](src/fixtures.ts) and [four additive Cast v2 networks](src/fixtures-cast-v2.ts): **six fictional family networks**. The [picker](src/demo/personas.ts) defines **12 perspectives**, including the read-only demo guide. These are seed and picker counts, not a count of independent test passes.
+
+### Model roles
+
+- **`muse-spark-1.3`**: Rosina conversation and notice reading ([evidence 67](docs/evidence/67-rosina-notice-briefing-live.md)); controlled-vocabulary photo suggestions ([evidence 64](docs/evidence/64-photo-descriptor-authority.md)).
+- **`muse-voice-transcribe-1.0`**: speech to text in the corrected voice round trip ([evidence 61b](docs/evidence/61b-voice-backend-corrected.md)).
+
+Deterministic policy and database enforcement decide outcomes. ElevenLabs supplies Rosina's speech. GHL and n8n carry calls and texts within the evidenced, disabled-outreach boundary.
+
+### Judges: verify in 2 minutes
+
+When the shared sandbox is hosted, open **Explore as…**, choose **Kendra**, and inspect the Village, Activity and Mission Control. In Rosina, use the published early-dismissal notice sample and review the proposed plan before any confirmation; the [browser receipt](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md) shows this exact path. Choose **Priya** to see the narrower permissions and the missing parent confirm action. A fixture replay is labeled **fixture** or **simulation**; it is not a live model call or a delivered message. The sample notice is a fixture input, while evidence 67 documents a live model preparation. Repeated answers may come from a recorded or cached result; only a receipt that says **live** establishes a fresh model call. The public sandbox link is pending hosting.
+
+### Principles and family benefits
+
+The [full principles](docs/PRINCIPLES.md) explain the rules behind these screens.
+
+| Principle | Family benefit, implementation example, proof |
+| --- | --- |
+| Federation | A parent sees connected records across seven owners; [subgraph composition](supergraph.yaml), [router and caller proof](docs/evidence/16-edge-auth-and-mcp.md). |
+| Scoped access and household policies | A relationship alone does not reveal care notes; [access resolver](src/subgraphs/access.ts), [briefing proof](docs/evidence/67-rosina-notice-briefing-live.md). |
+| Human approval | Rosina prepares; a parent confirms through a separate action; [notice proposal](src/rosina/noticeProposal.ts), [browser proof](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
+| Observable workflows | A job shows **discovering** or **awaiting approval** instead of claiming success; [coordination resolver](src/subgraphs/coordination.ts), [pickup proof](docs/evidence/70-grandma-accepts-in-app.md). |
+| Audit and provenance | A decision records who granted it and the exact scopes; [access resolver](src/subgraphs/access.ts), [Add a Villager proof](docs/evidence/72-add-villager-live.md). |
+| Review cadence, never rankings | **Planned.** A week-ahead review rhythm has no implemented proof yet. |
+| Confirmed availability ≠ free time | A calendar gap cannot answer for a caregiver; the app distinguishes willingness from approval; [candidate logic](src/derive.ts), [pickup proof](docs/evidence/70-grandma-accepts-in-app.md). |
+
+### Credits
+
+Meta Muse Spark and Muse Voice Transcribe power the evidenced model paths. Apollo GraphOS, Router and MCP Server connect the seven subgraphs and forward the caller's identity. Supabase stores the fictional graph and enforces row-level policies. n8n and GHL supply the tested call/text workflow; ElevenLabs supplies Rosina's speech. [OpenRouteService integration](src/village/ors.ts) is permission-gated in code; this README does not claim a live ORS route proof. The $12.40 [ride estimate](docs/evidence/70-grandma-accepts-in-app.md) is **synthetic haversine, not a provider quote**. The photo test fixture in [evidence 64](docs/evidence/64-photo-descriptor-authority.md) was generated with Gemini. The shipped fictional [portraits](web/src/components/fg/portraits.ts) were generated with ChatGPT.
 
 ### Data: seed, reset, checksums
 
@@ -193,7 +210,7 @@ Tested: full suite, 31/31.
 | --- | --- | --- |
 | **village** | `Person`, `Child`, `Village`, `Household`, `HouseholdMember`, `Relationship`, `ContactMethod`, `Capability`, `Group`, `Membership`, `Goal`, `CarePlan` | The spine. Entities are keyed by `id`. |
 | **access** | `Grant`, `Approval`, `HouseholdPolicy`, `ParentingSchedule` + the derived queries `pickupCandidates`, `supervisionCandidates`, `approverFor` | Answers "who is authorized"; holds no child data itself. |
-| **coordination** | `CoordinationJob`, `Attempt`, `InformationRequest`, `Confirmation` | Schema only tonight; every resolver returns `[]`. |
+| **coordination** | `CoordinationJob`, `Attempt`, `InformationRequest`, `Confirmation`, Orbit alerts | Stored workflows with caller-scoped reads and explicit state transitions. |
 | **schedule** | `Event` | Calendar entries. |
 | **school** | `SchoolReport`, `PermissionSlip` | `school.read`. |
 | **transport** | `BusRoster`, `Vehicle` + the entity field `Person.vehicles` | Only subgraph that extends someone else's entity. |
@@ -211,10 +228,32 @@ time; Studio composed Federation 2.15 LTS from them. Local development never nee
 subgraph SDL declares `extend schema @link(url: "https://specs.apollo.dev/federation/v2.9",
 import: ["@key"])` — see `docs/spike-notes.md` gotcha #3 for why that had to be added explicitly.
 
-### Evidence index (`docs/evidence/`)
+### Evidence index
 
-Run with `node ops/run-evidence.mjs`. **31 checks; outcomes are identical at `DEMO_CLOCK=0` and
-`DEMO_CLOCK=1`.** No test requires the test clock — date-dependent behaviour is exercised through
+Evidence numbers identify records, **not** a count of independent passed tests. Superseding corrections inside a record control the claim.
+
+| Record | What it establishes or limits |
+| --- | --- |
+| [33](docs/evidence/33-session-3-real-call.md) | One real 25-second dial, interrupted without a decision; separate Web Call said “Yes.” |
+| [60](docs/evidence/60-orbit-redesign.md) | Orbit activation, responses and explicit parent closure. |
+| [61](docs/evidence/61-voice-backend.md), [61b](docs/evidence/61b-voice-backend-corrected.md) | Voice backend; 61b corrects the audio transcription proof. |
+| [62](docs/evidence/62-orbit-redaction.md) | FOUND_SAFE recipient redaction after closure. |
+| [63](docs/evidence/63-photo-descriptor-authority.md) | Authorized photo suggestion path, including the blank-fixture limit. |
+| [64](docs/evidence/64-photo-descriptor-authority.md) | Fictional content-rich fixture through Muse Spark vision; three descriptor kinds returned. |
+| [65](docs/evidence/65-teacher-report-live.md) | Authenticated teacher report confirm and parent read; chat leg initially blocked. |
+| [66](docs/evidence/66-teacher-report-live-chat.md) | Teacher proposal through Rosina chat; separate confirm and parent read. |
+| [67](docs/evidence/67-rosina-notice-briefing-live.md) | Notice → Plan and caregiver briefing, with failed first run and runtime-attribution limit retained. |
+| [68](docs/evidence/68-mcp-forward-headers.md) | MCP authorization-header forwarding repair. |
+| [69](docs/evidence/69-pricing-sweeper-over-policy.md) | Sweeper writes over-cap synthetic estimate; no booking. |
+| [70](docs/evidence/70-grandma-accepts-in-app.md) | Loretta's in-app willingness and parent-approval wait; caregiver sees no cost fields. |
+| [71](docs/evidence/71-ride-estimate-gate-served.md) | Parent-only stored estimate read at subgraph level; router exposure was not proved there. |
+| [72](docs/evidence/72-add-villager-live.md) | Exact grant and refusals; latest correction leaves discovery and real concurrency unproven. |
+
+The older checkpoints remain below for the graph's foundational authorization and router work.
+
+Run with `node ops/run-evidence.mjs`. The later recorded suite had **114 checks across 32 cases**
+at both `DEMO_CLOCK=0` and `DEMO_CLOCK=1` ([writer proof](docs/evidence/56-evidence-writer.md));
+this README pass did not rerun the live suite. Date-dependent behaviour is exercised through
 explicit `asOf` / `date` arguments in `02`, `03`, `05c` and `11*`.
 
 | File | Checkpoint |
@@ -237,7 +276,9 @@ explicit `asOf` / `date` arguments in `02`, `03`, `05c` and `11*`.
 | `15-graphos-jwt-router.md` | GraphOS-connected router: `UpdateLicense(Licensed)`, edge rejects bad tokens (`AUTH_ERROR`), missing token falls through to `UNAUTHENTICATED` |
 | `16-edge-auth-and-mcp.md` | Main router on 4010: tampered → 401 `AUTH_ERROR`, missing → `UNAUTHENTICATED`, MCP as Kendra returns 4 candidates |
 
-### Milestone status
+### Foundation milestone status
+
+This is the earlier graph and identity checklist. The current feature boundaries and later evidence are in the capability table above.
 
 | Area | Result |
 | --- | --- |
@@ -251,10 +292,10 @@ explicit `asOf` / `date` arguments in `02`, `03`, `05c` and `11*`.
 | Mutations write `Approval` rows; reset restores fixtures | pass |
 | Localhost-only binding | pass |
 | MCP: one tool, introspection off | pass |
-| Verified Supabase JWT identity (13 demo users, `sub` → person via server-side map) | pass |
+| Verified Supabase JWT identity (`sub` → person via server-side map) | pass |
 | `UNAUTHENTICATED` (unknown caller) vs `UNAUTHORIZED` (known, no scope) | pass |
 | MCP forwards the caller's token; tokenless call fails closed | pass |
-| Router-level JWT validation | **not active — licence-gated; see `docs/questions.md` #13** |
+| Router-level JWT validation | active in the licensed GraphOS-connected topology; missing tokens still require subgraph checks ([evidence 16](docs/evidence/16-edge-auth-and-mcp.md)) |
 
 ### Layout
 
