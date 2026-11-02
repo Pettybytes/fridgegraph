@@ -1,0 +1,54 @@
+/** UI contract for POST /api/rosina/invite. The endpoint is not enabled by this feature. */
+export type InviteEvent = {
+  childFirstName: string
+  occasion: string
+  date: string | null
+  startTime: string | null
+  endTime: string | null
+  timezone: 'America/Detroit'
+  placeLabel: string | null
+}
+export type InviteArt = {
+  mimeType: 'image/png' | 'image/jpeg'
+  width: number
+  height: number
+  base64: string
+  quietArea: { x: number; y: number; w: number; h: number }
+}
+export type InviteProvenance = {
+  source: 'MUSE_IMAGE' | 'FIXTURE'
+  model: 'muse-image-1.0' | null
+  cached: boolean
+  promptHash: string
+}
+export type InviteResponse = {
+  status: 'READY' | 'NEEDS_CLARIFICATION'
+  clarification: string | null
+  event: InviteEvent
+  art: InviteArt | null
+  provenance: InviteProvenance
+}
+export type InviteCreator = (request: { childId: string; request: string }, signal?: AbortSignal) => Promise<InviteResponse>
+
+export function inviteCredit(provenance: InviteProvenance): string {
+  return provenance.source === 'MUSE_IMAGE' ? 'Art generated with Muse Image' : 'Sample art'
+}
+
+export function inviteError(error: unknown): { state: 'refused' | 'failed'; message: string } {
+  const value = error as { status?: number; code?: string; retryAfterMs?: number; errors?: { extensions?: { code?: string; retryAfterMs?: number } }[] } | null
+  const code = value?.code ?? value?.errors?.[0]?.extensions?.code
+  const status = value?.status
+  if (status === 401 || code === 'UNAUTHENTICATED') return { state: 'refused', message: 'Your session ended. Choose a perspective again.' }
+  if (status === 403 || code === 'UNAUTHORIZED') return { state: 'refused', message: 'Only a parent or guardian of this child can prepare an invitation. No art was generated.' }
+  if (code === 'BUDGET_EXHAUSTED') return { state: 'failed', message: 'Image generation is unavailable because the demo budget is exhausted. No invitation art was returned.' }
+  if (status === 429 || code === 'RATE_LIMITED') return { state: 'failed', message: 'Too many invitation requests right now. Try again later.' }
+  if (status === 502 || code === 'IMAGE_FAILED') return { state: 'failed', message: 'Invitation art could not be generated. Try again later.' }
+  return { state: 'failed', message: 'The invitation could not be prepared. Try again.' }
+}
+
+export function validArt(art: InviteArt): boolean {
+  const { x, y, w, h } = art.quietArea
+  return ['image/png', 'image/jpeg'].includes(art.mimeType) && Number.isInteger(art.width) && Number.isInteger(art.height) &&
+    art.width > 0 && art.height > 0 && Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) &&
+    x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= art.width && y + h <= art.height && /^[A-Za-z0-9+/]+={0,2}$/.test(art.base64)
+}
