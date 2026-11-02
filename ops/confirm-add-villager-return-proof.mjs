@@ -31,7 +31,7 @@
  *      writes — the authorization check, not just a database constraint.
  *
  * Usage: node ops/confirm-add-villager-return-proof.mjs
- * Requires: docker, git (both already on PATH in this checkout's environment).
+ * Requires: docker (already on PATH in this checkout's environment).
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -123,24 +123,16 @@ async function applyMigrations(client) {
   }
   log(`applied ${MIGRATIONS.length} targeted migrations: ${MIGRATIONS.map((p) => p.split('/').pop()).join(', ')}`);
 
-  // 0080 is now merged to main (#115) — read it from this checkout directly.
-  let fixSql = readFileSync(FIX_MIGRATION, 'utf8');
+  // 0080 is merged to main (#115), including #116's follow-up fix for the missing semicolon this
+  // script originally had to patch around in-memory — applied verbatim now, no workaround needed.
+  const fixSql = readFileSync(FIX_MIGRATION, 'utf8');
   if (!fixSql.includes('granted_by')) fail('0080 content does not mention granted_by — wrong file?');
-
-  // SEPARATE DEFECT FOUND, reported independently, not fixed on main (not this branch's file to
-  // edit): as merged, this file is missing the semicolon terminating `CREATE OR REPLACE
-  // FUNCTION ... end $function$` before the trailing `commit;` — confirmed with real `psql -f`
-  // (not just this script's wire-protocol path), which fails identically: `syntax error at or
-  // near "commit"`. Corrected ONLY in this in-memory copy, for this script's own run.
-  const fixedForThisRun = fixSql.replace(/end \$function\$\s*\n\s*\ncommit;/, 'end $function$;\n\ncommit;');
-  if (fixedForThisRun === fixSql) fail('expected to find the missing-semicolon pattern in 0080 but did not — the file may have already been corrected upstream; re-check before assuming this script still needs the workaround');
-  fixSql = fixedForThisRun;
   try {
     await client.query(fixSql);
   } catch (e) {
-    throw new Error(`applying ${FIX_MIGRATION} (semicolon-corrected copy) failed: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`applying ${FIX_MIGRATION} failed: ${e instanceof Error ? e.message : String(e)}`);
   }
-  log(`applied ${FIX_MIGRATION} (#115, merged to main) — with a missing semicolon before the trailing "commit;" corrected locally for this run only; reported separately, not fixed on main`);
+  log(`applied ${FIX_MIGRATION} (#115, merged to main; semicolon fixed by #116)`);
 }
 
 async function stubAuth(client) {
