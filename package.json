@@ -22,6 +22,8 @@
     "test:mcp-config": "node --test ops/gen-mcp-config.test.mjs",
     "test:0066": "node --test ops/0066-policy-contract.test.mjs",
     "test:0068": "node --test ops/0068-gate-contract.test.mjs",
+    "test:health-coverage": "node --test ops/health-operation-coverage.test.mjs",
+    "health:operations": "node ops/validate-operations.mjs",
     "test:village-world": "node --test ops/village-world-contract.test.mjs",
     "compose:local": "rover supergraph compose --config supergraph.local.yaml --elv2-license accept > supergraph.local.graphql"
   },

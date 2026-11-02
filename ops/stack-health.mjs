@@ -18,6 +18,7 @@ import { noticePrepareSmoke } from './notice-prepare-smoke.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
+import { validateConfiguredOperations } from './health-operations.mjs';
 
 const APP = process.env.HEALTH_APP ?? 'http://127.0.0.1:5189';
 const MCP_URL = process.env.HEALTH_MCP ?? 'http://127.0.0.1:5051/mcp';
@@ -52,9 +53,11 @@ check('picker personas are listed and ready', personas.length > 0 && personas.ev
   `${personas.filter((p) => p.ready === false).length} unready of ${personas.length}`);
 
 // 2. a real picker login, public persona id
+// The app must be able to be DOWN without taking the health run with it: an unreachable service is a
+// failed check, not an uncaught exception. Otherwise a dead 5189 hides every other result.
 const loginRes = await fetch(APP + '/api/demo/login', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ personaId: 'kendra' }),
-});
+}).catch((e) => ({ status: 0, json: async () => null, __error: e instanceof Error ? e.message : String(e) }));
 const loginBody = await loginRes.json().catch(() => null);
 const session = loginBody?.session?.access_token;
 check('picker login for "kendra" is READY', loginRes.status === 200 && loginBody?.status === 'READY',
@@ -68,7 +71,7 @@ if (session) {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: SCHEME + session },
     body: JSON.stringify({ query: '{ myChildren { child { id person { displayName } } } }' }),
-  });
+  }).catch((e) => ({ status: 0, json: async () => null, __error: e instanceof Error ? e.message : String(e) }));
   const gj = await g.json().catch(() => null);
   const kids = gj?.data?.myChildren ?? [];
   // The EXPECTED set comes from the authoritative read, never from a guess in this file.
@@ -248,6 +251,29 @@ if (db && schemaReady) {
 }
 
 if (db) { try { await db.end(); } catch { /* already closed */ } }
+
+
+// --- MCP operation coverage -------------------------------------------------
+// Schema drift is invisible to a tool call: MyChildren can pass while a newly shipped operation is
+// missing from the served schema. This validates every document the MCP is CONFIGURED with, without
+// executing any of them, and fails (never skips) when the served schema cannot be obtained.
+{
+  const opRouter = process.env.HEALTH_ROUTER ?? 'http://127.0.0.1:4012/';
+  const opConfig = process.env.HEALTH_MCP_CONFIG ?? '.apollo/mcp.local.yaml';
+  try {
+    const coverage = await validateConfiguredOperations({ configPath: opConfig, routerUrl: opRouter });
+    check('served router schema obtained for operation validation', coverage.schemaOk,
+      coverage.schemaOk ? opRouter : (coverage.schemaReason ?? 'unknown'));
+    const failing = coverage.failures ?? [];
+    check('every configured MCP operation document validates against the served schema',
+      coverage.schemaOk && failing.length === 0,
+      coverage.schemaOk
+        ? `${coverage.checked} document(s), ${failing.length} invalid${failing[0] ? ` — ${failing[0].file}: ${failing[0].message}` : ''}`
+        : 'NOT CHECKED: schema unavailable');
+  } catch (error) {
+    check('MCP operation coverage check ran', false, error instanceof Error ? error.message : 'error');
+  }
+}
 
 console.log(`\nRESULT: ${failed === 0 ? 'HEALTHY' : 'UNHEALTHY'} (${failed} failing check${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);
