@@ -4291,6 +4291,8 @@ Final focused map tests 26/26, root typecheck, web build and secret scan 0 findi
 
 <!-- merge of origin/main into fix/public-boundary-guards: both sides kept, append-only. -->
 | 2026-11-02T06:15:10Z | **LOOPBACK IS NOT PUBLIC PROTECTION — recorded before it is forgotten.** Behind cloudflared every request arrives with socket peer `127.0.0.1`, so the loopback guard admits everything on the public path and proves nothing about the caller. What actually bounds a public caller is (a) a per-**client-IP** window keyed on a **trusted-proxy-resolved** address and (b) a one-at-a-time lock per identity, because the 30 s cooldown does not close the same-millisecond race between two overlapping resets. `X-Forwarded-For` is read **right-to-left and only when the socket peer is a trusted proxy**; from any other peer it is spoofed input and ignored. Still open: public router error/introspection settings, framing policy (origins to be confirmed by Bryan, not guessed), microphone guidance. |
+| 2026-11-02T19:45:00Z | **RESERVED: migration `0082` — `service_role` SELECT on `shared_statuses` (checksum read path only).** Allocation checked rather than assumed: `origin/main` tops out at **`0081`**; open PRs **#142** and **#141** touch `HANDOFF.md` only and **#68** touches no migration; HANDOFF holds no `0082`/`0083`; `git log --all -- 0082*` is empty. Scope is **SELECT only, to `service_role` only** — `anon` and `authenticated` untouched, applied `0076` **not modified** (forward-only). Evidence **`73`** belongs to PR #143; this work takes **`74`**. | `feat/0082-service-role-select` off `54e8abe` | fg81 only (127.0.0.1:55434) | **RESERVED** |
+| 2026-11-02T19:52:00Z | **0082 STAGED — rehearsed on fg81, NOT applied to any live database, never merged.** Rehearsal target verified before execution: `fg81` running, **loopback-only `127.0.0.1:55434`**, PostgreSQL 17.11, disposable. Built a replica of 0076's grant posture (RLS **forced**, DML to `authenticated`, `revoke all` from `public`/`anon`/`service_role`). **Setup as postgres; every privilege assertion executed as a NON-OWNER role.** BEFORE: `service_role` select/insert/update/delete all false. AFTER: **select true**, insert/update/delete **still false**. Functional as `service_role`: SELECT **returned the row**; INSERT/UPDATE/DELETE each **`permission denied`**. `authenticated` read **1 row** (unchanged); `anon` **`permission denied`**. **LIMITATION, recorded not glossed: fg81 has NO local PostgREST**, so `db:checksum` (which reads via `SUPABASE_URL`) **cannot** be exercised there — this is **SQL privilege proof only**, and full command verification is **PENDING the next window**, to run only against an endpoint verified local before execution. **SELECT does not repair the service-role seed/upsert/delete paths** — nothing here grants writes; today's reset/seed write as the caller, so no live breakage is claimed. Rollback is `revoke select … from service_role`. | `feat/0082-service-role-select` off `54e8abe` | fg81 (local-disposable) only | **STAGED — not applied, not merged** |
 
 ### PR #87 offline refresh and calendar switch regression — 2026-11-02
 
@@ -4305,3 +4307,22 @@ Branch `feat/web-dad-status-mount`, separate worktree, base `a5e3a5703c0cfe76857
 ### Invitations mock mount — 2026-11-02
 
 Branch `feat/web-invites-mount`, separate worktree from `origin/main` `0039c16b446dea8fd4bb53a31ca75db3756e6b77`. `#/invitations` mounts the existing `InvitesPanel` inside the session and child-access providers, with the approved mock fixture and a clear Sample preview label. A perspective switch drops the draft; Priya and other non-parent/guardian viewers see a refusal and no preparation button. No image model, invitation endpoint, invitation record or live mutation is called. Mock browser captures are in `web/evidence/invites/mount-mock-*.png`. This branch also carries #87's exact Rosa calendar-date switch repair while #87 awaits Bryan's merge, preserving its original strict test. UI: mock mount complete · backend: invitation endpoint code merged, serving status not verified here · integrated + tested: pending the next reserved window.
+
+## Migration procedure rules — recorded 2026-11-02 (Bentley)
+
+Applies to this lane and to anyone touching the schema while history is unreconciled.
+
+1. **No `supabase db push` or any ledger-driven live migration while migration history is
+   unreconciled.** `schema_migrations` records only `0001–0011` while the live schema carries
+   `0049`/`0059`/`0070`/`0074` objects. A ledger-driven push would replay dozens of applied
+   migrations. Use the **established reviewed single-file procedure** (`ops/0042-apply.mjs` shape:
+   one file, one connection) so the executed statement matches the reviewed statement.
+2. **A wrapper `begin … rollback` is not a rehearsal when the migration file contains `COMMIT`.**
+   Several files here open and close their own transaction; wrapping them cannot roll back, and the
+   file commits itself. This was measured on 0076 during W-DEPLOY-54e8abe, not theorised. Rehearse in
+   the **approved isolated database** (disposable container / `fg81`), never against the project DB.
+3. **Verify the rehearsal target is local and disposable before executing**, and name it: a stock
+   Postgres proves SQL semantics only — not `anon`/`authenticated`/`service_role` PostgREST coercion,
+   not JWT claims, not RLS under real policies.
+4. **Read applied state from the catalog, never from the ledger.** Probe the object itself
+   (`to_regclass`, `pg_proc`, `pg_policies`) before deciding "absent" or "applied".
