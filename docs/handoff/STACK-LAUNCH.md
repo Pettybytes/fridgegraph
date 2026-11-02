@@ -16,6 +16,25 @@ read fails closed. Point it at the router the demo/browser path uses (`http://12
 Both are environment mistakes, not code faults, so they are fixed here by stating the environment and
 proving it with a check that goes through the browser's own path.
 
+## Supergraph artifact — retired from git (2026-11-02)
+
+`supergraph.graphql` is **no longer committed**. Composition is a build step and lands in
+`.runs/supergraph.graphql` (gitignored). The committed copy went stale while routers served a fresh
+composition, so the MCP loaded a schema that lacked `proposeAddVillager` and logged
+`ERROR field proposeAddVillager not found`.
+
+```bash
+mkdir -p .runs
+~/.rover/bin/rover supergraph compose --config supergraph.yaml --elv2-license accept > .runs/supergraph.graphql
+```
+
+Every consumer takes that path explicitly: the router `--supergraph`, the MCP generator `--schema`, and
+`.apollo/mcp.local.yaml`'s `schema.path`. `ops/alt-stack.sh` composes it before starting the router.
+
+**Port note:** `.apollo/mcp.local.yaml` declares **5050**; the runtime listener is **5051** and is set by
+the generator's `--port` override. The committed file is the source shape; the deployed port is the
+override. Do not "fix" one to match the other without changing both callers.
+
 ## Services and their environment
 
 | Service | Port(s) | Command | Environment that must be set |
@@ -23,8 +42,8 @@ proving it with a check that goes through the browser's own path.
 | Subgraphs | 4001–4007 | `npx tsx src/main.ts` | — |
 | Demo login / Orbit bridge | **4008** | same process (`src/main.ts`), or the dedicated `startDemoLogin()` entry | **`DEMO_LOGIN_ENABLED=1`**, **`DEMO_LOGIN_PORT=4008`** (default 4008, but state it) |
 | Alt subgraphs | 4101–4107 | `DEMO_CLOCK=1 npx tsx ops/stack-alt.mjs` | `DEMO_CLOCK=1` for the test clock |
-| Router (alt) | 4012 | `router-v2.18.0 --supergraph supergraph.graphql --config <alt-router.yaml>` | config generated from `router.yaml` (licence-free variant) |
-| Router (licensed) | 4010 | `router-v2.18.0 --supergraph supergraph.graphql --config router.yaml` | `APOLLO_KEY` from `.env` |
+| Router (alt) | 4012 | `router-v2.18.0 --supergraph .runs/supergraph.graphql --config <alt-router.yaml>` | config generated from `router.yaml` (licence-free variant) |
+| Router (licensed) | 4010 | `router-v2.18.0 --supergraph .runs/supergraph.graphql --config router.yaml` | `APOLLO_KEY` from `.env` |
 | **Rosina** | 4200 | `npx tsx src/rosina/server.ts` | **`ROSINA_PORT=4200`**, **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, `ROSINA_PROVIDER=meta`; for notice-plan also **`ROSINA_PROPOSAL_SIGNING_KEY=<64-hex>`** and **`ROSINA_GRAPHQL_URL=http://127.0.0.1:4012/`** (the ROUTER) |
 | MCP | 5051 | `apollo-mcp-server-v2.1.0 <mcp.yaml>` | config generated from `.apollo/mcp.local.yaml` with port rebased 5050→5051 |
 
@@ -48,7 +67,7 @@ demo-login listener is a **separate process** here, so `src/main.ts` itself carr
 | 94204 | 4001–4007 | `node --require tsx src/main.ts` | (none of the below) |
 | **24552** | **4008** | `node --import tsx .runs/demo-login-entry.mjs` | `DEMO_LOGIN_ENABLED=1`, `DEMO_LOGIN_PORT=4008` |
 | 94438 | 4101–4107 | `node --require tsx ops/stack-alt.mjs` | `DEMO_CLOCK=1` |
-| 95097 | 4010 / 8090 | `router-v2.18.0 --supergraph supergraph.graphql --config router.yaml` | `APOLLO_KEY` (set, not printed) |
+| 95097 | 4010 / 8090 | `router-v2.18.0 --supergraph .runs/supergraph.graphql --config router.yaml` | `APOLLO_KEY` (set, not printed) |
 | 94477 | 4012 / 8092 | `router-v2.18.0 --supergraph supergraph.graphql --config /Users/user/.openclaw/tmp/fridgegraph-alt-router.yaml` | — |
 | **38059** | 4200 | `node --require tsx src/rosina/server.ts` | **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, `ROSINA_PORT=4200` |
 | 94479 | 5051 | `apollo-mcp-server-v2.1.0 /tmp/refresh-mcp.yaml` | — |

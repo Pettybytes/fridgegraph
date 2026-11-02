@@ -71,10 +71,23 @@ export function generate(srcText, { root, endpoint, port, schema, expectFields =
     // Explicit, and checked: the file must exist and carry the fields the config's operations need.
     const schemaPath = isAbsolute(schema) ? schema : join(root ?? process.cwd(), schema);
     const schemaText = readFileSync(schemaPath, 'utf8');
-    if (!out.includes('./supergraph.graphql')) {
-      throw new Error('the source config no longer names ./supergraph.graphql; --schema has nothing to replace');
+    // Key on the schema block's own `path:` ENTRY, line by line. The committed config may legitimately
+    // name ./.runs/supergraph.graphql, a temp artifact or anything else — what matters is that the
+    // generated config carries the path and hash of the artifact actually composed. Matching one
+    // literal filename made every real generation throw once the config changed.
+    const lines = out.split('\n');
+    const schemaIdx = lines.findIndex((l) => /^schema:\s*$/.test(l));
+    if (schemaIdx < 0) throw new Error('the source config has no schema: block; --schema has nothing to rebase');
+    let pathIdx = -1;
+    for (let i = schemaIdx + 1; i < lines.length; i += 1) {
+      if (lines[i].trim() === '' || lines[i].startsWith('#')) continue;
+      if (!/^[ \t]/.test(lines[i])) break;                       // left the schema block
+      if (/^[ \t]+path:\s*\S+\s*$/.test(lines[i])) { pathIdx = i; break; }
     }
-    out = out.replace(/^(\s*)path:\s*\.\/supergraph\.graphql\s*$/m, `$1path: ${schemaPath}`);
+    if (pathIdx < 0) throw new Error('the schema: block has no path: entry; --schema has nothing to rebase');
+    const indent = (lines[pathIdx].match(/^([ \t]+)/) ?? ['', '  '])[1];
+    lines[pathIdx] = `${indent}path: ${schemaPath}`;
+    out = lines.join('\n');
     const missing = expectFields.filter((f) => !schemaText.includes(f));
     if (missing.length) {
       throw new Error(`schema ${schemaPath} is missing expected field(s): ${missing.join(', ')} — refusing to point the MCP at a stale artifact`);
