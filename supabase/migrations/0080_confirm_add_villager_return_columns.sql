@@ -93,6 +93,6 @@ begin
   return query select v_rel.id, v_rel.type, v_rel.status, v_grant.actor_id, v_grant.child_id,
                       v_grant.id, v_grant.scopes, v_grant.valid_from, v_grant.valid_until,
                       v_grant.granted_by;
-end $function$
+end $function$;
 
 commit;
