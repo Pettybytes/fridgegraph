@@ -69,3 +69,14 @@ it('accepts only the structured school-report proposal, never model prose or mal
  expect((await service.send(input)).schoolReportProposal).toBeNull()
  expect(request).toHaveBeenCalledTimes(2)
 })
+
+it('accepts only a valid structured Add a Villager proposal, never model prose or malformed scopes',async()=>{
+ const proposal={id:'vp_1',version:1,childId:'p_nora',personId:'p_dana',personDisplayName:'Dana Coleman',relationshipType:'friend_parent',scopes:['pickup.request'],validFrom:null,validUntil:null,createdAt:'2026-11-01T20:00:00Z',expiresAt:'2099-11-01T20:10:00Z'}
+ const request=vi.fn<typeof fetch>()
+  .mockResolvedValueOnce(new Response(JSON.stringify({reply:'Review this proposed change',actions:[],addVillagerProposal:proposal})))
+  .mockResolvedValueOnce(new Response(JSON.stringify({reply:'Fake proposal: vp_1',actions:[],addVillagerProposal:{...proposal,scopes:['address.read']}})))
+ const service=createLiveRosinaAdapter(()=> 'fictional-session',{request})
+ expect((await service.send(input)).addVillagerProposal).toEqual(proposal)
+ expect((await service.send(input)).addVillagerProposal).toBeNull()
+ expect(request).toHaveBeenCalledTimes(2)
+})
