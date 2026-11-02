@@ -46,16 +46,16 @@
     "group": "Brooks \u2014 white",
     "asset": "docs/evidence/154-portraits/portraits/p_gma.png",
     "model": "muse-image-1.0",
-    "prompt": "Photorealistic candid portrait photograph of a 68-year-old white American woman, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a calm warm smile. Soft overcast daylight in a softly blurred backyard garden behind her, green leaves and a wooden fence out of focus. Slight angle from a little above eye level, 85mm feel, shallow gentle depth of field with the face fully sharp. Short silver-grey hair, fine reading glasses pushed up into her hairline so the face and eyes stay clear, a soft sage-green cardigan over a white blouse, delicate pearl studs. Believable real skin texture with fine lines and sun spots, natural color, no beauty retouching, no plastic sheen. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
-    "prompt_sha256": "930920eeba80303df6d4bebe20c7b000c4586cb424ec3418939b091eec3c9648",
-    "image_sha256": "7223efb0346f82db3fb84dcf34e01278b7b2952c4139a4eb914a22b9e78fe372",
-    "bytes": 388646,
+    "prompt": "Photorealistic candid portrait photograph of a 68-year-old white American woman in her late sixties, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a calm warm smile. Soft overcast daylight in a softly blurred backyard garden behind her, green leaves and a wooden fence out of focus. Slight angle from a little above eye level, 85mm feel, shallow gentle depth of field with the face fully sharp. Short silver-grey hair, fine reading glasses pushed up into her hairline so the face and eyes stay clear, a soft sage-green cardigan over a white blouse, delicate pearl studs. Believable real skin texture with only faint expression lines around the eyes and mouth, natural color, no deep wrinkles, no sagging jowls, no heavy age spots, no beauty retouching, no plastic sheen. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+    "prompt_sha256": "456c83349a4d63e100dac7affe039f4d481bdaee1cc2cb8ccd28d48085c997d3",
+    "image_sha256": "6b7274b9c90f345c45b00c794eddb3258e4c9ce881d92e8d65bcbe39d2ceb12a",
+    "bytes": 335596,
     "usage": {
-      "input_tokens": 18734,
-      "output_tokens": 1892,
-      "total_tokens": 20626
+      "input_tokens": 29503,
+      "output_tokens": 2876,
+      "total_tokens": 32379
     },
-    "generated_utc": "2026-11-02T21:36:18Z",
+    "generated_utc": "2026-11-02T22:27:32Z",
     "run": "pilot",
     "status": "staged \u2014 not integrated"
   },
@@ -686,16 +686,16 @@
     "group": "White \u2014 school nurse",
     "asset": "docs/evidence/154-portraits/portraits/p_jennings.png",
     "model": "muse-image-1.0",
-    "prompt": "Photorealistic candid portrait photograph of a 51-year-old white American woman with fair skin and shoulder-length auburn hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a kind matter-of-fact smile. Daylight in a softly blurred school nurse's office behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Soft green scrub top, a plain lanyard with no text. Believable real skin texture with fine lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
-    "prompt_sha256": "b1d1d47270743f34eab1b6bddcbf9b6c01623c892860208d3ef0dd69486b9143",
-    "image_sha256": "382ef41b02702d9502a312fc0834f79459c9308b9b072040e58ed8fa066441a5",
-    "bytes": 343308,
+    "prompt": "Photorealistic candid portrait photograph of a 51-year-old white American woman in her early fifties, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a kind matter-of-fact smile. Daylight in a softly blurred school nurse's office behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Soft green scrub top, a plain lanyard with no text. Shoulder-length auburn hair with no grey, light natural makeup, only faint expression lines around the eyes, smooth natural skin texture, no deep wrinkles, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+    "prompt_sha256": "a7caceef25de31f44ee3467869c8a73df4246517933b27776ad27b698694671e",
+    "image_sha256": "2c542b41cc4879c6d4c15ab5b7dbde7a5f5705204c3fbb79f4268b965d032a44",
+    "bytes": 333710,
     "usage": {
-      "input_tokens": 18561,
-      "output_tokens": 1815,
-      "total_tokens": 20376
+      "input_tokens": 29041,
+      "output_tokens": 2682,
+      "total_tokens": 31723
     },
-    "generated_utc": "2026-11-02T21:56:04Z",
+    "generated_utc": "2026-11-02T22:28:04Z",
     "run": "batch",
     "status": "staged \u2014 not integrated"
   },
@@ -706,16 +706,16 @@
     "group": "White \u2014 bus driver",
     "asset": "docs/evidence/154-portraits/portraits/p_holt.png",
     "model": "muse-image-1.0",
-    "prompt": "Photorealistic candid portrait photograph of a 58-year-old white American man with fair skin, grey hair and a weathered friendly face, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a dry smile. Soft overcast light beside a softly blurred plain yellow school bus with no lettering behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy fleece jacket, a ring of keys in one hand. Believable real skin texture with deep lines and sun damage, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
-    "prompt_sha256": "cd258efb73ccff6280dad53bd1d9344a8b9df479c7c30627cef5f0cec4dd76b0",
-    "image_sha256": "d5b51eed8b1d03b0ce57f5dbb0ca16811d02d336b7f47887c221d3c6841078f6",
-    "bytes": 490052,
+    "prompt": "Photorealistic candid portrait photograph of a 58-year-old white American man in his late fifties, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a dry friendly smile. Soft overcast light beside a softly blurred plain yellow school bus with no lettering behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy fleece jacket, a ring of keys in one hand. Short dark hair greying only at the temples, light stubble, faint crow's feet and laugh lines, no deep wrinkles, firm jawline, natural color, believable skin texture, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+    "prompt_sha256": "28481d525662529413f3e220f4f110cec6cb731421918b2d61e4d4e260241dc6",
+    "image_sha256": "0e80ae5a50ebb263365c8db10560c3ed3be4147768a716e7ab18d8bf1a895a27",
+    "bytes": 392998,
     "usage": {
-      "input_tokens": 29058,
-      "output_tokens": 2743,
-      "total_tokens": 31801
+      "input_tokens": 10419,
+      "output_tokens": 981,
+      "total_tokens": 11400
     },
-    "generated_utc": "2026-11-02T21:56:30Z",
+    "generated_utc": "2026-11-02T22:27:40Z",
     "run": "batch",
     "status": "staged \u2014 not integrated"
   },

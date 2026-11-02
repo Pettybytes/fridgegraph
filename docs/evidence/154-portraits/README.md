@@ -8,9 +8,10 @@ consumers are untouched.**
   signed URL or raw base64 response is stored.
 - **37 portraits**, including the three approved pilot originals (Kendra, Nora, Loretta) reused
   unchanged.
-- **Cost: $0.49 CALCULATED** from the documented $0.01/image price. This is **not** an independently
-  verified billing figure; the provider response carries token usage and no price field.
-- **49 requests, zero failures** refers to this generation work. It is not a claim about any earlier
+- **Cost: $0.53 CALCULATED total** from the documented $0.01/image price — 49 delivered assets plus
+  4 revision calls (Loretta, Gary, Carol, kitchen candid). This is **not** an independently verified
+  billing figure; the provider response carries token usage and no price field.
+- **53 generation calls, zero failures** — 49 delivered assets plus 4 re-prompts. It is not a claim about any earlier
   attempt. A prior run reported 401 `invalid_api_key` from `api.meta.ai` using the `META_API_KEY`
   variable name; no request ids or timestamps were captured here, so those attempts are preserved
   as reported history **separately**, and are not included in the 49.

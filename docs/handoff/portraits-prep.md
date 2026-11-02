@@ -258,11 +258,11 @@ used or is automatic.
 | --- | --- |
 | Portraits returned | **37** (3 pilot + 34 new) |
 | Fridge-pack assets returned | **12** |
-| Total images returned | **49** |
-| Requests made | **49** |
+| Total images delivered | **49** |
+| Generation calls | **53** (49 delivered + 4 re-prompts) |
 | Retries | **0** |
 | Failed calls | **0** |
-| Cost | **$0.49** at $0.01/image (provider returned token usage, no price field) |
+| Cost | **$0.53** total at $0.01/image (49 delivered + 4 revisions; no price field in the response) |
 
 - Every portrait is 1024×1024; 384² downscales are staged alongside.
 - Assets, contact sheets, four mock compositions (desktop and phone, populated / empty / refused),
@@ -297,8 +297,8 @@ hashed and recorded.
 
 ## 8. Cost
 
-- **Actual: 49 images × $0.01 = $0.49**, zero retries (Bryan's stated price; no price field in the
-  provider response).
+- **Actual: 53 generation calls × $0.01 = $0.53** (49 delivered assets + 4 approved re-prompts),
+  zero retries (Bryan's stated price; no price field in the provider response).
 - **Hard cap: $10 total** for portraits and packs, separate from Wonder.
 - Any `usage` object returned by the provider is recorded verbatim in the provenance record.
 - If Muse disappoints, the result is reported and **GPT Image is a reviewed fallback Bryan decides

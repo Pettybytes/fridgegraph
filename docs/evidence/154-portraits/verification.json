@@ -20,7 +20,7 @@
     {
       "personId": "p_gma",
       "ok": true,
-      "sha256": "7223efb0346f82db3fb84dcf34e01278b7b2952c4139a4eb914a22b9e78fe372"
+      "sha256": "6b7274b9c90f345c45b00c794eddb3258e4c9ce881d92e8d65bcbe39d2ceb12a"
     },
     {
       "personId": "p_walter",
@@ -180,12 +180,12 @@
     {
       "personId": "p_jennings",
       "ok": true,
-      "sha256": "382ef41b02702d9502a312fc0834f79459c9308b9b072040e58ed8fa066441a5"
+      "sha256": "2c542b41cc4879c6d4c15ab5b7dbde7a5f5705204c3fbb79f4268b965d032a44"
     },
     {
       "personId": "p_holt",
       "ok": true,
-      "sha256": "d5b51eed8b1d03b0ce57f5dbb0ca16811d02d336b7f47887c221d3c6841078f6"
+      "sha256": "0e80ae5a50ebb263365c8db10560c3ed3be4147768a716e7ab18d8bf1a895a27"
     },
     {
       "personId": "p_chris",
@@ -215,7 +215,7 @@
     {
       "personId": "pack_candid_kitchen",
       "ok": true,
-      "sha256": "0cd6d055f6a4b233f79c38a5711cfb7a9d7c459952f4cd4946ecfec282ca08b1"
+      "sha256": "3e2096d241666ff97aa46bdc7b216df21b2a6dde60ddd84989730b41c4501cdd"
     },
     {
       "personId": "pack_candid_porch",
