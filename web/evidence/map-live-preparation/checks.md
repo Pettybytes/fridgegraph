@@ -24,3 +24,19 @@ change, no assertion weakened); no real credential was involved. Failed finding 
 
 Final full suite after date caption and explicit test-only strings: 355 tests / 60 files PASS.
 Final staged secret scan: 841 files, 0 findings. Diff whitespace check PASS.
+
+## Map and perspective controls after merging current main — 2026-11-02
+
+Offline mock browser on this branch, port 5212. The map now starts below the
+measured perspective chip. At 1440×900 the chip ended and the map began at
+82 px; Rosina's dock began at 148 px. At 390×844 the chip ended and the map
+began at 100 px; the open Rosina sheet began at 176 px. The Switch person
+button was the hit-tested element at both widths, and clicking it from the
+mobile map with Rosina open returned to the picker. The frozen 5189 UI and
+shared backend were untouched. Screenshots:
+`switch-chip-desktop-after.png` and `switch-chip-mobile-after.png`.
+
+Merged-code checks: 440/440 web tests across 70 files, root typecheck, web
+build and secret scan (0 findings) passed. The live world and stored ride
+estimate remain pending their served transport; runtime still labels the
+fixture map Sample data. PR #87 remains draft.

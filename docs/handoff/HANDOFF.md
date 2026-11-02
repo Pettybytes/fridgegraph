@@ -4166,3 +4166,20 @@ The full-screen map currently covers the shell's Switch person chip and main
 navigation for pointer use at the checked desktop width. I moved to Today
 before switching in this check; that map-shell access defect remains open
 outside this cost/transport change. No shared-stack request was made.
+
+### Village map merge and perspective-control correction — 2026-11-02, PR #87 draft
+
+Merged current `origin/main` into `feat/web-map-live-adapter` with a merge
+commit, preserving all four #87 HANDOFF sections and every main row. The
+Switch person portion of the earlier map-shell finding was fixed: the full-canvas map starts below
+the measured session chip, including when its controls wrap; Rosina's dock
+and sheet likewise start below the chip and map header. Offline mock browser
+at 1440×900 and 390×844 verified the chip as the pointer target, including
+with Rosina open; a mobile click returned to the picker. The full map still
+covers the shell navigation; its Back to Today control remains the route out.
+Screenshots and
+measurements are in `web/evidence/map-live-preparation/checks.md`. Merged-code
+checks: 440/440 web tests, root typecheck, web build, secret scan 0 findings.
+UI: map control access fixed · backend: `villageWorld` and served stored
+estimate still pending · integrated + tested: PENDING for the full map. PR
+#87 remains DRAFT and the fixture world retains its Sample data label.

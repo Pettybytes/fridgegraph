@@ -1,4 +1,4 @@
-import {lazy,Suspense,useEffect,useRef,useState} from 'react'
+import {lazy,Suspense,useEffect,useLayoutEffect,useRef,useState} from 'react'
 import {ArrowLeft,CalendarDays,Users,Sun,Moon,Car,Footprints,Bike,ChevronDown,ChevronUp,PanelLeftClose,PanelLeftOpen,Play,Pause,RotateCcw,MapPin,ArrowRight,GripVertical,MessageCircle} from 'lucide-react'
 import {useReducedMotion} from './useMapReducedMotion'
 import {portraitFor} from '@/components/fg/portraits'
@@ -12,7 +12,21 @@ const Canvas=lazy(()=>import('./MapCanvas').then(m=>({default:m.MapCanvas})))
 export function VillageMap(){const controller=useVillageMap();return controller?<MapView controller={controller}/>:<p>Choose a perspective to explore the map.</p>}
 export function MapView({controller}:{controller:MapController}){
  const state=useMapState(controller),reduced=useReducedMotion(),[tab,setTab]=useState<'day'|'people'>('day'),[collapsed,setCollapsed]=useState(false),[sheet,setSheet]=useState<'collapsed'|'half'|'expanded'>('half'),[theme,setTheme]=useState<'light'|'dark'>(()=>document.documentElement.classList.contains('dark')?'dark':'light'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[narrow,setNarrow]=useState(innerWidth<=600)
+ const [shellTop,setShellTop]=useState(0)
  const plannerBody=useRef<HTMLDivElement>(null)
+ useLayoutEffect(()=>{
+  const chip=document.querySelector<HTMLElement>('.session-chip')
+  const measure=()=>{
+   const top=Math.ceil(chip?.getBoundingClientRect().bottom??0)
+   setShellTop(top)
+   document.body.style.setProperty('--vm-shell-top',`${top}px`)
+  }
+  measure()
+  const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(measure)
+  if(chip)observer?.observe(chip)
+  window.addEventListener('resize',measure)
+  return()=>{observer?.disconnect();window.removeEventListener('resize',measure);document.body.style.removeProperty('--vm-shell-top')}
+ },[])
  useEffect(()=>{if(sheet==='collapsed')plannerBody.current?.scrollTo?.({top:0})},[sheet])
  const dragStart=useRef<number|null>(null),touchPerson=useRef<string|null>(null)
  useEffect(()=>{document.body.classList.add('village-map-open');const size=()=>setNarrow(innerWidth<=600);window.addEventListener('resize',size);const timer=setTimeout(()=>{if(innerWidth>=1250)window.dispatchEvent(new Event('rosina:open'))},0);return()=>{clearTimeout(timer);document.body.classList.remove('village-map-open');window.removeEventListener('resize',size)}},[])
@@ -26,7 +40,7 @@ export function MapView({controller}:{controller:MapController}){
  const frame=route?replayFrame(route,state.progress):null
  if(state.loading)return <section className="vm-loading" role="status">Loading your shared village…</section>
  if(!world)return <section className="vm-refusal"><a href="#/today">Back to Today</a><h2>{state.error||'No records are available to this view.'}</h2><p>No other perspective’s records are substituted.</p></section>
- return <section className={`vm-workspace ${collapsed?'is-collapsed':''}`} aria-label="Village map" data-state={world.state} data-sheet={sheet}>
+ return <section className={`vm-workspace ${collapsed?'is-collapsed':''}`} style={{top:shellTop}} aria-label="Village map" data-state={world.state} data-sheet={sheet}>
  <header className="vm-header"><a href="#/today" aria-label="Back to Today"><ArrowLeft size={19}/></a><div><h1>Village map</h1><p>{world.state==='mock'?'Sample data · no live locations':'No live locations'}</p></div><span className="vm-calendar-date">{new Date(`${state.day}T12:00:00-05:00`).toLocaleDateString('en-US',{timeZone:'America/Detroit',month:'long',year:'numeric'})}</span><button aria-label="Ask Rosina about the map" onClick={()=>window.dispatchEvent(new Event('rosina:open'))}><MessageCircle size={19}/></button><button aria-label={`Use ${theme==='light'?'dark':'light'} map`} onClick={()=>{const next=theme==='light'?'dark':'light';setTheme(next);document.documentElement.classList.toggle('dark',next==='dark')}}>{theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button></header>
  <div className="vm-map-region"><Suspense fallback={<p className="vm-tile-skeleton">Loading the map…</p>}><Canvas controller={controller} state={state} theme={theme} bottom={narrow?(sheet==='collapsed'?(route?285:130):sheet==='half'?360:560):route?150:0}/></Suspense><div className="vm-modes fg-glass" aria-label="Transport mode">{([['Drive',Car],['Walk',Footprints],['Bike',Bike]] as const).map(([mode,Icon])=><button key={mode} aria-pressed={state.mode===mode} disabled={state.routing} onClick={()=>controller.setMode(mode)}><Icon size={18}/>{mode}</button>)}</div>
  {!route&&!state.routing&&<div className="vm-map-hint fg-glass"><MapPin size={18}/><p>Drag a person onto a place.<span>Or use the route pickers in the planner.</span></p></div>}
