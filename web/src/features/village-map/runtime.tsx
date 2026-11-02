@@ -22,6 +22,9 @@ export function VillageMapProvider({children}:{children:ReactNode}){
  const controller=useMemo(()=>{
   if(!session||!selectedChildId)return null
   const live=import.meta.env.VITE_VILLAGE_MAP_LIVE==='true'&&!!session.accessToken
+  // The guide's ecosystem directory is read-only, but it does not grant the
+  // child-specific geographic map. Refuse before requesting or rendering it.
+  if(live&&session.marks?.demoGuide===true)return new MapController({mode:'live',readWorld:async()=>{throw Error('UNAUTHORIZED')},route:async()=>{throw Error('UNAUTHORIZED')}})
   if(live&&!client)return new MapController({mode:'live',readWorld:async()=>{throw Error('WORLD_READ_UNAVAILABLE')},route:async()=>{throw Error('WORLD_READ_UNAVAILABLE')}})
   if(live&&client){
    const getSession=()=>{const current=getCurrentSession();return current&&selectedRef.current?{generation:current.generation,childId:selectedRef.current,accessToken:current.accessToken,canReadCost:(current.persona.parent||current.persona.guardian===true)&&current.marks?.demoGuide!==true,parentName:current.persona.name}:null}
@@ -76,6 +79,7 @@ export function MapRosinaContext(){const controller=useVillageMap();return contr
 function MapContextCard({controller}:{controller:MapController}){
  const state=useMapState(controller),[route,setRoute]=useState(location.hash);useEffect(()=>{const onHash=()=>setRoute(location.hash);window.addEventListener('hashchange',onHash);return()=>window.removeEventListener('hashchange',onHash)},[])
  if(!route.startsWith('#/map')&&state.proposal!=='review')return null
+ if(controller.adapter.mode==='live'&&!state.world)return null
  const s=state.selection,w=state.world,label=s?.kind==='person'?w?.people.find(p=>p.id===s.id)?.name:s?.kind==='place'?w?.places.find(p=>p.id===s.id)?.name:w?.events.find(p=>p.id===s?.id)?.title
  const restricted=!!s&&!!w&&(s.kind==='person'?!personPoint(w.people.find(p=>p.id===s.id)!,w):s.kind==='place'?!w.places.find(p=>p.id===s.id)?.point:!w.places.find(p=>p.id===w.events.find(e=>e.id===s.id)?.placeId)?.point)
  return <section className="vm-rosina-context" aria-label="Map context"><small>{w?.state==='live'?'Map context':'Sample map context'}</small><h3>{label??'Your village, on the map'}</h3><p>No live locations. Dragging only requests a route estimate.</p><button disabled={restricted} onClick={()=>{expandMap();controller.follow();if(innerWidth<1250)window.dispatchEvent(new Event('rosina:close'))}}>Show on map</button>{restricted&&<p>Location restricted. This record appears in the list only.</p>}{state.proposal==='review'&&<><p>Pickup proposal ready for parent review.</p><RideCost controller={controller}/><button onClick={()=>window.dispatchEvent(new Event('map:review-proposal'))}>Review pickup proposal</button><a href="#/mission-control" onClick={()=>window.dispatchEvent(new Event('rosina:close'))}>Review in Mission Control</a></>}</section>
