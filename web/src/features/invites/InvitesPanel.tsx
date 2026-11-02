@@ -30,7 +30,7 @@ export function InvitesPanel({ mode = 'mock', createInvite }: { mode?: 'mock' | 
 export function InviteComposer({ childId, childFirstName, mode, createInvite }: {
   childId: string; childFirstName: string; mode: 'mock' | 'live'; createInvite: InviteCreator | null
 }) {
-  const [request, setRequest] = useState(`Create a birthday invitation for ${childFirstName} on November 7, 2026, from 2–4 PM at Riverside Park.`)
+  const [request, setRequest] = useState(`Create a birthday invitation for ${childFirstName} on November 15, 2026, from 2–4 PM at Maple Hall.`)
   const [phase, setPhase] = useState<Phase>('idle')
   const [detail, setDetail] = useState('')
   const [result, setResult] = useState<InviteResponse | null>(null)
@@ -51,8 +51,9 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite }: 
       if (!active.current || controller.signal.aborted) return
       if (next.status === 'NEEDS_CLARIFICATION') {
         setResult(null)
-        setDetail(next.clarification?.trim() || 'The invitation service did not return its clarification question. Try again later.')
-        setPhase(next.clarification?.trim() ? 'clarification' : 'failed')
+        const question = next.clarification?.question.trim()
+        setDetail(question || 'The invitation service did not return its clarification question. Try again later.')
+        setPhase(question ? 'clarification' : 'failed')
       } else if (next.status === 'READY' && next.art) {
         setResult(next)
         setPhase('ready')

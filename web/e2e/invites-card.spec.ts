@@ -34,8 +34,8 @@ test('sample invitation edits and exports an untainted PNG', async ({ page }, te
   await download.saveAs(path)
   const png = await readFile(path)
   expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
-  expect(png.readUInt32BE(16)).toBe(1000)
-  expect(png.readUInt32BE(20)).toBe(1400)
+  expect(png.readUInt32BE(16)).toBe(1024)
+  expect(png.readUInt32BE(20)).toBe(1024)
   expect(png.byteLength).toBeGreaterThan(40_000)
   const creditPixels = await page.evaluate(async base64 => {
     const image = new Image()
@@ -46,7 +46,7 @@ test('sample invitation edits and exports an untainted PNG', async ({ page }, te
     canvas.height = image.naturalHeight
     const context = canvas.getContext('2d')!
     context.drawImage(image, 0, 0)
-    const pixels = context.getImageData(400, 1175, 200, 35).data
+    const pixels = context.getImageData(400, 884, 224, 40).data
     let dark = 0
     for (let index = 0; index < pixels.length; index += 4) {
       if (pixels[index] < 90 && pixels[index + 1] < 90 && pixels[index + 2] < 110) dark++
