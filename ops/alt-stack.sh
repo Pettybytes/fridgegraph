@@ -108,43 +108,19 @@ PY
 }
 
 gen_mcp_config() {
-  MCP_SRC="$ROOT/.apollo/mcp.local.yaml" OUT="$MCP_CONFIG" \
-  ROUTER_PORT="$ROUTER_PORT" MCP_PORT="$MCP_PORT" ROOT="$ROOT" python3 - <<'PY'
-import os, re, sys
-
-src = open(os.environ['MCP_SRC'], encoding='utf-8').read()
-mcp_port = os.environ['MCP_PORT']
-router_port = os.environ['ROUTER_PORT']
-
-out = src.replace('http://127.0.0.1:4010/', f"http://127.0.0.1:{router_port}/")
-out = out.replace('port: 5050', f"port: {mcp_port}")
-
-# The old guard tested ":5051", which never occurs — the file says "port: 5051" with a space — so
-# it fired on every run and `--up` aborted even when the rebase had worked. Test the exact strings.
-if f"port: {mcp_port}" not in out:
-    sys.exit('mcp.local.yaml: could not rebase the transport port; its shape changed')
-if f"endpoint: http://127.0.0.1:{router_port}/" not in out:
-    sys.exit('mcp.local.yaml: could not rebase the endpoint to the alt router; its shape changed')
-
-# The repo file uses relative schema/operation paths; make every one absolute so the server does
-# not depend on the caller's cwd. EVERY operation file is rewritten, not just the first one, and
-# a path that does not exist is a hard error: a missing operation file silently removes a tool.
-root = os.environ['ROOT']
-out = out.replace('path: ./supergraph.graphql', f'path: {root}/supergraph.graphql')
-out = re.sub(r'(?m)^(\s*-\s+)\./ops/([^\s]+\.graphql)\s*$',
-             lambda m: f'{m.group(1)}{root}/ops/{m.group(2)}', out)
-
-paths = [p for p in re.findall(r'(?m)^\s*path:\s*(\S+)\s*$', out)]
-paths += [p for p in re.findall(r'(?m)^\s*-\s*(\S+\.graphql)\s*$', out)]
-missing = [p for p in paths if not os.path.exists(p)]
-if missing:
-    sys.exit('mcp config refers to missing files: ' + ', '.join(missing))
-if len([p for p in paths if p.endswith('.graphql') and '/ops/' in p]) != 11:
-    sys.exit(f'expected 11 operation files to be rewritten, got {len(paths)} paths total')
-
-open(os.environ['OUT'], 'w', encoding='utf-8').write(out)
-print(f'alt-stack: mcp config -> {os.environ["OUT"]} (endpoint {router_port}, port {mcp_port}, 11 operations)')
-PY
+  # Generated FROM the committed file by the tested generator. A hand-assembled config once dropped
+  # `forward_headers: [authorization]`, and every MCP tool answered UNAUTHENTICATED for a valid
+  # bearer. The generator refuses to write if any committed key is missing or forward_headers does
+  # not carry authorization.
+  node "$ROOT/ops/gen-mcp-config.mjs" \
+    --src "$ROOT/.apollo/mcp.local.yaml" \
+    --out "$MCP_CONFIG" \
+    --root "$ROOT" \
+    --endpoint "http://127.0.0.1:${ROUTER_PORT}/" \
+    --port "$MCP_PORT" || {
+      echo 'mcp config generation REFUSED — see the reason above; not starting a config that cannot authenticate'
+      exit 1
+    }
 }
 
 # Fails loudly if --up did not actually leave a usable MCP config behind.

@@ -330,3 +330,51 @@ addition created:**
 
 No restart, reset, or migration performed by me. No second proposal or confirm attempt created.
 Receipt posted to #78; slot released explicitly below.
+
+## Superseding correction (append-only — the third slot's PASS record above is kept, not rewritten)
+
+Two overclaims in the third slot's record above, corrected here rather than edited in place.
+
+**1. The retries were sequential, not concurrent.** The two `confirmAddVillager` calls I ran were
+issued one after the other, each awaited before the next began — real sequential idempotency, not
+a real concurrency test. Calling that "concurrent" in the summary table overclaimed what was
+actually run. **Separate concurrent-run evidence does exist, but at a different, weaker level:**
+`src/subgraphs/add-villager-proposal.test.ts`'s test *"sequential AND concurrent retries of
+confirm create exactly one grant, returning the same result"* runs two `confirmAddVillager` calls
+via `Promise.all` against the offline `FakeDb` — genuinely concurrent at the JS async-interleaving
+level, but **not** two real, simultaneous Postgres connections racing against the shared database;
+that same test file's own header already says so (`src/subgraphs/add-villager-proposal.test.ts:18`:
+"does NOT prove Postgres's own `SELECT ... FOR UPDATE` serializing two real concurrent
+connections"). No evidence exists anywhere of two genuinely concurrent *live* confirm calls
+racing against the real database for this proposal/version. The migration's own locking design
+(`SELECT ... FOR UPDATE` in `confirm_add_villager`) is unchanged and not in question — only the
+*evidence* for it under real concurrency is weaker than "concurrent" implied.
+
+**2. Dana→Nora discovery is NOT YET DEMONSTRATED — reframing, not just a caveat.** The third
+slot's record above called this "PASS on data, with a visibility caveat," framing it as expected,
+documented behavior. On the facts actually in hand, that undersells what happened: the grant's
+`valid_from` is `2026-11-02`, while Detroit's local date at proposal/confirm time was
+`2026-11-01` — and **Kendra requested no start date at all**. Something in the propose path
+(not yet located) filled in `2026-11-02` as a default despite no explicit request for it.
+**Likely cause (inferred, not proven):** Rosina had no Detroit-today context available to it when
+building the default, so a UTC-dated "today" (which was already `2026-11-02`) was used instead of
+the household's local `2026-11-01`. This is an inference from the observed symptom, not something
+read from Rosina's own code or logs in this slot — it has not been verified against
+`src/rosina/*` or the propose resolver's actual default-filling logic. **Detroit-based grant
+*enforcement* itself is correct and not in question** — `myChildren`'s window check doing exactly
+what `context.ts` documents it should is the right behavior; the open question is only where the
+*default `valid_from`* value came from, upstream of that correct enforcement. Until that is
+traced, "Dana's fresh session discovers Nora" stands as **NOT YET DEMONSTRATED**, not as a passed
+check with a footnote. No new proposal, confirm, or live call was made to investigate this further
+— per instruction, this correction is written from facts already in hand.
+
+### Corrected summary (supersedes the third slot's table above for these two rows only)
+
+| Row from the third-slot table | Corrected status |
+|---|---|
+| Concurrent duplicate confirms → one logical addition | **Sequential retries confirmed idempotent (real PASS)**; genuinely concurrent *live* confirms were never run — the only concurrency evidence is the offline `FakeDb` test cited above, which does not reach real Postgres locking |
+| Dana's fresh session sees exactly the granted scopes | **NOT YET DEMONSTRATED** — underlying relationship/grant data is correct, but visibility is blocked by a `valid_from` that does not match what Kendra actually requested (no start date), for a reason inferred but not yet traced |
+
+Every other row in the third slot's table (relationship ACTIVE, grant scopes exactly
+`[pickup.request]`, no parent/guardian authority gained, schedule/care refused, Loretta/Priya/
+Whitfield refused, no outreach) is unaffected by this correction and stands as recorded.

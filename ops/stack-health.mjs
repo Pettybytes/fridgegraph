@@ -14,9 +14,11 @@
  * Run: node ops/stack-health.mjs
  */
 import { execFileSync } from 'node:child_process';
+import { noticePrepareSmoke } from './notice-prepare-smoke.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
+import { validateConfiguredOperations } from './health-operations.mjs';
 
 const APP = process.env.HEALTH_APP ?? 'http://127.0.0.1:5189';
 const MCP_URL = process.env.HEALTH_MCP ?? 'http://127.0.0.1:5051/mcp';
@@ -51,9 +53,11 @@ check('picker personas are listed and ready', personas.length > 0 && personas.ev
   `${personas.filter((p) => p.ready === false).length} unready of ${personas.length}`);
 
 // 2. a real picker login, public persona id
+// The app must be able to be DOWN without taking the health run with it: an unreachable service is a
+// failed check, not an uncaught exception. Otherwise a dead 5189 hides every other result.
 const loginRes = await fetch(APP + '/api/demo/login', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ personaId: 'kendra' }),
-});
+}).catch((e) => ({ status: 0, json: async () => null, __error: e instanceof Error ? e.message : String(e) }));
 const loginBody = await loginRes.json().catch(() => null);
 const session = loginBody?.session?.access_token;
 check('picker login for "kendra" is READY', loginRes.status === 200 && loginBody?.status === 'READY',
@@ -61,29 +65,79 @@ check('picker login for "kendra" is READY', loginRes.status === 200 && loginBody
 check('it returned a session (presence only)', typeof session === 'string' && session.length > 20);
 
 // 3. an authenticated read the UI actually performs
+let expectedChildNames = [];
 if (session) {
   const g = await fetch(APP + '/graphql', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: SCHEME + session },
-    body: JSON.stringify({ query: '{ myChildren { child { id } } }' }),
-  });
+    body: JSON.stringify({ query: '{ myChildren { child { id person { displayName } } } }' }),
+  }).catch((e) => ({ status: 0, json: async () => null, __error: e instanceof Error ? e.message : String(e) }));
   const gj = await g.json().catch(() => null);
   const kids = gj?.data?.myChildren ?? [];
+  // The EXPECTED set comes from the authoritative read, never from a guess in this file.
+  expectedChildNames = kids.map((k) => k?.child?.person?.displayName).filter((n) => typeof n === 'string');
   check('authenticated myChildren is non-empty', g.status === 200 && kids.length > 0,
     `status=${g.status} count=${kids.length}`);
 } else {
   check('authenticated myChildren is non-empty', false, 'no session to test with');
 }
 
-// 4. the MCP Rosina must talk to is actually listening
-const mcpProbe = await (async () => {
+// 4. MCP must not only answer — it must FORWARD THE CALLER'S TOKEN and return real data.
+// 2026-11-02: the generated config lacked `forward_headers: [authorization]`, so every tool answered
+// UNAUTHENTICATED for a valid bearer and every Rosina turn failed closed. "status 200 with a payload"
+// called that healthy; the payload WAS the error.
+const mcpCheck = await (async () => {
+  if (!session) return { status: 0, detail: 'no session', kids: 0, codes: [] };
   try {
-    const r = await fetch(MCP_URL, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'stack-health', version: '1' } } }) });
-    return r.status;
-  } catch { return 0; }
+    const H = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: SCHEME + session };
+    const init = await fetch(MCP_URL, { method: 'POST', headers: H, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'stack-health', version: '1' } } }) });
+    const sid = init.headers.get('mcp-session-id');
+    await init.text();
+    if (!sid) return { status: init.status, detail: 'no mcp-session-id', kids: 0, codes: [] };
+    const H2 = { ...H, 'mcp-session-id': sid };
+    await fetch(MCP_URL, { method: 'POST', headers: H2, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+    const call = await fetch(MCP_URL, { method: 'POST', headers: H2, body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'MyChildren', arguments: {} } }) });
+    const txt = await call.text();
+    const dataLine = txt.split('\n').filter((l) => l.startsWith('data:')).pop();
+    const msg = dataLine ? JSON.parse(dataLine.slice(5)) : null;
+    const inner = msg?.result?.content?.[0]?.text ?? '';
+    let body = {};
+    try { body = inner ? JSON.parse(inner) : {}; } catch { /* non-JSON tool text is itself a finding */ }
+    const kids = body?.data?.myChildren?.length ?? 0;
+    const codes = (body?.errors ?? []).map((e) => e?.extensions?.code ?? e?.message ?? 'ERROR');
+    return { status: call.status, kids, codes, detail: inner.slice(0, 100) };
+  } catch (e) { return { status: 0, detail: e.message, kids: 0, codes: [] }; }
 })();
-check('MCP answers on the configured port', mcpProbe > 0 && mcpProbe < 500, `status=${mcpProbe}`);
+check('MCP answers on the configured port', mcpCheck.status > 0 && mcpCheck.status < 500, `status=${mcpCheck.status}`);
+check('MCP forwards the caller token — no UNAUTHENTICATED', !mcpCheck.codes.includes('UNAUTHENTICATED'),
+  mcpCheck.codes.length ? mcpCheck.codes.join(',') : 'no tool errors');
+check('MCP MyChildren returns real data for the caller', mcpCheck.kids >= 1, `children=${mcpCheck.kids}`);
+
+// Negative control: with no token the same tool must still be REFUSED. A forwarding fix that also
+// opened anonymous access would be worse than the bug.
+const mcpAnon = await (async () => {
+  try {
+    const H = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
+    const init = await fetch(MCP_URL, { method: 'POST', headers: H, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'stack-health-anon', version: '1' } } }) });
+    const sid = init.headers.get('mcp-session-id');
+    await init.text();
+    if (!sid) return { refused: true, detail: 'no session issued' };
+    const H2 = { ...H, 'mcp-session-id': sid };
+    await fetch(MCP_URL, { method: 'POST', headers: H2, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+    const call = await fetch(MCP_URL, { method: 'POST', headers: H2, body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'MyChildren', arguments: {} } }) });
+    const txt = await call.text();
+    const dataLine = txt.split('\n').filter((l) => l.startsWith('data:')).pop();
+    const msg = dataLine ? JSON.parse(dataLine.slice(5)) : null;
+    const inner = msg?.result?.content?.[0]?.text ?? '';
+    let body = {};
+    try { body = inner ? JSON.parse(inner) : {}; } catch { /* ignore */ }
+    const codes = (body?.errors ?? []).map((e) => e?.extensions?.code ?? e?.message ?? 'ERROR');
+    const kids = body?.data?.myChildren?.length ?? 0;
+    return { refused: codes.includes('UNAUTHENTICATED') || kids === 0, detail: codes.join(',') || `children=${kids}` };
+  } catch (e) { return { refused: true, detail: e.message }; }
+})();
+check('MCP refuses an anonymous caller', mcpAnon.refused, mcpAnon.detail);
+
 
 // 5. Rosina's ACTUAL environment — the failure that started all this
 const rosinaPid = (() => {
@@ -103,6 +157,35 @@ if (!rosinaPid) {
   check('Rosina is pointed at the live MCP (ROSINA_MCP_URL → 5051)', hasRosinaMcp,
     hasRosinaMcp ? 'ok' : hasWrongName ? 'MCP_URL was set instead — Rosina ignores it' : 'ROSINA_MCP_URL missing or wrong');
 }
+
+// 5b. A REAL Rosina turn. A fail-closed tool path used to look healthy because the endpoint still
+// answered 200 with "I couldn't check that just now."
+if (session) {
+  const r = await fetch('http://127.0.0.1:4200/api/rosina', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: SCHEME + session },
+    // currentRoute is REQUIRED by the route contract; omitting it is a 400, not a health result.
+    body: JSON.stringify({ message: 'Who are my children?', currentRoute: 'village', history: [] }),
+  });
+  const rb = await r.json().catch(() => null);
+  const reply = typeof rb?.reply === 'string' ? rb.reply.trim() : '';
+  const failClosed = reply === "I couldn't check that just now.";
+  // A greeting proves the transport. The question proves an AUTHORIZED graph read actually ran.
+  const names = expectedChildNames.filter((n) => new RegExp(n.split(' ')[0], 'i').test(reply));
+  check('a Rosina chat turn as Kendra succeeds', r.status === 200 && reply.length > 0 && !failClosed,
+    `status=${r.status} replyLen=${reply.length}${failClosed ? ' fail-closed' : ''}`);
+  check('the Rosina turn used an authorized graph read (names her children)',
+    expectedChildNames.length > 0 && names.length >= Math.min(2, expectedChildNames.length),
+    `named ${names.length}/${expectedChildNames.length}: ${names.join(',') || 'none'}`);
+} else {
+  check('a Rosina chat turn as Kendra succeeds', false, 'no session to test with');
+}
+
+// 5c. Notice→Plan PREPARE. A fail-closed schedule reader used to answer 502 NOTICE_ERROR while the
+// endpoint itself looked up; the only way to see that is to ask for a proposal.
+const notice = await noticePrepareSmoke({ appBase: APP, rosinaBase: 'http://127.0.0.1:4200' });
+check('Notice→Plan prepare returns a proposal (no 502)', notice.ok,
+  notice.blocked ? notice.reason : `status=${notice.status}${notice.error ? ' ' + notice.error : ''}`);
 
 // 6. WHAT CODE IS ACTUALLY SERVING (separate fact from schema state)
 const rosinaCwd = (() => {
@@ -168,6 +251,29 @@ if (db && schemaReady) {
 }
 
 if (db) { try { await db.end(); } catch { /* already closed */ } }
+
+
+// --- MCP operation coverage -------------------------------------------------
+// Schema drift is invisible to a tool call: MyChildren can pass while a newly shipped operation is
+// missing from the served schema. This validates every document the MCP is CONFIGURED with, without
+// executing any of them, and fails (never skips) when the served schema cannot be obtained.
+{
+  const opRouter = process.env.HEALTH_ROUTER ?? 'http://127.0.0.1:4012/';
+  const opConfig = process.env.HEALTH_MCP_CONFIG ?? '.apollo/mcp.local.yaml';
+  try {
+    const coverage = await validateConfiguredOperations({ configPath: opConfig, routerUrl: opRouter });
+    check('served router schema obtained for operation validation', coverage.schemaOk,
+      coverage.schemaOk ? opRouter : (coverage.schemaReason ?? 'unknown'));
+    const failing = coverage.failures ?? [];
+    check('every configured MCP operation document validates against the served schema',
+      coverage.schemaOk && failing.length === 0,
+      coverage.schemaOk
+        ? `${coverage.checked} document(s), ${failing.length} invalid${failing[0] ? ` — ${failing[0].file}: ${failing[0].message}` : ''}`
+        : 'NOT CHECKED: schema unavailable');
+  } catch (error) {
+    check('MCP operation coverage check ran', false, error instanceof Error ? error.message : 'error');
+  }
+}
 
 console.log(`\nRESULT: ${failed === 0 ? 'HEALTHY' : 'UNHEALTHY'} (${failed} failing check${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);

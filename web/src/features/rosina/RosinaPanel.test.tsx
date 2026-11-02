@@ -145,3 +145,52 @@ describe('school-day report review', () => {
     expect(screen.queryByRole('button',{name:'Confirm report'})).not.toBeInTheDocument()
   })
 })
+
+describe('Add a Villager review mount', () => {
+  const proposal = {id:'vp_1',version:1,childId:'p_nora',personId:'p_dana',personDisplayName:'Dana Coleman',relationshipType:'friend_parent',scopes:['pickup.request'],validFrom:null,validUntil:null,createdAt:'2026-11-01T20:00:00Z',expiresAt:'2099-11-01T20:10:00Z'}
+  function Panel({service}:{service:RosinaAdapter}) {
+    const {session,switchPerson}=useSession()
+    return <><button onClick={()=>void switchPerson('kendra')}>Choose Kendra</button><button onClick={()=>void switchPerson('priya')}>Choose Priya</button>
+      {session&&<ChildAccessProvider key={session.generation} client={null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={read=>read()} generation={session.generation}><RosinaPanel service={service}/></ChildAccessProvider>}</>
+  }
+  function mount(service:RosinaAdapter){render(<SessionProvider adapter={createMockAuthAdapter()}><Panel service={service}/></SessionProvider>)}
+  it('mounts the structured review in mock mode and confirms only after the parent clicks',async()=>{
+    mount({mode:'mock',send:async()=>({reply:'Review the recorded proposal below.',actions:[],addVillagerProposal:proposal})})
+    fireEvent.click(screen.getByRole('button',{name:'Choose Kendra'}))
+    await screen.findByLabelText('Message Rosina')
+    await send('Add Dana to Nora’s village')
+    const card=screen.getByRole('region',{name:'Review Add a Villager proposal'})
+    expect(card).toHaveAttribute('data-mode','mock')
+    expect(card).toHaveTextContent('Dana Coleman')
+    expect(card).toHaveTextContent('pickup.request')
+    expect(card).toHaveTextContent('Sample review only. Confirm creates no relationship or permission.')
+    expect(card).not.toHaveTextContent('Sample reviewed')
+    fireEvent.click(within(card).getByRole('button',{name:'Confirm Add a Villager'}))
+    expect(await within(card).findByText('Sample reviewed. No relationship or permission was created.')).toBeVisible()
+  })
+  it('drops malformed proposals and never builds a card from Rosina prose',async()=>{
+    mount({mode:'mock',send:async()=>({reply:'Dana Coleman is in a proposal.',actions:[],addVillagerProposal:{...proposal,scopes:['address.read']} as never})})
+    fireEvent.click(screen.getByRole('button',{name:'Choose Kendra'}))
+    await screen.findByLabelText('Message Rosina')
+    await send('Show proposal')
+    expect(screen.getByRole('log')).toHaveTextContent('Dana Coleman is in a proposal.')
+    expect(screen.queryByRole('region',{name:'Review Add a Villager proposal'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Confirm Add a Villager'})).not.toBeInTheDocument()
+  })
+  it('hides proposal details from Priya and clears the thread on perspective switch',async()=>{
+    mount({mode:'mock',send:async()=>({reply:'A proposal was prepared.',actions:[],addVillagerProposal:proposal})})
+    fireEvent.click(screen.getByRole('button',{name:'Choose Priya'}))
+    await screen.findByLabelText('Message Rosina')
+    await send('Show proposal')
+    expect(screen.getByRole('region',{name:'Add a Villager unavailable'})).toBeVisible()
+    expect(screen.getByRole('log')).not.toHaveTextContent('Dana Coleman')
+    expect(screen.queryByRole('button',{name:'Confirm Add a Villager'})).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'Choose Kendra'}))
+    await screen.findByLabelText('Message Rosina')
+    await send('Show proposal')
+    expect(screen.getByRole('region',{name:'Review Add a Villager proposal'})).toHaveTextContent('Dana Coleman')
+    fireEvent.click(screen.getByRole('button',{name:'Choose Priya'}))
+    await waitFor(()=>expect(screen.queryByRole('region',{name:'Review Add a Villager proposal'})).not.toBeInTheDocument())
+    expect(screen.getByRole('log')).not.toHaveTextContent('Dana Coleman')
+  })
+})
