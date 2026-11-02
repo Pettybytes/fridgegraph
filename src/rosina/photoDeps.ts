@@ -28,6 +28,7 @@ import type { Ctx } from '../authz';
 import type { PhotoEndpointDeps, PhotoIdentity } from './photoEndpoint';
 import type { RateLimiter } from './rateLimit';
 import type { VisionClient } from './photoDescriptors';
+import { detroitToday } from './localTime';
 
 type PhotoAccessRow = { access?: string | null; storage_path?: string | null; child_id?: string | null };
 /** The minimal RLS-scoped client surface we use — satisfied by the real Supabase client. */
@@ -40,7 +41,7 @@ export type DbForFn = (ctx: Ctx) => DbLike;
 const firstRow = (data: unknown): PhotoAccessRow | null => (Array.isArray(data) ? (data[0] ?? null) : (data as PhotoAccessRow | null));
 
 async function accessFor(dbForFn: DbForFn, bearer: string, photoId: string, childId: string): Promise<PhotoAccessRow | null> {
-  const ctx: Ctx = { today: new Date().toISOString().slice(0, 10), token: bearer };
+  const ctx: Ctx = { today: detroitToday(), token: bearer };
   let res: { data: unknown; error: unknown };
   try { res = await dbForFn(ctx).rpc('orbit_photo_access', { p_photo: photoId }); }
   catch { return null; }
@@ -76,7 +77,7 @@ export function buildPhotoDeps(cfg: {
       },
     },
     vocabulary: async ({ bearer }) => {
-      const ctx: Ctx = { today: new Date().toISOString().slice(0, 10), token: bearer };
+      const ctx: Ctx = { today: detroitToday(), token: bearer };
       const out = new Map<string, Set<string>>();
       let res: { data: unknown; error: unknown };
       try { res = await dbForFn(ctx).from('orbit_vocabulary').select('kind, value'); }

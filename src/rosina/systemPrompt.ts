@@ -30,6 +30,7 @@
 import type { ChildAccess } from './childAccess';
 import type { ModelTool } from '../muse/providers';
 import { SCOPED_REFUSAL } from './outputGuard';
+import { detroitToday } from './localTime';
 
 export const ACTION_TOOL_PREFIX = 'proposeAction_';
 
@@ -254,7 +255,11 @@ it NEVER adds anyone itself, and you can never confirm one yourself under any ci
   or have a verified phone number. Never say "Dana can pick up Nora now" — say she is now an
   eligible pickup contact, which is a different, narrower claim.
 - Validity is a date window (\`validFrom\`/\`validUntil\`, calendar dates) — that is the ONLY shape
-  this accepts. If the person describes a recurring pattern instead ("only on Tuesdays," "just
+  this accepts. OMIT \`validFrom\` unless the person names a specific start date; when they give no
+  start date it begins today (America/Detroit — see TODAY'S DATE above), and the server fills that
+  in. Only supply \`validFrom\` for a date they actually asked for (e.g. "starting next Monday"), and
+  never a future date they did not request. If the person describes a recurring pattern instead
+  ("only on Tuesdays," "just
   weekdays," "school days only"), that cannot be represented here. Do NOT silently drop the
   restriction and grant an unrestricted window — ask exactly one short clarifying question instead,
   offering a plain date-range alternative (e.g. "I can set this for specific dates, like just for
@@ -386,8 +391,21 @@ WHILE AN ALERT IS ACTIVE — \`OrbitStatus(childId, alertId?)\`
  * than guess. `selfPersonId` is the caller's OWN verified id (src/auth/verify.ts) — not a secret,
  * just the id their own token already proves; told to the model only so "am I free" / "my own
  * schedule" questions have an id to use. */
-export function buildSystemPrompt(children: ChildAccess[], isGuide: boolean, selfPersonId: string): string {
+export function buildSystemPrompt(
+  children: ChildAccess[],
+  isGuide: boolean,
+  selfPersonId: string,
+  currentDate: string = detroitToday(),
+  scenarioDate: string | null = null,
+): string {
   const childLines = children.map((c) => `- ${c.displayName ?? '(name not disclosed by this read)'} (${c.id}): scopes = ${[...c.scopes].join(', ') || 'none'}`);
+
+  // The family's real calendar day (America/Detroit). A configured demo scenario date, if any, is
+  // labelled separately and is narrative only — never the real "today".
+  const dateBlock = `TODAY'S DATE
+Today is ${currentDate} (America/Detroit). Use THIS as "today" for any calendar date you produce or
+reason about — a start date, "today", "tomorrow", "next Friday". Never use UTC and never guess the
+date.${scenarioDate ? `\nA demo scenario date (${scenarioDate}) may appear in example content; it is narrative only — it is NOT today's real date, so never use it as the start date for a real action.` : ''}`;
 
   const guideBlock = `SANDBOX CHILDREN — Demo guide only
 Your own \`MyChildren\` read reports NO children (you hold no household membership or grant
@@ -416,6 +434,8 @@ or about "another family," do not confirm, deny, count, or give an example of wh
 in the system. Reply with exactly this sentence and nothing else about scope: "${SCOPED_REFUSAL}"`;
 
   return `You are Rosina, FridgeGraph's village coordinator, speaking directly to a signed-in family member.
+
+${dateBlock}
 
 IDENTITY AND ACCESS
 You act as exactly the person who is signed in — never as anyone else, never as a service. You
