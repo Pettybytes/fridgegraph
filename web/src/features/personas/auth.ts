@@ -1,5 +1,5 @@
 import type { Scope } from '@/lib/frontendData/types'
-export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone' | 'demo-guide'
+export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone' | 'whitfield' | 'demo-guide'
 export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'calendar' | 'village' }
 // Mock identity/scope examples from src/fixtures.ts and coordination-v2 Cast; never credentials or production authorization.
 export const personas: readonly Persona[] = [
@@ -14,6 +14,7 @@ export const personas: readonly Persona[] = [
   { id: 'felicia', personId: 'p_felicia', name: 'Felicia Reyes', role: "Taylor's mom", childId: 'p_taylor', childName: 'Taylor', villageId: 'v_taylor', grants: [], parent: true, initialRoute: 'village' },
   { id: 'simone', personId: 'p_simone', name: 'Simone Lee', role: "Micah and Avery’s mom", childId: 'p_micah', childName: 'Micah', villageId: 'v_micah', grants: [], parent: true, initialRoute: 'village' },
   { id: 'dwayne', personId: 'p_dwayne', name: 'Dwayne Ferris', role: "Malik's dad", childId: 'p_malik', childName: 'Malik', villageId: 'v_malik', grants: [], parent: true, initialRoute: 'calendar' },
+  { id: 'whitfield', personId: 'p_whitfield', name: 'Ms. Whitfield', role: "Nora's 3rd-grade teacher · school-day reports only", childId: 'p_nora', childName: 'Nora Ellison', villageId: 'v_nora', grants: ['school.read', 'school.report'], parent: false },
 ]
 // Presentation groups are explicit so future households can be added without changing the grid.
 // A village group includes relatives and caregivers, not a claim that they share one address.
@@ -24,6 +25,7 @@ export const personaGroups = [
   { id: 'vance-reyes-family', label: "Taylor's family", personaIds: ['felicia'] },
   { id: 'lee-family', label: "Micah & Avery's family", personaIds: ['simone'] },
   { id: 'ferris-family', label: "Malik's family", personaIds: ['dwayne'] },
+  { id: 'nora-school', label: "Nora's school", personaIds: ['whitfield'] },
 ] as const
 export type DemoFamilyInput = { parentName: string; childName: string }
 export type DemoFamily = DemoFamilyInput & { id: string; childId: string }

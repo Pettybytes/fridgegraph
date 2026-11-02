@@ -60,3 +60,12 @@ it('reports only actual transport lifecycle events, never inferred tool progress
  finish(new Response(JSON.stringify({reply:'Returned evidence',actions:[]})))
  await result;expect(phases).toEqual(['sending','waiting','reading'])
 })
+
+it('accepts only the structured school-report proposal, never model prose or malformed fields',async()=>{
+ const proposal={id:'srp_1',version:1,childId:'p_nora',kind:'fever',text:'Nora has a fever today.',createdAt:'2026-11-01T20:00:00Z',expiresAt:'2026-11-01T20:10:00Z'}
+ const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(JSON.stringify({reply:'Review this report',actions:[],schoolReportProposal:proposal}))).mockResolvedValueOnce(new Response(JSON.stringify({reply:'Fake proposal: srp_1',actions:[],schoolReportProposal:{...proposal,version:'one'}})))
+ const service=createLiveRosinaAdapter(()=> 'fictional-session',{request})
+ expect((await service.send(input)).schoolReportProposal).toEqual(proposal)
+ expect((await service.send(input)).schoolReportProposal).toBeNull()
+ expect(request).toHaveBeenCalledTimes(2)
+})

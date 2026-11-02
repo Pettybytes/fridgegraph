@@ -88,6 +88,15 @@ body:has(.rosina-panel.is-open:not([hidden])) .rosina-route-anchor{display:none}
 .rosina-panel .mode-mock{color:var(--fg-primary);background:var(--fg-selection);border-color:var(--fg-primary)}
 .rosina-panel .rosina-error{color:var(--fg-attention)}
 .rosina-confirm{background:var(--fg-surface);color:var(--fg-ink)}
+.rosina-school-report{margin-top:16px;padding:18px;border:1px solid var(--fg-border);border-radius:var(--radius-card,16px);background:var(--fg-surface);color:var(--fg-ink);box-shadow:var(--shadow-card,0 8px 24px #20203a12)}
+.rosina-school-report .rosina-school-report-kicker{margin:0 0 8px;color:var(--fg-primary);font-size:12px;font-weight:650;line-height:1.45}
+.rosina-school-report h3{margin:0 0 16px;font-size:20px;line-height:1.2}
+.rosina-school-report dl{display:grid;grid-template-columns:minmax(75px,1fr) minmax(0,2fr);gap:8px 12px;margin:0}
+.rosina-school-report dt{color:var(--fg-muted);font-size:13px}.rosina-school-report dd{margin:0;overflow-wrap:anywhere;line-height:1.5}
+.rosina-school-report .rosina-school-report-note{margin:16px 0 12px;color:var(--fg-muted);font-size:14px}
+.rosina-school-report button{width:100%;min-height:48px;padding:10px 16px;border:0;border-radius:var(--radius-control,12px);background:var(--fg-primary);color:var(--fg-on-primary);font-weight:700}
+.rosina-school-report button:disabled{opacity:.55;cursor:not-allowed}
+.rosina-school-report [role="alert"]{color:var(--fg-attention);font-weight:600}
 
 /* Mounted voice control shares the composer row; its credit/status use the full width. */
 .rosina-panel form > .rosina-composer{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end}
