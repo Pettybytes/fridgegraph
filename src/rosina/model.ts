@@ -11,7 +11,7 @@ import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { catalog, validateActions, type CatalogAction } from './catalog';
 import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
-import { localizeTimestamps } from './localTime';
+import { localizeTimestamps, detroitToday, resolveVillagerValidFrom } from './localTime';
 import { applyOutputGuard } from './outputGuard';
 import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
@@ -350,7 +350,9 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS];
 
   const messages: ModelMessage[] = [
-    { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId) },
+    // The family's REAL current Detroit date — authorization/calendar days use the real clock, never
+    // the demo scenario instant (which is only for time-of-day questions and is labelled separately).
+    { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId, detroitToday()) },
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
   ];
@@ -485,6 +487,14 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'SCOPE_NOT_GRANTED' }) });
           continue;
         }
+      }
+
+      // Add-a-Villager start date is resolved DETERMINISTICALLY here, before the proposal is staged,
+      // so the stored (and reviewed) validFrom is bound to the model's args and is never left to the
+      // backend's UTC `current_date` default. No/malformed/past date → Detroit today; a today-or-
+      // future date the parent asked for is preserved. Real clock (not the demo scenario instant).
+      if (call.name === 'ProposeAddVillager') {
+        args.validFrom = resolveVillagerValidFrom(typeof args.validFrom === 'string' ? args.validFrom : null);
       }
 
       const callResult = await mcp.callTool(call.name, args).catch((error: unknown): McpToolCall => ({

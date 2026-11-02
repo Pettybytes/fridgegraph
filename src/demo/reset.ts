@@ -211,6 +211,14 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     const schoolCounts = (school.rows[0]?.r ?? {}) as Record<string, unknown>;
     for (const [k, v] of Object.entries(schoolCounts)) if (Number(v) > 0) cleared[k] = Number(v);
 
+    // Add-a-Villager provenance (0081). A reset used to keep a proposal-created grant while deleting
+    // its approvals row — a live grant with no record of who granted it, and the reason the cast
+    // checksum moved. Scoped strictly to provenance: only writes a proposal created are removed, and a
+    // seeded relationship it merely activated goes back to the status `src/fixtures.ts` gives it.
+    const villager = await c.query('select reset_demo_villager_provenance() as r');
+    const villagerCounts = (villager.rows[0]?.r ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(villagerCounts)) if (Number(v) > 0) cleared[k] = Number(v);
+
     const orbit = await c.query('select reset_demo_orbit($1, $2::jsonb) as r', [
       actor,
       JSON.stringify({
