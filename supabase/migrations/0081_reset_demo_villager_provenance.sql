@@ -93,7 +93,10 @@ as $$
   );
 $$;
 
-revoke all on function public.reset_demo_villager_provenance() from public, anon;
-grant execute on function public.reset_demo_villager_provenance() to authenticated;
+-- EXECUTE is deliberately NOT granted to `authenticated`: this is a reset primitive, not an RPC the
+-- demo caller may invoke. It runs as the owner, which is the role resetDemo connects as (`postgres`).
+-- Revoking from `authenticated` closes the path where a demo session could delete another household's
+-- proposal provenance by calling the function directly.
+revoke all on function public.reset_demo_villager_provenance() from public, anon, authenticated;
 
 commit;

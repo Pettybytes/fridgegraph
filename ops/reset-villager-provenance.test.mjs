@@ -35,8 +35,9 @@ test('a seeded relationship is restored via an explicit map, not a blanket downg
 test('it is atomic, locked down, and called inside the reset transaction', () => {
   assert.match(migration, /^begin;/m);
   assert.match(migration, /^commit;/m);
-  assert.match(migration, /revoke all on function public\.reset_demo_villager_provenance\(\) from public, anon/);
-  assert.match(migration, /grant execute on function public\.reset_demo_villager_provenance\(\) to authenticated/);
+  assert.match(migration, /revoke all on function public\.reset_demo_villager_provenance\(\) from public, anon, authenticated/);
+  assert.ok(!/grant execute on function public\.reset_demo_villager_provenance/.test(migration),
+    'a reset primitive must not be executable by an API caller');
   assert.match(reset, /select reset_demo_villager_provenance\(\) as r/);
   // wired before the orbit audit so its counts ride in the reset report
   assert.ok(reset.indexOf('reset_demo_villager_provenance') < reset.indexOf("select reset_demo_orbit("));
