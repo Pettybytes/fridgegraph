@@ -1,14 +1,15 @@
 import {useEffect,useMemo,useState,type ReactNode} from 'react'
 import {FamilyCalendar} from '@/features/calendar/FamilyCalendar'
 import type {CalendarAdapter,CalendarChild,CalendarEvent} from '@/features/calendar/types'
-import type {MapWorld} from './types'
+import type {MapEvent,MapWorld} from './types'
 import {useVillageMap,useMapState} from './runtime'
 import type {MapController} from './controller'
 // Explicit sample calendar projection: never inserted into the live calendar adapter.
 export function mapCalendar(world:MapWorld):CalendarAdapter{
  const person=world.people.find(p=>p.id==='p_nora')
  const child:CalendarChild|undefined=person?{id:person.id,displayName:person.name,authority:world.canApprove?'parent':'schedule.read'}:undefined
- const events:CalendarEvent[]=child?world.events.filter(event=>event.peopleIds.includes(child.id)).map(event=>({id:event.id,child,title:event.title,category:event.id.startsWith('soccer-')?'PRACTICE':'PARENTING_HANDOFF',status:event.status,start:event.at,end:event.end,participants:event.peopleIds.flatMap(id=>{const p=world.people.find(p=>p.id===id);return p?[{id:p.id,displayName:p.name}]:[]}),location:world.places.some(p=>p.id===event.placeId)?{state:'visible',value:world.places.find(p=>p.id===event.placeId)!.name}:{state:'missing'},confirmedBy:{state:'missing'},confirmedAt:{state:'missing'},linkedRecords:{state:'missing'},attention:event.status==='PROPOSED'?['Unconfirmed']:[]})):[]
+ const calendarStatus=(event:MapEvent):event is MapEvent&{status:CalendarEvent['status']}=>event.status==='PROPOSED'||event.status==='CONFIRMED'||event.status==='CANCELLED'
+ const events:CalendarEvent[]=child?world.events.filter(event=>event.peopleIds.includes(child.id)&&calendarStatus(event)).map(event=>({id:event.id,child,title:event.title,category:event.id.startsWith('soccer-')?'PRACTICE':'PARENTING_HANDOFF',status:event.status as CalendarEvent['status'],start:event.at,end:event.end,participants:event.peopleIds.flatMap(id=>{const p=world.people.find(p=>p.id===id);return p?[{id:p.id,displayName:p.name}]:[]}),location:world.places.some(p=>p.id===event.placeId)?{state:'visible',value:world.places.find(p=>p.id===event.placeId)!.name}:{state:'missing'},confirmedBy:{state:'missing'},confirmedAt:{state:'missing'},linkedRecords:{state:'missing'},attention:event.status==='PROPOSED'?['Unconfirmed']:[]})):[]
  return {mode:'mock',listChildren:async()=>child?[child]:[],readCalendar:async({childId,from,to})=>{if(!child||childId!==child.id)throw Error('UNAUTHORIZED');return{state:'mock',child,events:events.filter(e=>e.start.slice(0,10)>=from&&e.start.slice(0,10)<=to),weeklySchedule:[],holidayArrangements:[],busy:[]}},readEvent:async(id)=>{const event=events.find(e=>e.id===id);if(!event)throw Error('UNAUTHORIZED');return event}}
 }
 export function MapCalendarBridge({children}:{children:ReactNode}){const controller=useVillageMap();return controller?<Bridge controller={controller}>{children}</Bridge>:children}

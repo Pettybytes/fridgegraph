@@ -5,6 +5,7 @@ import {flushSync} from 'react-dom'
 import type {AuthAdapter,AuthSession,DemoFamily,DemoFamilyInput,PersonaId} from './auth'
 import {BUSY,PerspectiveError} from './liveAuth'
 import {retryReadOnce} from './renewal'
+import {validDay} from '@/features/calendar/time'
 type Cleanup=()=>void|Promise<unknown>
 type SessionContextValue={
  session:AuthSession|null;switching:boolean;error:string;families:DemoFamily[];authMode:AuthAdapter['mode'];notice:string;resetting:boolean;resetError:string;resetRetryAt:number;unavailable:ReadonlySet<PersonaId>;retryAt:Partial<Record<PersonaId,number>>
@@ -20,6 +21,7 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
  const resetAbort=useRef<AbortController|null>(null),resetFlight=useRef<{generation:number;promise:Promise<boolean>}|null>(null),resetVerifications=useRef(new Set<(signal:AbortSignal)=>Promise<void>>())
  const [tick,setTick]=useState(0)
  const generation=useRef(0),currentSession=useRef<AuthSession|null>(null),cleanups=useRef(new Set<Cleanup>()),transitionAbort=useRef<AbortController|null>(null),renewAbort=useRef<AbortController|null>(null)
+ const calendarDayForNextPerspective=useRef<string|null>(null)
  const flight=useRef<{generation:number;promise:Promise<AuthSession|null>}|null>(null),backoff=useRef(0),notBefore=useRef(0),mounted=useRef(true)
  const getSessionGeneration=useCallback(()=>generation.current,[]),getCurrentSession=useCallback(()=>currentSession.current,[])
  const registerPrivateCleanup=useCallback((clear:Cleanup)=>{cleanups.current.add(clear);return()=>{cleanups.current.delete(clear)}},[])
@@ -29,11 +31,16 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
   const pending=[...cleanups.current];cleanups.current.clear();return pending
  }
  const expire=useCallback(()=>{
+  calendarDayForNextPerspective.current=null
   const pending=discard();setSession(null);setSwitching(false);setFamilies([]);setError('Your session ended, choose a perspective again')
   void Promise.allSettled(pending.map(clear=>clear()))
  },[])
  async function transition(id?:PersonaId){
   if(id&&(retryAt[id]??0)>Date.now()){setError(BUSY);return}
+  if(!id&&currentSession.current){
+   const day=location.hash.startsWith('#/calendar?')?new URLSearchParams(location.hash.split('?')[1]??'').get('day'):null
+   calendarDayForNextPerspective.current=validDay(day)?day:null
+  }
   const hadSession=!!currentSession.current,pending=discard(),owner=generation.current,controller=new AbortController();transitionAbort.current=controller
   flushSync(()=>{setSession(null);setSwitching(true);setError('');setNotice('');setResetError('');setResetRetryAt(0);setResetting(false);setFamilies([])})
   if(hadSession)window.history.replaceState(null,'',`${location.pathname}${location.search}#/mission-control`)
@@ -42,7 +49,11 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
    if(owner!==generation.current)return
    const next=id?await adapter.signInAsPersona(id,controller.signal):null
    if(owner!==generation.current||controller.signal.aborted||!mounted.current)return
-   if(next?.persona.initialRoute)window.history.replaceState(null,'',`${location.pathname}${location.search}#/${next.persona.initialRoute}`)
+   if(next?.persona.initialRoute){
+    const day=next.persona.initialRoute==='calendar'?calendarDayForNextPerspective.current:null
+    window.history.replaceState(null,'',`${location.pathname}${location.search}#/${next.persona.initialRoute}${day?`?day=${day}`:''}`)
+   }
+   if(id)calendarDayForNextPerspective.current=null
    const value=next?{...next,generation:owner}:null;currentSession.current=value;setSession(value)
   }catch(failure){if(owner===generation.current&&!controller.signal.aborted&&mounted.current){
    if(failure instanceof PerspectiveError&&failure.terminal&&id)setUnavailable(items=>new Set([...items,id]))
@@ -52,6 +63,7 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
  }
  const clearAfterReset=useCallback(async(message:string,uncertain=false)=>{
   if(!mounted.current)return
+  calendarDayForNextPerspective.current=null
   const pending=discard(),owner=generation.current
   flushSync(()=>{setSession(null);setSwitching(true);setFamilies([]);setError(uncertain?message:'');setNotice(uncertain?'':message);setResetting(false);setResetError('');setResetRetryAt(0);setRetryAt({});setUnavailable(new Set())})
   window.history.replaceState(null,'',`${location.pathname}#/mission-control`)

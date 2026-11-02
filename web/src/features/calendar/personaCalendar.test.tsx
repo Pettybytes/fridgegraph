@@ -15,6 +15,7 @@ it('switches Kendra to Rosa without old calendar records or details surviving', 
   expect(screen.queryByText('Nora Ellison')).not.toBeInTheDocument()
   await screen.findByRole('button', { name: /Rosa Castellano/ })
   fireEvent.click(screen.getByRole('button', { name: /Rosa Castellano/ }))
+  await waitFor(() => expect(window.location.hash).toBe('#/calendar?day=2026-10-28'))
   expect(await screen.findByRole('button', { name: /Autumn music recital/ })).toBeVisible()
   expect(screen.getByRole('heading', { name: 'Family Calendar', level: 1 })).toBeVisible()
   expect(screen.queryByText(/Birthday invitation|Nora Ellison|Jax Coleman/)).not.toBeInTheDocument()

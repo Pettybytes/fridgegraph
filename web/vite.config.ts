@@ -10,6 +10,7 @@ export default defineConfig({
       '/graphql': { target: 'http://127.0.0.1:4010', changeOrigin: true, rewrite: () => '/'  },
       // The Rosina service (src/rosina/server.ts, `npm run rosina`). Port from ROSINA_PORT, default 4200.
       '/api/orbit': { target: 'http://127.0.0.1:4008', changeOrigin: true },
+      '/api/village': { target: 'http://127.0.0.1:4008', changeOrigin: true },
       '/api/demo': { target: 'http://127.0.0.1:4008', changeOrigin: true },
       '/api/rosina': { target: 'http://127.0.0.1:4200', changeOrigin: true },
       // Browser voice (#71 voice-turn server, VOICE_PORT default 4118). Same-origin so the
