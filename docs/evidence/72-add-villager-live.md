@@ -243,3 +243,90 @@ function confirm_add_villager(...)` fixing the final `RETURN QUERY`'s missing `g
 staged as migration `0075`. Everything else about this slot — the router repair, the mounted
 card, the propose step, Rosina's MCP transport — is confirmed working. Releasing this slot now;
 will re-run immediately once a fix is confirmed applied.
+
+## Third slot — PASS, with one dated-window caveat on visibility
+
+Run inside "0080 APPLIED · FRESH SLOT OPEN" (`2026-11-02T03:38:18Z`), slot
+`2026-11-02T03:40:00Z` → `2026-11-02T04:47:00Z`. Verified myself via paginated `gh api` before any
+call. Migration `0080` (#115, fixed for the missing semicolon by #116) is applied; both routers
+(4010 pid `51145`, 4012 pid `80777`) and the backend (4001–4008 pid `48261`, MCP 5051 pid `99019`,
+Rosina 4200 pid `99547`) confirmed alive and unchanged from the slot's own receipt.
+
+**The one shared logical addition** (per #78 coordination — I did not create a second one):
+`feat/web-graphql-adapter` staged and confirmed ONE fresh Kendra proposal via the mounted card at
+`03:43:11Z`/released `03:45:13Z`. Bentley separately recovered and posted the exact identifiers:
+proposal `vp_9c8114984df1`, **version 2** (the original v1 draft had expired unconfirmed during
+the earlier BLOCKED attempt; Rosina's re-propose for the same proposer/child/person replaced and
+bumped it to v2 — v1 was never confirmed, only v2 was), proposer `p_mom`, confirmed `03:43:00Z`.
+
+**Checks run, all read-only or against that same already-confirmed proposal/version — no second
+addition created:**
+
+1. **Dana's fresh session — PASS on the data, with a dated-window caveat on visibility.**
+   `relationships(childId: "p_nora")` (as Kendra) confirms `r_dana_friend_parent` is **ACTIVE**.
+   `grants(childId: "p_nora", actorId: "p_dana")` confirms exactly one grant, `g_1d2dfa3915b1`,
+   scopes **exactly `[pickup.request]`**, `validFrom: "2026-11-02"`, `validUntil: "2026-12-31"`,
+   `grantedBy: p_mom`. **However**, Dana's own `myChildren` query right now returns only `p_jax`
+   — Nora is **not yet listed**. Root-caused, not guessed: `myChildren`'s grant-window check
+   (`src/subgraphs/access.ts`) compares against `ctx.today`, which is the **household's LOCAL
+   calendar day** (`America/Detroit`, deliberately — see `context.ts`'s own comment: using UTC
+   "made grants silently expire a day early"). Computed directly: Detroit local time right now is
+   **`2026-11-01 22:52`** — still the day *before* the grant's `valid_from: "2026-11-02"`. This is
+   the system working exactly as documented (a grant starting "tomorrow" doesn't show "today"),
+   not a propose/confirm defect — but it means a true end-to-end "Dana opens the app and sees
+   Nora" check could not be positively demonstrated inside this slot, only inferred from the
+   correct underlying relationship/grant state. It will become visible at local midnight
+   (~`05:00Z`), after this slot closes. Also confirmed: Dana still has **zero** ability to list
+   Nora's full `relationships`/`grants` (`UNAUTHORIZED` on both as her), exactly as a non-parent
+   should — her view is limited to the one aggregated `myChildren` row, same as any other
+   grant-holder, never a village-wide read.
+2. **No parent/guardian authority gained; Dana's other authority untouched — PASS.** The
+   relationship type is `friend_parent`, never `parent`/`guardian`. Dana's own `myChildren` still
+   shows exactly `p_jax` with her full, unchanged parent-level scopes
+   (`careplan.read, contacts.read, goals.read, pickup.request, pickup.verify, schedule.read,
+   school.read, transport.read`) — identical to the pre-confirm baseline captured in the first
+   slot attempt above. Nothing about Jax or her own household changed.
+3. **Schedule/care/address reads stay refused — PASS, two different correct mechanisms.** As
+   Dana: `effectiveScheduleFor(childId: "p_nora", ...)` → explicit `UNAUTHORIZED` (app-level
+   `authorizeChild` gate in `schedule.ts`, since she holds no `schedule.read`). `careFacts(childId:
+   "p_nora")` → `{"careFacts":[]}`, **not an error** — that resolver has no app-level gate and
+   relies on RLS alone; confirmed this is a real refusal, not an empty table, by running the
+   identical query as Kendra and getting 3 real rows (`bedtime`, `snack`, `tv`). **Address read
+   not meaningfully testable this slot:** `homePlaceId` is `null` for every persona right now,
+   including parents (per #87's own `villageWorld` proof note, "`homePlaceId` null for
+   everyone") — it is not wired yet, not something specific to Dana's grant, so testing it would
+   not demonstrate anything about her authorization specifically. Not claiming schedule or address
+   access for her beyond what was actually run.
+4. **Loretta, Priya, Ms. Whitfield refused — PASS, both propose and confirm paths.** All three,
+   as themselves, attempting `confirmAddVillager(proposalId: "vp_9c8114984df1", version: 2)`
+   (someone else's proposal) got the byte-identical `UNAUTHORIZED` (no oracle distinguishing "not
+   the proposer" from any other reason). All three also attempting their own fresh
+   `proposeAddVillager(childId: "p_nora", ...)` (trying to add a villager to Nora themselves) got
+   the same `UNAUTHORIZED` — none of them is a parent/guardian of Nora. No grant or relationship
+   row changed for any of these six attempts.
+5. **Concurrent/duplicate confirm retries — PASS.** Two sequential confirms by Kendra on the
+   identical `(vp_9c8114984df1, version: 2)` — already confirmed before this slot — both returned
+   the byte-identical `relationship{id,status}` and `grant{id,scopes,validFrom,validUntil,
+   grantedBy}`. Counts verified unchanged across both retries via the direct `grants`/`approvals`
+   queries: **exactly one** grant (`g_1d2dfa3915b1`) and **exactly one** approval
+   (`ap_d704358f335f`, approver `p_mom`, decision `GRANTED`) — matching Bentley's posted
+   identifiers exactly. No second row of either kind exists.
+6. **No outreach — PASS, trivially.** No contact method, SMS, email or notification call was made
+   at any point in this slot; every call above was a GraphQL query/mutation against the access,
+   schedule or coordination subgraphs only.
+
+### Summary (third slot)
+
+| Required check | Status |
+|---|---|
+| Serving migration/tool contract verified before confirming | **Confirmed** — 0080 applied, both routers expose the mutations |
+| ONE shared logical addition, observed not duplicated | **Confirmed** — `vp_9c8114984df1` v2, by `feat/web-graphql-adapter`'s mounted card |
+| Dana's fresh session sees exactly the granted scopes | **PASS on data** (relationship ACTIVE, grant exactly `[pickup.request]`) — **visibility caveat**: `myChildren` won't list Nora until local (Detroit) midnight, a dated-window property, not a defect |
+| No parent/guardian authority gained; other authority untouched | **PASS** |
+| Schedule/care/address reads refused absent an independent grant | **PASS** (schedule: explicit UNAUTHORIZED; care: RLS-filtered empty, confirmed against Kendra's non-empty read; address: not meaningfully testable, feature unwired for everyone) |
+| Loretta / Priya / Ms. Whitfield refused | **PASS** — both confirm-someone-else's-proposal and propose-their-own paths |
+| Concurrent duplicate confirms → one logical addition | **PASS** — two retries, byte-identical result, grant/approval counts unchanged at 1/1 |
+| No outreach | **PASS**, trivially |
+
+No restart, reset, or migration performed by me. No second proposal or confirm attempt created.
+Receipt posted to #78; slot released explicitly below.
