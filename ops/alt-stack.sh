@@ -139,11 +139,21 @@ paths += [p for p in re.findall(r'(?m)^\s*-\s*(\S+\.graphql)\s*$', out)]
 missing = [p for p in paths if not os.path.exists(p)]
 if missing:
     sys.exit('mcp config refers to missing files: ' + ', '.join(missing))
-if len([p for p in paths if p.endswith('.graphql') and '/ops/' in p]) != 11:
-    sys.exit(f'expected 11 operation files to be rewritten, got {len(paths)} paths total')
+ops_paths = [p for p in paths if p.endswith('.graphql') and '/ops/' in p]
+if not ops_paths:
+    sys.exit('mcp config: no operation files were rewritten — a tool would silently disappear')
+
+# Apollo MCP defaults `mutation_mode` to `none` and SKIPS mutation operations with only a warning
+# line in the log. The teacher tool (ProposeSchoolDayReport) was dropped exactly that way on
+# 2026-11-02: the operation file was present, the supergraph exposed it, and the tool list still
+# had 11 entries. The generated config must state the mode, and the count must come from the files.
+if 'mutation_mode:' not in out:
+    out = out.rstrip() + '\n\noverrides:\n  mutation_mode: explicit\n'
+if 'mutation_mode: explicit' not in out:
+    sys.exit('mcp config: mutation_mode is not explicit; mutation tools would be skipped silently')
 
 open(os.environ['OUT'], 'w', encoding='utf-8').write(out)
-print(f'alt-stack: mcp config -> {os.environ["OUT"]} (endpoint {router_port}, port {mcp_port}, 11 operations)')
+print(f'alt-stack: mcp config -> {os.environ["OUT"]} (endpoint {router_port}, port {mcp_port}, {len(ops_paths)} operations)')
 PY
 }
 
