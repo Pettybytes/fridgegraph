@@ -67,6 +67,9 @@ jobs:
       - name: Launcher offline compose
         run: npm run test:launcher-compose
 
+      - name: Launcher plan (dry run)
+        run: npm run test:launcher-dryrun
+
       - name: Hosting artifact contract
         run: npm run test:hosting-artifact
 
