@@ -69,7 +69,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
       <ChildAccessProvider client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
-      <ApolloSessionCleanup clearAdapter={adapter.clearStore} />
+      <VillageMapProvider><ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell slots={{
         map: <VillageMap/>,
         today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
@@ -85,11 +85,12 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
           : <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
       }} />
       <RosinaPanel dataAdapter={adapter} contextCard={<MapRosinaContext/>} />
+      </VillageMapProvider>
       </ChildAccessProvider>
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
   </div>
 }
 export default function App({authAdapter,orbitNow=Date.now}:{authAdapter?:AuthAdapter;orbitNow?:()=>number}={}) {
   const auth = useMemo(() => authAdapter ?? (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH==='true'?createMockAuthAdapter():createLiveAuthAdapter()), [authAdapter])
-  return <SessionProvider adapter={auth}><SandboxBanner /><VillageMapProvider><SignedInVillage orbitNow={orbitNow} /></VillageMapProvider></SessionProvider>
+  return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage orbitNow={orbitNow} /></SessionProvider>
 }

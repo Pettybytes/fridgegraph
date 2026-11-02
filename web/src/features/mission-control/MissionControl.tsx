@@ -15,7 +15,7 @@ const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'curren
 // Unavailable for drivers: the adapter preserves the backend's nullable paid-ride cost.
 function PaidRideEstimate({ candidate }: { candidate: Candidate }) {
   if (candidate.estimatedRideCostUsd === null) return null
-  return <span className="paid-ride-estimate"><span>{candidate.name} · Rideshare to school (Uber or Lyft) · Est. {money(candidate.estimatedRideCostUsd)}</span><small>FridgeGraph estimate (distance × $1.40/mi), not an Uber or Lyft quote</small>{candidate.costBasis && <small>Recorded basis: {candidate.costBasis}</small>}</span>
+  return <span className="paid-ride-estimate"><span>{candidate.name} · Rideshare to school (Uber or Lyft) · Est. {money(candidate.estimatedRideCostUsd)}</span><small>FridgeGraph estimate (distance × $1.40/mi), not an Uber or Lyft quote</small>{candidate.costBasis && /\bhaversine\b/i.test(candidate.costBasis) && <small>Straight-line approximation — may understate road cost</small>}{candidate.costBasis && <small>Recorded basis: {candidate.costBasis}</small>}</span>
 }
 const time = (at: string) => new Date(at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false })
 const miles = (value: number | null) => value == null ? 'Distance not recorded' : `${value.toFixed(2)} miles`
