@@ -34,6 +34,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Seed identity-map tests
+        run: npm run test:seed
+
       - name: Secret scan
         run: npm run check
 
