@@ -1,0 +1,320 @@
+{
+  "sourceRevision": "fb91e9cbbe04adfe8f3a2dc880d40287527baf64",
+  "provider": "Meta Model API (host api.meta.ai, path /v1)",
+  "model": "muse-image-1.0",
+  "edits": "Proportional RGB/Lanczos WebP resizes, quality 90. Original PNG files retained unchanged.",
+  "assets": [
+    {
+      "assetId": "pack_dog",
+      "sourceFile": "pack_dog.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a fluffy brown-and-white mixed-breed dog lying on a worn kitchen floor in soft morning light, one ear flopped, looking up toward the camera. Shallow depth of field, natural film-like color, visible fur texture. No people, no text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "888d09847ec105f8665a498afd7cca705e41858f9432b07716728ae276167ab1",
+      "image_sha256": "a167e7bdc579b5bbb6a1215c0693a2a14c4c6e91d507db02bcfad160f4090bfd",
+      "generated_utc": "2026-11-02T21:57:05Z",
+      "responsive": [
+        {
+          "file": "pack_dog-360.webp",
+          "width": 360,
+          "sha256": "bad716bcd1a3af91b7a06183e01c4bcadb3d6971a480836e628f1d6f03f8365d"
+        },
+        {
+          "file": "pack_dog-720.webp",
+          "width": 720,
+          "sha256": "abcd1a517201f299751d14d27518863c0872516b362ad5b4346721b8354e1ce7"
+        },
+        {
+          "file": "pack_dog-1024.webp",
+          "width": 1024,
+          "sha256": "68dac38942e42f5aefde5147c2b9ca053ca94e2ad4631246c6e3b13bd002b93f"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_walter_navy",
+      "sourceFile": "pack_walter_navy.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a small vintage sepia print lying on a wooden table: a young Black man in a 1950s US Navy uniform standing on a dock, turned three-quarters away from the camera, his face softened and slightly indistinct from age and shallow focus, faded edges, fine creases, aged paper texture. It reads as a family keepsake rather than a sharp portrait. Slight overhead angle, warm window light. No text, no lettering, no logos on the photo. Square 1:1 composition.",
+      "prompt_sha256": "e3116d0ceca1cc34baddcb752bf9ca705eb492c2169a5b4e7c38dda87012ec50",
+      "image_sha256": "d9d2d0fba05ac7a0936ea187f4686647efa9e2cb6edd51427b66385845cd01e6",
+      "generated_utc": "2026-11-02T21:57:22Z",
+      "responsive": [
+        {
+          "file": "pack_walter_navy-360.webp",
+          "width": 360,
+          "sha256": "fec80334289b8c2f222503e4bfb0c9632a304f7b26eb14a8b1d95182094db690"
+        },
+        {
+          "file": "pack_walter_navy-720.webp",
+          "width": 720,
+          "sha256": "4d080bd015bab1af1772308e9e593db8fded8463af812106f002db2c2e988f0e"
+        },
+        {
+          "file": "pack_walter_navy-1024.webp",
+          "width": 1024,
+          "sha256": "3d75979f2ca144bfb5735c586ab1fa78e90adf87906d18ba2f63a35db3cc6ca3"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_loretta_card",
+      "sourceFile": "pack_loretta_card.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic flat-lay photograph of a blank cream invitation card on a pale linen tablecloth, a warm terracotta and sage floral border painted around the edges, an entirely empty center, a small kraft envelope beside it, soft window light, gentle shadow. No words, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "0df23f5de79be7e50f7aa0e2a92ec785f47ff5163e84f3033d7df7ae0bc4613f",
+      "image_sha256": "d7c392562d2f8483acee223a3653641024501220dab34cdcfabfeba72249088f",
+      "generated_utc": "2026-11-02T21:57:37Z",
+      "responsive": [
+        {
+          "file": "pack_loretta_card-360.webp",
+          "width": 360,
+          "sha256": "c102fabca132461e763df99d077728177775c40e32d5de96f0cf8bb266c6d209"
+        },
+        {
+          "file": "pack_loretta_card-720.webp",
+          "width": 720,
+          "sha256": "a5112d69603d65436770bba14a5ee727058e63c56eb44b60d6beed78177a0944"
+        },
+        {
+          "file": "pack_loretta_card-1024.webp",
+          "width": 1024,
+          "sha256": "6412676248fa3cd67a7e119b3c3d52d8d7efff2484c593e973f5cd09fe278c8a"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_crayon_family",
+      "sourceFile": "pack_crayon_family.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a child's crayon drawing on slightly wrinkled white paper, stuck to a refrigerator with a round magnet: a naive drawing of five stick-figure family members, a house, a sun and a dog, bright crayon colors, wobbly lines. No words or letters anywhere in the drawing. Slight angle, soft kitchen light, paper curl at one corner. Square 1:1 composition.",
+      "prompt_sha256": "29ef4e4c49bfb78b98d0ba341d227a23cee852f9d5988cd924287282387b7472",
+      "image_sha256": "7b8c56624bf73cf539348004f76085e6a5eff982d37cefab68bf0e491484ee06",
+      "generated_utc": "2026-11-02T21:57:45Z",
+      "responsive": [
+        {
+          "file": "pack_crayon_family-360.webp",
+          "width": 360,
+          "sha256": "8b95228b0f70aeac9e4ec7453b6715ea63b8f0c8074014c7ee7c0bbd9b2b7ff2"
+        },
+        {
+          "file": "pack_crayon_family-720.webp",
+          "width": 720,
+          "sha256": "05717faf82c05a7090d6acf73436377637a8c9aa6de71b92d061c8629ba4c054"
+        },
+        {
+          "file": "pack_crayon_family-1024.webp",
+          "width": 1024,
+          "sha256": "f10f87668343cc78eee3932ce9a17a1ae18bba3ef5acba9479887d0bd606a2a7"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_candid_kitchen",
+      "sourceFile": "pack_candid_kitchen.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid family photograph viewed from behind: a Black father in his forties at a kitchen counter and two mixed-race children with dark brown curly hair beside him, a white mother at the stove further back, all faces turned away and not visible, one adult pouring coffee, one child buttering toast, warm morning light, unstaged, slight motion blur, gentle film grain. The family reads as the Ellison household. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "c1e3751d93619609aac75d6730879d5f6e2a6ceed8b49b3fa485f0ad70ebb4ae",
+      "image_sha256": "3e2096d241666ff97aa46bdc7b216df21b2a6dde60ddd84989730b41c4501cdd",
+      "generated_utc": "2026-11-02T22:28:21Z",
+      "responsive": [
+        {
+          "file": "pack_candid_kitchen-360.webp",
+          "width": 360,
+          "sha256": "b9e13c214e17564b02449269450fe00c21745a4bcb3e76ea20fbade76abd7287"
+        },
+        {
+          "file": "pack_candid_kitchen-720.webp",
+          "width": 720,
+          "sha256": "ad013883f2beaec2d2254b3ae94dcec1e44c13285ec236b786ce4f0c09280f84"
+        },
+        {
+          "file": "pack_candid_kitchen-1024.webp",
+          "width": 1024,
+          "sha256": "a48c9ca5f5e45d96b2666624ca459e1d5b5fce6ddefd66dc374c92c892a4b1e3"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_candid_porch",
+      "sourceFile": "pack_candid_porch.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a family on a front porch at dusk, seen from a distance and slightly behind, faces indistinct in warm low light, one adult pointing off-frame, a child sitting on the steps, porch bulb glow and soft fireflies, natural grain. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "6ddfaeae85ec1e42b2b7913e145fef251f17ce4c5640b21b74a57eb796a43688",
+      "image_sha256": "7fe3a80fb4ef66e90b1dcd3ba1e1bbb456d75fb1b1e3b3ca378f2c4232531430",
+      "generated_utc": "2026-11-02T21:58:31Z",
+      "responsive": [
+        {
+          "file": "pack_candid_porch-360.webp",
+          "width": 360,
+          "sha256": "e25ee48dbb258f4c1790b73074a5216dc3a345c6b5736d8c141b4f06c97267d1"
+        },
+        {
+          "file": "pack_candid_porch-720.webp",
+          "width": 720,
+          "sha256": "3afccd2d92706821002b72d01fdd49315772f7a5a16ddbec23b1c5c4282e77dc"
+        },
+        {
+          "file": "pack_candid_porch-1024.webp",
+          "width": 1024,
+          "sha256": "be7e81ee34de48bf8ee5abdd1a85d7999f87e610803a6cfa0334937cef96b25e"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_candid_soccer",
+      "sourceFile": "pack_candid_soccer.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of children playing soccer in a park at golden hour, shot from a distance with a long lens, small figures mid-run, faces not readable, dust and motion, warm backlight, natural grain. Plain clothing with no lettering or insignia. No text, no logos. Square 1:1 composition.",
+      "prompt_sha256": "4ef7191a0e8a38c7db5ed2b634f825cf9ffcdb8a12fe3a4e095b0d891a0b1c1f",
+      "image_sha256": "70cad7e68583678ed37d41afdbbe8fcfa4ab914508806924c6aa2c9e4c6cb22e",
+      "generated_utc": "2026-11-02T21:58:52Z",
+      "responsive": [
+        {
+          "file": "pack_candid_soccer-360.webp",
+          "width": 360,
+          "sha256": "93006728a6f86bf8b1177bbf1bad5df9f09fcaab5e124dae12b279e51c5d8ed9"
+        },
+        {
+          "file": "pack_candid_soccer-720.webp",
+          "width": 720,
+          "sha256": "e43d284c893491e69b9f357c5309c1b028d640fea14637fb96b58dbbb79fe48b"
+        },
+        {
+          "file": "pack_candid_soccer-1024.webp",
+          "width": 1024,
+          "sha256": "b1e7796a65f7a0c6196714521ba2da68d74b6210ad7379fd14446e1e215b5778"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_permission_slip",
+      "sourceFile": "pack_permission_slip.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a blank white permission-slip-sized sheet of paper on a kitchen counter, with printed-looking horizontal rules and a signature line but completely blank of words, a pen resting beside it, soft daylight, slight shadow. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "052308c6a1ffb7a8ebd5bea67b46769a11b0912a2528a0a69a17a1a79279af11",
+      "image_sha256": "7d4093953f43abd0bf77b889a8c42e73cdddc5a5abfbf4dc6f54994697323ae4",
+      "generated_utc": "2026-11-02T21:59:00Z",
+      "responsive": [
+        {
+          "file": "pack_permission_slip-360.webp",
+          "width": 360,
+          "sha256": "7783c84f56cf90874dd38c3b5255cecbe1d33e842ed460202ba2622935902dae"
+        },
+        {
+          "file": "pack_permission_slip-720.webp",
+          "width": 720,
+          "sha256": "f57c26e2e269fb846056fc05e871eae6ce98c9fa7ae9adda3fbccebc3f39e094"
+        },
+        {
+          "file": "pack_permission_slip-1024.webp",
+          "width": 1024,
+          "sha256": "b87a383812f0970b8b3035e5c6853e5297f2b5b7f16734b9d31616c27e2ae435"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_sitter_schedule",
+      "sourceFile": "pack_sitter_schedule.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a blank lined notepad page pinned to a refrigerator with two magnets, faint ruled lines and an empty grid but no writing, a pencil tucked into the spiral, warm kitchen light, slight curl to the paper. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "566af14efeaa46cc6c5d37b688190a152027961ce9243db492d516be2d032af8",
+      "image_sha256": "92de6e73e96fe187447ae38fc7d90c94b589090f8a9ef2e765637f56a5168936",
+      "generated_utc": "2026-11-02T21:59:21Z",
+      "responsive": [
+        {
+          "file": "pack_sitter_schedule-360.webp",
+          "width": 360,
+          "sha256": "bf9627741c869c3c94cf43e7da2c4f9463256069ce52786f27075b1b0c4aa05b"
+        },
+        {
+          "file": "pack_sitter_schedule-720.webp",
+          "width": 720,
+          "sha256": "e0f8dcf054cb7ea2a42c546603e50e70f498b5297dafbb63c867496eb6c00a62"
+        },
+        {
+          "file": "pack_sitter_schedule-1024.webp",
+          "width": 1024,
+          "sha256": "3315839fd2739348f39b84999e98b469f2dcd565b53b51efc47f19e5f985aeb2"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_holiday",
+      "sourceFile": "pack_holiday.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a living room during a winter holiday evening, warm string lights, a small decorated tree, wrapped gifts on the rug, no people, soft bokeh, cozy film-like color. No text, no lettering, no logos, no brand marks. Square 1:1 composition.",
+      "prompt_sha256": "63e668ea4d4ce8d96db45ef73d39f9802f7c595b4f9eb2b1e878b6ee7750360b",
+      "image_sha256": "f2ac3212fb47f038c9292d43e8158a2578a9fa7b91f752e3d78f36b06f6fdb5b",
+      "generated_utc": "2026-11-02T21:59:30Z",
+      "responsive": [
+        {
+          "file": "pack_holiday-360.webp",
+          "width": 360,
+          "sha256": "1634ae4ebaffcd52b949d1f215112dcafb507074d1d7e4db16bd35cf78de86d8"
+        },
+        {
+          "file": "pack_holiday-720.webp",
+          "width": 720,
+          "sha256": "c181f7cfda03657564298365a6c635be4dd10bd80bfb48ee3c3f6d605964171f"
+        },
+        {
+          "file": "pack_holiday-1024.webp",
+          "width": 1024,
+          "sha256": "49c6ca5f20e8e173ed08a386495c9b3be690eb013d491dcc085b3b3e05ade45c"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_birthday",
+      "sourceFile": "pack_birthday.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a birthday cake on a kitchen table, chocolate frosting and lit candles, a child's hands just at the edge of frame reaching toward it, warm evening light, shallow depth of field, crumbs and a plain paper plate. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "9e81c6e09324b93988e117bb9f083d933a837c0904c1fc618ce3445d1f5315e6",
+      "image_sha256": "684410942d53df9bfa75533790598884ec4849e6dff5542ac274508b2760aff7",
+      "generated_utc": "2026-11-02T21:59:45Z",
+      "responsive": [
+        {
+          "file": "pack_birthday-360.webp",
+          "width": 360,
+          "sha256": "537281a9857001fd7f7934e2dbcc27e38f761c57e9a087c2311d42b47d83fbf7"
+        },
+        {
+          "file": "pack_birthday-720.webp",
+          "width": 720,
+          "sha256": "dffeebf27dd2b8ac64a3e67a01c6f75ba59fbf1571b8e9f5c3f2112c5254d600"
+        },
+        {
+          "file": "pack_birthday-1024.webp",
+          "width": 1024,
+          "sha256": "937e226ba7e27001ba7ed38a8516fe19563af1b71e9b127b5cbc27e00ce44314"
+        }
+      ]
+    },
+    {
+      "assetId": "pack_keepsake",
+      "sourceFile": "pack_keepsake.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic close-up photograph of eclectic refrigerator keepsakes on a white refrigerator door: a round magnet, a small pressed flower under clear tape, a child's clay handprint, a faded seashell, arranged casually, soft kitchen light, faint reflections on the enamel. No text, no lettering, no logos, no photographs of faces. Square 1:1 composition.",
+      "prompt_sha256": "bc2045969a733ab8f5b3bcad44d4acee8c92a47769f3856ca69d1c065ac380e4",
+      "image_sha256": "338cde47f9674915aa4a1b73f4e15376d8c3b9d1318b6212e47f148d2d9c7a7b",
+      "generated_utc": "2026-11-02T22:00:02Z",
+      "responsive": [
+        {
+          "file": "pack_keepsake-360.webp",
+          "width": 360,
+          "sha256": "2853e5a87311ee055e9ec444564eb45f0f0d12b7563d2add2d75a3016e142aa5"
+        },
+        {
+          "file": "pack_keepsake-720.webp",
+          "width": 720,
+          "sha256": "6bed11ce7e2f0e96a5f7013c4098650a2eeef6f45ec3e1d928d03c72324c9fb8"
+        },
+        {
+          "file": "pack_keepsake-1024.webp",
+          "width": 1024,
+          "sha256": "92e1411c844211c557e8922223e9b9940c7a61e1b1097a8706e1f3e7792d5973"
+        }
+      ]
+    }
+  ]
+}

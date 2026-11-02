@@ -1,0 +1,38 @@
+async page => {
+ const persona = 'Kendra'; // For fallback run, use Dana; no identity substitution.
+ const stem=persona.toLowerCase(),root='/Users/user/Desktop/bentley/fridgegraph-fridge-experience/web/evidence/fridge-experience/content-ellison/run-2/'
+ const requests=[];page.on('request',request=>requests.push(request.url()))
+ await page.route(/\/api\//,route=>route.abort())
+ await page.route(/\/graphql(?:\?|$)/,route=>route.abort())
+ const check=(condition,message)=>{if(!condition)throw Error(message)}
+ const align=async locator=>{await locator.evaluate(el=>{for(let p=el.parentElement;p;p=p.parentElement){if(getComputedStyle(p).overflowY==='auto'&&p.scrollHeight>p.clientHeight){p.scrollTop+=el.getBoundingClientRect().top-70;return}}});}
+ for(const width of [1440,390]){
+  await page.setViewportSize({width,height:width===390?844:900})
+  await page.goto('http://127.0.0.1:5238/evidence/fridge-experience/content-ellison/preview.html#/fridge')
+  await page.reload()
+  await page.getByRole('button',{name:`Explore as ${persona}`,exact:true}).click()
+  await page.getByRole('region',{name:'The Fridge',exact:true}).waitFor()
+  check(await page.getByRole('button',{name:'The family dog',exact:true}).count()===(persona==='Kendra'?1:0),'Child-ID art mapping')
+  for(const state of ['populated','empty']){
+   await page.getByRole('combobox',{name:'Preview source state'}).selectOption(state)
+   await page.getByRole('button',{name:'Open collage door',exact:true}).click()
+   if(state==='empty')await page.getByText('Nothing posted yet.',{exact:true}).waitFor()
+   else await page.getByRole('button',{name:persona==='Kendra'?'Peanut allergy. Epi-pen in right backpack pocket.':'Bring a water bottle for outdoor play.',exact:true}).waitFor()
+   for(const view of ['overview','notes','goals']){
+    if(view==='overview')await page.getByRole('button',{name:'← Back to fridge',exact:true}).click()
+    else await page.getByRole('button',{name:view==='notes'?'Open collage door':'Open goals door',exact:true}).click()
+    await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(image=>image.decode().catch(()=>{})))})
+    check(await page.locator('.fridge-feature img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0)),'All art loaded')
+    await align(page.locator('.fridge-viewport'))
+    await page.screenshot({path:`${root}${stem}-${state}-${width}-${view}.png`,fullPage:width===1440})
+    if(width===390&&view==='notes'){
+     await align(page.locator('.fridge-object.save-date'))
+     await page.screenshot({path:`${root}${stem}-${state}-${width}-${view}-lower.png`})
+    }
+   }
+  }
+ }
+ check(!requests.some(url=>/\/api\/|\/graphql(?:\?|$)/.test(url)),'No backend requests')
+ check(!requests.some(url=>/fonts\.googleapis|fonts\.gstatic/.test(url)),'No third-party fonts')
+ return `PASS ${persona}: populated + empty, desktop + phone, mounted App; no API/GraphQL or third-party font requests.`
+}
