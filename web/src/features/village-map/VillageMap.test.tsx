@@ -61,11 +61,12 @@ it('shows missing person locations and event place states without inventing pins
 })
 it('shows only a parent or guardian the separately recorded pickup estimate, with basis and cap',async()=>{
  const fixture=createMockMapAdapter('kendra'),sample=await fixture.readWorld()
- const storedRideEstimates=[{jobId:'job-recorded',candidateId:'p_gma',candidateName:'Loretta from graph',amountUsd:12.4,capUsd:10,distanceMiles:8.86,basis:'haversine',paidRidePath:true as const}]
+ const storedRideEstimates=[{jobId:'job-recorded',candidateId:'p_gma',candidateName:'Loretta from graph',amountUsd:12.4,capUsd:10,distanceMiles:8.86,basis:'FridgeGraph synthetic planning estimate: haversine distance x $1.40/mi - not a provider quote',paidRidePath:true as const}]
  const world={...sample,state:'live' as const,canReadCost:true,storedRideEstimates,rideReadState:'ready' as const}
  const parent=new MapController({mode:'live',readWorld:async()=>world,route:fixture.route});await parent.load();render(<MapView controller={parent}/>)
  expect(screen.getByRole('region',{name:'Recorded pickup ride estimates'})).toHaveTextContent('Loretta from graph · Rideshare option · Est. $12.40')
  expect(screen.getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+ expect(screen.getByText('FridgeGraph synthetic planning estimate: straight-line distance x $1.40/mi - not a provider quote')).toBeVisible()
  expect(screen.getByText(/Over the household's \$10\.00 ride limit/)).toBeVisible()
  cleanup()
  const limited=new MapController({mode:'live',readWorld:async()=>({...world,canReadCost:false,storedRideEstimates:[]}),route:fixture.route});await limited.load();render(<MapView controller={limited}/>)

@@ -45,17 +45,24 @@ export function RideCost({controller}:{controller:MapController}){
 }
 export function StoredRideCosts({world}:{world:MapWorld}){
  if(world.state!=='live'||!world.canReadCost)return null
+ const basisCopy=(basis:string|null)=>{
+  if(!basis)return {warning:'',line:'Cost basis not recorded'}
+  const straight=/\bhaversine\b|straight.line/i.test(basis)
+  if(!straight&&!/\broad\b/i.test(basis))return {warning:'',line:'Cost basis is recorded but not described in this view'}
+  const plain=basis.replace(/\bhaversine\b/gi,'straight-line')
+  return {warning:straight?'Straight-line approximation — may understate road cost':'',line:/estimate|quote/i.test(plain)?plain:`${plain} estimate, not a provider quote`}
+ }
  return <section className="vm-stored-rides" aria-label="Recorded pickup ride estimates">
   <h3>Recorded pickup ride estimates</h3>
   {world.rideReadState==='refused'?<p>This pickup cost isn't shared with you.</p>
    :world.rideReadState==='unavailable'?<p>Couldn't load stored pickup costs just now.</p>
    :!world.storedRideEstimates?.length?<p>No paid-ride estimate is recorded for this child.</p>
-   :world.storedRideEstimates.map(ride=><article key={`${ride.jobId}:${ride.candidateId}`}>
+   :world.storedRideEstimates.map(ride=>{const basis=basisCopy(ride.basis);return <article key={`${ride.jobId}:${ride.candidateId}`}>
     <strong>{ride.candidateName} · Rideshare option · Est. ${ride.amountUsd.toFixed(2)}</strong>
     <p>Stored for a pickup request. This is separate from any map route you select.</p>
-    <p>{ride.basis==='haversine'?'Straight-line approximation — may understate road cost':ride.basis==='road'?'Stored road-distance estimate — not a provider quote':'Cost basis not described in this record'}</p>
+    {basis.warning&&<p>{basis.warning}</p>}<p>{basis.line}</p>
     {ride.capUsd===null?<p>Household ride limit not recorded.</p>:<p>{ride.amountUsd>ride.capUsd?'Over':'Within'} the household's ${ride.capUsd.toFixed(2)} ride limit.</p>}
-   </article>)}
+   </article>})}
  </section>
 }
 function ProposalConfirm({controller}:{controller:MapController}){
