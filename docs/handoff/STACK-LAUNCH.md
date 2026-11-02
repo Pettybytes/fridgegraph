@@ -25,12 +25,18 @@ proving it with a check that goes through the browser's own path.
 | Alt subgraphs | 4101–4107 | `DEMO_CLOCK=1 npx tsx ops/stack-alt.mjs` | `DEMO_CLOCK=1` for the test clock |
 | Router (alt) | 4012 | `router-v2.18.0 --supergraph supergraph.graphql --config <alt-router.yaml>` | config generated from `router.yaml` (licence-free variant) |
 | Router (licensed) | 4010 | `router-v2.18.0 --supergraph supergraph.graphql --config router.yaml` | `APOLLO_KEY` from `.env` |
-| **Rosina** | 4200 | `npx tsx src/rosina/server.ts` | **`ROSINA_PORT=4200`**, **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, **`ROSINA_GRAPHQL_URL=http://127.0.0.1:4012/`**, `ROSINA_PROVIDER=meta` |
+| **Rosina** | 4200 | `npx tsx src/rosina/server.ts` | **`ROSINA_PORT=4200`**, **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, `ROSINA_PROVIDER=meta`; for notice-plan also **`ROSINA_PROPOSAL_SIGNING_KEY=<64-hex>`** and **`ROSINA_GRAPHQL_URL=http://127.0.0.1:4012/`** (the ROUTER) |
 | MCP | 5051 | `apollo-mcp-server-v2.1.0 <mcp.yaml>` | config generated from `.apollo/mcp.local.yaml` with port rebased 5050→5051 |
 
 **`MCP_URL` is NOT read by Rosina.** Setting it produces a process that starts happily, logs
 `mcp=http://127.0.0.1:5050/mcp`, and fails every model turn. The startup line is the tell: it must say
 `mcp=http://127.0.0.1:5051/mcp`.
+
+**`ROSINA_GRAPHQL_URL` is REQUIRED when `ROSINA_PROPOSAL_SIGNING_KEY` is set (notice-plan on).** It is
+the GraphQL **router** (4012), NOT the MCP URL — there is no default and no MCP-derived fallback. If it
+is unset while the signing key is set, Rosina **exits at startup** (`[rosina] BLOCKED: ROSINA_GRAPHQL_URL
+is required …`). The earlier deploy incident was exactly this: with it unset, the authorized schedule
+read defaulted to `5051/graphql` (404) and every `POST /api/rosina/notice-plan` failed closed with 502.
 
 ## Measured running stack (2026-10-31 23:00Z)
 

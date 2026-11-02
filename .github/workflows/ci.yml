@@ -43,6 +43,9 @@ jobs:
       - name: Secret scan
         run: npm run check
 
+      - name: Village tests
+        run: npm run test:village
+
   web:
     name: web build
     runs-on: ubuntu-latest
