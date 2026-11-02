@@ -61,3 +61,8 @@ for label,name,bg,fg in badges:
     width=round(len(label)*8.4+32)
     svg=f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="34" viewBox="0 0 {width} 34" role="img" aria-label="{escape(label)}"><rect width="{width}" height="34" rx="7" fill="{bg}"/><text x="{width/2}" y="22" text-anchor="middle" fill="{fg}" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="700">{escape(label)}</text></svg>'
     (out/f'nav-{name}.svg').write_text(svg)
+
+roles=[('read','READ','Muse Spark 1.3','#4654AD','#FFFFFF'),('see','SEE','Muse Spark 1.3 vision','#E88775','#252638'),('listen','LISTEN','Muse Voice Transcribe 1.0','#556E64','#FFFFFF')]
+for name,role,model,bg,fg in roles:
+    svg=f'<svg xmlns="http://www.w3.org/2000/svg" width="370" height="42" viewBox="0 0 370 42" role="img" aria-label="{escape(role)} — {escape(model)}"><rect width="370" height="42" rx="7" fill="{bg}"/><text x="16" y="27" fill="{fg}" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="700">{escape(role)}  ·  {escape(model)}</text></svg>'
+    (out/f'role-{name}.svg').write_text(svg)

@@ -16,11 +16,11 @@ Live sandbox coming soon <!-- LIVE LINK: set at hosting --> · [Static hero](doc
 <a id="meet-rosina"></a>
 ## Meta Muse: three roles, two models
 
-|  | Family benefit | Observed result |
-| --- | --- | --- |
-| **READ**<br>**Muse Spark 1.3** | A school notice becomes structured changes and a proposed plan. Verified pasted text can be quoted; image/PDF text is a transcription. | [Sample notice conflict and reviewed request](docs/evidence/67-rosina-notice-briefing-live.md); [browser proof](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
-| **SEE**<br>**Muse Spark 1.3 vision** | A parent can review photo descriptors drawn from the child's **55 allowed vocabulary values**. | [Three descriptor kinds proposed from the fictional test photo](docs/evidence/64-photo-descriptor-authority.md); [refusal and zero-call checks](docs/evidence/63-photo-descriptor-authority.md). |
-| **LISTEN**<br>**Muse Voice Transcribe 1.0** | Spoken input becomes text for Rosina's conversation. | [Corrected backend round trip](docs/evidence/61b-voice-backend-corrected.md); [separate mounted playback proof](web/evidence/design/run-voice-roundtrip/RECEIPT.md). |
+| Meta Muse in the family |
+| --- |
+| <img src="docs/assets/readme/role-read.svg" alt="READ — Muse Spark 1.3" width="370"><br>A school notice becomes structured changes and a proposed plan. Verified pasted text can be quoted; image/PDF text is a transcription.<br>**Observed:** [Sample notice conflict and reviewed request](docs/evidence/67-rosina-notice-briefing-live.md); [browser proof](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md). |
+| <img src="docs/assets/readme/role-see.svg" alt="SEE — Muse Spark 1.3 vision" width="370"><br>A parent can review photo descriptors drawn from the child's **55 allowed vocabulary values**.<br>**Observed:** [Three descriptor kinds proposed from the fictional test photo](docs/evidence/64-photo-descriptor-authority.md); [refusal and zero-call checks](docs/evidence/63-photo-descriptor-authority.md). |
+| <img src="docs/assets/readme/role-listen.svg" alt="LISTEN — Muse Voice Transcribe 1.0" width="370"><br>Spoken input becomes text for Rosina's conversation.<br>**Observed:** [Corrected backend round trip](docs/evidence/61b-voice-backend-corrected.md); [separate mounted playback proof](web/evidence/design/run-voice-roundtrip/RECEIPT.md). |
 
 Muse Spark also powers Rosina's conversation and tool use. ElevenLabs generates reply speech; it is separate from Meta transcription.
 
