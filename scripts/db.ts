@@ -389,6 +389,7 @@ export async function resetDatabase() {
   // `RESET_SCOPED`: a broad deletion would remove every fixture place, while the helper removes only
   // non-fixture sandbox rows and re-seeds the canonical set with its coordinates and links.
   await rpc('reset_demo_places', { p_actor: 'db:reset' });
+  await rpc('reset_demo_school_reports', {});
 
   return deleted;
 }

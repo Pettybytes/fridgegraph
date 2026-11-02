@@ -399,13 +399,13 @@ scalar join__FieldSet
 scalar join__FieldValue
 
 enum join__Graph {
-  ACCESS @join__graph(name: "access", url: "http://127.0.0.1:4102/")
-  ACTIVITIES @join__graph(name: "activities", url: "http://127.0.0.1:4107/")
-  COORDINATION @join__graph(name: "coordination", url: "http://127.0.0.1:4103/")
-  SCHEDULE @join__graph(name: "schedule", url: "http://127.0.0.1:4104/")
-  SCHOOL @join__graph(name: "school", url: "http://127.0.0.1:4105/")
-  TRANSPORT @join__graph(name: "transport", url: "http://127.0.0.1:4106/")
-  VILLAGE @join__graph(name: "village", url: "http://127.0.0.1:4101/")
+  ACCESS @join__graph(name: "access", url: "http://127.0.0.1:4002/")
+  ACTIVITIES @join__graph(name: "activities", url: "http://127.0.0.1:4007/")
+  COORDINATION @join__graph(name: "coordination", url: "http://127.0.0.1:4003/")
+  SCHEDULE @join__graph(name: "schedule", url: "http://127.0.0.1:4004/")
+  SCHOOL @join__graph(name: "school", url: "http://127.0.0.1:4005/")
+  TRANSPORT @join__graph(name: "transport", url: "http://127.0.0.1:4006/")
+  VILLAGE @join__graph(name: "village", url: "http://127.0.0.1:4001/")
 }
 
 scalar link__Import
@@ -433,6 +433,7 @@ type Membership
 type Mutation
   @join__type(graph: ACCESS)
   @join__type(graph: COORDINATION)
+  @join__type(graph: SCHOOL)
   @join__type(graph: VILLAGE)
 {
   grantAccess(actorId: ID!, childId: ID!, scopes: [String!]!, validFrom: String, validUntil: String): Grant @join__field(graph: ACCESS)
@@ -444,7 +445,25 @@ type Mutation
   """
   Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing.
   """
-  orbitDraft(childId: ID!, wearColor: String, wearGarment: String, hair: String, carryColor: String, carryItem: String, photoId: ID): OrbitDraft! @join__field(graph: COORDINATION)
+  orbitDraft(
+    childId: ID!
+    wearColor: String
+    wearGarment: String
+    hair: String
+    carryColor: String
+    carryItem: String
+    photoId: ID
+
+    """
+    A place id from the child's own family. Not a label: nothing caller-supplied is stored.
+    """
+    lastSeenPlaceId: ID
+
+    """
+    When the child was last seen there. Both this and the place are bound by the message hash.
+    """
+    lastSeenAt: String
+  ): OrbitDraft! @join__field(graph: COORDINATION)
 
   """
   The exact notification the village would receive, plus the binding version and hash.
@@ -461,8 +480,27 @@ type Mutation
   """
   orbitRespond(alertId: ID!, response: String!): OrbitResponseResult! @join__field(graph: COORDINATION)
 
-  """Parent/guardian only. No response closes the alert by itself."""
-  orbitClose(alertId: ID!): OrbitAlert! @join__field(graph: COORDINATION)
+  """
+  Parent/guardian only. No response closes the alert by itself. Idempotent under retry.
+  """
+  orbitClose(alertId: ID!, outcome: String): OrbitAlert! @join__field(graph: COORDINATION)
+  approveConsent(slipId: ID!): SlipDecision! @join__field(graph: SCHOOL)
+  reportSchoolDay(childId: ID!, kind: String!, text: String!): SchoolReport! @join__field(graph: SCHOOL)
+
+  """
+  Stages a reviewable school-day report — the Rosina tool this is wired to may call this on the
+  signed-in teacher's behalf, but it never files anything by itself. A fresh call for the same
+  child replaces any prior unconfirmed draft and bumps `version`.
+  """
+  proposeSchoolDayReport(childId: ID!, kind: String!, text: String!): SchoolReportProposal! @join__field(graph: SCHOOL)
+
+  """
+  Files the EXACT reviewed proposal as a real SchoolReport — this is the signed-in teacher's own
+  deliberate confirm. Never reachable from Rosina's tool transport (no MCP operation exists for
+  it): a model tool call or generated text can never confirm itself. Idempotent: confirming the
+  same proposal twice (sequentially or concurrently) returns the SAME report both times.
+  """
+  confirmSchoolDayReport(proposalId: ID!, version: Int!): SchoolReport! @join__field(graph: SCHOOL)
 
   """
   DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later.
@@ -480,6 +518,23 @@ type OrbitAlert
   share: OrbitShare!
   activatedAt: String
   closedAt: String
+
+  """
+  FOUND_SAFE once a parent closed it with that outcome; null on older closes.
+  """
+  closeOutcome: String
+
+  """
+  The exact thank-you the frozen audience received; null until the close.
+  """
+  thankyou: String
+
+  """
+  Where the child was last seen, from the family's curated places. Visible to a parent/guardian
+  and to a member of the FROZEN audience only — the same rule as the message itself.
+  """
+  lastSeenPlace: RecordedPlace
+  lastSeenAt: String
   audience: [OrbitAudienceMember!]!
   responses: [OrbitResponseEntry!]!
   latestResponses: [OrbitResponseEntry!]!
@@ -565,6 +620,14 @@ type OrbitStatus
   child: Child!
   alertId: ID
   status: String
+
+  """
+  FOUND_SAFE once closed; null while active, and for a viewer who may not see the alert.
+  """
+  closeOutcome: String
+
+  """The thank-you, shown to a recipient after the close."""
+  thankyou: String
   audienceCount: Int!
   notifiedCount: Int!
   responseCounts: [OrbitResponseCount!]!
@@ -595,12 +658,14 @@ type PermissionSlip
   child: Child!
   title: String!
   signed: Boolean!
+  history: [SlipDecision!]!
 }
 
 type Person
   @join__type(graph: ACCESS, key: "id")
   @join__type(graph: COORDINATION, key: "id")
   @join__type(graph: SCHEDULE, key: "id")
+  @join__type(graph: SCHOOL, key: "id")
   @join__type(graph: TRANSPORT, key: "id")
   @join__type(graph: VILLAGE, key: "id")
 {
@@ -684,6 +749,13 @@ type Query
   orbitVocabulary(version: Int): [OrbitVocabularyEntry!]! @join__field(graph: COORDINATION)
 
   """
+  The child's family's recorded places. Parent/guardian only, checked against the child — a place
+  from another family is never reachable here, and a stranger gets the same empty list a
+  nonexistent child gets.
+  """
+  orbitPlaces(childId: ID!): [RecordedPlace!]! @join__field(graph: COORDINATION)
+
+  """
   Care facts for a child, each with its source and its verification. RLS decides visibility:
   parent/guardian, a caregiver holding careplan.read, or the guide on sandbox rows.
   """
@@ -731,6 +803,18 @@ type Query
   memberships(groupId: ID): [Membership!]! @join__field(graph: VILLAGE)
   goals(childId: ID!): [Goal!]! @join__field(graph: VILLAGE)
   carePlan(childId: ID!): CarePlan @join__field(graph: VILLAGE)
+}
+
+"""
+A curated place from the child's own family. A label and a kind — never an address, never free
+text. The only labels that exist are seeded ones, so a caller cannot introduce a place name.
+"""
+type RecordedPlace
+  @join__type(graph: COORDINATION)
+{
+  id: ID!
+  kind: String!
+  label: String!
 }
 
 type Relationship
@@ -781,6 +865,40 @@ type SchoolReport
   child: Child!
   kind: String!
   text: String!
+  at: String!
+
+  """
+  When this report was actually filed (server clock, never client-supplied). Null for every
+  historical/fixture row and any row filed before this field existed — null means time not
+  recorded, never filed at some unknown instant.
+  """
+  reportedAt: String
+}
+
+"""
+A staged, reviewable school-day report. Writing nothing to SchoolReport until confirmed.
+"""
+type SchoolReportProposal
+  @join__type(graph: SCHOOL)
+{
+  id: ID!
+  version: Int!
+  child: Child!
+  kind: String!
+  text: String!
+  createdAt: String!
+  expiresAt: String!
+}
+
+"""
+A recorded consent decision. at is the day it was recorded, never a time.
+"""
+type SlipDecision
+  @join__type(graph: SCHOOL)
+{
+  slip: PermissionSlip!
+  approver: Person!
+  decision: String!
   at: String!
 }
 
