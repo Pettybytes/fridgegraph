@@ -4029,3 +4029,50 @@ contracts remain dependencies for live map integration.
 | 2026-11-02T01:38:22Z | **RESERVED: evidence `68` = `docs/evidence/68-mcp-forward-headers.md`** (renamed from 66; main already holds 65–67). Reserved after checking `main` (evidence 63–67) and open PRs #87, #68, #78. Migrations: branch carries **0073** (mine) and now **0074** from main; no collision. |
 | 2026-11-02T01:40:12Z | **PRICING DIAGNOSIS — (a) CONFIRMED, (b) CONFIRMED, (c) REFUTED as written; the timeout owner does not exist.** **(a)** The LIVE `accept_pickup_webhook` is the 6-argument overload (a 4-argument stub also exists that only raises `EVENT_ID_REQUIRED`); its body **does call `_rank_and_advance`** and carries **no window check of its own**. `_rank_and_advance` returns early only when `status <> 'discovering'` or when `pending > 0 AND now() < created_at + discovery_timeout_seconds`. So ranking on reply with the window unelapsed is correct by design — nothing is wrong with the reply path. **(b)** `close_discovery(job)` is a two-line wrapper over `_rank_and_advance`, granted to `service_role` only, and has **no production caller**: a repo-wide search finds only `ops/station06-verify.mjs:255` and `ops/station06-graphql-authz.mjs:89`. No scheduler node exists in any committed n8n workflow (`docs/n8n/*.json` contain only webhook/http/code/if/switch/respondToWebhook and **no `close_discovery` reference**), and GHL is not part of this stack. **Exact call and transaction result:** inside `begin`/`rollback`, `select _rank_and_advance('job_1157aae7…')` → `discovering v2` → **`awaiting_approval v3`**, pending **3 → 0**; `select _rank_and_advance('job_78866a44…')` → `discovering v2` → **`failed v3`**, pending → 0 (both rolled back). Because the body always changes status once the window has elapsed, the earlier “elapsed but unchanged” state proves the call **never executed or never committed** — there is no timeout owner. **(c)** **REFUTED as written:** the driver branch requires `available = true AND reason_code IS NULL AND capability 'transport.child' AND a `vehicles` row owned by the candidate`. Measured: **p_gma owns 0 vehicles** (only `transport.child` + a `pickup.request` grant on `p_nora`), so her “yes” can **never** be `APPROVAL_PENDING`. A price can appear only in the **paid** branch and only when **over** the cap; under cap the job ends `failed / no_driver_available`. | `feat/village-map-backend` @ be56875 | project DB (reads + explicitly rolled-back calls) | **MEASURED** |
 | 2026-11-02T01:40:44Z | **RESERVED: migration `0067` — partial index for the discovery-timeout sweeper.** Checked `main` (0066, 0070–0072, 0074) and open PRs (#87, #68, #78) before taking it: **0067–0069 are free**. The sweeper (previous row’s missing owner) selects jobs by `status = 'discovering' AND now() >= created_at + discovery_timeout_seconds`; a partial index on `created_at` where `status = 'discovering'` keeps that poll cheap without touching any existing row. Staged with the sweeper PR; applied in the window. |
+### NOTICE → PLAN AGENT PROOF SLOT — 2026-11-02, PR #90 draft
+Bentley posted a fresh slot on #78, then paused agents to correct Rosina's
+notice schedule-reader target. The pre-restart UI Review returned 502
+`NOTICE_ERROR`; that failed result is preserved. After “agents resume,” Rosina
+4200 served `7fda69d` with the router target corrected, alongside graph/demo
+`c231ba8`, routers `c806f46`, MCP `cfbbb6a`. At UI head
+`5e92da704433c1cf6956b61f777ba27db1144515`, the real Kendra picker and
+sample-(a) tray produced one signed `requestPickup` proposal. Exactly one
+explicit UI Confirm returned job `job_2f32d2a49d204d75ba39810e2fbaa66d`
+in `discovering`; Mission Control read it back without claiming pickup was
+arranged. Priya's real picker could review the notice but had no Confirm
+button. No second pickup request, reset or restart was run by this UI lane.
+Full served revisions, outcomes and screenshot names are in
+`web/evidence/notice-plan/live-2026-11-02/RECEIPT.md`.
+UI: complete in mock and live-capable · backend: served, sample-(a) prepare
+and confirm proven · integrated + tested: sample (a) and Priya boundary PASS;
+broader notice samples (b)/(c) and briefing remain with feat/rosina-service.
+#90 stays draft until that service evidence and final review are reconciled.
+Bentley owns the canonical reset after the slot.
+### Teacher report card AGENT PROOF SLOT — 2026-11-02, PR #99
+After Bentley restored MCP forwarding and Rosina's GraphQL target, the #99
+browser card passed end to end at UI head
+`668258bded6c1d6d96bccad250ffa2f50d59aa20`. Served graph/demo was
+`c231ba8`, routers `c806f46`, MCP config `cfbbb6a`, Rosina `7fda69d` on
+pid 39469. A real Ms. Whitfield picker session asked Rosina to prepare a
+school-day fever report without filing it; the response carried structured
+proposal `srp_ea00e5a34c0b`. The review card rendered it, and exactly one
+explicit UI Confirm mutation filed report `sr_1621815c7531` with no GraphQL
+errors. The UI showed “Report filed.” This is separate from PR #103's backend
+chat proof and the earlier mixed UI transport isolation. The earlier
+no-proposal failure remains recorded. Screenshots and exact results are in
+`web/evidence/teacher-report/live-2026-11-02/RECEIPT.md`.
+UI: complete · backend: served · integrated + tested: PASS for the teacher
+review-to-confirm browser flow. Activity readback is owned by
+feat/web-activity-timeline; Bentley owns the canonical reset. No reset or
+restart was run by this UI lane.
+**AGENT PROOF SLOT addendum:** feat/rosina-service's independent live receipt
+on #78 observed the exact same sample-(a) job, not a duplicate. It also
+passed sample (b)'s clarification/resume, sample (c)'s review-only refusal
+and the distinct Loretta/Priya briefing scopes. The browser proof plus that
+service receipt cover #90's intended live integration. UI: complete ·
+backend: served · integrated + tested: PASS for the specified Notice → Plan
+flows. Keep the failed 502 receipts as historical failures; they were fixed
+by Bentley's router-target restart before the passing run.
+| 2026-11-02T01:50:19Z | **APPEND-ONLY CORRECTION #1 — my “elapsed, no change” observation is UNPROVEN.** The earlier `select _rank_and_advance(...)` call at ~00:53Z may have failed or been rolled back; I did not capture its transaction result. What the later **explicitly rolled-back** test proves is narrower: **`close_discovery` CAN advance those jobs** (`job_1157aae7` discovering v2 → awaiting_approval v3, pending 3→0; `job_78866a44` → failed v3). It does **not** prove the earlier call never ran. The conclusion that matters is unchanged and rests on the caller search: **no production caller of `close_discovery` exists.** |
+| 2026-11-02T01:50:19Z | **APPEND-ONLY CORRECTION #2 — the rolled-back rehearsal ran on the shared project database, outside my own reserved window.** No data was left behind (the transaction was rolled back), so **no recovery is needed**; the rule is what I broke: rehearsals run on a disposable target, never the shared DB outside a window. The rule stands and I will not repeat it. |
+| 2026-11-02T01:50:19Z | **LORETTA’S VEHICLE — repo and live disagree, and the RESET is why. Not a query artifact.** Connection: `SUPABASE_DB_URL` → user `postgres.ddlqggystlkqcksqfhww`, `current_user = postgres`, `rolsuper = false`, **`rolbypassrls = true`**, table owner `postgres`, `vehicles` RLS **and** FORCE RLS true — so RLS could not have hidden a row from my query. **Live, authoritative:** `vehicles` has **11 rows**, and **0 for p_gma**. **Repository:** `supabase/migrations/0002_seed.sql:173` **does** seed `v_103` (2016 Buick Enclave, DEMO-103) owned by `p_gma`; **but `src/fixtures.ts` (the set used by the canonical reset) lists `v_101, v_102, v_104 … v_112` — `v_103` is absent**, and `scripts/db.ts` `RESET_SCOPED` includes **`vehicles`**, deleting the table’s rows and re-inserting exactly that fixture list. **So every canonical reset destroys Loretta’s vehicle and never restores it.** The live count (11) matches the fixture list exactly. **I changed nothing.** No migration deletes vehicles; the insert exists only in the seeds. p_gma capabilities (same bypass role): `transport.child`; grant: `pickup.request, schedule.read, goals.read` on `p_nora`, `valid_until` null. **Consequence for pricing:** with 0 vehicles she can never take the driver branch; the paid branch only prices when over the cap, so under cap the job ends `failed/no_driver_available` — and the proof, when it runs, is the decision row’s own distance, basis and cap, not a fixture I arrange. |
