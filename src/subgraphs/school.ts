@@ -139,18 +139,61 @@ function toProposal(r: ProposalRow) {
 }
 
 /**
- * Maps a `propose_school_report`/`confirm_school_report` RPC failure's raw Postgres message to a
- * clean GraphQLError — same shape as coordination.ts's `rpcError`. The RPC's own RAISE EXCEPTION
- * literal (e.g. "PROPOSAL_EXPIRED") is the code; anything unrecognized stays opaque.
+ * Maps a `propose_school_report`/`confirm_school_report` RPC failure to a clean GraphQLError.
+ *
+ * FOUND LIVE, FIXED HERE (docs/evidence/65-teacher-report-live.md): the original version matched
+ * on `error.message` substrings, the same shape as coordination.ts's `rpcError`. Against the real
+ * deployment this NEVER matched — every refusal surfaced as the generic fallback, even though the
+ * underlying refusal was correct (no data written, nothing leaked). `@supabase/postgrest-js`'s own
+ * `PostgrestError` docstring says why: "Branch on `code` rather than on `message` text" — `code` is
+ * the stable field (PostgREST's own code, or the raw Postgres SQLSTATE for a RAISE EXCEPTION ...
+ * USING ERRCODE), `message` is documented as a human-readable summary only, with no guarantee of
+ * carrying the raised literal text verbatim through every deployment.
+ *
+ * Migration 0071 is already applied — its RAISE EXCEPTION statements and their ERRCODEs are fixed
+ * and cannot be edited now, so this maps by SQLSTATE, which IS what that migration actually set.
+ * Known, documented limitation carried over from 0071's own choices, not introduced here: `22023`
+ * (invalid_parameter_value) covers three distinct raises in that migration
+ * (SCHOOL_REPORT_KIND_REQUIRED, SCHOOL_REPORT_TEXT_REQUIRED, PROPOSAL_EXPIRED) that cannot be told
+ * apart by SQLSTATE alone, so all three collapse to one generic client-facing code.
+ *
+ * Message-substring matching stays as the PRIMARY signal (checked first, kept exact) — it is the
+ * more specific signal when a deployment's message does carry the literal text, and costs nothing
+ * to keep trying. SQLSTATE is the SECONDARY, documented-reliable fallback. An error matching
+ * NEITHER signal logs one line — a correlation id and the SQLSTATE only, NEVER the raw
+ * message/details/hint (which could, on some other failure, contain the query, an argument value,
+ * or something not meant for a log line) — and returns a generic, sanitized code to the client
+ * alongside that SAME correlation id, so a report can be matched to its log line without the
+ * client ever seeing (or the log ever holding) anything more than that.
  */
 function schoolReportProposalError(e: unknown): never {
   const message = e instanceof Error ? e.message : String(e);
-  const known = [
+  const byMessage = [
     'UNAUTHENTICATED', 'UNAUTHORIZED', 'DEMO_GUIDE_READ_ONLY', 'SCHOOL_REPORT_KIND_REQUIRED',
     'SCHOOL_REPORT_TEXT_REQUIRED', 'PROPOSAL_NOT_FOUND', 'PROPOSAL_EXPIRED', 'PROPOSAL_STALE',
-  ];
-  const code = known.find((k) => message.includes(k)) ?? 'RPC_FAILED';
-  throw new GraphQLError(code, { extensions: { code } });
+  ].find((k) => message.includes(k));
+  if (byMessage) throw new GraphQLError(byMessage, { extensions: { code: byMessage } });
+
+  // Documented PostgREST/Postgres SQLSTATEs set by migration 0071's own RAISE EXCEPTION
+  // statements — never a code invented here. See the docstring above for the known 22023 overlap.
+  const BY_SQLSTATE: Record<string, string> = {
+    '42501': 'UNAUTHORIZED', // insufficient_privilege — also covers that migration's own DEMO_GUIDE_READ_ONLY raise
+    P0002: 'PROPOSAL_NOT_FOUND', // no_data_found
+    '22023': 'SCHOOL_REPORT_INVALID', // invalid_parameter_value — kind/text required, or expired; see docstring
+    '40001': 'PROPOSAL_STALE', // serialization_failure
+  };
+  const sqlstate = (e as { code?: unknown } | null)?.code;
+  const byCode = typeof sqlstate === 'string' ? BY_SQLSTATE[sqlstate] : undefined;
+  if (byCode) throw new GraphQLError(byCode, { extensions: { code: byCode } });
+
+  const correlationId = randomUUID();
+  // Never the message/details/hint fields: on a RAISE EXCEPTION they are this file's own static
+  // strings today, but this branch exists precisely for errors that are NOT one of those — an
+  // unexpected failure could originate anywhere, and those fields are not safe to assume clean.
+  console.error(
+    `[school.schoolReportProposalError] unmapped RPC error correlationId=${correlationId} sqlstate=${typeof sqlstate === 'string' ? sqlstate : 'unknown'}`,
+  );
+  throw new GraphQLError('RPC_FAILED', { extensions: { code: 'RPC_FAILED', correlationId } });
 }
 
 /**
