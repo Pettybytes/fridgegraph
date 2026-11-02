@@ -8,6 +8,24 @@
 import type { ScheduleReader, PickupRequester } from './noticeEndpoint';
 import type { ScheduleEvent } from './noticeConflict';
 
+/**
+ * The GraphQL router URL the authorized reads + requestPickup run against, AS THE CALLER. There is
+ * deliberately NO default and NO fallback to the MCP URL: the MCP endpoint is not a GraphQL endpoint,
+ * so a silent `ROSINA_MCP_URL`-derived default (the old behavior) made every notice request fail
+ * closed with 502 while the stack looked "up". If `ROSINA_GRAPHQL_URL` is unset, this throws so the
+ * server fails fast at startup with a clear message instead of serving a broken feature.
+ */
+export function requireGraphqlUrl(env: Record<string, string | undefined> = process.env): string {
+  const url = (env.ROSINA_GRAPHQL_URL ?? '').trim();
+  if (url) return url;
+  throw new Error(
+    'ROSINA_GRAPHQL_URL is required for the notice-plan feature and has no default. Set it to the ' +
+      'GraphQL router (e.g. http://127.0.0.1:4012/) — NOT the MCP URL (ROSINA_MCP_URL / any /mcp ' +
+      'endpoint). The authorized schedule read and requestPickup run as the caller against the ' +
+      'router; pointing at the MCP port fails every notice request with 502.',
+  );
+}
+
 type GqlError = { message?: string; extensions?: { code?: string } };
 
 const EVENTS_QUERY = `
