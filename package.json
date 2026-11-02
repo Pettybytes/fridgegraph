@@ -17,7 +17,8 @@
     "verify:station06": "tsx ops/station06-verify.mjs",
     "suite": "node --import tsx ops/run-suite.mjs",
     "db:restore-demo": "tsx scripts/db.ts restore:demo",
-    "test:0066": "node --test ops/0066-policy-contract.test.mjs"
+    "test:0066": "node --test ops/0066-policy-contract.test.mjs",
+    "test:village": "node --import tsx --test src/village/*.test.ts"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
