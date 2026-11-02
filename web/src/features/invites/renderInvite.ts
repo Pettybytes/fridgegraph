@@ -1,5 +1,5 @@
-import type { InviteArt, InviteEvent } from './invite'
-import { validArt } from './invite'
+import type { InviteArt, InviteEvent, InviteProvenance } from './invite'
+import { inviteCredit, validArt } from './invite'
 
 const DETROIT = 'America/Detroit'
 const DARK_INK = '#252638' // the light paper/ink palette used by the fixture and app
@@ -44,8 +44,9 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): strin
 }
 
 /** One layout drives preview and PNG export. It never truncates an event field. */
-export function layoutInvitation(ctx: CanvasRenderingContext2D, art: InviteArt, event: InviteEvent): InviteTextLayout {
+export function layoutInvitation(ctx: CanvasRenderingContext2D, art: InviteArt, event: InviteEvent, footerHeight = 0): InviteTextLayout {
   const area = art.quietArea
+  const contentHeight = area.h - footerHeight
   const width = area.w * 0.88
   const text = invitationText(event)
   if (!text[0] || !text[1]) throw new Error('Enter a child name and occasion before downloading.')
@@ -68,7 +69,7 @@ export function layoutInvitation(ctx: CanvasRenderingContext2D, art: InviteArt, 
       totalHeight += gap[index] * base * factor
       if (index < text.length - 1) lines.push({ text: '', font, height: gap[index] * base * factor })
     }
-    if (totalHeight <= area.h * 0.88) return { lines, lineCount: lines.filter(line => line.text).length, totalHeight }
+    if (totalHeight <= contentHeight * 0.88) return { lines, lineCount: lines.filter(line => line.text).length, totalHeight }
   }
   throw new Error('The event text does not fit the art. Shorten a field before downloading.')
 }
@@ -83,7 +84,7 @@ function textColor(ctx: CanvasRenderingContext2D, art: InviteArt): string {
   return sum / 9 > 0.56 ? DARK_INK : LIGHT_INK
 }
 
-export function drawInvitation(canvas: HTMLCanvasElement, image: HTMLImageElement, art: InviteArt, event: InviteEvent): InviteTextLayout {
+export function drawInvitation(canvas: HTMLCanvasElement, image: HTMLImageElement, art: InviteArt, event: InviteEvent, provenance: InviteProvenance): InviteTextLayout {
   if (!validArt(art) || image.naturalWidth !== art.width || image.naturalHeight !== art.height) throw new Error('Invitation art is invalid.')
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas export is unavailable in this browser.')
@@ -91,15 +92,26 @@ export function drawInvitation(canvas: HTMLCanvasElement, image: HTMLImageElemen
   canvas.height = art.height
   ctx.drawImage(image, 0, 0, art.width, art.height)
   const ink = textColor(ctx, art)
-  const layout = layoutInvitation(ctx, art, event)
+  const footerHeight = Math.min(64, Math.max(32, art.quietArea.h * 0.12))
+  const layout = layoutInvitation(ctx, art, event, footerHeight)
   ctx.fillStyle = ink
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  let top = art.quietArea.y + (art.quietArea.h - layout.totalHeight) / 2
+  let top = art.quietArea.y + (art.quietArea.h - footerHeight - layout.totalHeight) / 2
   for (const line of layout.lines) {
     if (line.text) { ctx.font = line.font; ctx.fillText(line.text, art.quietArea.x + art.quietArea.w / 2, top) }
     top += line.height
   }
+  const credit = inviteCredit(provenance)
+  let footerSize = Math.min(22, Math.max(14, art.quietArea.w * 0.03))
+  ctx.font = `500 ${footerSize}px "Geist Variable", sans-serif`
+  while (footerSize > 12 && ctx.measureText(credit).width > art.quietArea.w * 0.88) {
+    footerSize -= 1
+    ctx.font = `500 ${footerSize}px "Geist Variable", sans-serif`
+  }
+  if (ctx.measureText(credit).width > art.quietArea.w * 0.88) throw new Error('The art credit does not fit the invitation.')
+  ctx.fillText(credit, art.quietArea.x + art.quietArea.w / 2,
+    art.quietArea.y + art.quietArea.h - footerHeight + (footerHeight - footerSize) / 2)
   return layout
 }
 

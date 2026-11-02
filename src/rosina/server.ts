@@ -25,6 +25,10 @@ import type { VisionClient } from './photoDescriptors';
 import { createNoticePlanHandlers } from './noticeEndpoint';
 import { createSparkNoticeExtractor } from './noticeExtractor';
 import { buildScheduleReader, buildPickupRequester, requireGraphqlUrl } from './noticeDeps';
+import { createInviteHandler } from './inviteEndpoint';
+import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
+import { createInviteRateLimiter, createGenerationBudget } from './inviteBudget';
+import { createSparkInviteExtractor, buildInviteParentAuthorizer } from './inviteDeps';
 
 loadEnv();
 
@@ -46,6 +50,13 @@ const RATE_LIMIT_PER_MIN = Number(process.env.ROSINA_RATE_LIMIT_PER_MIN ?? 20);
 const NOTICE_GRAPHQL_URL = (process.env.ROSINA_GRAPHQL_URL ?? '').trim();
 const NOTICE_SIGNING_KEY = process.env.ROSINA_PROPOSAL_SIGNING_KEY ?? '';
 const NOTICE_SCENARIO_DATE = process.env.ROSINA_NOTICE_SCENARIO_DATE ?? '2026-10-26';
+
+// Invites (slim). Field extraction uses Muse Spark; image is a FIXTURE by default, live muse-image-1.0
+// only behind INVITE_LIVE=1 (UNVERIFIED — reconfirm Meta's image docs first). Parent authz runs AS
+// THE CALLER against the router (ROSINA_GRAPHQL_URL). Budget is process-wide (a new login can't reset).
+const INVITE_LIVE = process.env.INVITE_LIVE === '1';
+const INVITE_BUDGET = Number(process.env.INVITE_GENERATION_BUDGET ?? 50);
+const INVITE_RATE_PER_MIN = Number(process.env.INVITE_RATE_LIMIT_PER_MIN ?? 6);
 
 const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
 
@@ -214,6 +225,31 @@ export function createRosinaApp() {
   } else {
     console.log('[rosina] notice-plan OFF (set ROSINA_PROPOSAL_SIGNING_KEY and a model provider to enable)');
   }
+
+  // Invites (slim). Needs a model provider (Spark extraction) and the router URL (parent authz).
+  // Image is a labelled FIXTURE unless INVITE_LIVE=1. OFF (logged) if either dependency is missing.
+  try {
+    const c = resolveProvider('meta');
+    const graphqlUrl = requireGraphqlUrl(); // router, as the caller — same as notice-plan
+    const image = INVITE_LIVE
+      ? createLiveImageGenerator({ apiKey: c.apiKey, baseUrl: c.baseUrl })
+      : createFixtureImageGenerator();
+    const inviteHandler = createInviteHandler({
+      verify: async (h) => { const id = await verifyBearer(h); return id.ok ? { ok: true, personId: id.personId, demoGuide: id.demoGuide } : { ok: false }; },
+      authorizeParent: buildInviteParentAuthorizer({ graphqlUrl }),
+      extractor: createSparkInviteExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model }),
+      image,
+      rateLimiter: createInviteRateLimiter(INVITE_RATE_PER_MIN),
+      budget: createGenerationBudget(INVITE_BUDGET),
+      source: INVITE_LIVE ? 'MUSE_IMAGE' : 'FIXTURE',
+    });
+    app.post('/api/rosina/invite', (req, res) => {
+      inviteHandler(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'IMAGE_FAILED' }); });
+    });
+  } catch (err) {
+    console.log(`[rosina] invites OFF: ${err instanceof Error ? err.message : 'configuration error'}`);
+  }
+
   return app;
 }
 
