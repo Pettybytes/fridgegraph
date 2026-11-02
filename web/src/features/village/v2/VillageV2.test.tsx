@@ -21,6 +21,15 @@ it('Rosa opens only Emma and the shared teacher, and switching removes her priva
  expect(await screen.findByText('Signed in as Dana')).toBeVisible()
  expect(screen.queryByText('Rosa Castellano')).not.toBeInTheDocument()
 })
+it('mounts Andre’s approved fictional status only on his authorized person card',async()=>{
+ const village=await enter('Kendra')
+ fireEvent.click(within(village).getByRole('button',{name:/Andre Ellison/}))
+ expect(screen.getByRole('dialog')).toHaveTextContent('Changing a diaper')
+ expect(screen.getByRole('status',{name:/Sample shared status/})).toHaveTextContent('ETA: unknown')
+ fireEvent.click(screen.getByRole('button',{name:'Close connection'}))
+ fireEvent.click(within(village).getByRole('button',{name:/Loretta Brooks/}))
+ expect(screen.getByRole('dialog')).not.toHaveTextContent('Changing a diaper')
+})
 it('Priya selects Malik without retaining Nora or her household in the view',async()=>{
  const village=await enter('Priya')
  fireEvent.change(within(village).getByRole('combobox'),{target:{value:'p_malik'}})
