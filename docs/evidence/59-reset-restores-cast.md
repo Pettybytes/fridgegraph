@@ -1,5 +1,10 @@
 # 59 — `/__reset` itself restores the demo cast
 
+> **Current expected value (post-#92/#96, measured 2026-11-02): `f022ccf8311e7561`.**
+> The `823cb76928f50c9f` values below are the measurements **at that revision** and stay as recorded.
+> The change is explained by #92's additive `grants` row (`g_whitfield_school`), one of the three
+> tables the checksum hashes; `care_facts` and `routines` are untouched and the v1 baseline is unchanged.
+
 ## The defect
 
 `resetDatabase()` — the handler behind **`POST /__reset`** — seeds the database and then deletes every
