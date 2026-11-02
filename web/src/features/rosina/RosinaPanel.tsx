@@ -20,9 +20,12 @@ import { SchoolReportCard } from './SchoolReportCard'
 import { createLiveSchoolReportConfirm, createMockSchoolReportConfirm, parseSchoolReportProposal } from './schoolReport'
 import type { ConfirmSchoolReport, SchoolReportProposal } from './schoolReport'
 import type {RosinaProgress} from './liveAdapter'
+import {AddVillagerReview} from '@/features/add-villager/AddVillagerReview'
+import {parseAddVillagerProposal} from '@/features/add-villager/addVillager'
+import type {AddVillagerProposal} from '@/features/add-villager/addVillager'
 import {RosinaAvatar} from '@/components/fg/RosinaAvatar'
 import './rosina.css'
-type ThreadMessage = ChatMessage & { actions: CatalogAction[]; schoolReportProposal?: SchoolReportProposal | null }
+type ThreadMessage = ChatMessage & { actions: CatalogAction[]; schoolReportProposal?: SchoolReportProposal | null; addVillagerProposal?: AddVillagerProposal | null }
 type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:RosinaAdapter;confirmSchoolReport?:ConfirmSchoolReport}
 export function RosinaPanel(props:PanelProps){
   const {session,getSessionGeneration}=useSession()
@@ -86,9 +89,9 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }, [])
   useEffect(()=>{const reopen=()=>{setOpen(true);setDismissed(false)};window.addEventListener('rosina:open',reopen);return()=>window.removeEventListener('rosina:open',reopen)},[])
   useEffect(()=>{const prepare=(event:Event)=>{const text=(event as CustomEvent<unknown>).detail;if(typeof text==='string'){setDraft(text);setOpen(true);setDismissed(false)}};window.addEventListener('orbit:ask',prepare);return()=>window.removeEventListener('orbit:ask',prepare)},[])
-  function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = [], schoolReportProposal?: SchoolReportProposal | null) {
+  function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = [], schoolReportProposal?: SchoolReportProposal | null, addVillagerProposal?: AddVillagerProposal | null) {
     if (!active.current) return
-    const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions, schoolReportProposal }
+    const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions, schoolReportProposal, addVillagerProposal }
     setMessages(items => [...items, message])
   }
   // /voice/turn already ran the turn. Insert its output; never call ask/send here.
@@ -98,7 +101,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     const actions=validateActions(response.actions)
     // Keep validated cards until their live dependencies settle; execution still rechecks permission.
     const orbitOffer=actions.some(action=>action.id==='prepareOrbitAlert')
-    append('ROSINA', orbitOffer&&orbit ? 'I can prepare an Orbit message for you to review. Nothing has been activated.' : response.reply, actions, parseSchoolReportProposal(response.schoolReportProposal))
+    append('ROSINA', orbitOffer&&orbit ? 'I can prepare an Orbit message for you to review. Nothing has been activated.' : response.reply, actions, parseSchoolReportProposal(response.schoolReportProposal), parseAddVillagerProposal(response.addVillagerProposal))
   }
   useEffect(()=>{const close=()=>closePanel();window.addEventListener('rosina:close',close);return()=>window.removeEventListener('rosina:close',close)},[])
   function closePanel() {
@@ -173,7 +176,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
         {contextCard}
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
-        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
+        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}<AddVillagerReview proposal={parseAddVillagerProposal(message.addVillagerProposal)} />{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
         {orbit&&<OrbitPhotoChat controller={orbit}/>}
         {busy && <div className="rosina-progress" role="status"><strong>{adapter.mode==='live'?(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…'):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
       </div>

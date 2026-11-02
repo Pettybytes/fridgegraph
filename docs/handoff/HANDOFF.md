@@ -4168,3 +4168,21 @@ service receipt cover #90's intended live integration. UI: complete ·
 backend: served · integrated + tested: PASS for the specified Notice → Plan
 flows. Keep the failed 502 receipts as historical failures; they were fixed
 by Bentley's router-target restart before the passing run.
+
+### Add a Villager Rosina mount — feat/web-add-villager-mount
+
+Base `f272f6e9dab04bdac72f330ab9f00300745bf2c8` (PR #109 merged).
+RosinaPanel now carries only the server's structured `addVillagerProposal` into
+the review card. The exact one-line card mount from #109 is used; prose and
+malformed proposals cannot create a card. Confirmation remains the component's
+explicit mock action; it writes no relationship or grant. A parent viewing
+their child can review, while Priya sees no proposal details or confirm button.
+Persona/child switches discard the thread and card with the existing session
+generation guard. Offline verification: 426/426 web tests, root typecheck,
+web build, and secret scan (0 findings) passed. A local Playwright fixture
+showed the card at 390 and 1440 widths and the sample-only confirmation after
+an explicit click; it made no live request. UI: complete · backend: proposal
+field merged; confirmation service not verified in this workstream · integrated
++ tested: pending a reserved live slot and served revision check.
+
+WAITING FOR BRYAN TO MERGE THE ADD A VILLAGER MOUNT PR after CI is green.
