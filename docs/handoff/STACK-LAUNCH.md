@@ -2,6 +2,12 @@
 
 Written after two refresh failures that each cost a live window:
 
+0. **Rosina MUST carry `ROSINA_GRAPHQL_URL` (2026-11-02).** Without it, `GRAPHQL_URL` falls back to
+`ROSINA_MCP_URL.replace(/\/mcp\/?$/, '/graphql')` — i.e. **5051/graphql**, not the router — and every
+Notice→Plan prepare answers **502 NOTICE_ERROR (SCHEDULE_READ_FAILED)** because the authorized schedule
+read fails closed. Point it at the router the demo/browser path uses (`http://127.0.0.1:4012/`).
+`ops/stack-health.mjs` now refuses to call a stack healthy unless a prepare returns a proposal.
+
 1. **Rosina came up against a dead MCP** because it reads `ROSINA_MCP_URL`, and `MCP_URL` is silently
    ignored (`src/rosina/server.ts:25`, default `http://127.0.0.1:5050/mcp` — a port nothing serves).
 2. **The demo-login listener never started** because `startDemoLogin()` returns early unless
