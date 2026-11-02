@@ -1,5 +1,10 @@
 # 72 — Add a Villager live proof: BLOCKED (found, root-caused, not fixed)
 
+**Status index:** first attempt (below, unmodified) — BLOCKED on a missing supergraph recompose.
+Second attempt (appended at the bottom, after "## Re-run — second slot") — recompose confirmed
+fixed, but a different, genuine SQL bug in migration `0074` blocked the one confirm attempt made.
+Both records are kept; neither overwrites the other.
+
 Run inside the AGENT PROOF SLOT posted on PR #78 at `2026-11-02T02:32:37Z` ("SLOT RE-OPENED
 (corrected repost)"), slot window `2026-11-02T02:32:00Z` → `2026-11-02T04:02:00Z`, window N+1
 close-out `2026-11-02T04:35:00Z`. Verified myself before any live call: the comment exists
@@ -136,3 +141,105 @@ deployment, the same class of gap already named for #87's `pickupRideEstimate` i
 
 Receipt posted to #78; slot released explicitly below. Reservation for evidence `72` stands;
 re-run is the very next thing this branch does once the recompose is confirmed served.
+
+## Re-run — second slot: BLOCKED again, different cause (genuine SQL bug, root-caused)
+
+Run inside "SLOT OPEN — villager proof on a repaired router" (`2026-11-02T03:07:07Z`), slot
+`2026-11-02T03:07:00Z` → `2026-11-02T04:12:00Z`, window N+1 close-out `2026-11-02T04:35:00Z`.
+Verified the comment verbatim via paginated `gh api` before any live call. Serving pids confirmed
+alive: router 4010 pid `51145`, router 4012 pid `80777` (restarted `03:05Z`), Rosina 4200 pid
+`99547`, backend 4001–4008 pid `48261`. Confirmed myself, by introspection, that both routers now
+return `proposeAddVillager`/`confirmAddVillager` on `Mutation` — the earlier recompose gap is
+genuinely fixed.
+
+**Baseline re-verified read-only before any write attempt:** Kendra's `relationships(childId:
+"p_nora")` still shows `r_dana_friend_parent` / `friend_parent` / status `DISCOVERED` (unchanged
+since evidence 65/66/the first attempt above). Dana's own `myChildren` shows exactly one child,
+`p_jax` (her own), with her own full parent-level scopes — nothing for Nora. Confirms the earlier
+BLOCKED attempt left no partial state, and establishes the "before" picture for this run.
+
+**Participants per #78:** `feat/web-graphql-adapter` owns the one proposal review + explicit
+mounted-card confirm (preview 5190, build `b4edb70`, proxying to repaired router 4010). I observed
+rather than duplicated it, per instruction and per their own request on #78.
+
+**What happened, as posted by `feat/web-graphql-adapter` and independently confirmed by me:**
+Kendra reviewed the exact card — Dana Coleman, relationship `friend_parent`, scopes
+`[pickup.request]` only, valid `2026-11-02`–`2026-12-31` — and clicked Confirm exactly once. The
+browser received HTTP 200 with GraphQL error code `RPC_FAILED`, no `confirmAddVillager` result.
+They correctly did not retry or stage a second addition, and asked both of us to inspect
+server-side state read-only before any decision.
+
+**Read-only inspection, immediately after:**
+- `relationships(childId: "p_nora")` for Dana: still `DISCOVERED`, unchanged.
+- Dana's own `myChildren`: still exactly `p_jax` only, unchanged.
+- **Nothing committed.** The atomic-transaction guarantee held even though the call failed — no
+  partial relationship activation, no stray grant, no orphaned `approvals` row.
+
+**Root cause, found by reading the backend's own log, not guessed:** `/private/tmp/fg_main_inline.log`
+on the serving host (pid `48261`'s open log fd) contains exactly one relevant line —
+`[access.addVillagerError] unmapped RPC error correlationId=6087639a-059c-4158-a8b8-ea12f6ca4127
+sqlstate=42804` — and nothing else (by design: `addVillagerError`'s unmapped-case branch logs only
+a correlation id and SQLSTATE, never raw message/details/arguments, exactly as PR #101's pattern
+requires). SQLSTATE `42804` is Postgres's `datatype_mismatch`, which PL/pgSQL raises for `RETURN
+QUERY` when "structure of query does not match function result type" — almost always a column
+*count* mismatch against the function's declared `RETURNS TABLE`.
+
+Reading `supabase/migrations/0074_add_villager_proposal.sql` confirms it exactly:
+`confirm_add_villager` declares `returns table (relationship_id, relationship_type,
+relationship_status, person_id, child_id, grant_id, scopes, valid_from, valid_until, granted_by)`
+— **10 columns.** Its idempotent-replay branch (lines 186–187) correctly returns all 10, including
+`v_grant.granted_by` last. Its **fresh-confirm branch** (the actual path this run took, lines
+240–241) returns only **9** — `v_grant.granted_by` is missing from the final `return query select`.
+This is a genuine authoring bug in the migration I wrote, invisible to this branch's offline tests
+because the `FakeDb`/`FakeQuery` harness simulates resolver behavior in JS and never enforces a
+real `RETURNS TABLE` column count the way Postgres does — this is the first time this exact
+statement has ever executed against a real server.
+
+**Precise one-line fix** (for whoever applies it — I did not touch the already-applied migration
+`0074`, consistent with this session's rule that applied migrations are immutable): in
+`confirm_add_villager`'s final `return query` (currently ending `...v_grant.valid_from,
+v_grant.valid_until;`), append `, v_grant.granted_by` so it matches the idempotent-replay branch
+exactly. This can ship as `create or replace function confirm_add_villager(...)` in a **new**
+migration (next free number — `0075`, confirmed free in the same check as evidence 72's number)
+with no table or column changes needed; the bug is confined to this one `RETURN QUERY` statement.
+
+**Not attempted:** a retry confirm with the same `(proposalId, version)` — the bug is
+deterministic (an unconditional column-count mismatch in the final `SELECT`), so a retry would
+reproduce the identical `RPC_FAILED` and create no new information, while technically counting as
+a second confirm attempt against the same proposal (acceptable under "same reviewed
+proposal/version," but pointless without the fix). Leaving that check for the actual idempotency
+proof once this is fixed, where it will mean something.
+
+### What this blocks, this time
+
+Every downstream check depends on the one confirm actually committing:
+
+- Kendra reviews → explicitly confirms → **BLOCKED** at the exact point above.
+- Dana's fresh session sees exactly the granted scopes → nothing to see; not re-run (would only
+  confirm the already-known, correct absence of any grant).
+- Dana gains no parent/guardian authority over Nora → trivially true (nothing was granted), not
+  meaningful evidence on its own.
+- Loretta / Priya / Ms. Whitfield refused → **not run this time.** Running refusal checks against
+  a mutation that cannot succeed for anyone right now would not demonstrate authorization logic
+  specifically; deferring until the fix lands so a refusal is a meaningful contrast against Kendra's
+  real success, not just another instance of the same bug.
+- Concurrent duplicate confirms → one logical addition → **not reachable**; there is no committed
+  proposal confirmation yet to retry against.
+- No outreach → trivially true, not meaningful evidence.
+
+### Summary (this slot)
+
+| Required step | Status |
+|---|---|
+| Router repair verified before live work | **Confirmed** — both routers expose the mutations |
+| #78's current reservation verified | **Confirmed** — slot active, pids alive, matches the posted comment |
+| Waited for `feat/web-graphql-adapter`'s 5190 READY | **Done** — observed, did not duplicate |
+| ONE shared addition, Kendra confirms via mounted card | **BLOCKED** — SQLSTATE `42804`, root-caused to a missing `granted_by` column in `confirm_add_villager`'s fresh-confirm `RETURN QUERY` |
+| Dana's fresh session / authority / refusals / idempotency | not run — no committed addition to verify against |
+| No outreach | trivially true |
+
+**Precise dependency for Bentley (or whoever applies a fix):** a one-line `create or replace
+function confirm_add_villager(...)` fixing the final `RETURN QUERY`'s missing `granted_by` column,
+staged as migration `0075`. Everything else about this slot — the router repair, the mounted
+card, the propose step, Rosina's MCP transport — is confirmed working. Releasing this slot now;
+will re-run immediately once a fix is confirmed applied.
