@@ -22,6 +22,20 @@
  *      a role name).
  *   6. Reset restores it: deleting every row and re-running the exact seed `baseline()` performs
  *      brings Andre's status back, with a freshly computed (not stale) expiry.
+ *   7. `_connected_children` is PRIVATE — calling it directly as any authenticated caller is
+ *      refused outright, not just filtered. An earlier version granted this to `authenticated`
+ *      directly, which let anyone enumerate ANY other person's connected children by id; this
+ *      check exists specifically because that was found live, not hypothetically.
+ *   8. `can_view_shared_status` takes no caller-supplied "viewer" argument, so there is no
+ *      "substitute a different viewer" attack to even attempt — a stranger asking "can I see
+ *      Kendra's status" gets `false`, the honest answer for themselves, with no way to ask the
+ *      question on someone else's behalf. An earlier two-argument version let exactly that
+ *      through; this check exists specifically because that was found live too.
+ *   9. Owner lifecycle set → expire → replace → clear, each step verified individually: an
+ *      upsert over an already-expired row succeeds (the owner's own row is always visible to
+ *      them regardless of expiry — found live that Postgres RLS requires SELECT-policy
+ *      visibility for `ON CONFLICT DO UPDATE` to target a row at all, so an expiry clause that
+ *      blocked everyone equally blocked the owner's own replace).
  *
  * Usage: node ops/shared-status-proof.mjs
  * Requires: docker (already on PATH in this checkout's environment).
@@ -248,8 +262,67 @@ async function main() {
   if (!guideInsert.error) fail('check 5 FAILED: the demo guide was able to insert a shared status');
   log(`check 5 PASS: the demo guide is refused on write (${guideInsert.error.message})`);
 
+  // --- Check 7: `_connected_children` is PRIVATE — a stranger calling it directly is refused
+  // outright (permission denied), not merely filtered to an empty result. ---
+  await asPerson(client, uidStranger);
+  const directCall = await client.query("select * from _connected_children('p_dad')").catch((e) => ({ error: e }));
+  if (!directCall.error) fail('check 7 FAILED: a stranger could call _connected_children directly');
+  if (!/permission denied/i.test(directCall.error.message)) {
+    fail(`check 7 FAILED: expected a permission-denied error, got: ${directCall.error.message}`);
+  }
+  log(`check 7 PASS: _connected_children is private — direct call refused (${directCall.error.message})`);
+
+  // --- Check 8: `can_view_shared_status` takes no caller-supplied "viewer" — a stranger asking
+  // about Andre gets the honest `false` for themselves, with no second argument to substitute a
+  // different viewer through. ---
+  const viewCheck = await client.query('select can_view_shared_status($1) as can_view', ['p_dad']);
+  if (viewCheck.rows[0].can_view !== false) fail('check 8 FAILED: a stranger was told they could view Andre\'s status');
+  log('check 8 PASS: can_view_shared_status(p_dad) is false for a stranger, with no viewer argument to substitute');
+
+  // --- Check 9: owner lifecycle set → expire → replace → clear, each step verified individually.
+  await asPerson(client, uidAndre);
+  await client.query(
+    `insert into shared_statuses (person_id, emoji, text, eta_text, expires_at)
+     values ($1, $2, $3, $4, now() + interval '24 hours')
+     on conflict (person_id) do update
+       set emoji = excluded.emoji, text = excluded.text, eta_text = excluded.eta_text,
+           expires_at = excluded.expires_at`,
+    ['p_dad', '🍼', 'Changing a diaper', 'unknown'],
+  );
+  log('check 9a PASS: set');
+
+  await superuser.query("update shared_statuses set expires_at = now() - interval '1 minute' where person_id = 'p_dad'");
+  const ownExpired = await client.query('select * from shared_statuses where person_id = $1', ['p_dad']);
+  if (ownExpired.rows.length !== 1) fail('check 9 FAILED: an expired status became invisible to its own owner');
+  log('check 9b PASS: expire — the owner still sees their own expired row');
+
+  const replaced = await client.query(
+    `insert into shared_statuses (person_id, emoji, text, eta_text, expires_at)
+     values ($1, $2, $3, $4, now() + interval '24 hours')
+     on conflict (person_id) do update
+       set emoji = excluded.emoji, text = excluded.text, eta_text = excluded.eta_text,
+           expires_at = excluded.expires_at
+     returning *`,
+    ['p_dad', '☕', 'Getting coffee', '10 minutes'],
+  );
+  if (replaced.rows[0].text !== 'Getting coffee' || new Date(replaced.rows[0].expires_at).getTime() <= Date.now()) {
+    fail(`check 9 FAILED: replace over an expired row did not take effect: ${JSON.stringify(replaced.rows[0])}`);
+  }
+  log('check 9c PASS: replace — an upsert over an already-expired row succeeds with the new values');
+
+  const ownCleared = await client.query('delete from shared_statuses where person_id = $1 returning *', ['p_dad']);
+  if (ownCleared.rowCount !== 1) fail('check 9 FAILED: owner clear after replace did not remove the row');
+  log('check 9d PASS: clear');
+
+  // Re-set it one more time so check 6 (reset) below still has a known starting shape to delete.
+  await client.query(
+    `insert into shared_statuses (person_id, emoji, text, eta_text, expires_at)
+     values ($1, $2, $3, $4, now() + interval '24 hours')`,
+    ['p_dad', '🍼', 'Changing a diaper', 'unknown'],
+  );
+
   await client.end();
-  log('ALL CHECKS PASS (1-5)');
+  log('ALL CHECKS PASS (1-5, 7-9)');
 
   // --- Check 6: reset restores it, mirroring exactly what scripts/db.ts's reset does for this
   // table — delete every row, then re-run the same seed shape with a freshly computed expiry. ---

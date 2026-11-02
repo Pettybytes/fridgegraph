@@ -630,7 +630,10 @@ const resolvers = {
     clearSharedStatus: async (_: unknown, _args: unknown, ctx: Ctx) => {
       refuseDemoGuideWrite(ctx);
       const callerId = requireCaller(ctx);
-      await dbFor(ctx).from('shared_statuses').delete().eq('person_id', callerId);
+      // Same convention as revokeGrant (access.ts): `rows()` throws the mapped error instead of
+      // letting a failed delete silently report success — this previously discarded the
+      // {error} Supabase returns and returned `true` unconditionally regardless of outcome.
+      await rows(dbFor(ctx).from('shared_statuses').delete().eq('person_id', callerId).select('person_id'));
       return true;
     },
   },
