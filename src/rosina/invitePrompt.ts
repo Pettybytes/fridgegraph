@@ -42,19 +42,25 @@ export function promptHash(prompt: string): string {
   return createHash('sha256').update(prompt).digest('hex');
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Hard guarantee: the art prompt must never contain the child's name, the date, the venue, or the
- * times. Built from the occasion alone, it never does — this throws if a future change breaks that.
+ * times. Built from the occasion alone (fixed theme strings), it never does. Matching is on WORD
+ * BOUNDARIES, not substrings, so a name that is a prefix of a theme word — "Star" vs "twinkling
+ * stars", "Fern" vs "ferns" — is NOT a false match. A match is therefore impossible in practice; if
+ * one ever occurs (a name that is exactly a theme word), the caller refuses cleanly and refunds the
+ * budget rather than crashing (see inviteEndpoint.ts). Throws `INVITE_PROMPT_PII_LEAK`.
  */
 export function assertNoPii(
   prompt: string,
   pii: { childFirstName?: string | null; date?: string | null; placeLabel?: string | null; startTime?: string | null; endTime?: string | null },
 ): void {
-  const hay = prompt.toLowerCase();
   const needles = [pii.childFirstName, pii.date, pii.placeLabel, pii.startTime, pii.endTime]
-    .filter((s): s is string => typeof s === 'string' && s.trim().length > 1)
-    .map((s) => s.toLowerCase());
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 1);
   for (const n of needles) {
-    if (hay.includes(n)) throw new Error('INVITE_PROMPT_PII_LEAK');
+    if (new RegExp(`\\b${escapeRegExp(n.trim())}\\b`, 'i').test(prompt)) throw new Error('INVITE_PROMPT_PII_LEAK');
   }
 }
