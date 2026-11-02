@@ -29,6 +29,12 @@ import { verifyBearer } from '../auth/verify';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
 import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
 import { resolveClientIp } from './client-ip';
+import {
+  ALLOWED_APP_ORIGINS_ENV,
+  OriginConfigError,
+  createOriginGate,
+  parseAllowedAppOrigins,
+} from './origins';
 import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
 import { decideRoute, type PlaceLookup } from '../village/routeRequest';
 import { dbDayTransport, isDay, readDayPlan } from '../village/dayPlaces';
@@ -114,13 +120,11 @@ function prune(map: Map<string, Window>, windowMs: number) {
   }
 }
 
-function originAllowed(origin: string | undefined): boolean {
-  if (!origin) return true; // same-origin / curl / the proof script
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-}
-
 export function createDemoLoginApp() {
   const app = express();
+  // Explicit runtime configuration. Empty (the default) means "no additional public origins" and
+  // preserves localhost development exactly; public app origins are supplied at deployment.
+  const allowedAppOrigins = parseAllowedAppOrigins(process.env[ALLOWED_APP_ORIGINS_ENV]);
   // One reset at a time per person: a reset is expensive and destructive.
   const lastResetAt = new Map<string, number>();
   const RESET_COOLDOWN_MS = 30_000;
@@ -138,26 +142,7 @@ export function createDemoLoginApp() {
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2kb' }));
 
-  app.use((req: Request, res: Response, next) => {
-    // No caching of anything this route returns.
-    res.setHeader('Cache-Control', 'no-store');
-    const origin = req.headers.origin;
-    if (!originAllowed(typeof origin === 'string' ? origin : undefined)) {
-      res.status(403).json({ error: 'ORIGIN_NOT_ALLOWED' });
-      return;
-    }
-    if (typeof origin === 'string') {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'content-type');
-    }
-    if (req.method === 'OPTIONS') {
-      res.status(204).end();
-      return;
-    }
-    next();
-  });
+  app.use(createOriginGate(allowedAppOrigins));
 
   app.get('/api/demo/health', async (_req: Request, res: Response) => {
     // Created families are picker entries too: the registry is the only list of them.
@@ -584,7 +569,18 @@ export async function startDemoLogin(): Promise<boolean> {
   }
 
   const port = Number(process.env.DEMO_LOGIN_PORT ?? 4008);
-  const app = createDemoLoginApp();
+  let app: ReturnType<typeof createDemoLoginApp>;
+  try {
+    app = createDemoLoginApp();
+  } catch (error) {
+    // A malformed allow-list must stop the endpoint, not silently degrade to "allow everything"
+    // or to "allow nothing but keep serving". Fail closed and say why.
+    if (error instanceof OriginConfigError) {
+      console.error(`[demo-login] refusing to start: ${error.message}`);
+      return false;
+    }
+    throw error;
+  }
   await new Promise<void>((resolve) => {
     app.listen(port, '127.0.0.1', resolve);
   });

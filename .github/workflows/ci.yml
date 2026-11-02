@@ -58,6 +58,9 @@ jobs:
       - name: Demo route guards
         run: npm run test:demo-guards
 
+      - name: Demo app origins
+        run: npm run test:demo-origins
+
       - name: Client IP resolution
         run: node --import tsx --test src/demo/client-ip.test.ts
 
