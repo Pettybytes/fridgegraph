@@ -3984,3 +3984,28 @@ contracts remain dependencies for live map integration.
 | 2026-11-01 23:54 | **W-TEACHER-REPORT UI — mock review and direct confirm transport.** Fresh branch `feat/web-teacher-report` from `origin/main` `a0ede9c` (#96 included). The web picker now recognizes canonical `whitfield`/`p_whitfield`. Rosina's structured `schoolReportProposal` becomes a review card only for the selected child with a `school.report` grant; model prose never creates the card. An explicit Confirm calls `confirmSchoolDayReport(proposalId, version)` through the current session's Apollo bearer; no automatic replay. Expired/stale/refused states cannot claim success; an uncertain explicit retry uses the same proposal. Persona/child switches unmount and abort the card and discard late results. Mock confirmation files no record. Offline: 369/369 web tests, root typecheck, web build/typecheck and secret scan pass; browser mock captures and original failed count receipt are in `web/evidence/teacher-report/`. **UI: complete in mock · backend: #96 merged, serving status unverified · integrated + tested: PENDING.** Bentley's reserved window is required for live text-chat proposal → direct teacher confirm → parent read → same-report retry; migrations 0071/0072, supergraph recomposition, and Rosina/MCP rollout must be confirmed first. The voice callback has no structured proposal field yet, so teacher proposal cards are text-chat only. No shared-stack request, mutation, reset or restart was made. | `feat/web-teacher-report` @ base `a0ede9c` | web only | **MOCK PASS · LIVE PENDING** |
 | 2026-11-01 23:55 | **W-TEACHER-REPORT final offline check:** 371/371 web tests across 65 files, root typecheck and web build/typecheck pass, staged-diff secret scan 0 findings across 888 files. The 23:54 row's 369/369 was the preceding run; added coverage for session expiry and an explicit same-proposal retry after expiry. Live integration remains pending Bentley's reserved window and #96 serving deployment. | `feat/web-teacher-report` | web only | **MOCK PASS · LIVE PENDING** |
 | 2026-11-01 23:56 | **W-TEACHER-REPORT post-review check:** 372/372 web tests, web build/typecheck and root typecheck pass. Removed opaque report ID from user-facing success copy; the live confirm transport now checks returned child, kind, and text against the reviewed proposal. The earlier 371/371 receipt remains intact. Live dependency unchanged. | `feat/web-teacher-report` | web only | **MOCK PASS · LIVE PENDING** |
+
+### Teacher report served preview proof — 2026-11-02, PR #99 draft
+UI revision `b638954d30579a347fa0e698006d620fb28a53b8` ran on preview
+port 5211 against served demo/graph `c806f46` and Rosina `7fda69d`.
+Mock checks remain separate: 372/372 web tests across 65 files, root/web
+typecheck, web build and secret scan passed. Ms. Whitfield's real picker
+session was READY. Two real text turns returned no structured
+`schoolReportProposal`; one answer was “I couldn't check that just now.”
+No proposal card or confirm appeared from those turns.
+
+A distinct MIXED transport proof used a direct authenticated GraphQL
+proposal and stubbed only the Rosina envelope in the browser. The actual UI
+Confirm filed once through authenticated GraphQL; repeating the exact
+confirmation returned the same report; Kendra's separate parent read showed
+that report exactly once. This proves the card-to-confirm transport only, not
+the full Rosina-to-card integration. One fictional report was created after
+Bentley's previous reset and must be cleared in the next reserved canonical
+reset. UI: complete in mock and live-capable · backend: direct propose/confirm
+served; Rosina structured turn failed · integrated + tested: PENDING.
+
+The W-PROOFS-ONLY slot was released around 00:09Z, despite an earlier row
+carrying a later stamp and 01:15Z deadline. These UI probes occurred around
+00:12–00:16Z before the correction was seen; all previews and live requests
+stopped on discovery. No more live requests until Bentley posts a fresh OPEN
+slot on #78 and repairs the MCP forward-header leg.
