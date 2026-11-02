@@ -1,103 +1,95 @@
-# 0082 apply-window plan — a local PostgREST endpoint for real `db:checksum` proof
+# 0082 apply-window plan — verifying `db:checksum` end to end
 
 **Status: PLAN ONLY. No window is open. Nothing scheduled, nothing executed.**
-Companion to `hosting-window-plan.md`; unrelated to it, deliberately kept separate.
+Companion to `hosting-window-plan.md`; kept separate on purpose.
 
 ---
 
 ## 1. Why this exists
 
-`npm run db:checksum` reads **through PostgREST** (`SUPABASE_URL` → `/rest/v1/<table>` with the
-service key), not through a direct Postgres connection. The 0082 rehearsal on `fg81` therefore proved
-the **SQL privilege delta** only: `service_role` gained `SELECT`, writes stayed refused, `anon` and
-`authenticated` unchanged. It could **not** prove the command that actually broke.
+`npm run db:checksum` reads **through PostgREST** (`SUPABASE_URL` → `/rest/v1/<table>`), not through a
+direct Postgres connection. The 0082 rehearsal on `fg81` therefore proved the **SQL privilege delta**
+only: `service_role` gained `SELECT`, writes stayed refused, `anon` and `authenticated` unchanged. It
+could not prove the command that actually broke.
 
-That gap is the whole reason this plan exists. A green rehearsal that cannot run the failing command
-is prepared, not proven.
+## 2. What "proven" means — the sequence, unchanged
 
-## 2. What "proven" means here
+The window is done when this exact sequence holds **against one target**:
 
-The 0082 window is done when both halves hold on the same target:
-
-| # | Condition | Method |
+| # | Step | Condition |
 | --- | --- | --- |
-| 1 | **Before 0082**, `db:checksum` fails on `shared_statuses` with HTTP 403 | run against local PostgREST, endpoint verified local first |
-| 2 | **After 0082**, the same command succeeds and hashes every table | same command, same endpoint, same base data |
-| 3 | The 403 is specific to `shared_statuses` | the failure names that table; others read normally |
-| 4 | Nothing else moved | checksum values for `care_facts`/`routines`/`grants` unchanged by the grant |
+| 1 | **Reproduce the 403** on the pre-0082 posture | `db:checksum` fails on `shared_statuses`; other tables read normally |
+| 2 | **Apply** `0082_shared_statuses_service_role_select.sql` | the reviewed single file, one connection |
+| 3 | **Re-run** the same command, same endpoint, same base data | success; per-table counts and hashes recorded |
+| 4 | **Other tables unchanged** | `care_facts`/`routines`/`grants` values match step 1 |
 
-Condition 1 is the one everybody skips. Reproducing the failure first is what makes condition 2 mean
-something.
+Step 1 is the one that gets skipped. Reproducing the failure is what makes step 3 mean something.
 
-## 3. Why not just point at the project database
+## 3. Where the verification runs
 
-Because that is a **live** database and the command's purpose is to read the **whole** cast. Running
-it there to "check" is how a verification tool becomes a live query against production data, and it
-proves nothing about a disposable target. The endpoint must be local, disposable, and named.
+**Live verification runs against the intended Supabase PostgREST endpoint** — the project the command
+is actually failing against — inside a **freshly reserved window** after Bryan merges. That is the
+authoritative result, and it needs:
 
-**Absolute rule:** the runner refuses any endpoint whose host is not `127.0.0.1`/`localhost`, and
-refuses if the URL equals `SUPABASE_URL` from `.env`. Refusal is an error, not a warning.
+- the window reserved and posted first;
+- the endpoint named in the receipt (host only; credentials never printed);
+- the same sequence in §2: reproduce → apply → re-run → other tables unchanged.
 
-## 4. Options
+**A local PostgREST is optional, and only ever for an offline HTTP rehearsal.** It lets the command be
+exercised before the window without touching the project. It is **not a prerequisite for the apply**,
+and its absence must never block the window.
 
-### Option A (recommended) — PostgREST binary against `fg81`
+## 4. Offline rehearsal (optional)
 
-- `fg81` already runs on **`127.0.0.1:55434`** (loopback-only, recreated in W-DEPLOY-54e8abe, volume
-  preserved). It is disposable and already holds the 0076 replica used for the grant rehearsal.
-- Run PostgREST on a **loopback-only** port (e.g. `127.0.0.1:3300`) with:
-  - `db-uri` → `postgres://…@127.0.0.1:55434/postgres`
-  - `db-schemas` → `public`
-  - `db-anon-role` → `anon`
-  - `jwt-secret` → a **rehearsal-only** secret generated for the run, never a real project secret
-- Mint two short-lived rehearsal JWTs from that secret: one `role=service_role`, one `role=authenticated`.
-- Point `SUPABASE_URL` at `http://127.0.0.1:3300` **only inside the rehearsal process environment**,
-  never in `.env`.
+If a local endpoint is wanted first:
 
-Pros: light, exact command path, uses the artifact already rehearsed.
-Cons: does not reproduce Supabase's auth/RLS wiring — only PostgREST's role switching and grants.
+- PostgREST binary against the already-rehearsed `fg81` on **`127.0.0.1:55434`**, itself loopback-only;
+- bind the rehearsal endpoint to `127.0.0.1` only;
+- point `SUPABASE_URL` at it **inside the rehearsal process environment only**, never in `.env`;
+- throwaway JWTs minted from a rehearsal-only secret (never a real project secret).
 
-### Option B — Supabase CLI local stack
+Runner rule: refuse any endpoint whose host is not `127.0.0.1`/`localhost`, and refuse if the URL
+equals `SUPABASE_URL`. Refusal is an error, not a warning.
 
-Pros: closest to real (PostgREST + GoTrue + the actual role model).
-Cons: pulls images, needs a full local schema, and a local stack that drifts from `fg81` reintroduces
-"proved it somewhere else". Higher cost for a one-command verification.
+Skipping this section entirely is a valid choice. The live sequence in §2 is the proof.
 
-### Option C — PostgREST container on a shared network with `fg81`
+## 5. What SELECT does not repair
 
-Same as A with container plumbing. Choose only if the binary is not installable on this machine.
+0082 grants `SELECT` to `service_role` and nothing else. It leaves the **maintenance write paths**
+unresolved, and the two paths are genuinely different:
 
-**Recommendation: A**, falling back to C.
+- the **canonical reset** uses its **own server-side PostgreSQL connection**, so this grant is
+  irrelevant to it;
+- `scripts/db.ts` **seed/reset** goes through **service-role PostgREST**, so those writes remain
+  ungranted and unfixed by 0082.
 
-## 5. Window steps (draft — execute only under a posted reservation)
+Neither is a live breakage today — both must be stated accurately rather than described as "works as
+the caller". Repairing either is a separate decision with its own proof.
 
-1. **Reserve** the window; record the target endpoint and port before anything starts.
-2. **Verify the target is local**: `lsof` shows the PostgREST port bound to `127.0.0.1`; `fg81` still
-   bound to `127.0.0.1:55434`. Abort otherwise.
-3. **Reset the disposable DB** to the pre-0082 posture (0076 replica: `shared_statuses` with DML to
-   `authenticated`, nothing to `service_role`).
-4. **Reproduce the failure**: run `db:checksum` against the local endpoint → expect **403 on
-   `shared_statuses`**, other tables reading. Record the exact body.
-5. **Apply `0082_shared_statuses_service_role_select.sql`** — the reviewed single file, one
-   connection, no ledger push.
-6. **Re-run the same command** → expect success; record per-table row counts and hashes.
-7. **Confirm nothing else moved**: `care_facts`/`routines`/`grants` values match step 4.
+## 6. Window steps (draft)
+
+1. **Reserve**; record the target endpoint up front.
+2. **Verify the target**: for the live path, confirm it is the intended project; for an offline
+   rehearsal, confirm `127.0.0.1` and that `fg81` is still on `127.0.0.1:55434`. Abort otherwise.
+3. **Establish the pre-0082 posture** on the chosen target.
+4. **Reproduce the 403** (§2 step 1). Record the exact body.
+5. **Apply 0082** — reviewed single file, one connection, no ledger push.
+6. **Re-run** the same command (§2 step 3).
+7. **Confirm other tables unchanged** (§2 step 4).
 8. **Confirm writes still refused**: `service_role` INSERT/UPDATE/DELETE still `permission denied`.
-9. **Tear down** the PostgREST process and any minted tokens; leave `fg81` as found or destroyed,
-   and say which.
-10. **Receipt** with both runs (fail then pass), the exact command, the endpoint, and the revocation.
+9. **Tear down** any optional local endpoint and rehearsal tokens; say what was left running.
+10. **Receipt** with both runs, the exact command, the endpoint, and the revocation.
 
-## 6. Limitations to state in the receipt
+## 7. Limitations to state in the receipt
 
 - A local PostgREST proves **grant + PostgREST role switching** semantics. It does **not** prove
-  Supabase's JWT verification, its `authenticator`→role switch, or RLS under real claims.
-- `fg81` is a **replica**, not the project schema. A pass here does not prove the project database's
-  other tables read identically; it proves the 0082 delta.
-- Rehearsal JWTs are throwaway and must be revoked/unusable after the window. Never reuse a real
-  project secret for this.
+  Supabase's JWT verification, its `authenticator`→role switch, or RLS under real claims. That is
+  exactly why the live run against the project is the authoritative one.
+- `fg81` is a **replica**, not the project schema. A pass there proves the 0082 delta, not that the
+  project's other tables read identically.
 
-## 7. Non-goals
+## 8. Non-goals
 
-- No `db push`, no ledger-driven apply, no touch of `SUPABASE_DB_URL` beyond the existing read path.
-- No apply to the live project in this plan; a live apply, if approved, is a **separate** window with
-  its own reservation and receipt.
-- No change to `0076`.
+- No `db push`, no ledger-driven apply, no change to `0076`.
+- No apply to the live project inside this plan without its own reservation and receipt.
+- No blocker invented from a missing local PostgREST.
