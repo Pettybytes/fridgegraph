@@ -55,7 +55,7 @@ export function PersonaPicker() {
         <span className="fg-pcard-body">
           <span className="fg-pcard-name">{p.name}</span>
           <span className="fg-pcard-rel">{relationship(p)}</span>
-          <span className="fg-pcard-see">{unavailableNow ? 'Not set up in this demo yet' : busy(p.id) ? 'Busy — try again in a moment' : canSee(p)}</span>
+          <span className="fg-pcard-see">{unavailableNow ? 'Not set up in this demo yet' : busy(p.id) ? 'Busy — try again in a moment' : p.id === 'kendra' ? 'Try it as Kendra, the parent — follow the checklist' : canSee(p)}</span>
         </span>
         <Icon.chevron className="fg-pcard-go" aria-hidden />
       </button>
@@ -77,6 +77,22 @@ export function PersonaPicker() {
       {error ? <p className="fg-picker-alert" role="alert">{error}</p> : null}
       {notice ? <p className="fg-picker-notice" role="status">{notice}</p> : null}
 
+      <aside className="fg-picker-guide" aria-label="Demo guide entry">
+        <h2 id="guide-heading" className="fg-picker-group-label">Start here</h2>
+        <button
+          type="button" className="fg-pcard fg-pcard-guide" disabled={switching || soon('demo-guide')}
+          aria-label="Explore as the Demo guide" onClick={() => { void switchPerson('demo-guide') }}
+        >
+          <Avatar name="Demo guide" kind="adult" size={44} />
+          <span className="fg-pcard-body">
+            <span className="fg-pcard-name">Demo guide <StatusChip tone="simulated" icon={false}>Read-only</StatusChip></span>
+            <span className="fg-pcard-rel">Every family in the demo · No real family would have this view.</span>
+            <span className="fg-pcard-see">{soon('demo-guide') ? 'Not set up in this demo yet' : 'Explore (read-only) — browse everything, nothing changes'}</span>
+          </span>
+          <Icon.chevron className="fg-pcard-go" aria-hidden />
+        </button>
+      </aside>
+
       <div className="fg-picker-groups">
         {personaGroups.map((group) => (
           <section key={group.id} className="fg-picker-group" aria-labelledby={`${group.id}-heading`}>
@@ -87,22 +103,6 @@ export function PersonaPicker() {
           </section>
         ))}
       </div>
-
-      <aside className="fg-picker-guide" aria-label="Demo guide entry">
-        <h2 id="guide-heading" className="fg-picker-group-label">See the whole picture</h2>
-        <button
-          type="button" className="fg-pcard fg-pcard-guide" disabled={switching || soon('demo-guide')}
-          aria-label="Explore as the Demo guide" onClick={() => { void switchPerson('demo-guide') }}
-        >
-          <Avatar name="Demo guide" kind="adult" size={44} />
-          <span className="fg-pcard-body">
-            <span className="fg-pcard-name">Demo guide <StatusChip tone="simulated" icon={false}>Read-only</StatusChip></span>
-            <span className="fg-pcard-rel">Every family in the demo</span>
-            <span className="fg-pcard-see">{soon('demo-guide') ? 'Not set up in this demo yet' : 'A read-only view of the whole fictional ecosystem. No real family would have this view.'}</span>
-          </span>
-          <Icon.chevron className="fg-pcard-go" aria-hidden />
-        </button>
-      </aside>
 
       {authMode === 'mock' ? (
         <Surface className="fg-picker-tools" aria-label="Demo tools">

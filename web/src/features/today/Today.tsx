@@ -8,7 +8,7 @@
  * and use the contract's exact wording. The selected child (current context) is
  * kept visibly separate from the authorized MyChildren list.
  */
-import { type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useSession } from '@/features/personas/Session'
 import { useSurfaceData } from '@/lib/frontendData/provider'
 import type { MissionControlData, VillageData } from '@/lib/frontendData/types'
@@ -19,6 +19,7 @@ import { ConnectedVillagePreview } from '@/components/signature'
 import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon } from '@/components/fg/primitives'
 import { RosinaAvatar } from '@/components/fg/RosinaAvatar'
 import { Mic } from 'lucide-react'
+import { TodayDemoChecklist } from '@/features/demo-checklist/TodayDemoChecklist'
 import './today.css'
 
 function greeting(now: number): string {
@@ -38,6 +39,7 @@ function shortWhen(at: string): string {
     : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 export function Today({ attention, now = Date.now }: { attention?: ReactNode; now?: () => number }) {
+  const [checklistReopen, setChecklistReopen] = useState(0)
   const { session, authMode } = useSession()
   const access = useChildAccess()
   const mission = useSurfaceData<MissionControlData>('mission-control')
@@ -62,6 +64,10 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
           <p className="fg-today-date">{longDate(at)}</p>
           <h2 className="fg-today-hi">{greeting(at)}, {scope.parentName}.</h2>
           <StatusChip tone="brand" className="fg-today-context">Viewing {childName}</StatusChip>
+          {(session.persona.id === 'kendra' || session.persona.id === 'demo-guide') && <button type="button" className="fg-today-checklist-link" onClick={() => {
+            setChecklistReopen(value => value + 1)
+            requestAnimationFrame(() => document.getElementById('today-demo-checklist')?.focus())
+          }}>Demo checklist</button>}
         </header>
 
         {/* Next attention — the real Orbit check-in — is the hero of the screen when
@@ -91,6 +97,8 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
             </button>
           </div>
         </Surface>
+
+        <TodayDemoChecklist reopenSignal={checklistReopen} />
 
         {/* Recorded activity — the latest recorded items. Loading and refusal are
             explicit; when it has loaded with nothing to show, the section is omitted
