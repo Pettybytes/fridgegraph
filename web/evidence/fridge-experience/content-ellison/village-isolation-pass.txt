@@ -1,0 +1,11 @@
+npm notice run web@0.0.0 test
+npm notice run vitest run src/features/village/v2/VillageV2.test.tsx
+
+ RUN  v5.0.5 /Users/user/Desktop/bentley/fridgegraph-fridge-experience/web
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  17:40:03
+   Duration  3.69s (import 39%, tests 31%, environment 17%, transform 8%, setup 4%)
+
