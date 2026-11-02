@@ -46,6 +46,12 @@ jobs:
       - name: Village tests
         run: npm run test:village
 
+      - name: Health operation coverage
+        run: npm run test:health-coverage
+
+      - name: villageWorld contract
+        run: npm run test:village-world
+
   web:
     name: web build
     runs-on: ubuntu-latest

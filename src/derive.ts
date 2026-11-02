@@ -181,3 +181,26 @@ export async function childIds(ctx: Ctx): Promise<string[]> {
 }
 
 export { ownGrants };
+
+/**
+ * The Detroit calendar day of a stored event time.
+ *
+ * `events.start_at` arrives as a timestamp string that may or may not carry a zone. A UTC slice of the
+ * first ten characters is wrong for anything after 19:00 Eastern: 2026-11-01T19:30-05:00 is
+ * 2026-11-02T00:30Z, and the map would file it under the wrong day. Zoned values are converted to
+ * America/Detroit; unzoned values are already wall-clock time in Detroit and are taken as-is.
+ */
+const DETROIT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Detroit',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function detroitDay(value: string): string {
+  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+  if (!zoned) return value.slice(0, 10);
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return value.slice(0, 10);
+  return DETROIT.format(at); // en-CA yields YYYY-MM-DD
+}

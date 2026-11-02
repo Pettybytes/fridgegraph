@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { parse } from 'graphql';
+import { GraphQLError, parse } from 'graphql';
 import {
   SCOPE,
   authorizeChild,
@@ -13,7 +13,7 @@ import {
   requireCaller,
   type Ctx,
 } from '../authz';
-import { ageOn } from '../derive';
+import { ageOn, detroitDay } from '../derive';
 import { dbFor, one, rows } from '../db';
 
 /**
@@ -29,6 +29,12 @@ const typeDefs = parse(`
 
 
   type Query {
+    """
+    The authorized village for one child on one day, shaped for the map. One gate
+    (\`schedule.read\` on that child) covers the whole world; a child the caller cannot read is
+    refused generically, never answered with an empty village that reveals it exists.
+    """
+    villageWorld(childId: ID!, asOf: String): VillageWorld!
     person(id: ID!): Person
     child(id: ID!): Child
     village(id: ID!): Village
@@ -59,6 +65,64 @@ const typeDefs = parse(`
   type Child @key(fields: "id") {
     id: ID!
     person: Person
+  }
+
+  type VillageWorld {
+    village: Village
+    child: Child!
+    people: [VillagePerson!]!
+    places: [VillagePlace!]!
+    events: [VillageDayEvent!]!
+  }
+
+  \"\"\"An adult the caller may see in this child's world.\"\"\"
+  type VillagePerson {
+    person: VillagePersonRef!
+    \"\"\"The RECORDED relationship label, when one exists. Never used to grant authority.\"\"\"
+    relationship: String
+    \"\"\"Null without address access. Never derived from a schedule or a role.\"\"\"
+    homePlaceId: ID
+    areaLabel: String
+    scheduledEventId: ID
+    scheduledPlaceId: ID
+  }
+
+  """Only what a world may reveal about a person: no contacts, no grants, no capabilities."""
+  type VillagePersonRef {
+    id: ID!
+    displayName: String!
+  }
+
+  type VillagePlace {
+    id: ID!
+    label: String
+    kind: String!
+    lat: Float
+    lng: Float
+    coordinateState: CoordinateState!
+  }
+
+  enum CoordinateState {
+    SET
+    WITHHELD
+    NOT_RECORDED
+  }
+
+  type VillageDayEvent {
+    id: ID!
+    title: String!
+    start: String!
+    end: String
+    status: String
+    placeId: ID
+    placeState: PlaceState!
+    personIds: [ID!]!
+  }
+
+  enum PlaceState {
+    LINKED
+    UNLINKED
+    WITHHELD
   }
 
   type Village {
@@ -186,6 +250,118 @@ async function hydratePerson(ctx: Ctx, p: PersonLite): Promise<PersonLite | null
 
 const resolvers = {
   Query: {
+    villageWorld: async (
+      _: unknown,
+      { childId, asOf }: { childId: string; asOf?: string | null },
+      ctx: Ctx,
+    ) => {
+      requireCaller(ctx);
+      // ONE gate for the whole world. A child the caller cannot read is refused generically — an
+      // empty village would still tell them the child exists.
+      await authorizeChild(ctx, childId, SCOPE.schedule);
+
+      const day = asOf ?? ctx.today;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+        throw new GraphQLError('INVALID_DAY', { extensions: { code: 'INVALID_DAY' } });
+      }
+
+      const households = await householdIdsOfChild(ctx, childId);
+      const householdId = households[0] ?? null;
+
+      let village: { id: string; name: string } | null = null;
+      if (householdId) {
+        const h = await one(dbFor(ctx).from('households').select('village_id').eq('id', householdId).maybeSingle());
+        const villageId = h?.village_id ? String(h.village_id) : null;
+        if (villageId) {
+          const v = await one(dbFor(ctx).from('villages').select('id,name').eq('id', villageId).maybeSingle());
+          if (v) village = { id: String(v.id), name: String(v.name) };
+        }
+      }
+
+      // People: household adults, people with a RECORDED relationship to the child, and grant actors.
+      // A household-row role is a fact about the household, never an authority or a position.
+      const peopleIds = new Set<string>();
+      if (householdId) {
+        const members = await rows(
+          dbFor(ctx).from('household_members').select('person_id,role').eq('household_id', householdId),
+        );
+        for (const m of members) if (String(m.role) !== 'child') peopleIds.add(String(m.person_id));
+      }
+      const rels = await rows(
+        dbFor(ctx).from('relationships').select('from_id,type,status').eq('to_id', childId),
+      );
+      for (const r of rels) peopleIds.add(String(r.from_id));
+      const grantRows = await rows(dbFor(ctx).from('grants').select('actor_id').eq('child_id', childId));
+      for (const g of grantRows) peopleIds.add(String(g.actor_id));
+
+      const people: Array<Record<string, unknown>> = [];
+      for (const id of peopleIds) {
+        const p = await personRow(ctx, id);
+        if (!p) continue;
+        const rel = rels.find((r) => String(r.from_id) === id);
+        people.push({
+          person: { id, displayName: String(p.display_name) },
+          relationship: rel?.type == null ? null : String(rel.type),
+          // Not derived: a home is a private address and needs the address gate, and an event link
+          // is a place association the caller must be able to see. Null means "not stated", never "unknown user".
+          homePlaceId: null,
+          areaLabel: null,
+          scheduledEventId: null,
+          scheduledPlaceId: null,
+        });
+      }
+
+      // Places: ONE read, gated in the database (0075). Labels for anyone with `schedule.read` on
+      // this child; coordinates only with address access, and null together otherwise. The source is
+      // the curated `recorded_places` catalog (school / practice / park) — never `locations`, whose
+      // rows are private home coordinates that feed ride pricing. A home may only appear later as
+      // `VillagePerson.homePlaceId`, gated by address access, once a gated home place exists.
+      const placeRows = await rows(
+        dbFor(ctx).rpc('village_places_for_child', { p_child: childId }),
+      );
+      // FAIL CLOSED: an empty array is a statement about the family, a database error is not.
+      const places = placeRows.map((r) => {
+        const state = String(r.state ?? 'absent');
+        return {
+          id: String(r.id),
+          label: r.label == null ? null : String(r.label),
+          kind: String(r.kind ?? 'PLACE'),
+          lat: r.latitude == null ? null : Number(r.latitude),
+          lng: r.longitude == null ? null : Number(r.longitude),
+          coordinateState:
+            state === 'granted' ? 'SET' : state === 'withheld' ? 'WITHHELD' : 'NOT_RECORDED',
+        };
+      });
+
+      // The selected day's events. `placeState` distinguishes "no place recorded" from "place
+      // withheld", so the UI never has to guess which one it is looking at.
+      const eventRows = await rows(
+        dbFor(ctx)
+          .from('events')
+          .select('id,title,start_at,end_at,status,place_id,child_id')
+          .eq('child_id', childId),
+      );
+      const visiblePlaceIds = new Set(places.map((p) => String(p.id)));
+      const events = eventRows
+        .filter((e) => detroitDay(String(e.start_at)) === day)
+        .map((e) => {
+          const placeId = e.place_id == null ? null : String(e.place_id);
+          const linked = placeId !== null && visiblePlaceIds.has(placeId);
+          return {
+            id: String(e.id),
+            title: String(e.title),
+            start: String(e.start_at),
+            end: e.end_at == null ? null : String(e.end_at),
+            status: e.status == null ? null : String(e.status),
+            placeId: linked ? placeId : null,
+            placeState: placeId === null ? 'UNLINKED' : linked ? 'LINKED' : 'WITHHELD',
+            // Participants are not derived yet rather than inferred from a title or a schedule.
+            personIds: [] as string[],
+          };
+        });
+
+      return { village, child: { id: childId }, people, places, events };
+    },
     person: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
       requireCaller(ctx);
       const row = await personRow(ctx, id);
