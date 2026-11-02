@@ -20,6 +20,9 @@
 .fg-today-rosina-head { display: flex; gap: 12px; align-items: center; }
 .fg-today-rosina-head h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
 .fg-today-rosina-head p { margin: 2px 0 0; font-size: 13px; color: var(--fg-muted); line-height: 1.5; text-wrap: pretty; }
+.fg-today-askrow { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.fg-today-askrow .fg-composer { flex: 1; min-width: 0; }
+.fg-today-mic { flex: 0 0 44px; min-height: 44px; border: 1px solid var(--fg-border); background: var(--fg-surface); color: var(--fg-primary); }
 
 /* The next-attention hero sits first and reads as the primary thing to act on. */
 .fg-today-hero { display: grid; scroll-margin-top: 1rem; }

@@ -86,13 +86,13 @@ export function Field({ label, error, id, className, ...p }: React.ComponentProp
 }
 
 /* ── Composer (text entry with a send affordance; no fake mic) ─────────── */
-export function Composer({ onSend, placeholder = 'Ask Rosina…', disabled, sendLabel = 'Send', className }: { onSend?: (value: string) => void; placeholder?: string; disabled?: boolean; sendLabel?: string; className?: string }) {
+export function Composer({ onSend, placeholder = 'Ask Rosina…', disabled, sendLabel = 'Send', className, maxLength }: { onSend?: (value: string) => void; placeholder?: string; disabled?: boolean; sendLabel?: string; className?: string; maxLength?: number }) {
   const [value, setValue] = React.useState('')
   const submit = () => { const v = value.trim(); if (v && onSend) { onSend(v); setValue('') } }
   return (
     <div className={cn('fg-composer', className)}>
       <input
-        value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} disabled={disabled}
+        value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength}
         aria-label={placeholder}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
       />

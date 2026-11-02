@@ -81,6 +81,10 @@
 @media(max-width:600px){:root[data-focus="1"] .rosina-panel.is-open{inset:8px}:root[data-focus="1"] .rosina-panel .rosina-thread{padding:16px}}
 body:has(.rosina-panel.is-open:not([hidden])) .rosina-route-anchor{display:none}
 .rosina-route-anchor button{min-height:48px;padding:12px 20px;border-radius:var(--radius-control,12px);background:var(--fg-primary);color:var(--fg-on-primary)}
+.rosina-route-page{min-height:min(70dvh,760px)}
+.rosina-panel.is-page,.rosina-panel.is-page.is-open{position:relative;inset:auto;width:min(100%,900px);height:min(70dvh,700px);min-height:520px;margin:0 auto 32px;display:flex;z-index:auto}
+body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
+@media(max-width:600px){.rosina-panel.is-page,.rosina-panel.is-page.is-open{width:100%;height:calc(100dvh - 360px);min-height:360px;margin:0 0 16px;border-radius:var(--radius-control,12px)}.rosina-panel.is-page .rosina-welcome{margin-top:0}.rosina-panel.is-page .rosina-welcome>svg,.rosina-panel.is-page .rosina-welcome p{display:none}.rosina-panel.is-page .rosina-welcome h3{font-size:18px;margin-bottom:4px}.rosina-panel.is-page .rosina-welcome button{margin-top:2px}}
 .rosina-identity{display:flex;align-items:center;gap:16px}
 .rosina-panel .rosina-welcome>svg,.rosina-panel .rosina-welcome button{color:var(--fg-primary)}
 .rosina-panel .rosina-source,.rosina-panel form{border-color:var(--fg-border)}

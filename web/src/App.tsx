@@ -76,8 +76,8 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
         'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>,
         orbit:<Orbit/>,
         activity:<Activity client={connection?.client??null} adapter={adapter}/>,
-        'ask-rosina': <div className="rosina-route-anchor"><button type="button" onClick={()=>window.dispatchEvent(new Event('rosina:open'))}>Open Ask Rosina</button></div>,
-        'care-information': <><p className="persona-mock">Sample data</p><CareInformation /></>,
+        'ask-rosina': <div id="rosina-route-slot" className="rosina-route-page" />,
+        'care-information': <>{authMode !== 'live' && <p className="persona-mock">Sample data</p>}<CareInformation /></>,
         calendar: <MapCalendarBridge>{connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null}</MapCalendarBridge>,
         invitations: <InvitesPanel />,
         village: authMode === 'live'
