@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor, within, act } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useMemo } from 'react'
+import type { ApolloClient } from '@apollo/client'
 import App from '@/App'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { SessionProvider, useSession } from '@/features/personas/Session'
+import { ChildAccessProvider, useChildAccess } from '@/features/personas/childContext'
 import { createPersonaDataAdapter } from '@/features/personas/personaData'
 import { RosinaPanel } from './RosinaPanel'
 import type { RosinaAdapter, RosinaResponse } from './adapter'
@@ -99,5 +101,47 @@ describe('Rosina safety and session boundaries', () => {
     expect(screen.queryByText('Late Kendra secret')).not.toBeInTheDocument()
     await send('New question')
     expect(sendSpy.mock.calls[2][0].history).toEqual([])
+  })
+})
+
+describe('school-day report review', () => {
+  it('offers a clearly sample review to Ms. Whitfield and never files on render', async () => {
+    await enter('Ms. Whitfield')
+    await send('Nora has a fever today. Prepare a school-day report.')
+    const card = screen.getByRole('region', { name: 'Review proposed school-day report' })
+    expect(card).toHaveTextContent('Sample proposal · No school record will be filed')
+    expect(card).toHaveTextContent('Nora has a fever today.')
+    expect(screen.getByRole('log')).toHaveTextContent('Nothing has been filed.')
+    fireEvent.click(within(card).getByRole('button', { name: 'Confirm report' }))
+    expect(await within(card).findByText(/Sample reviewed. No school record was filed/)).toBeVisible()
+  })
+  it('never exposes the proposal body or confirm button to a persona without school.report', async () => {
+    harness({ mode: 'mock', send: async () => ({ reply: 'A proposal is ready.', actions: [], schoolReportProposal: { id: 'srp_private', version: 1, childId: 'p_nora', kind: 'fever', text: 'Private school detail', createdAt: '2026-11-01T20:00:00Z', expiresAt: '2099-11-01T20:10:00Z' } }) })
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Kendra' }))
+    await screen.findByText('Kendra', { selector: 'p' })
+    await send('Tell me about the report')
+    expect(screen.getByRole('log')).toHaveTextContent('This report proposal is not shared with your role.')
+    expect(screen.getByRole('log')).not.toHaveTextContent('Private school detail')
+    expect(screen.queryByRole('button', { name: 'Confirm report' })).not.toBeInTheDocument()
+  })
+  it('clears the proposal when the selected child changes, even inside the same persona', async () => {
+    const client = {query:vi.fn().mockResolvedValue({data:{myChildren:[
+      {child:{id:'p_nora',person:{displayName:'Nora Ellison'}},scopes:['school.report']},
+      {child:{id:'p_jax',person:{displayName:'Jax Coleman'}},scopes:[]},
+    ]}})} as unknown as ApolloClient
+    const directRead = <T,>(read:()=>Promise<T>) => read()
+    const proposal={id:'srp_private',version:1,childId:'p_nora',kind:'fever',text:'Private teacher report',createdAt:'2026-11-01T20:00:00Z',expiresAt:'2099-11-01T20:10:00Z'}
+    const service:RosinaAdapter={mode:'mock',send:async()=>({reply:'Please review this sample.',actions:[],schoolReportProposal:proposal})}
+    function FocusedPanel(){const {session,switchPerson}=useSession();return session?<ChildAccessProvider client={client} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={directRead} generation={session.generation}><FocusSwitch/><RosinaPanel service={service}/></ChildAccessProvider>:<button onClick={()=>{void switchPerson('whitfield')}}>Pick teacher</button>}
+    function FocusSwitch(){const access=useChildAccess();return <button onClick={()=>access?.selectChild('p_jax')}>Focus Jax</button>}
+    render(<SessionProvider adapter={createMockAuthAdapter()}><FocusedPanel/></SessionProvider>)
+    fireEvent.click(screen.getByRole('button',{name:'Pick teacher'}))
+    await screen.findByRole('button',{name:'Focus Jax'})
+    await waitFor(()=>expect(client.query).toHaveBeenCalled())
+    await send('Nora has a fever today')
+    expect(screen.getByRole('region',{name:'Review proposed school-day report'})).toHaveTextContent('Private teacher report')
+    fireEvent.click(screen.getByRole('button',{name:'Focus Jax'}))
+    await waitFor(()=>expect(screen.queryByText('Private teacher report')).not.toBeInTheDocument())
+    expect(screen.queryByRole('button',{name:'Confirm report'})).not.toBeInTheDocument()
   })
 })
