@@ -24,7 +24,7 @@ import { buildPhotoDeps } from './photoDeps';
 import type { VisionClient } from './photoDescriptors';
 import { createNoticePlanHandlers } from './noticeEndpoint';
 import { createSparkNoticeExtractor } from './noticeExtractor';
-import { buildScheduleReader, buildPickupRequester } from './noticeDeps';
+import { buildScheduleReader, buildPickupRequester, requireGraphqlUrl } from './noticeDeps';
 
 loadEnv();
 
@@ -38,11 +38,12 @@ const DEMO_CLOCK = process.env.DEMO_CLOCK === '1';
 const TIMEOUT_MS = Number(process.env.ROSINA_TIMEOUT_MS ?? 30_000);
 const RATE_LIMIT_PER_MIN = Number(process.env.ROSINA_RATE_LIMIT_PER_MIN ?? 20);
 
-// Notice → Plan. The router GraphQL endpoint reached AS THE CALLER (bearer forwarded, never a
-// service key); defaults to the MCP host with /graphql. The signing key is required — without it the
-// feature stays OFF rather than signing proposals with an insecure default. Scenario reference date
-// is explicit (contract §3.3).
-const GRAPHQL_URL = process.env.ROSINA_GRAPHQL_URL ?? MCP_URL.replace(/\/mcp\/?$/, '/graphql');
+// Notice → Plan. The router GraphQL endpoint is reached AS THE CALLER (bearer forwarded, never a
+// service key). It has NO default and NO MCP fallback (requireGraphqlUrl) — the MCP port is not a
+// GraphQL endpoint, so a derived default silently broke every notice request with 502. The signing
+// key is required too — without it the feature stays OFF rather than signing with an insecure
+// default. Scenario reference date is explicit (contract §3.3).
+const NOTICE_GRAPHQL_URL = (process.env.ROSINA_GRAPHQL_URL ?? '').trim();
 const NOTICE_SIGNING_KEY = process.env.ROSINA_PROPOSAL_SIGNING_KEY ?? '';
 const NOTICE_SCENARIO_DATE = process.env.ROSINA_NOTICE_SCENARIO_DATE ?? '2026-10-26';
 
@@ -119,12 +120,17 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
 
   if (outcome === TIMEOUT || outcome === null) {
     console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} result=${outcome === TIMEOUT ? 'TIMEOUT' : 'ERROR'} latencyMs=${Date.now() - startedAt}`);
-    res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null });
+    res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null, addVillagerProposal: null });
     return;
   }
 
   console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} latencyMs=${Date.now() - startedAt}`);
-  res.status(200).json({ reply: outcome.reply, actions: outcome.actions, schoolReportProposal: outcome.schoolReportProposal });
+  res.status(200).json({
+    reply: outcome.reply,
+    actions: outcome.actions,
+    schoolReportProposal: outcome.schoolReportProposal,
+    addVillagerProposal: outcome.addVillagerProposal,
+  });
 }
 
 export function createRosinaApp() {
@@ -173,17 +179,21 @@ export function createRosinaApp() {
   let noticeHandlers: ReturnType<typeof createNoticePlanHandlers> | null = null;
   if (NOTICE_SIGNING_KEY) {
     try {
+      const graphqlUrl = requireGraphqlUrl(); // throws if ROSINA_GRAPHQL_URL unset — never MCP-derived
       const c = resolveProvider('meta');
       noticeHandlers = createNoticePlanHandlers({
         verify: async (h) => { const id = await verifyBearer(h); return id.ok ? { ok: true, personId: id.personId } : { ok: false }; },
         rateLimiter: limiter,
-        scheduleReader: buildScheduleReader({ graphqlUrl: GRAPHQL_URL }),
+        scheduleReader: buildScheduleReader({ graphqlUrl }),
         extractor: createSparkNoticeExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model }),
-        requestPickup: buildPickupRequester({ graphqlUrl: GRAPHQL_URL }),
+        requestPickup: buildPickupRequester({ graphqlUrl }),
         signingKey: NOTICE_SIGNING_KEY,
         scenarioDate: NOTICE_SCENARIO_DATE,
       });
-    } catch { noticeHandlers = null; }
+    } catch (err) {
+      noticeHandlers = null;
+      console.log(`[rosina] notice-plan OFF: ${err instanceof Error ? err.message : 'configuration error'}`);
+    }
   }
   if (noticeHandlers) {
     const jsonLarge = express.json({ limit: '12mb' });
@@ -211,6 +221,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (PROVIDER !== 'meta' && PROVIDER !== 'baseten') {
     console.error(`[rosina] BLOCKED: ROSINA_PROVIDER must be "meta" or "baseten", got "${PROVIDER}"`);
     process.exit(2);
+  }
+  // Fail fast: notice-plan enabled (signing key set) but no router URL. No MCP-derived default — a
+  // silent fallback to the MCP port made every notice request fail closed with 502 (deploy incident).
+  if (NOTICE_SIGNING_KEY && !NOTICE_GRAPHQL_URL) {
+    try { requireGraphqlUrl(); } catch (err) {
+      console.error(`[rosina] BLOCKED: ${err instanceof Error ? err.message : 'ROSINA_GRAPHQL_URL is required'}`);
+      process.exit(2);
+    }
   }
   try {
     const { resolveProvider } = await import('../muse/providers');

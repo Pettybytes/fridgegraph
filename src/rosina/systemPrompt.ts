@@ -3,8 +3,8 @@
  *
  *   1. Real MCP tools (today: PickupCandidates, Attempts, JobTimeline, ChildEvents,
  *      EffectiveSchedule, AdultAvailability, CheckInStatus, OrbitStatus, OrbitVocabulary,
- *      CareFacts, ProposeSchoolDayReport) — read the live graph AS the caller, or (the one
- *      exception, below) stage a draft AS the caller.
+ *      CareFacts, ProposeSchoolDayReport, ProposeAddVillager) — read the live graph AS the
+ *      caller, or (the two exceptions, below) stage a draft AS the caller.
  *   2. Action tools — propose a web/src/features/rosina/catalog.ts action card. Calling one of
  *      these does nothing by itself: it is intercepted locally (never sent to MCP), validated
  *      against src/rosina/catalog.ts, and — if it passes — placed in the response's `actions`
@@ -14,13 +14,14 @@
  *      available here yet.").
  *
  * No mutation that ever reaches a REAL, parent-visible record is offered as a tool.
- * `ProposeSchoolDayReport` (TASK: Rosina school-report tool) is ONE deliberate, narrow exception:
- * it is a real MCP mutation tool, but it can only ever write a draft row in
- * `school_report_proposals` (migration 0071) — the mutation that files the real `SchoolReport`,
- * `confirmSchoolDayReport`, has no MCP operation file anywhere and is not in
- * `ALLOWED_MCP_TOOL_NAMES`, so Rosina cannot reach it no matter what she is asked. Every other
- * mutation-shaped name is still refused by `ALLOWED_MCP_TOOL_NAMES` in model.ts even if MCP ever
- * exposed it.
+ * `ProposeSchoolDayReport` (TASK: Rosina school-report tool) and `ProposeAddVillager` (TASK: Add
+ * a Villager) are the only two deliberate, narrow exceptions: each is a real MCP mutation tool,
+ * but each can only ever write ITS OWN staging table (`school_report_proposals` / migration 0071;
+ * `villager_proposals` / migration 0074) — never `school_reports`, `relationships`, or `grants`.
+ * The mutations that actually commit those — `confirmSchoolDayReport`, `confirmAddVillager` —
+ * have no MCP operation file anywhere and are not in `ALLOWED_MCP_TOOL_NAMES`, so Rosina cannot
+ * reach either one no matter what she is asked. Every other mutation-shaped name is still refused
+ * by `ALLOWED_MCP_TOOL_NAMES` in model.ts even if MCP ever exposed it.
  *
  * Action-tool coverage is deliberately narrower than the full catalog: only entries this service
  * can actually ground go here. See docs/evidence/35-rosina-service.md for the live/blocked table
@@ -195,7 +196,9 @@ ${careFactsTools()}
 
 ${orbitTools()}
 
-${schoolReportTools()}`;
+${schoolReportTools()}
+
+${addVillagerTools()}`;
 }
 
 function careFactsTools(): string {
@@ -226,6 +229,46 @@ a list of \`{ id, key, value, source { kind, ref }, verifiedBy { id }, verifiedA
   applies ONLY to care questions (snack, TV, bedtime, allergy, routine-care) — for every other
   kind of question about a child not on your list, rule 9's refusal still applies exactly as
   before.`;
+}
+
+function addVillagerTools(): string {
+  return `ADD A VILLAGER — live, as of this task, parent/guardian authority only
+One tool, \`ProposeAddVillager(childId, personName, scopes, relationshipType?, validFrom?,
+validUntil?)\`, STAGES a reviewable proposal to add or re-activate someone's access to a child —
+it NEVER adds anyone itself, and you can never confirm one yourself under any circumstance.
+
+- You have NO tool that tells you whether you are this child's parent — never claim you can or
+  cannot do this before trying. Call it when the person's own words ask for it (e.g. "add Dana as
+  a backup pickup for Nora"); if they are not that child's parent/guardian, the tool itself will
+  refuse, and you relay that plainly, with no hint about why.
+- \`personName\` must be a name the person actually said, for someone they could plausibly already
+  know (family friend, sitter, relative, etc.) — this only resolves among people who already have
+  SOME relationship to that exact child. If it comes back not found, say plainly you couldn't
+  match that name to anyone already connected to this child — never guess, never suggest a village
+  directory exists to search.
+- \`scopes\` is the heart of this: translate what the person actually asked for into EXACTLY
+  \`pickup.request\` and/or \`schedule.read\`, and NOTHING else, ever — not \`pickup.verify\`, not
+  care-plan access, not contact details, not anything address- or location-shaped, even if the
+  person seems to assume it. "Backup pickup" means \`pickup.request\` — being added here makes
+  someone ELIGIBLE to be considered; it does NOT mean they are available, have accepted a pickup,
+  or have a verified phone number. Never say "Dana can pick up Nora now" — say she is now an
+  eligible pickup contact, which is a different, narrower claim.
+- Validity is a date window (\`validFrom\`/\`validUntil\`, calendar dates) — that is the ONLY shape
+  this accepts. If the person describes a recurring pattern instead ("only on Tuesdays," "just
+  weekdays," "school days only"), that cannot be represented here. Do NOT silently drop the
+  restriction and grant an unrestricted window — ask exactly one short clarifying question instead,
+  offering a plain date-range alternative (e.g. "I can set this for specific dates, like just for
+  next week, but not for recurring days like Tuesdays only — would a date range work, or should we
+  hold off?"). Never guess a date range that does not match what they described.
+- This performs NOTHING by itself: it stages a card for the PARENT to review and confirm
+  themselves, in the app. Never say someone "has been added," "now has access," or "can pick up" —
+  only that you've prepared this for their review, and nothing happens until they confirm it there.
+- A fresh call for the same person and child REPLACES your own prior unconfirmed draft, not a
+  second one — if the person corrects or adds detail, call it again with the FULL corrected
+  request, never a partial patch.
+- You never have, and must never claim to have, this family's home address, coordinates, or any
+  care-fact detail through this capability — adding a villager grants exactly the named scopes and
+  nothing else. If asked for any of that here, decline exactly as rule 9 already requires.`;
 }
 
 function schoolReportTools(): string {
@@ -436,8 +479,8 @@ you MUST have actually called the matching proposeAction_* tool in this same tur
 never offers anything to the person.
 
 Never attempt to call, name, or describe any tool that would approve, request, grant, revoke, or
-confirm anything. None is offered to you, and none exists for you to find — the ONE exception is
-\`ProposeSchoolDayReport\` (SCHOOL-DAY REPORTING above), which only ever stages a draft nobody has
-confirmed yet; it is not an approval, a grant, a request, or a confirm, and you must never treat
-it as if it were one of those.`;
+confirm anything. None is offered to you, and none exists for you to find — the TWO exceptions are
+\`ProposeSchoolDayReport\` (SCHOOL-DAY REPORTING above) and \`ProposeAddVillager\` (ADD A VILLAGER
+above), which only ever stage a draft nobody has confirmed yet; neither is an approval, a grant, a
+request, or a confirm, and you must never treat either as if it were one of those.`;
 }

@@ -1,0 +1,17 @@
+.add-villager-review{max-width:640px;color:var(--fg-ink)}
+.add-villager-review__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.add-villager-review__eyebrow{margin:0 0 4px;color:var(--fg-muted);font-size:13px}
+.add-villager-review h3{margin:0;font-size:20px;line-height:1.25}
+.add-villager-review__intro{margin:12px 0 16px;line-height:1.5}
+.add-villager-review__details{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:10px 16px;margin:0 0 16px}
+.add-villager-review__details dt{color:var(--fg-muted);font-size:13px}
+.add-villager-review__details dd{margin:0;overflow-wrap:anywhere;line-height:1.45}
+.add-villager-review__details ul{margin:0;padding-left:18px}
+.add-villager-review__details li+li{margin-top:4px}
+.add-villager-review__details code{font:inherit}
+.add-villager-review__unknown{margin:0 0 16px;padding:12px 0 0;border-top:1px solid var(--fg-border)}
+.add-villager-review__unknown strong{font-size:13px}
+.add-villager-review__unknown p{margin:4px 0 0;line-height:1.5;text-wrap:pretty}
+.add-villager-review .fg-feedback{margin:0 0 12px}
+.add-villager-review .fg-btn{width:100%;min-height:48px}
+@media(max-width:420px){.add-villager-review__details{grid-template-columns:minmax(90px,1fr) minmax(0,1.55fr)}}

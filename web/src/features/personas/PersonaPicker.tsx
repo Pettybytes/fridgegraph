@@ -17,6 +17,7 @@ const GRANT_WORD: Record<string, string> = {
   'schedule.read': 'schedule', 'careplan.read': 'care information', 'goals.read': 'goals',
   'pickup.request': 'pickups', 'pickup.verify': 'pickups', 'supervise.request': 'supervision',
   'contacts.read': 'contacts', 'school.read': 'school', 'transport.read': 'transport',
+  'school.report': 'school-day reporting',
 }
 const firstName = (full: string) => full.split(/\s+/)[0]
 function relationship(p: Persona): string { return p.role.split('·')[0].trim() }

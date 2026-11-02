@@ -34,8 +34,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Seed identity-map tests
+        run: npm run test:seed
+
+      - name: MCP config generation tests
+        run: npm run test:mcp-config
+
       - name: Secret scan
         run: npm run check
+
+      - name: Village tests
+        run: npm run test:village
 
   web:
     name: web build

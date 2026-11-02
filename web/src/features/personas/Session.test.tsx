@@ -94,6 +94,13 @@ describe('persona sessions', () => {
     expect(await auth.createDemoFamily({ parentName: 'Fictional Parent', childName: 'Fictional Child' })).toMatchObject({ id: 'mock-family-1', parentName: 'Fictional Parent' })
     await auth.resetDemo()
     expect((await auth.createDemoFamily({ parentName: 'Parent', childName: 'Child' })).id).toBe('mock-family-1')
-    expect(personas).toHaveLength(11)
+    expect(personas).toHaveLength(12)
+    expect(personas.map(person => person.id)).toEqual([
+      'demo-guide', 'kendra', 'andre', 'loretta', 'priya', 'dana', 'jax-family',
+      'rosa', 'felicia', 'simone', 'dwayne', 'whitfield',
+    ])
+    expect(personas.find(person => person.id === 'whitfield')).toMatchObject({
+      id: 'whitfield', personId: 'p_whitfield', childId: 'p_nora', grants: ['school.read', 'school.report'],
+    })
   })
 })

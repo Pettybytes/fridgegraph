@@ -26,6 +26,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
+import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
+import { decideRoute, type PlaceLookup } from '../village/routeRequest';
+import { dbDayTransport, isDay, readDayPlan } from '../village/dayPlaces';
 import { dbFor } from '../db';
 import type { Ctx } from '../authz';
 
@@ -338,6 +341,115 @@ export function createDemoLoginApp() {
    * sessions. Same guards as before: loopback only (until Task H), demo sessions only, the Demo guide
    * is refused, and one reset per person per 30 s.
    */
+  // Village routing. The client sends PLACE IDS; authorization happens here first, and only then is
+  // the cache or the network touched. See src/village/ors.ts for why row existence is not permission.
+  app.post('/api/village/route', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = bearerToken(req.headers.authorization);
+    if (!token) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    const identity = await verifyBearer(req.headers.authorization);
+    if (!identity.ok || !identity.personId) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    if (!allowRoute(identity.personId)) { res.status(429).json({ error: 'RATE_LIMITED' }); return; }
+
+    const childId = typeof req.body?.childId === 'string' ? req.body.childId : '';
+    const fromPlaceId = typeof req.body?.fromPlaceId === 'string' ? req.body.fromPlaceId : '';
+    const toPlaceId = typeof req.body?.toPlaceId === 'string' ? req.body.toPlaceId : '';
+    if (!childId || !fromPlaceId || !toPlaceId) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+
+    const ctx: Ctx = { today: todayIso(), token };
+    const look = async (placeId: string) => {
+      const { data, error } = await dbFor(ctx).rpc('place_route_geometry_for', { p_child: childId, p_place: placeId });
+      if (error) return { kind: 'error' as const } satisfies PlaceLookup;
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { id?: string; label?: string; state?: string; latitude?: number | null; longitude?: number | null }
+        | null;
+      if (!row?.id) return { kind: 'notfound' as const } satisfies PlaceLookup;
+      return { kind: 'row' as const, row } satisfies PlaceLookup;
+    };
+
+    // The profile is part of what a route IS, so it is validated here and travels into cache identity.
+    const profileRaw = req.body?.profile ?? 'driving-car';
+    if (!isRouteProfile(profileRaw)) { res.status(400).json({ error: 'INVALID_PROFILE' }); return; }
+
+    const [from, to] = await Promise.all([look(fromPlaceId), look(toPlaceId)]);
+    // Every refusal — invisible, nonexistent, withheld, ungeocoded — is decided BEFORE any cache
+    // read or ORS request. `decideRoute` is pure, so this ordering is testable without a network.
+    const decision = decideRoute(from as PlaceLookup, to as PlaceLookup);
+    if (!decision.ok) { res.status(decision.status).json(decision.body); return; }
+
+    try {
+      const route = await routeBetween(profileRaw, fromPlaceId, toPlaceId,
+        { lat: decision.from.lat, lng: decision.from.lng },
+        { lat: decision.to.lat, lng: decision.to.lng });
+
+      // Persist the REAL road result so the ride estimate prices the SAME distance (one number, one
+      // basis). A cache hit is not re-stored; a refusal never reaches this line at all. A storage
+      // failure must not fail a route the family can already see, so it is logged and swallowed —
+      // but it IS logged, because a silent failure here means ranking quietly stays on haversine.
+      if (!route.cached) {
+        try {
+          // The RAW writer is no longer executable by a request-handling caller (0063); this is the
+          // caller-authorized one. It re-checks parent/address.read on the child and refuses a
+          // snapshot that is not a real place row for that child.
+          await dbFor(ctx).rpc('store_route_result_authorized', {
+            p_child: childId,
+            p_profile: profileRaw,
+            p_from_place_id: fromPlaceId,
+            p_to_place_id: toPlaceId,
+            p_from_lat: decision.from.lat,
+            p_from_lng: decision.from.lng,
+            p_to_lat: decision.to.lat,
+            p_to_lng: decision.to.lng,
+            p_distance_meters: route.distanceMeters,
+            p_duration_seconds: route.durationSeconds,
+          });
+        } catch (storeError) {
+          console.error('[village:route] road result not stored:',
+            storeError instanceof Error ? storeError.message : 'unknown');
+        }
+      }
+
+      res.status(200).json(route);
+    } catch (e) {
+      if (e instanceof RouteUnavailable) {
+        res.status(503).json({ error: 'ROUTE_UNAVAILABLE', reason: e.reason });
+        return;
+      }
+      res.status(503).json({ error: 'ROUTE_UNAVAILABLE', reason: 'UNEXPECTED' });
+    }
+  });
+
+  /**
+   * POST /api/village/day — the authorized day read, and the only source of DayPlan places.
+   *
+   * Body: { childId, day: 'YYYY-MM-DD' }. The caller's own bearer is forwarded to
+   * `event_day_places`, which authorizes on that caller's claims — no schedule authority returns
+   * ZERO ROWS, not an error, so "not shared with you" is indistinguishable from "nothing scheduled"
+   * (that is the documented behaviour and it is not an oracle).
+   *
+   * A failed read is NOT an empty day: 503 DAY_UNAVAILABLE. `placeId`/`placeName` come only from the
+   * accessor's `linked` state; `withheld` and `unlinked` both arrive null and are told apart by
+   * `placeState`. No coordinates are read, returned or derivable here — geometry is 0058's business.
+   */
+  app.post('/api/village/day', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = bearerToken(req.headers.authorization);
+    if (!token) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    const identity = await verifyBearer(req.headers.authorization);
+    if (!identity.ok || !identity.personId) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+
+    const childId = typeof req.body?.childId === 'string' ? req.body.childId : '';
+    const day = typeof req.body?.day === 'string' ? req.body.day : '';
+    if (!childId || !isDay(day)) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+
+    const ctx: Ctx = { today: todayIso(), token };
+    const read = await readDayPlan(dbDayTransport(ctx), { token, childId, day });
+    if (!read.ok) { res.status(503).json({ error: 'DAY_UNAVAILABLE' }); return; }
+
+    // The response carries the day plan only: no place geometry, no location text, no inference.
+    res.status(200).json({ childId, date: read.plan.date, items: read.plan.items });
+  });
+
   app.post('/api/demo/reset', async (req: Request, res: Response) => {
     const addr = req.socket.remoteAddress ?? '';
     if (!(addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) {

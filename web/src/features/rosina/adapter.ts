@@ -5,9 +5,10 @@ import { noraCareInformation, sourceCitation } from '@/features/personas/careInf
 import { pickupStatusLabel } from '@/lib/frontendData/displayCopy'
 import { reasonLabel } from '@/lib/frontendData/types'
 import type { FrontendAdapter } from '@/lib/frontendData/types'
+import type { SchoolReportProposal } from './schoolReport'
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 export type RosinaRequest = { message: string; currentRoute: string; history: HistoryMessage[] }
-export type RosinaResponse = { reply: string; actions: unknown[]; notice?: 'sign-in' | 'rate-limit' }
+export type RosinaResponse = { reply: string; actions: unknown[]; notice?: 'sign-in' | 'rate-limit'; schoolReportProposal?: SchoolReportProposal | null }
 export interface RosinaAdapter {
   readonly mode: 'mock' | 'live'
   send(request: RosinaRequest, signal?: AbortSignal): Promise<RosinaResponse>
@@ -16,6 +17,14 @@ export function createMockRosinaAdapter(session: AuthSession | null, data?: Fron
   return { mode: 'mock', async send({ message, history, currentRoute }) {
     const text = message.trim().toLowerCase()
     const reply = (reply: string, actions: unknown[] = []) => ({ reply, actions })
+    if (session?.persona.id === 'whitfield' && /report|fever|school.day/.test(text)) {
+      if (!/fever/.test(text)) return reply('What exactly should the school-day report say? I need your words before preparing a sample.')
+      const now = Date.now()
+      return { reply: 'Here is a sample school-day report to review. Nothing has been filed.', actions: [], schoolReportProposal: {
+        id: 'sample-school-report-nora', version: 1, childId: 'p_nora', kind: 'fever', text: 'Nora has a fever today.',
+        createdAt: new Date(now).toISOString(), expiresAt: new Date(now + 600000).toISOString(),
+      } }
+    }
     const routeParams = new URLSearchParams(currentRoute.split('?')[1] ?? '')
     let calendarChildId = routeParams.get('childId') ?? session?.scope.childId
     if (session && currentRoute.startsWith('#/calendar') && routeParams.has('event') && !routeParams.has('childId')) {
