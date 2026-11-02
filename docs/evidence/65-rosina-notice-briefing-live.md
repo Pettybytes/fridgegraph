@@ -84,9 +84,44 @@ pricing proof (`proof-…`/`paid-proof-…`) and seeded fixtures (`job_nora_oct1
 
 Reported on #78 (comment 6566313754). Bentley restarting Rosina with `ROSINA_GRAPHQL_URL` set.
 
-## 4. Continuation — pending "agents resume"
+## 4. Continuation — after "agents resume" (PASS)
 
-After Rosina restarts with `ROSINA_GRAPHQL_URL`, this section will be appended with: samples (a)
-prepare + observation of #90's single real confirm (job keyed `pickup:p_nora:<scenarioDate>:afternoon`,
-idempotency = one key→one job), (b) clarification→resume (no confirm), (c) review-only→confirm 422,
-each with the served model ID. The results above are not modified.
+Rosina 4200 restarted at `2026-11-02T00:40Z` — same revision **`7fda69d`** (pid **39469**), now with
+**`ROSINA_GRAPHQL_URL=http://127.0.0.1:4012/`** (router). Deadline extended to
+`2026-11-02T02:00:00Z`. My runs ~`00:41Z`–`00:45Z`. Served model id on every prepare:
+**`muse-spark-1.3`**. The §3 failure above is left intact.
+
+### Sample (a) — early dismissal → PASS (prepare + observe; confirm owned by #90)
+- `POST /api/rosina/notice-plan` as Kendra → **200**. Model `muse-spark-1.3`, source `text`,
+  scenario `2026-10-26` / `America/Detroit`.
+- change: *"Early dismissal at 12:30 on 2026-10-26"*; why: *"Recorded pickup for 2026-10-26 is 15:00
+  (School, Room 12, Lincoln Elementary); the notice releases at 12:30, 2h30m earlier."* — **live
+  conflict detection against the real router schedule read**.
+- `onConfirm: requestPickup { asOf: 2026-10-26, window: afternoon }`.
+- **Observed job** (read-only, as Kendra) for key **`pickup:p_nora:2026-10-26:afternoon`** →
+  **`job_2f32d2a49d204d75ba39810e2fbaa66d`**, `type PICKUP`, status **discovering**, `confirmation:
+  null`, `candidateEvaluations` include **Loretta (`p_gma`) `PENDING`** (she holds `pickup.request`)
+  with non-pickup people `UNAUTHORIZED`. **Exactly one job for the key** (idempotency: one key → one
+  job). **I issued no confirm** — the single real confirm belongs to `feat/web-graphql-adapter` (#90);
+  coordinated on #78 so the UI and this backend evidence reference the same job id.
+
+### Sample (b) — ambiguous → one question → resume → PASS (no confirm)
+- prepare → **200**, `clarification: "Which exact date is meant by 'next Friday'?"`, no changes.
+- resume (`{proposalId, version:1, answer:"Friday, October 30, 2026"}` + the original notice) → **200**,
+  **same `proposalId`**, **version 2**, **clarification cleared**. Resolved change: *"Early dismissal
+  at 12:30 on 2026-10-30"* with a `verified_quote` source (exact passage), why: *"No recorded pickup
+  was found for 2026-10-30, so there is nothing to compare against"* (**no invented schedule**),
+  `onConfirm.available:false`. No confirmation issued. (Live note: `muse-spark-1.3` is not strictly
+  deterministic here — one earlier run resolved "next Friday" itself and returned a review-only
+  proposal with no question; when it asks, the resume path works as shown.)
+
+### Sample (c) — field trip, review-only → confirm refused → PASS
+- prepare → **200**, change *"Field trip / permission slip at 09:30 on 2026-11-13"*,
+  `onConfirm.available:false` ("Permission slips are review-only here — noted, no action available").
+- confirm (echoed `{claims, signature}`) → **422 `NO_ACTION_AVAILABLE`**; no write.
+
+### Summary of this leg
+Grants ✅ · briefing ✅ (Loretta no care / Priya care — different scopes) · notice (a) ✅ prepare +
+observed job · (b) ✅ question→resume · (c) ✅ review-only→422. The only real pickup write for sample
+(a) is #90's single confirm, observed here as one job per idempotency key. No resets/restarts by me;
+Bentley's canonical reset after the slot removes the proof job.
