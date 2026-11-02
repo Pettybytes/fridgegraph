@@ -1,0 +1,956 @@
+{
+  "pack": "ellison-fridge-v1",
+  "model": "muse-image-1.0",
+  "provider": "Meta Model API (host api.meta.ai, path /v1)",
+  "returned_images": 49,
+  "portraits_returned": 37,
+  "pack_assets_returned": 12,
+  "requests_made": 49,
+  "retries": 0,
+  "failed_calls": 0,
+  "cost": {
+    "calculated_usd": 0.49,
+    "unit_price_usd": 0.01,
+    "label": "CALCULATED from documented $0.01/image pricing \u2014 not billing independently verified"
+  },
+  "generation_work": "49 requests, zero failures \u2014 this count covers successful generation work only.",
+  "earlier_401_attempts": {
+    "status": "separate from this receipt",
+    "note": "A prior run reported 401 invalid_api_key from api.meta.ai using the META_API_KEY variable name. No request ids or timestamps were captured in this receipt. Preserved as reported history; not verified here and not counted in the 49."
+  },
+  "real_person_reference": false,
+  "intentional_impersonation": false,
+  "records": [
+    {
+      "assetId": "p_mom",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_mom.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 38-year-old white American woman, head and shoulders, face unobstructed and centered with generous margin around the head, looking toward the camera with a quiet natural smile. Warm window light from a home kitchen softly blurred behind her; she holds a plain ceramic coffee mug at chest level. Straight-on camera angle, 50mm feel, shallow but gentle depth of field with the face fully sharp. Shoulder-length dark blonde hair, minimal makeup, simple oatmeal knit sweater, small gold hoop earrings. Believable real skin texture with faint expression lines, natural color, no beauty retouching, no plastic sheen. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no uniforms, no other people.",
+      "prompt_sha256": "aa8fe9850d40e2d12ed81e06062c0861cf92f3727f2d7d5936d10cd945804512",
+      "image_sha256": "b03ea4520b824544d98e02120a91eaa417c39a5577188282dfba00a6fbaba0a9",
+      "bytes": 402920,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18879,
+        "output_tokens": 1929,
+        "total_tokens": 20808
+      },
+      "generated_utc": "2026-11-02T21:35:41Z",
+      "status": "SUCCESS",
+      "run": "pilot"
+    },
+    {
+      "assetId": "p_nora",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_nora.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of an 8-year-old mixed-race girl (Black and white parentage), head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a bright natural half-smile. Warm golden-hour light on a softly blurred front porch behind her, late afternoon. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Shoulder-length dark brown natural curls, small stud earrings, a faded yellow t-shirt under a denim jacket, one backpack strap on her shoulder. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "f91f81a1a66c2b35ab33007b9e83370b16e66411482f76637cf62d6ce6089f6e",
+      "image_sha256": "8493a493edb73dceecd90ed68272790488fc561c153319eb7b071a300a067703",
+      "bytes": 441388,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10694,
+        "output_tokens": 1268,
+        "total_tokens": 11962
+      },
+      "generated_utc": "2026-11-02T21:36:01Z",
+      "status": "SUCCESS",
+      "run": "pilot"
+    },
+    {
+      "assetId": "p_gma",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_gma.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 68-year-old white American woman, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a calm warm smile. Soft overcast daylight in a softly blurred backyard garden behind her, green leaves and a wooden fence out of focus. Slight angle from a little above eye level, 85mm feel, shallow gentle depth of field with the face fully sharp. Short silver-grey hair, fine reading glasses pushed up into her hairline so the face and eyes stay clear, a soft sage-green cardigan over a white blouse, delicate pearl studs. Believable real skin texture with fine lines and sun spots, natural color, no beauty retouching, no plastic sheen. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "930920eeba80303df6d4bebe20c7b000c4586cb424ec3418939b091eec3c9648",
+      "image_sha256": "7223efb0346f82db3fb84dcf34e01278b7b2952c4139a4eb914a22b9e78fe372",
+      "bytes": 388646,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18734,
+        "output_tokens": 1892,
+        "total_tokens": 20626
+      },
+      "generated_utc": "2026-11-02T21:36:18Z",
+      "status": "SUCCESS",
+      "run": "pilot"
+    },
+    {
+      "assetId": "p_dad",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_dad.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 40-year-old Black American man with warm brown skin, short natural Black hair and a close-cropped beard, head and shoulders, face unobstructed and centered with generous margin around the head, looking toward the camera with a relaxed half-smile. Late golden-hour light in a softly blurred suburban driveway behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Simple dark henley shirt, car keys in one hand. Believable real skin texture, natural color, no beauty retouching, no plastic sheen. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "f11cf021da2375ddb089cd80c82c35271a07017062e4ac686fe6d07a83078974",
+      "image_sha256": "47b22eb8e2fc227f36e2a9a8ab7c1cb520b9f4f1fe039269e5d8ab7af0b3841b",
+      "bytes": 372820,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18662,
+        "output_tokens": 1877,
+        "total_tokens": 20539
+      },
+      "generated_utc": "2026-11-02T21:49:04Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_walter",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_walter.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 71-year-old Black American man with warm brown skin, short grey-white hair and a thin grey beard, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a calm warm expression. Soft overcast daylight on a softly blurred front porch behind him. Straight-on camera angle, 85mm feel, shallow gentle depth of field with the face fully sharp. Dark green cardigan over a checked shirt. Believable real skin texture with fine lines and age spots, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "1a9b6e860c24975d293977a0b0031708b787d19342b393c65b087b3266ac46da",
+      "image_sha256": "047d0169f0efca61b70050aeaa0c5728057e0cc5383989900dc3e45fd687573e",
+      "bytes": 454306,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28229,
+        "output_tokens": 2182,
+        "total_tokens": 30411
+      },
+      "generated_utc": "2026-11-02T21:49:25Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_gloria",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_gloria.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 67-year-old Black American woman with warm brown skin and short natural grey-streaked hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a gentle knowing smile. Warm window light in a softly blurred home kitchen behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Soft blue blouse, small gold stud earrings, a tea towel over one shoulder. Believable real skin texture with fine lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "15335e90b37ba05e40af8571034d572acc4e320cefa4aed98b6afe693dc27909",
+      "image_sha256": "108cade120e017330455f57c60d17f172359f9fea491674d532959ae47930824",
+      "bytes": 459302,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10452,
+        "output_tokens": 1051,
+        "total_tokens": 11503
+      },
+      "generated_utc": "2026-11-02T21:49:35Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_tasha",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_tasha.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 36-year-old Black American woman with warm brown skin and shoulder-length natural coils pulled back, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with an easy confident smile. Late-afternoon light on a softly blurred campus sidewalk behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Denim jacket over a white tee, small gold hoop earrings, one backpack strap on her shoulder. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "72f7cd3261578b7e0d7066bd8d4a738476acd786aa8fb74211ed99787f2f310d",
+      "image_sha256": "1acf4076ea9d21a6b12d02372ed8981fba952025a235f47cdca59a861711351a",
+      "bytes": 407340,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18749,
+        "output_tokens": 1908,
+        "total_tokens": 20657
+      },
+      "generated_utc": "2026-11-02T21:49:47Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_bryan",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_bryan.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 42-year-old white American man with fair skin, short dark blond hair and light stubble, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a wry relaxed smile. Soft window light in a softly blurred living room behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Charcoal sweater, a plain ceramic mug held at chest level. Believable real skin texture with faint lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "061ac5dfabae4593f69f3ccfa6c27e7559c378c7350bfb4aab9d429e33d0f242",
+      "image_sha256": "d1aad352dcaa46c0fb91d68a79bd3118a55d9f98115e75ef8ab255b8bc4f889a",
+      "bytes": 380280,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28515,
+        "output_tokens": 2324,
+        "total_tokens": 30839
+      },
+      "generated_utc": "2026-11-02T21:50:10Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_max",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_max.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 13-year-old mixed-race boy (Black and white parentage) with warm light-brown skin and short dark curly hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a shy grin. Golden-hour light in a softly blurred backyard with a basketball hoop behind him. Slightly below eye level, 50mm feel, shallow gentle depth of field with the face fully sharp. Faded green t-shirt, a basketball held against his hip. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "fa462b12d86bf575a521cdf0818ff208a56b45c80d214363a6c4c22dfa4cd9cf",
+      "image_sha256": "1e1c21868a5b7a1a532b002c8c65e6b8958a888bf58676349c368711192e175b",
+      "bytes": 367214,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 19055,
+        "output_tokens": 2152,
+        "total_tokens": 21207
+      },
+      "generated_utc": "2026-11-02T21:50:27Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_leo",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_leo.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 16-year-old mixed-race teenage boy (Black and white parentage) with warm light-brown skin and medium-length dark curls, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a reserved half-smile. Cool overcast light through a softly blurred school hallway window behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Hooded sweatshirt under a denim jacket, one backpack strap on his shoulder. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "1b9ff61716de27532d3fa8efea16668cdede807e8c48ba459e7d45097c500d8d",
+      "image_sha256": "d6c036e069612117087534a5ab1204b68a13da159c6370b3bbb0a048a89b9e96",
+      "bytes": 434902,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 19423,
+        "output_tokens": 2401,
+        "total_tokens": 21824
+      },
+      "generated_utc": "2026-11-02T21:50:49Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_dana",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_dana.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 39-year-old white American woman with fair skin and shoulder-length straight brown hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a tired but warm smile. Morning window light in a softly blurred kitchen behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Rolled-sleeve striped shirt, a laptop edge just visible at the bottom of frame. Believable real skin texture with faint lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "74c8c4dfef207ef236d01d3020efe3d717eed6450397782f869d33f05d91835b",
+      "image_sha256": "d9aa2bcfe276c59cab262b072e757ee2dea2bedc60664ed7304496ec1c312f05",
+      "bytes": 356572,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18406,
+        "output_tokens": 1734,
+        "total_tokens": 20140
+      },
+      "generated_utc": "2026-11-02T21:51:03Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_ray",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_ray.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 40-year-old white American man with fair skin, short brown hair and a light beard, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a straightforward smile. Soft overcast light in a softly blurred garage workshop behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Grey work shirt with rolled sleeves, a screwdriver in one hand. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "fee07ecf9647e340e38ad0da1c1284bfa42a9a90c2e01cf0d2359ae8bf0463b1",
+      "image_sha256": "ca9e48a549b61fb8523bb8837780307036441071f06a75e88c42e7fb08a8a5a8",
+      "bytes": 325286,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18551,
+        "output_tokens": 1774,
+        "total_tokens": 20325
+      },
+      "generated_utc": "2026-11-02T21:51:16Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_jax",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_jax.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of an 8-year-old white boy with fair skin and tousled light brown hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a big open smile. Late-afternoon light on a softly blurred soccer field behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Red practice jersey with no lettering, a soccer ball held in both hands. Believable real child skin texture with a few freckles, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "55469a638cc3ed5af71a4e309296f7efcfeb72c3c0cf0c4f521e7f5e61f27683",
+      "image_sha256": "3d64e0f7043e3fd5a0605f509a334cc037d0145ac191f01962637f6b12443a32",
+      "bytes": 315052,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18777,
+        "output_tokens": 2045,
+        "total_tokens": 20822
+      },
+      "generated_utc": "2026-11-02T21:51:33Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_dwayne",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_dwayne.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 41-year-old Black American man with deep brown skin, a short fade and a trimmed beard, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a steady warm expression. Golden-hour light on a softly blurred front stoop behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy work jacket over a grey tee, a small toolbox in one hand. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "2a92a7116169a6b6d5e4bb519e6ad139b69e0971e4ef83d33ab7715decc63a29",
+      "image_sha256": "6902ffbd3ac1d921ebaaa7f24166e39959555aba57ed9db94d60624d6a9b25db",
+      "bytes": 361692,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10532,
+        "output_tokens": 1138,
+        "total_tokens": 11670
+      },
+      "generated_utc": "2026-11-02T21:51:41Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_cassandra",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_cassandra.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 34-year-old Black American woman with deep brown skin and long neat braids, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a bright easy smile. Daylight through a softly blurred cafe window behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Rust-colored blouse, gold hoop earrings, a canvas tote bag on her shoulder. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "eac6effff5141bbfbbdc780495ab6d3d7e2a1ff6c365ddb819ea15fd142c0a51",
+      "image_sha256": "cf132d52be3976251e79b3151de8daf58490ed435bca0d7ccfdf7fa78a99b617",
+      "bytes": 384464,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10742,
+        "output_tokens": 1373,
+        "total_tokens": 12115
+      },
+      "generated_utc": "2026-11-02T21:51:53Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_malik",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_malik.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 9-year-old Black boy with deep brown skin and short coils, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a thoughtful small smile. Soft morning overcast light beside a softly blurred plain yellow school bus with no lettering behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy zip-up jacket, a backpack on both shoulders. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "1d8be5bfcc9df52a9d78be13bc12d2ca14d57d91fe848a6fb37bb8bd5cbfc428",
+      "image_sha256": "59967f0c456a3fd43bb8caf5d963d101d71b40eb23a2736f7d550aedecf3920d",
+      "bytes": 344054,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28199,
+        "output_tokens": 2210,
+        "total_tokens": 30409
+      },
+      "generated_utc": "2026-11-02T21:52:16Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_simone",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_simone.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 38-year-old Korean-American woman with East Asian features and straight black hair to her shoulders, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a soft relaxed smile. Window light in a softly blurred living room behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Cream knit cardigan, an open book held against her chest. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "5915a34f00f9571c4934eefa3f4084311c8463556e6fcf9f12e18fe8e40096ee",
+      "image_sha256": "2f3f04f6e475072c5ab2d0a34a203788df7e5f4f885fe43014cf1bd7b7d5b312",
+      "bytes": 357260,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10784,
+        "output_tokens": 1403,
+        "total_tokens": 12187
+      },
+      "generated_utc": "2026-11-02T21:52:24Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_denise",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_denise.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 37-year-old Korean-American woman with East Asian features and chin-length black hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a quiet amused smile. Morning light in a softly blurred kitchen behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Grey sweatshirt, a plain mug held in both hands. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "3906c7458169b8a868b74a5e97ba287c69764c59a422845b12beedc387ddb7d2",
+      "image_sha256": "3150a7891533dc5e98f2348b47660fd042b08978626487d1eb8d3969b6035b87",
+      "bytes": 305132,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10497,
+        "output_tokens": 1131,
+        "total_tokens": 11628
+      },
+      "generated_utc": "2026-11-02T21:52:32Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_micah",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_micah.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 10-year-old Korean-American boy with East Asian features and short black hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a slightly breathless grin. Soft overcast light in a softly blurred neighborhood park behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Blue windbreaker, a bicycle helmet held under one arm (not worn). Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "29dedb24a475a4fea8f8cb2747f2cda9720801149e8c84b6903afef6b8f033f0",
+      "image_sha256": "76439bd2f8d15957858c43812df1c3532dec07579049a8d8a6a5152523d69091",
+      "bytes": 303468,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10537,
+        "output_tokens": 1153,
+        "total_tokens": 11690
+      },
+      "generated_utc": "2026-11-02T21:52:43Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_avery",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_avery.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 7-year-old Korean-American girl with East Asian features and black hair in two small braids, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a delighted open smile. Golden-hour light in a softly blurred backyard behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Yellow sundress, a small plush rabbit held to her chest. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "1cd4b6a77fddb402f95453fe0b3435f9aa76b087c0012256d02851384a992677",
+      "image_sha256": "47930b8aa6d1fb4f49d12e5bcb570cffa375644588857aa349973a6b2137c70f",
+      "bytes": 329186,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10529,
+        "output_tokens": 1140,
+        "total_tokens": 11669
+      },
+      "generated_utc": "2026-11-02T21:52:52Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_rosa",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_rosa.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 64-year-old Mexican-American woman with warm olive skin and grey-streaked dark hair pulled back, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a serene smile. Soft overcast light on a softly blurred garden patio behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Terracotta-colored woven shawl over a white blouse. Believable real skin texture with fine lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "da7cdba477dce4cc0f92bfb80ab3dd2db50154adf9d865b034dcff18987bdb6b",
+      "image_sha256": "d4d606ba15735c7c90382d3ab4d6847e19d4b4a8723c1385b01f94f6215c9147",
+      "bytes": 478052,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10425,
+        "output_tokens": 1031,
+        "total_tokens": 11456
+      },
+      "generated_utc": "2026-11-02T21:52:59Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_tomas",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_tomas.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 66-year-old Mexican-American man with warm olive skin, grey hair and a grey moustache, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a gentle proud expression. Warm bulb light in a softly blurred garage workshop behind him. Straight-on camera angle, 85mm feel, shallow gentle depth of field with the face fully sharp. Brown canvas work shirt, a wooden hand plane held in one hand. Believable real skin texture with fine lines and sun spots, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "5d2b8b541fa8b150e8e85d9d5f9712ca475c70abb9ea031fde47034bc8fbd10e",
+      "image_sha256": "ba35f85760fb1042623cb4b641ba4937f76bb654452bb3ff0c2a9cab7962ea6f",
+      "bytes": 482682,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18867,
+        "output_tokens": 1964,
+        "total_tokens": 20831
+      },
+      "generated_utc": "2026-11-02T21:53:15Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_emma",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_emma.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of an 8-year-old Mexican-American girl with warm olive skin and dark hair tied with a small ribbon, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a shy happy smile. Daylight on a softly blurred front porch behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Pale pink cardigan over a white dress, a paper flower held in one hand. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "306b277035e3dff977d50b278915e1100120ff377e5e973ce30d620aec985d32",
+      "image_sha256": "485e72f60dcd2146f5ac12a85a81caf69b327daeeb3eef17d5efa47c50acdb58",
+      "bytes": 373058,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10586,
+        "output_tokens": 1199,
+        "total_tokens": 11785
+      },
+      "generated_utc": "2026-11-02T21:53:25Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_felicia",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_felicia.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 37-year-old Colombian-American woman with olive skin and long dark wavy hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a warm open smile. Window light in a softly blurred cafe behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Olive-green blouse, a plain cup on the table in front of her. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "2be7287d9ac1598741382635ed05ef1b96fdf9fccd6e5f67093fc9309ee93ee0",
+      "image_sha256": "e5e42482e2c4ecab0846db43a9b8cb0682385e1362e3be7a46a8740f8865a524",
+      "bytes": 349394,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18761,
+        "output_tokens": 1929,
+        "total_tokens": 20690
+      },
+      "generated_utc": "2026-11-02T21:53:41Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_taylor",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_taylor.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 10-year-old Colombian-American boy with olive skin and short dark hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a confident grin. Golden-hour light on a softly blurred soccer field behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Plain white practice jersey with no lettering, a soccer ball tucked under one arm. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "164a0f46d952e095d112b3b710c83660daf219d33a8f29dde9b8392811dc2a30",
+      "image_sha256": "20fc4d1c5cfde88af4318e950c69f7e536ccd4a1a254504e5b1cb2ab59f3aeb6",
+      "bytes": 266294,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10627,
+        "output_tokens": 1250,
+        "total_tokens": 11877
+      },
+      "generated_utc": "2026-11-02T21:53:50Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_skye",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_skye.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 7-year-old Colombian-American girl with olive skin and dark braids, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a bright shy smile. Soft overcast light in a softly blurred park behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Denim pinafore over a striped shirt, a single daisy held up near her chin. Believable real child skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "2679f5dc3b509df552257f2a1f8d683366427306a7d5fbf1e2b762ee5673d14c",
+      "image_sha256": "e9066aac2afd83bf0e5cfd26ba5e69c0be7885f5684a94b3d6e2bd10f9a712f9",
+      "bytes": 374120,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10572,
+        "output_tokens": 1219,
+        "total_tokens": 11791
+      },
+      "generated_utc": "2026-11-02T21:53:59Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_marcus",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_marcus.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 47-year-old Colombian man with olive skin, short dark hair and a light beard, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a friendly assessing smile. Late-afternoon light on a softly blurred soccer field behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy coaching jacket, a plain whistle on a lanyard with no text. Believable real skin texture with faint lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "2d507d556b878650a126f873101431d9d10f065716414871e0905402ae116ead",
+      "image_sha256": "1a61f5c6b1f55e2a2053a245b01c58aad903a3747dc1185870c1f3da0e50ad57",
+      "bytes": 362334,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 27975,
+        "output_tokens": 2063,
+        "total_tokens": 30038
+      },
+      "generated_utc": "2026-11-02T21:54:19Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_oscar",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_oscar.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 47-year-old Colombian man with olive skin, salt-and-pepper hair and a moustache, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a mild friendly expression. Soft overcast light on a softly blurred neighborhood sidewalk behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Brown jacket, hands in his pockets. Believable real skin texture with faint lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "8d30f0202c4b7f00b8653ea9dff4d2fa633e4f555d7c77b1ba8c6c0e6b9c0b63",
+      "image_sha256": "9944e1d00f7ff34c4d17be45ad877c2bd15cce310d3b1f25dfa62c95811cf7d1",
+      "bytes": 427864,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10536,
+        "output_tokens": 1190,
+        "total_tokens": 11726
+      },
+      "generated_utc": "2026-11-02T21:54:30Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_priya",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_priya.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 23-year-old Indian-American woman with medium-brown skin and long dark hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a bright quick smile. Daylight on softly blurred campus library steps behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Oversized tan sweater, a canvas tote bag on her shoulder. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "1984ca553585cf813d874f5b8d07db78cf5fe543b8787c3907deecd6e4011455",
+      "image_sha256": "82eed769186c5ae2b0a2141f411b1618e4c936622266a10a039908de5bd2715f",
+      "bytes": 500452,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10415,
+        "output_tokens": 1039,
+        "total_tokens": 11454
+      },
+      "generated_utc": "2026-11-02T21:54:38Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_okafor",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_okafor.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 35-year-old Nigerian-American man with deep brown skin, short hair and thin glasses, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a calm friendly smile. Window light in a softly blurred classroom behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Light blue button-down shirt, a plain lanyard with no text. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "b21d2d923eb1181527326bb0de50d2110bbafa62c4a6a710ec5b74d75befe486",
+      "image_sha256": "12bd1e5806ba25944f04432652399b05522d1788431fb1cb589f0c1ff6511f60",
+      "bytes": 330668,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18624,
+        "output_tokens": 1854,
+        "total_tokens": 20478
+      },
+      "generated_utc": "2026-11-02T21:54:51Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_price",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_price.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 44-year-old Black American woman with brown skin and natural hair in a low bun, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a warm professional smile. Daylight in a softly blurred classroom behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Mustard blouse, small silver stud earrings, a closed book held against her side. Believable real skin texture with faint lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "bfaddf3cf4f7807bc38507e70fa55939db66fd5ea7b2e97247936b0ff4fcefa8",
+      "image_sha256": "67420a0d41ec95a14cbbc9d3b4d479678b22a725c758a0051c776fa994da5142",
+      "bytes": 357698,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10518,
+        "output_tokens": 1168,
+        "total_tokens": 11686
+      },
+      "generated_utc": "2026-11-02T21:55:00Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_monique",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_monique.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 39-year-old Black American woman with brown skin and shoulder-length twists, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a relaxed knowing smile. Window light in a softly blurred living room behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Burgundy cardigan over a white tee, small hoop earrings. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "69135378cc694dfa89818a15181f3ad3ebd437385522fd7ce5fdc7f35696d85f",
+      "image_sha256": "62d840f607100052834fcc3932ef6b53922a297024aeada7bc26071015507d12",
+      "bytes": 365946,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28361,
+        "output_tokens": 2285,
+        "total_tokens": 30646
+      },
+      "generated_utc": "2026-11-02T21:55:21Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_evelyn",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_evelyn.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 66-year-old Black American woman with brown skin and short grey-streaked natural hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a gentle composed smile. Soft overcast light on a softly blurred front porch behind her. Straight-on camera angle, 85mm feel, shallow gentle depth of field with the face fully sharp. Soft lilac cardigan, a plain mug held in both hands. Believable real skin texture with fine lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "b874e2d5c6bb4916c2c607adf132314e6debffbb25098e1598fc8a15e16954c4",
+      "image_sha256": "2d02bf8b4b8d7259d5c67a972bd08f9c646fa2cd4666c035bdbed772f2216be3",
+      "bytes": 420920,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18654,
+        "output_tokens": 1870,
+        "total_tokens": 20524
+      },
+      "generated_utc": "2026-11-02T21:55:34Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_whitfield",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_whitfield.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 42-year-old white American woman with fair skin, dark hair in a loose bun and thin glasses, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a patient warm smile. Window light in a softly blurred classroom behind her. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy blouse, a spiral notebook held against her chest. Believable real skin texture with faint lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "d1a78809996608d4f7e35df2e78fbaca1c67511af22bcc9b194ca829a18871ae",
+      "image_sha256": "adf348d9d71bad30c56e45a8173d853f252afa5ccd349043c9f1fe017c89a00f",
+      "bytes": 292440,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18783,
+        "output_tokens": 1933,
+        "total_tokens": 20716
+      },
+      "generated_utc": "2026-11-02T21:55:51Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_jennings",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_jennings.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 51-year-old white American woman with fair skin and shoulder-length auburn hair, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a kind matter-of-fact smile. Daylight in a softly blurred school nurse's office behind her. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Soft green scrub top, a plain lanyard with no text. Believable real skin texture with fine lines, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "b1d1d47270743f34eab1b6bddcbf9b6c01623c892860208d3ef0dd69486b9143",
+      "image_sha256": "382ef41b02702d9502a312fc0834f79459c9308b9b072040e58ed8fa066441a5",
+      "bytes": 343308,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18561,
+        "output_tokens": 1815,
+        "total_tokens": 20376
+      },
+      "generated_utc": "2026-11-02T21:56:04Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_holt",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_holt.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 58-year-old white American man with fair skin, grey hair and a weathered friendly face, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a dry smile. Soft overcast light beside a softly blurred plain yellow school bus with no lettering behind him. Slight three-quarter angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Navy fleece jacket, a ring of keys in one hand. Believable real skin texture with deep lines and sun damage, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "cd258efb73ccff6280dad53bd1d9344a8b9df479c7c30627cef5f0cec4dd76b0",
+      "image_sha256": "d5b51eed8b1d03b0ce57f5dbb0ca16811d02d336b7f47887c221d3c6841078f6",
+      "bytes": 490052,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 29058,
+        "output_tokens": 2743,
+        "total_tokens": 31801
+      },
+      "generated_utc": "2026-11-02T21:56:30Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "p_chris",
+      "kind": "portrait",
+      "stagedPath": "docs/evidence/154-portraits/portraits/p_chris.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid portrait photograph of a 41-year-old white American man with fair skin, short brown hair and light stubble, head and shoulders, face unobstructed and centered with generous margin around the head, looking at the camera with a relaxed friendly smile. Golden-hour light in a softly blurred backyard behind him. Straight-on camera angle, 50mm feel, shallow gentle depth of field with the face fully sharp. Olive flannel shirt, a dog leash looped in one hand. Believable real skin texture, natural color, no beauty retouching. Square 1:1 composition. No sunglasses, no hat, no heavy shadows on the face, no text, no lettering, no logos, no brand marks, no other people.",
+      "prompt_sha256": "bbe2c1d99cb8e801cd13bbc6a7d7bb87bfdab70879a725cb2579142d09d5830c",
+      "image_sha256": "a34b2ab585bcdb31097678d1d12203657e66cfa737888dee2aa5fed7067f0002",
+      "bytes": 416252,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10485,
+        "output_tokens": 1137,
+        "total_tokens": 11622
+      },
+      "generated_utc": "2026-11-02T21:56:40Z",
+      "status": "SUCCESS",
+      "run": "batch"
+    },
+    {
+      "assetId": "pack_dog",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_dog.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a fluffy brown-and-white mixed-breed dog lying on a worn kitchen floor in soft morning light, one ear flopped, looking up toward the camera. Shallow depth of field, natural film-like color, visible fur texture. No people, no text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "888d09847ec105f8665a498afd7cca705e41858f9432b07716728ae276167ab1",
+      "image_sha256": "a167e7bdc579b5bbb6a1215c0693a2a14c4c6e91d507db02bcfad160f4090bfd",
+      "bytes": 365298,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 27995,
+        "output_tokens": 2510,
+        "total_tokens": 30505
+      },
+      "generated_utc": "2026-11-02T21:57:05Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_walter_navy",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_walter_navy.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a small vintage sepia print lying on a wooden table: a young Black man in a 1950s US Navy uniform standing on a dock, turned three-quarters away from the camera, his face softened and slightly indistinct from age and shallow focus, faded edges, fine creases, aged paper texture. It reads as a family keepsake rather than a sharp portrait. Slight overhead angle, warm window light. No text, no lettering, no logos on the photo. Square 1:1 composition.",
+      "prompt_sha256": "e3116d0ceca1cc34baddcb752bf9ca705eb492c2169a5b4e7c38dda87012ec50",
+      "image_sha256": "d9d2d0fba05ac7a0936ea187f4686647efa9e2cb6edd51427b66385845cd01e6",
+      "bytes": 585588,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18944,
+        "output_tokens": 2112,
+        "total_tokens": 21056
+      },
+      "generated_utc": "2026-11-02T21:57:22Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_loretta_card",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_loretta_card.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic flat-lay photograph of a blank cream invitation card on a pale linen tablecloth, a warm terracotta and sage floral border painted around the edges, an entirely empty center, a small kraft envelope beside it, soft window light, gentle shadow. No words, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "0df23f5de79be7e50f7aa0e2a92ec785f47ff5163e84f3033d7df7ae0bc4613f",
+      "image_sha256": "d7c392562d2f8483acee223a3653641024501220dab34cdcfabfeba72249088f",
+      "bytes": 668158,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18069,
+        "output_tokens": 1729,
+        "total_tokens": 19798
+      },
+      "generated_utc": "2026-11-02T21:57:37Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_crayon_family",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_crayon_family.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a child's crayon drawing on slightly wrinkled white paper, stuck to a refrigerator with a round magnet: a naive drawing of five stick-figure family members, a house, a sun and a dog, bright crayon colors, wobbly lines. No words or letters anywhere in the drawing. Slight angle, soft kitchen light, paper curl at one corner. Square 1:1 composition.",
+      "prompt_sha256": "29ef4e4c49bfb78b98d0ba341d227a23cee852f9d5988cd924287282387b7472",
+      "image_sha256": "7b8c56624bf73cf539348004f76085e6a5eff982d37cefab68bf0e491484ee06",
+      "bytes": 351198,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10410,
+        "output_tokens": 1162,
+        "total_tokens": 11572
+      },
+      "generated_utc": "2026-11-02T21:57:45Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_candid_kitchen",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_candid_kitchen.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid family photograph viewed from behind: two adults and a child at a kitchen counter in morning light, faces not visible, one pouring coffee, one buttering toast, warm and unstaged, slight motion blur, gentle film grain. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "6cfc2c4dcfd7ac8c7010cad7cd4e0d2434d0984eda612ba3b79d2ddb9aa8ab06",
+      "image_sha256": "0cd6d055f6a4b233f79c38a5711cfb7a9d7c459952f4cd4946ecfec282ca08b1",
+      "bytes": 388070,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28311,
+        "output_tokens": 2544,
+        "total_tokens": 30855
+      },
+      "generated_utc": "2026-11-02T21:58:07Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_candid_porch",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_candid_porch.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a family on a front porch at dusk, seen from a distance and slightly behind, faces indistinct in warm low light, one adult pointing off-frame, a child sitting on the steps, porch bulb glow and soft fireflies, natural grain. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "6ddfaeae85ec1e42b2b7913e145fef251f17ce4c5640b21b74a57eb796a43688",
+      "image_sha256": "7fe3a80fb4ef66e90b1dcd3ba1e1bbb456d75fb1b1e3b3ca378f2c4232531430",
+      "bytes": 470334,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28660,
+        "output_tokens": 2579,
+        "total_tokens": 31239
+      },
+      "generated_utc": "2026-11-02T21:58:31Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_candid_soccer",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_candid_soccer.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of children playing soccer in a park at golden hour, shot from a distance with a long lens, small figures mid-run, faces not readable, dust and motion, warm backlight, natural grain. Plain clothing with no lettering or insignia. No text, no logos. Square 1:1 composition.",
+      "prompt_sha256": "4ef7191a0e8a38c7db5ed2b634f825cf9ffcdb8a12fe3a4e095b0d891a0b1c1f",
+      "image_sha256": "70cad7e68583678ed37d41afdbbe8fcfa4ab914508806924c6aa2c9e4c6cb22e",
+      "bytes": 470338,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 28103,
+        "output_tokens": 2535,
+        "total_tokens": 30638
+      },
+      "generated_utc": "2026-11-02T21:58:52Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_permission_slip",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_permission_slip.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a blank white permission-slip-sized sheet of paper on a kitchen counter, with printed-looking horizontal rules and a signature line but completely blank of words, a pen resting beside it, soft daylight, slight shadow. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "052308c6a1ffb7a8ebd5bea67b46769a11b0912a2528a0a69a17a1a79279af11",
+      "image_sha256": "7d4093953f43abd0bf77b889a8c42e73cdddc5a5abfbf4dc6f54994697323ae4",
+      "bytes": 239162,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10030,
+        "output_tokens": 829,
+        "total_tokens": 10859
+      },
+      "generated_utc": "2026-11-02T21:59:00Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_sitter_schedule",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_sitter_schedule.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic photograph of a blank lined notepad page pinned to a refrigerator with two magnets, faint ruled lines and an empty grid but no writing, a pencil tucked into the spiral, warm kitchen light, slight curl to the paper. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "566af14efeaa46cc6c5d37b688190a152027961ce9243db492d516be2d032af8",
+      "image_sha256": "92de6e73e96fe187447ae38fc7d90c94b589090f8a9ef2e765637f56a5168936",
+      "bytes": 210246,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 27269,
+        "output_tokens": 2107,
+        "total_tokens": 29376
+      },
+      "generated_utc": "2026-11-02T21:59:21Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_holiday",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_holiday.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a living room during a winter holiday evening, warm string lights, a small decorated tree, wrapped gifts on the rug, no people, soft bokeh, cozy film-like color. No text, no lettering, no logos, no brand marks. Square 1:1 composition.",
+      "prompt_sha256": "63e668ea4d4ce8d96db45ef73d39f9802f7c595b4f9eb2b1e878b6ee7750360b",
+      "image_sha256": "f2ac3212fb47f038c9292d43e8158a2578a9fa7b91f752e3d78f36b06f6fdb5b",
+      "bytes": 473330,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 10471,
+        "output_tokens": 1303,
+        "total_tokens": 11774
+      },
+      "generated_utc": "2026-11-02T21:59:30Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_birthday",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_birthday.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic candid photograph of a birthday cake on a kitchen table, chocolate frosting and lit candles, a child's hands just at the edge of frame reaching toward it, warm evening light, shallow depth of field, crumbs and a plain paper plate. No text, no lettering, no logos. Square 1:1 composition.",
+      "prompt_sha256": "9e81c6e09324b93988e117bb9f083d933a837c0904c1fc618ce3445d1f5315e6",
+      "image_sha256": "684410942d53df9bfa75533790598884ec4849e6dff5542ac274508b2760aff7",
+      "bytes": 344898,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18363,
+        "output_tokens": 1860,
+        "total_tokens": 20223
+      },
+      "generated_utc": "2026-11-02T21:59:45Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    },
+    {
+      "assetId": "pack_keepsake",
+      "kind": "pack",
+      "stagedPath": "docs/evidence/154-pack/pack_keepsake.png",
+      "model": "muse-image-1.0",
+      "prompt": "Photorealistic close-up photograph of eclectic refrigerator keepsakes on a white refrigerator door: a round magnet, a small pressed flower under clear tape, a child's clay handprint, a faded seashell, arranged casually, soft kitchen light, faint reflections on the enamel. No text, no lettering, no logos, no photographs of faces. Square 1:1 composition.",
+      "prompt_sha256": "bc2045969a733ab8f5b3bcad44d4acee8c92a47769f3856ca69d1c065ac380e4",
+      "image_sha256": "338cde47f9674915aa4a1b73f4e15376d8c3b9d1318b6212e47f148d2d9c7a7b",
+      "bytes": 346190,
+      "attempts": 1,
+      "usage": {
+        "input_tokens": 18327,
+        "output_tokens": 1845,
+        "total_tokens": 20172
+      },
+      "generated_utc": "2026-11-02T22:00:02Z",
+      "status": "SUCCESS",
+      "run": "pack"
+    }
+  ]
+}

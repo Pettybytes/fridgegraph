@@ -1,0 +1,207 @@
+{
+  "packId": "ellison-fridge-v1",
+  "packName": "Ellison family fridge",
+  "villageId": "v_nora",
+  "households": [
+    "h_a",
+    "h_b"
+  ],
+  "status": "PILOT \u2014 awaiting Bryan's approval",
+  "layers": {
+    "packArt": "Fictional decorative photographs and keepsakes. Shared within the village. Conveys no permissions and holds no live data.",
+    "layout": "Browser/person-scoped geometry. Each viewer's arrangement is private; the pack art is the same.",
+    "liveContent": "Existing caller-authorized reads for the selected child only. Never bundled into the pack."
+  },
+  "assetCount": 12,
+  "assets": [
+    {
+      "assetId": "pack_dog",
+      "file": "pack_dog.png",
+      "slot": "fridge.photo.dog",
+      "kind": "photograph",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_nora",
+        "p_max",
+        "p_leo"
+      ],
+      "creativeFixture": true,
+      "note": "The Ellison family dog, fluffy brown-and-white, consistent with the earlier sample. Creative fixture choice, not inferred from any name or relationship."
+    },
+    {
+      "assetId": "pack_walter_navy",
+      "file": "pack_walter_navy.png",
+      "slot": "fridge.keepsake.navy",
+      "kind": "keepsake-photograph",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_walter"
+      ],
+      "creativeFixture": true,
+      "note": "Vintage-style Navy keepsake attributed to Grandpa Walter. Composed turned away with a softened, indistinct face so it does not establish a conflicting recognizable identity. Fictional service history, recorded as a creative choice."
+    },
+    {
+      "assetId": "pack_loretta_card",
+      "file": "pack_loretta_card.png",
+      "slot": "fridge.note.retirement_invite",
+      "kind": "blank-card",
+      "renderMode": "image+dom",
+      "fictionalPeople": [
+        "p_gma"
+      ],
+      "creativeFixture": true,
+      "note": "Grandma Loretta's retirement party invitation. Card artwork is blank; all wording is DOM text and labelled a fictional sample. No implied booking, RSVP or completed action."
+    },
+    {
+      "assetId": "pack_crayon_family",
+      "file": "pack_crayon_family.png",
+      "slot": "fridge.art.crayon-family",
+      "kind": "child-art",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_nora"
+      ],
+      "creativeFixture": true,
+      "note": "A child's crayon drawing of the family, no text in the image. Attributed to Nora as a creative fixture; not a claim about her actual work."
+    },
+    {
+      "assetId": "pack_candid_kitchen",
+      "file": "pack_candid_kitchen.png",
+      "slot": "fridge.photo.candid-kitchen",
+      "kind": "photograph",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_mom",
+        "p_dad",
+        "p_nora"
+      ],
+      "creativeFixture": true,
+      "note": "Candid morning moment, faces not visible. Fictional; not a record of a real event."
+    },
+    {
+      "assetId": "pack_candid_porch",
+      "file": "pack_candid_porch.png",
+      "slot": "fridge.photo.candid-porch",
+      "kind": "photograph",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_mom",
+        "p_dad",
+        "p_nora",
+        "p_max",
+        "p_leo"
+      ],
+      "creativeFixture": true,
+      "note": "Dusk on the porch, faces indistinct. Fictional scene with no identifiable faces."
+    },
+    {
+      "assetId": "pack_candid_soccer",
+      "file": "pack_candid_soccer.png",
+      "slot": "fridge.photo.candid-soccer",
+      "kind": "photograph",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_nora",
+        "p_max",
+        "p_leo",
+        "p_marcus"
+      ],
+      "creativeFixture": true,
+      "note": "Distant soccer scene, faces not readable. Creative fixture; no coaching record implied."
+    },
+    {
+      "assetId": "pack_permission_slip",
+      "file": "pack_permission_slip.png",
+      "slot": "fridge.note.permission-slip",
+      "kind": "blank-form",
+      "renderMode": "image+dom",
+      "fictionalPeople": [
+        "p_nora",
+        "p_mom",
+        "p_dad"
+      ],
+      "creativeFixture": true,
+      "note": "Blank permission-slip paper. Wording is DOM text and labelled a fictional sample. No signature, submission or consent is implied, and no graph record is created."
+    },
+    {
+      "assetId": "pack_sitter_schedule",
+      "file": "pack_sitter_schedule.png",
+      "slot": "fridge.note.sitter-schedule",
+      "kind": "blank-form",
+      "renderMode": "image+dom",
+      "fictionalPeople": [
+        "p_priya",
+        "p_mom",
+        "p_dad"
+      ],
+      "creativeFixture": true,
+      "note": "Blank sitter schedule. Wording is DOM text and labelled a fictional sample. No booking or availability is implied."
+    },
+    {
+      "assetId": "pack_holiday",
+      "file": "pack_holiday.png",
+      "slot": "fridge.photo.holiday",
+      "kind": "photograph",
+      "renderMode": "image",
+      "fictionalPeople": [],
+      "creativeFixture": true,
+      "note": "Holiday living room with no people. Creative fixture; no holiday is recorded in the graph."
+    },
+    {
+      "assetId": "pack_birthday",
+      "file": "pack_birthday.png",
+      "slot": "fridge.photo.birthday",
+      "kind": "photograph",
+      "renderMode": "image",
+      "fictionalPeople": [
+        "p_nora"
+      ],
+      "creativeFixture": true,
+      "note": "Birthday cake with hands at the frame edge. Creative fixture; no birthday event is implied beyond the recorded birth date."
+    },
+    {
+      "assetId": "pack_keepsake",
+      "file": "pack_keepsake.png",
+      "slot": "fridge.keepsake.tray",
+      "kind": "keepsake",
+      "renderMode": "image",
+      "fictionalPeople": [],
+      "creativeFixture": true,
+      "note": "Eclectic fridge keepsakes. No faces, no text."
+    }
+  ],
+  "domText": {
+    "retirement_invite": {
+      "title": "Loretta's retirement",
+      "body": "Fictional sample \u00b7 You're invited to celebrate",
+      "badge": "SAMPLE"
+    },
+    "permission_slip": {
+      "title": "Field trip permission",
+      "body": "Fictional sample \u00b7 Signature line \u00b7 Not submitted",
+      "badge": "SAMPLE"
+    },
+    "sitter_schedule": {
+      "title": "Sitter schedule",
+      "body": "Fictional sample \u00b7 Week of Nov 2 \u00b7 No booking",
+      "badge": "SAMPLE"
+    }
+  },
+  "behaviour": {
+    "coParents": "Pack art is shared for the village; each parent's layout is person-scoped and private. Neither parent's arrangement is visible to the other, and the pack conveys no custody or permission meaning.",
+    "caregiverMultipleFamilies": "A caregiver connected to more than one family sees only the pack of the selected child's village. Packs are keyed by village/household; they never merge or leak across families.",
+    "demoGuide": "The guide may view the fictional ecosystem, but the guide has no face, no person-scoped layout, and no live content. Its fridge shows the pack with live content refused.",
+    "newFamily": "A newly created family starts with no pack assigned: empty fridge, neutral placeholders, monogram-safe. It never inherits another family's pack. Live content stays empty until authorization exists."
+  },
+  "liveContentStates": {
+    "populated": "Caller-authorized reads for the selected child render as live cards beside the pack art.",
+    "empty": "Authorized but nothing scheduled: an explicit empty state, not a blank hole.",
+    "refused": "No permission (or demo guide): generic refusal with no existence oracle; pack art still renders."
+  },
+  "nonClaims": [
+    "No booking, availability, signature, submission, grade or completed action is implied.",
+    "No graph record corresponds to any pack asset or DOM sample.",
+    "Pets, holidays, service history and celebrations are creative fixture choices, not facts inferred from names, ethnicity or relationships.",
+    "Shared artwork conveys no permissions."
+  ]
+}
