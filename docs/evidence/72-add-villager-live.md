@@ -378,3 +378,71 @@ check with a footnote. No new proposal, confirm, or live call was made to invest
 Every other row in the third slot's table (relationship ACTIVE, grant scopes exactly
 `[pickup.request]`, no parent/guardian authority gained, schedule/care refused, Loretta/Priya/
 Whitfield refused, no outreach) is unaffected by this correction and stands as recorded.
+
+## Window N+2, Slot A — Dana→Nora discovery now DEMONSTRATED (closes that line)
+
+Run inside "WINDOW N+2 — reservation" (`2026-11-02T04:08:13Z`) and its order correction
+(`2026-11-02T04:19:22Z`), Slot A: `2026-11-02T05:00:00Z` → `06:00:00Z`, read-only, assigned to
+`feat/teacher-persona`. Verified both comments verbatim via paginated `gh api` before any call.
+Serving pids unchanged from the third slot (4001–4008 `48261`, routers `51145`/`80777`, MCP
+`99019`, Rosina `99547`) — no restart since the earlier checks.
+
+**Detroit local time at call time: `2026-11-02 00:06`** (computed directly) — past the local
+midnight that the grant's `valid_from: "2026-11-02"` requires, confirming the slot was correctly
+timed to this exact boundary.
+
+**1. Dana's fresh session (new login, not a carried token) now lists Nora — PASS.**
+`myChildren`, queried immediately after a brand-new `/api/demo/login` as `dana`:
+```json
+{"myChildren":[
+  {"child":{"id":"p_jax", ...}, "scopes":["careplan.read","contacts.read","goals.read",
+    "pickup.request","pickup.verify","schedule.read","school.read","transport.read"]},
+  {"child":{"id":"p_nora","person":{"displayName":"Nora Ellison"}}, "scopes":["pickup.request"]}
+]}
+```
+Nora is listed with **exactly** `["pickup.request"]` — no superset, nothing implied. Jax's row is
+byte-identical to every earlier baseline in this evidence file; her own authority is untouched.
+
+**2. Schedule, care, address reads for Nora stay refused — PASS, with one scope still untestable
+(unchanged from the earlier finding, re-confirmed, not re-litigated):**
+- `effectiveScheduleFor(childId: "p_nora", ...)` → explicit `UNAUTHORIZED` (`authorizeChild` gate,
+  `src/subgraphs/schedule.ts`).
+- `careFacts(childId: "p_nora")` → `{"careFacts":[]}`, RLS-filtered (real refusal, not absent
+  data — already proven against Kendra's non-empty 3-row read in the third slot's checks above;
+  nothing about that mechanism changed, so not re-run against Kendra a second time here).
+- **Address read: still not independently testable**, for a sharper reason than "feature
+  unwired" stated in the earlier slot: the only address-gated query, `villageWorld`, is **not yet
+  composed into the router's schema at all** (`Cannot query field "villageWorld" on type
+  "Query"`) — the recompose step is still pending (per Window N+2's own posted order, step 4,
+  not yet reached). Even once composed, `villageWorld`'s own first gate requires
+  `schedule.read` for the *whole* query (`src/subgraphs/village.ts:261`,
+  `authorizeChild(ctx, childId, SCOPE.schedule)`) before ever reaching the
+  address-vs-coordinates distinction inside it — so for someone in Dana's exact position
+  (`pickup.request` only), it would never isolate "address" as a distinct signal from "schedule"
+  regardless. Not claiming schedule or address access for her beyond what was actually run, and
+  not claiming this gap is resolved.
+
+**What this closes, and what it does not:** Requirement 1 from the third slot's corrected table —
+"Dana's fresh session sees exactly the granted scopes" — is now **DEMONSTRATED (PASS)**, closing
+that line. **Not closed, and not investigated in this read-only slot:** the separate causal
+question from the correction above — why the grant's `valid_from` landed on `2026-11-02` when
+Kendra requested no start date at all. That remains open; nothing in this check traces
+`src/rosina/*`'s defaulting logic, and none was attempted (read-only, per instruction).
+
+No writes were made. No restart, reset, or migration performed. Receipt posted to #78; slot
+released explicitly below.
+
+### Corrected summary (final)
+
+| Required check | Status |
+|---|---|
+| Relationship ACTIVE, grant exactly `[pickup.request]`, one grant + one approval | **PASS** (third slot) |
+| No parent/guardian authority gained; other authority untouched | **PASS** (third slot; re-confirmed here for Jax) |
+| Schedule read refused | **PASS** (third slot; re-confirmed here) |
+| Care-fact read refused (RLS) | **PASS** (third slot; re-confirmed here) |
+| Address read refused | **Not independently testable** — gating query not yet composed into the router, and structurally cannot isolate "address" from "schedule" for this caller even once it is |
+| Loretta / Priya / Ms. Whitfield refused | **PASS** (third slot) |
+| Sequential confirm retries idempotent | **PASS** (third slot) |
+| Genuinely concurrent *live* confirm retries | **No evidence exists** — only sequential live calls were made; offline `FakeDb` concurrency evidence exists separately (linked above) but does not reach real Postgres locking |
+| Dana's fresh session discovers Nora with exactly the granted scopes | **PASS — DEMONSTRATED** (this slot, Window N+2 Slot A) |
+| No outreach | **PASS** (third slot) |
