@@ -1,3 +1,4 @@
+import {NoticeComposer} from '@/features/notice-plan/NoticeComposer'
 import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
 import {OrbitPhotoChat} from '@/features/orbit/OrbitPreparation'
 import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
@@ -176,6 +177,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {orbit&&<OrbitPhotoChat controller={orbit}/>}
         {busy && <div className="rosina-progress" role="status"><strong>{adapter.mode==='live'?(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…'):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
       </div>
+      {!dismissed&&<NoticeComposer/>}
       {error && <p className="rosina-error" role="alert">{error}</p>}
       <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply}/>}</div></form>
     </section>

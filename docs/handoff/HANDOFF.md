@@ -3974,9 +3974,89 @@ contracts remain dependencies for live map integration.
 | 2026-11-01 21:23 | **W-PHOTO-64 OPEN — content-rich fixture run, deadline `2026-11-01T22:05:00Z`.** Reserved before any call. **No restart, no migration, no deploy:** the stack is already serving Rosina **`539a8b4`** (pid 20096) and the graph **`405f7a7`**. Scope: send the committed fictional fixture `docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg` through Kendra's real authenticated upload and the real `POST /api/rosina/photo-descriptors`, then the five cases again, writing **evidence 64** and leaving **63, its blank-image result and `run01-failed` untouched**. Fixture provenance recorded in `docs/evidence/fixtures/PROVENANCE.md` — generating tool and model taken from the generation receipt (`image_generate`, `google/gemini-3.1-flash-image`), everything unsupported marked **unknown**; **no Muse attribution**, because none is verified. Ends with the ordinary demo reset and a sandbox check. | branch `proof/photo-descriptor-authority` | 4200 · 5189 · 4008 | **OPEN to 2026-11-01T22:05:00Z** |
 | 2026-11-01 21:32 | **W-PHOTO-64 RELEASED — content-rich run PASS 23/23; nothing restarted, nothing migrated.** Fixture `docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg` (tool `image_generate`, model `google/gemini-3.1-flash-image`; seed/timings **unknown**; **no Muse attribution**, since `muse-image-1.0` is unverified) sent through Kendra's real upload (362,754 → **79,141** stored bytes) and the real descriptors endpoint. Returned **`wearColor:yellow`, `carryColor:red`, `carryItem:backpack`** — all three inside the child's 55-entry vocabulary, **none dropped**. **Honest omissions:** `hair` and `wearGarment` were not proposed although braided dark hair and a raincoat are visible; `textInImage` was not asserted. Priya **403**, confirmed ACTIVE-alert AUDIENCE **403 byte-identical**, recipient photo GET **200 `image/jpeg`** with `X-Orbit-Access: AUDIENCE`, unknown photo **404**, alert closed, demo reset. **Evidence 63, its blank-image result and `run01-failed` are untouched.** Serving revisions unchanged: Rosina `539a8b4` (20096), graph `405f7a7`. | `proof/photo-descriptor-authority` | 4200 · 5189 · 4008 | **RELEASED — proof PASS, no deploy** |
 | 2026-11-01 21:30 | **CORRECTION (append-only) to the 21:38 and 21:05 rows — 0055 is APPLIED; my "0055 FALSE" was wrong.** Measured from the database, not inferred: all **12** 0055 functions present; **0 of 12** grant EXECUTE to PUBLIC (my earlier "PUBLIC EXECUTE PRESENT" line matched `postgres=X`, which is a grant to `postgres`, not to PUBLIC); `orbit_alerts` table-level SELECT held only by `postgres` and `service_role`; `authenticated` holds **column-level** SELECT on exactly the 15 safe columns and none of the sensitive ones; `orbit_share_for` carries the `status='ACTIVE'` + `_orbit_is_audience_member` post-close gate. The "0055 false" came from probing a `redacted_at` column **that 0055 never creates** — a fabricated probe. `ops/0055-dry-run.mjs` fails only because it asserts the **pre**-migration grant state, which post-apply is necessarily false. **No migration was replayed and no permission was restored.** Tracking metadata is separate and unresolved: `supabase_migrations.schema_migrations` stops at **0011** because `ops/*-apply.mjs` writes no tracking row; 0012–0057 are **not** assumed applied and are not bulk-stamped. | — | — | **CORRECTION** |
+
+## NOTICE → PLAN UI — contract checkpoint, 2026-11-01
+Branch feat/web-notice-plan, worktree fridgegraph-notice-plan-ui, base
+573e6689d8996a7716b1f15ca4c02dbbee4e5baf (#85 merged). #87 remains draft pending #78.
+UI: pending · backend: contract pending · integrated + tested: pending.
+Priority: sample (a), early dismissal versus Nora's pickup. Existing Rosina thread,
+shared UI primitives and private-session cleanup reviewed; no live transport will be enabled
+until the endpoint is both merged and verified deployed. No real pickup/consent writes in mock.
+At checkpoint, feat/rosina-notice-plan exists locally at the base but no pushed contract or
+fictional samples are available. Waiting on docs/contracts/notice-plan.md before defining
+accepted files, request/envelope, clarification or idempotent confirm/error shapes. No guesses,
+source changes, live calls, tests or captures claimed at this checkpoint.
+
+### NOTICE → PLAN stable-section progress — 2026-11-01
+Contract arrived at b0ce3aa; sample (a) at 9103559 on feat/rosina-notice-plan / PR #89.
+Built stable §§2/4/4b: local drop/upload/paste, published MIME/size gates, visible Mock label,
+source-aware review, same-proposal clarification continuation, plain error-code states and
+owner-keyed private cleanup. Exact PNG/PDF bytes and text copied from Claude's committed kit.
+The sample tray loads the same file→input→mock prepare path as a manual drop; arbitrary
+images do not inherit sample facts (content digest must match). No real model or backend calls.
+UI: mock prepare/review complete · backend: planned · integrated + tested: offline only.
+358 web tests PASS, root typecheck and web typecheck/build PASS. No real pickup/consent records.
+
+Confirm remains DISABLED: §4 does not yet specify the full available=true envelope mapping.
+Requested that mapping, exact error JSON/429 retry shape and unreadPages location in PR #89.
+No confirmation method, real transport, action arguments or network retry have been invented.
+The scripted sample review says confirmation is not connected; it does not claim a pickup.
+Review-only captures/recording: web/evidence/notice-plan/review-only/. The earlier shell captures
+are preserved separately. Full sample(a)→confirm and live/deployed acceptance remain pending.
+Live activation requires BOTH merged endpoint and verified deployed revision, in a reserved window.
+
+### NOTICE → PLAN mock confirmation — 2026-11-01, PR #90 draft
+PR #89's current head was verified as `67c7314c1db7056dbfaa112aae2a6cb822e7a578`.
+Its implemented confirm shape is `{ claims, signature }` echoed from the prepare envelope;
+the success body is `{ job: { id, status } }`. Contract §0 documents the signed claims,
+but the §5 example still shows an older flat request and a response version that the handler
+does not return. Requested a contract correction on #89; the mock follows the implementation.
+
+UI: mock prepare/review/explicit `requestPickup` confirm complete. Backend: PR #89 open,
+implementation unit-tested, integration seam not yet live-proven. Integrated + tested: PENDING.
+Kendra's exact sample (a) produces only the published `requestPickup` action and a coarse
+afternoon window. Parent/guardian confirmation is explicit; Priya and review-only field-trip
+proposals have no confirm control. The mock returns one stable job id for an explicit repeat,
+without writing a real pickup or consent record. Confirm errors 401, 403, 400, 410, 409,
+422 and rate limiting show no success or automatic retry. Inputs and late confirmation
+results clear across persona/child changes. Mock screenshots and a sample→review→confirm
+recording are in `web/evidence/notice-plan/mock-confirm/`; this is not live evidence.
+Final offline check: 369 web tests across 62 files PASS; root typecheck PASS;
+web typecheck/build PASS; staged secret scan 856 files, 0 findings.
+
+Live transport remains disabled until #89 is merged AND its endpoint is verified served.
+Then reserve a Bentley window, connect current-session bearer transport, and prove a
+real sample (a) request through Mission Control; field-trip/permission-slip remains
+review-only. PR #90 stays draft until that integration passes.
+
 | 2026-11-01 22:27 | **RESERVED: migrations 0070–0079 for Claude Code Session 2 (teacher persona task), per Bryan's explicit authorization this session.** Checked every worktree's `supabase/migrations/` (Bentley's `fridgegraph-village-backend` tops out at `0061`; the primary checkout and every other sibling worktree top out at `0055` or lower) — **0062–0079 confirmed unclaimed** before reserving. Scope: seed a new fictional teacher persona for Nora ("Ms. Whitfield") with a minimal `school.read` + new `school.report` grant, plus the matching `school_reports` INSERT policy/table-grant the write needs. This session **never applies a migration and never opens a shared-stack window** — every migration file and every seed/fixture change is staged only, on `feat/teacher-persona` (worktree `/Users/user/orca/workspaces/fridgegraph/feat-teacher-persona`, based on `origin/main` @ `573e668`), for Bentley to apply in his own reserved window. Only migration numbers actually used will be named in the PR; unused numbers in 0070–0079 remain free for the next task. | `feat/teacher-persona` @ `573e668` | — | **RESERVED** |
 | 2026-11-01 22:40 | **FILE OVERLAP NOTE for #78 (`feat/village-map-backend`) — `src/fixtures-cast-v2.ts` only.** Bryan flagged that #78 is about to add place coordinates, event→place linkage and `recorded_places` to `src/demo/reset.ts`, `scripts/db.ts` and the cast fixtures, which this task also touches. Checked #78's branch at `cfb417f` before editing: it has **not yet** touched any of the three files. This task's diff is **`src/fixtures-cast-v2.ts` only**, by three small additive hunks appended after the last existing entry in each array — one `people` row (`p_whitfield`), one `relationships` row (`r_whitfield_teacher`, teacher → Nora), one `grants` row (`g_whitfield_school`, scopes `school.read`/`school.report` only). **`src/demo/reset.ts` and `scripts/db.ts` are untouched by this task** — #78 owns those two outright. Watch for a merge-order conflict only in `fixtures-cast-v2.ts` if #78's own additions land at the same array positions; nothing else to reconcile. | `feat/teacher-persona` @ `573e668` | — | **NOTED** |
 | 2026-11-01 23:05 | **CAST CHECKSUM WILL CHANGE from `823cb76928f50c9f` — recompute live in Bentley's window, do not hand-copy a value.** `ops/stack-health.mjs`'s cast checksum hashes exactly three live tables — `care_facts`, `routines`, `grants` (sorted rows, `sha256(...).slice(0,16)`) — and #92 (`feat/teacher-persona`) adds one row to `grants` (`g_whitfield_school`) while leaving `care_facts` and `routines` completely untouched (confirmed: `git diff origin/main...feat/teacher-persona -- src/fixtures.ts scripts/db.ts` is **empty**, and the only changed lines in `src/fixtures-cast-v2.ts` are three additive hunks to `people`/`relationships`/`grants`, not `routines`/`care_facts`). Since `grants` is one of the three hashed tables, the digest **will** differ from `823cb76928f50c9f` once this grant is seeded — computed offline only to the extent possible: the canonical pre-sort JSON line this new row contributes is exactly `{"actor_id":"p_whitfield","child_id":"p_nora","granted_by":"p_mom","id":"g_whitfield_school","scopes":["school.read","school.report"],"valid_from":null,"valid_until":null}` (verified in Node with the same `JSON.stringify(r, Object.keys(r).sort())` shape `stack-health.mjs` uses, against the `grants` table's fixed 7-column schema from `0001_schema.sql`, which no later migration alters). **The exact new 16-hex digest is NOT computable from this worktree** — it depends on the live DB's full existing `care_facts`/`routines`/`grants` content, and this worktree has no `SUPABASE_DB_URL`/credentials (AGENTS.md §2) to query it; reporting a specific guessed hex value would be inventing a test result (AGENTS.md §1.4). **The v1 baseline checksum/contract is unchanged, confirmed by the empty diff above** — this PR never touches `src/fixtures.ts` or `scripts/db.ts`, so `baseline()`, `checksumDatabase()` and the published "28 tables, 157 rows" v1 claim keep their exact meaning and values. **For Bentley's window, in order:** apply migration `0070`; run `scripts/seed-auth-users.ts` (mints Ms. Whitfield's Auth user + identity-map row); reseed (`db:seed` / `restoreDemoCast()`) so `g_whitfield_school` actually lands in `grants`; recompose the supergraph (the new `reportSchoolDay` field in `schema/school.graphql` needs it); then run `node ops/stack-health.mjs`, read its reported `cast=...` value, and **deliberately** update the expected value everywhere `823cb76928f50c9f` is currently cited (`docs/evidence/59-reset-restores-cast.md`, `docs/evidence/60-orbit-redesign.md`, and any reset-proof script that asserts it) to the new measured digest — do not carry the old literal forward. | `feat/teacher-persona` @ `aacc84c` | — | **NOTED — awaiting Bentley's live recompute** |
+
+### NOTICE → PLAN merged backend and transport preparation — 2026-11-01, PR #90 draft
+`origin/main` verified `29887dd44734cf768408acd4b551ee53e486b932` (#89 merged).
+Merged it into `feat/web-notice-plan` at `8507a4349283960441e18bc70a0e6772aa1f5e66`.
+HANDOFF retained both appended workstreams; the conflicting sample PDF was resolved to
+the merged #89 asset. Its byte digest differs from the pre-merge copy, so the mock's
+content-recognition digest was updated and tested against the merged PDF.
+
+Merged **code** wire shape (requested for contract-doc correction in a comment on #89):
+prepare clarification requires `{ childId, notice, resume }`; §4b's resume-only example
+returns `400 INVALID_REQUEST`. Confirm requires `{ claims, signature }` from the envelope,
+not §5's flat fields. Confirm success is `{ job: { id, status } }`, with no version.
+`noticeEndpoint.ts` also returns `INVALID_REQUEST`, `EXTRACTION_FAILED`, and
+`PICKUP_FAILED` beyond §5.4's listed codes. The browser transport follows the merged code.
+
+UI: live-capable transport implemented behind explicit `VITE_NOTICE_PLAN_LIVE` gating;
+default remains visibly Mock. Backend: merged, **serving revision unverified**.
+Integrated + tested: **PENDING live sandbox proof**. The adapter reads the current
+in-memory bearer on each request, posts signed claims unchanged, validates the response,
+never auto-retries confirmation, and clears late results on a perspective switch.
+No live notice or pickup request has been sent from this branch. A Bentley reservation
+and served-revision receipt are required before enabling the flag and running sample (a).
+Offline after the merge: 386 web tests / 64 files PASS, root typecheck PASS,
+web typecheck/build PASS, staged secret scan 884 files / 0 findings.
+
 | 2026-11-01 23:22 | **NEW BRANCH `feat/rosina-school-report`** (worktree `/Users/user/orca/workspaces/fridgegraph/feat-rosina-school-report`, cut from `origin/main` @ `64fd811` — #92 merged) for the Rosina reporting path: "Ms. Whitfield tells Rosina Nora has a fever" → stage a reviewable proposal → HER deliberate confirm → `reportSchoolDay`'s real, already-authorized write (#92). Does not touch or expand the teacher-persona PR. **Migrations 0071, 0072 used** from the 0070–0079 reservation (0070 already spent by #92); 0073–0079 remain free. Staged only — never applied, no shared-stack window opened. | `feat/rosina-school-report` @ `64fd811` | — | **OPEN (implementation)** |
 | 2026-11-01 23:22 | **Rosina school-report tool — design and what Bentley must do.** `propose_school_report`/`confirm_school_report` (migration `0071`) mirror Orbit's draft → preview → activate shape (0032): a server-side `school_report_proposals` row holds the exact reviewed `kind`/`text`, `version` bumps on edit (stale/edited proposals refused by a version mismatch), `expires_at` is checked at confirm, and `SELECT ... FOR UPDATE` + a `confirmed_report_id` column make confirm idempotent — a sequential OR concurrent retry of the same confirm returns the SAME `SchoolReport`, never a second row. Authority is `has_scope(child, 'school.report')`, re-checked at confirm time too — never a hardcoded persona name, so it follows Ms. Whitfield's existing grant from #92 with no special-casing. **`proposeSchoolDayReport` is the first mutation ever exposed through Rosina's MCP tool transport** (`ops/ProposeSchoolDayReport.graphql`, listed in `.apollo/mcp.local.yaml`, allow-listed in `src/rosina/model.ts`'s `ALLOWED_MCP_TOOL_NAMES`) — a deliberate, narrow exception to this service's "no mutation is ever offered as a tool" invariant, documented at both sites: it can only ever write the staging table, never `school_reports`. **`confirmSchoolDayReport` has NO MCP operation file anywhere and is not in that allowlist** — Rosina's tool transport cannot reach it no matter what a model asks for, so a model tool call or generated text structurally cannot confirm itself; the teacher's own deliberate UI action (not built in this PR — the backend contract only) is the only path to it, same as Orbit's `activateOrbitAlert` depends on a UI Codex hasn't shipped yet. The chat turn's structured result (`RosinaTurnResult.schoolReportProposal`, `src/rosina/model.ts`) carries the exact `{id, version, childId, kind, text, createdAt, expiresAt}` the app needs to build a real confirm button — never parsed out of the model's own prose. **Why NOT `web/src/features/rosina/catalog.ts`'s action-tool mechanism (start-pickup/prepareOrbitAlert's path):** that mirror is drift-checked bidirectionally against the web file (`ops/rosina-catalog-drift.mjs`) and this task is backend-only — adding an id there with no web-side counterpart would fail that check and cross into `web/`'s contract, out of this task's layer. **Bentley's window:** apply `0071` then `0072` (0072 depends on `school_reports` existing, unaffected by 0071's own new table); recompose the supergraph for `proposeSchoolDayReport`/`confirmSchoolDayReport`/`SchoolReportProposal`/`SchoolReport.reportedAt`; restart Rosina's MCP server process so it picks up the updated `.apollo/mcp.local.yaml` (new tool path) and the recomposed `supergraph.graphql`; then a live proof: teacher proposes via chat, confirms via a direct authenticated mutation call (no UI yet), parent reads it back, and a repeat confirm (same proposalId+version) returns the identical report with no second row in `school_reports`. | `feat/rosina-school-report` @ (pending commit) | 4200 · 5050 | **DEPENDENCY — Bentley must apply 0071/0072 + recompose + restart MCP** |
 | 2026-11-01 23:22 | **`school_reports.reported_at` (migration 0072) — for `feat/web-activity-timeline`.** New nullable `timestamptz` column, exposed on GraphQL `SchoolReport` as `reportedAt: String` (ISO 8601 string or `null`). Meaning: WHEN a report was actually filed — distinct from the existing `at` field, which is the school-day date the report is ABOUT (unchanged). `reportedAt` is `null` for every historical/fixture row and anything filed before this migration — render that as "time not recorded," never as "filed at some unknown instant" and never backfilled. For a real filing (through `reportSchoolDay` or the new `confirmSchoolDayReport`), it is a real server-generated timestamp, enforced by a database trigger keyed on `auth.uid()` being present — a client can never forge or override it, including through a direct authenticated insert. If the activity timeline wants to show "reported 10 minutes ago" vs. "about [date]," `reportedAt` is the first and `at` is the second — do not conflate them. | `feat/rosina-school-report` @ (pending commit) | — | **FOR feat/web-activity-timeline — new field, informational** |
@@ -3986,6 +4066,27 @@ contracts remain dependencies for live map integration.
 | 2026-11-01 23:56 | **W-TEACHER-REPORT post-review check:** 372/372 web tests, web build/typecheck and root typecheck pass. Removed opaque report ID from user-facing success copy; the live confirm transport now checks returned child, kind, and text against the reviewed proposal. The earlier 371/371 receipt remains intact. Live dependency unchanged. | `feat/web-teacher-report` | web only | **MOCK PASS · LIVE PENDING** |
 
 | 2026-11-02 00:13 | **Evidence 65 — teacher report live proof: backend contract PASS, Rosina/MCP leg BLOCKED (found, not fixed).** Run read-only against the already-running shared stack during the proof window (no restart, no migration, no reset). **Served revisions measured:** graph/demo-API 4001–4008 = `c806f46` (pid `15628`); routers 4010/4012 on the `c806f46` supergraph; MCP 5051 = `c806f46` config (pid `50957`), 12 tools incl. `ProposeSchoolDayReport`; Rosina 4200 = `7fda69d` (pid `47139`); `GET /api/demo/health` 12/12 READY incl. `whitfield`. **FINDING, not fixed:** the deployed `/tmp/fridgegraph-mcp-c806f46.yaml` has no `forward_headers: authorization` block at all (the committed `.apollo/mcp.local.yaml` has had it since #92) — every MCP tool call fails `UNAUTHENTICATED` for a bearer proven valid seconds earlier against the router directly (`MyChildren` and `CareFacts` both reproduced, not just the new tool), which is why Rosina's chat turn fails closed for every message via `fg_rosina_7fda69d.log`'s `tools=mcp:MyChildren!`. This is a deployment-config generation gap outside this offline session's checkout/window, not a code defect in `.apollo/mcp.local.yaml`/`model.ts`/`school.ts`. **What WAS proven, direct GraphQL (bypasses the blocked MCP leg since the mutations don't depend on MCP):** Whitfield proposes (`srp_9d5f73043fcc`) → confirms → real `sr_6fb1555f27d0` with a live server `reportedAt` and `local_today()`-correct `at`; Kendra reads it back byte-identical; a REPEAT confirm (same proposalId+version) returns the IDENTICAL report, still exactly one row; Priya (no `school.report` grant) is refused on both propose and her own attempt to confirm Whitfield's proposal — zero rows created/changed either time. **Open question, not debugged (no log access to this path):** Priya's refusal and a blank-text propose both surfaced as generic `RPC_FAILED` instead of their specific codes (`UNAUTHORIZED`/`SCHOOL_REPORT_TEXT_REQUIRED`) — the security OUTCOME is correct (refused, no data), the CLIENT-FACING CODE is not what `schoolReportProposalError` is supposed to produce; `src/subgraphs/school.ts` has no `console.error` on that branch to see the raw message. Full detail in `docs/evidence/65-teacher-report-live.md`. **Left in the shared DB on purpose** (this session's window doesn't include a reset): proposal `srp_9d5f73043fcc` (confirmed), report `sr_6fb1555f27d0`, one raised-before-insert blank-text attempt — ordinary sandbox test rows for the window owner's own reset. | `evidence/teacher-report-live` @ (pending commit) | 4001–4008 · 4010 · 4012 · 4200 · 5051 | **EVIDENCE — PASS (direct GraphQL) / BLOCKED (Rosina+MCP leg) / OPEN (RPC_FAILED code mapping)** |
+
+### NOTICE → PLAN served preview proof — 2026-11-02, PR #90 draft
+UI revision `66cc717f39388f2a249c19eb4b266c45d5eb0dcd` ran on preview
+port 5209 with `VITE_NOTICE_PLAN_LIVE=true` only in that preview. Served demo
+and graph were `c806f46`; Rosina was `7fda69d`. Mock checks remain separate:
+386/386 web tests across 64 files passed, with root/web typecheck, web build
+and secret scan passing. Kendra's real picker session was READY, but reviewing
+the published sample-(a) PNG and its pasted text each returned HTTP 502
+`NOTICE_ERROR`; the UI showed a friendly failure. There was no proposal,
+confirmation or pickup request. The exact authenticated `NoticeEvents` query
+for the handler's 2026-10-26 scenario date returned 200, one event and a WEEKLY
+schedule. The served prepare path still needs repair and a new proof.
+
+UI: complete in mock and live-capable · backend: served but notice prepare
+failed · integrated + tested: PENDING. Bryan assigned the single real
+sample-(a) confirmation in the next reserved window to this UI preview;
+feat/rosina-service will observe the resulting job. The W-PROOFS-ONLY slot was
+released around 00:09Z, despite an earlier row carrying a later stamp and
+01:15Z deadline. These UI probes occurred around 00:12–00:16Z before that
+correction was seen; all previews and live requests stopped when it was read.
+No more live requests until Bentley posts a fresh OPEN slot on #78.
 
 ### Teacher report served preview proof — 2026-11-02, PR #99 draft
 UI revision `b638954d30579a347fa0e698006d620fb28a53b8` ran on preview
@@ -4014,6 +4115,27 @@ slot on #78 and repairs the MCP forward-header leg.
 
 | 2026-11-02 00:34 | **Fix PR for evidence 65's open finding — school-report RPC errors now map by SQLSTATE, not message text.** `schoolReportProposalError` (`src/subgraphs/school.ts`) tries message-substring matching first (unchanged, still the more specific signal when it works), then falls back to a documented SQLSTATE map set by migration 0071's own RAISE EXCEPTION statements (`42501→UNAUTHORIZED`, `P0002→PROPOSAL_NOT_FOUND`, `40001→PROPOSAL_STALE`, `22023→SCHOOL_REPORT_INVALID` — one known, pre-existing overlap: 0071 reuses 22023 for three distinct raises that SQLSTATE alone can't separate, documented in the code, not papered over). An error matching neither signal logs ONE line — a correlation id + the SQLSTATE only, **never** raw message/details/hint — and returns that same correlation id to the client inside a generic `RPC_FAILED`. Does not touch migration 0071 (already applied, cannot be edited) or `addVillagerError` (`feat/add-villager`, not yet merged — that branch should pick up the same pattern before its own PR, not duplicate the old bug). Tests use real `@supabase/supabase-js` `PostgrestError` fixtures, not the old fake-RPC plain `Error` — 19/19 PASS (5 new); full `test:rosina` 159/159; typecheck/secret-scan clean. No migration, no live deployment touched. | `fix/school-report-error-mapping` @ `4ce49a3` | — | **PR #101 OPEN — CI pending** |
 
+### NOTICE → PLAN AGENT PROOF SLOT — 2026-11-02, PR #90 draft
+Bentley posted a fresh slot on #78, then paused agents to correct Rosina's
+notice schedule-reader target. The pre-restart UI Review returned 502
+`NOTICE_ERROR`; that failed result is preserved. After “agents resume,” Rosina
+4200 served `7fda69d` with the router target corrected, alongside graph/demo
+`c231ba8`, routers `c806f46`, MCP `cfbbb6a`. At UI head
+`5e92da704433c1cf6956b61f777ba27db1144515`, the real Kendra picker and
+sample-(a) tray produced one signed `requestPickup` proposal. Exactly one
+explicit UI Confirm returned job `job_2f32d2a49d204d75ba39810e2fbaa66d`
+in `discovering`; Mission Control read it back without claiming pickup was
+arranged. Priya's real picker could review the notice but had no Confirm
+button. No second pickup request, reset or restart was run by this UI lane.
+Full served revisions, outcomes and screenshot names are in
+`web/evidence/notice-plan/live-2026-11-02/RECEIPT.md`.
+
+UI: complete in mock and live-capable · backend: served, sample-(a) prepare
+and confirm proven · integrated + tested: sample (a) and Priya boundary PASS;
+broader notice samples (b)/(c) and briefing remain with feat/rosina-service.
+#90 stays draft until that service evidence and final review are reconciled.
+Bentley owns the canonical reset after the slot.
+
 ### Teacher report card AGENT PROOF SLOT — 2026-11-02, PR #99
 After Bentley restored MCP forwarding and Rosina's GraphQL target, the #99
 browser card passed end to end at UI head
@@ -4032,3 +4154,12 @@ UI: complete · backend: served · integrated + tested: PASS for the teacher
 review-to-confirm browser flow. Activity readback is owned by
 feat/web-activity-timeline; Bentley owns the canonical reset. No reset or
 restart was run by this UI lane.
+
+**AGENT PROOF SLOT addendum:** feat/rosina-service's independent live receipt
+on #78 observed the exact same sample-(a) job, not a duplicate. It also
+passed sample (b)'s clarification/resume, sample (c)'s review-only refusal
+and the distinct Loretta/Priya briefing scopes. The browser proof plus that
+service receipt cover #90's intended live integration. UI: complete ·
+backend: served · integrated + tested: PASS for the specified Notice → Plan
+flows. Keep the failed 502 receipts as historical failures; they were fixed
+by Bentley's router-target restart before the passing run.
