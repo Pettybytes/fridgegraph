@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FgButton, Surface } from '@/components/fg/primitives'
+import { checklistStorageKey } from './storage'
 import './demo-checklist.css'
 
 export type DemoStepId = 'notice' | 'village' | 'orbit' | 'voice' | 'photo' | 'guide'
@@ -20,6 +21,8 @@ export type DemoChecklistProps = {
   version?: string
   availability: DemoChecklistAvailability
   evidenceLinks: DemoChecklistEvidence
+  reopenSignal?: number
+  resetFailure?: string
   /** Supply only an authorized reset action. A resolved false means reset failed. */
   onReset?: () => Promise<boolean | void>
 }
@@ -47,8 +50,8 @@ type Step = { id: DemoStepId; number: number; title: string; doThis: ReactNode; 
 function steps(availability: DemoChecklistAvailability): Step[] {
   const result: Step[] = [{
     id: 'notice', number: 1, title: 'A school notice changes the plan',
-    doThis: <>As Kendra viewing Nora, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once when live confirmation is ready. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
-    lookFor: <>This is a historical October 26, 2026 sample: 12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup that day. {availability.noticeConfirmReady ? <>After parent confirmation, look for <strong>Pickup request created</strong>; pickup is <strong>not arranged yet</strong>.</> : <>Review the proposed conflict. A recorded pickup request needs a live parent confirmation, which this view has not marked ready.</>}</>,
+    doThis: <>As Kendra viewing Nora, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
+    lookFor: <>This is a historical October 26, 2026 sample: 12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup that day. {availability.noticeConfirmReady ? <>After parent confirmation, look for <strong>Pickup request created</strong>; pickup is <strong>not arranged yet</strong>.</> : <>In mock mode, confirmation shows a sample pickup request; <strong>no record is created</strong>. A recorded request needs live parent confirmation.</>}</>,
     evidenceLabel: 'Notice and pickup receipt',
   }]
   if (availability.villageReady) result.push({
@@ -86,16 +89,23 @@ function steps(availability: DemoChecklistAvailability): Step[] {
 
 /** Standalone checklist. It never calls a model or backend, and it never mounts itself. */
 export function DemoChecklist(props: DemoChecklistProps) {
-  const key = `fg:judge-checklist:${JSON.stringify([props.version ?? '1', props.personaId, props.childId, props.demoRunId])}`
+  const key = checklistStorageKey(props.version ?? '1', props.personaId, props.childId, props.demoRunId)
   return <ChecklistSession key={key} storageKey={key} {...props} />
 }
 
 function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { storageKey: string }) {
   const [saved, setSaved] = useState<Saved>(() => readSaved(storageKey))
   const [resetState, setResetState] = useState<'idle' | 'pending' | 'failed'>('idle')
+  const [resetOpen, setResetOpen] = useState(false)
   const alive = useRef(true)
+  const seenReopenSignal = useRef(props.reopenSignal)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(saved)) } catch { /* Progress remains usable in memory. */ } }, [storageKey, saved])
+  useEffect(() => {
+    if (seenReopenSignal.current === props.reopenSignal) return
+    seenReopenSignal.current = props.reopenSignal
+    setSaved(current => current.dismissed ? { ...current, dismissed: false } : current)
+  }, [props.reopenSignal])
 
   const visible = props.mode === 'guide' ? steps(props.availability).filter(step => step.id === 'guide') : steps(props.availability)
   const triedCount = visible.filter(step => saved.tried.includes(step.id)).length
@@ -111,6 +121,7 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
       if (!alive.current) return
       if (result === false) { setResetState('failed'); return }
       setSaved(current => ({ ...current, tried: [] }))
+      setResetOpen(false)
       setResetState('idle')
     } catch { if (alive.current) setResetState('failed') }
   }
@@ -132,9 +143,13 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
       </li>)}
     </ol>
     {props.mode === 'parent' && props.onReset && <div className="demo-checklist__reset">
-      <FgButton variant="secondary" loading={resetState === 'pending'} onClick={() => void reset()}>Reset demo and checklist</FgButton>
+      <FgButton variant="secondary" onClick={() => { setResetOpen(true); setResetState('idle') }} disabled={resetState === 'pending'}>Reset shared demo…</FgButton>
+      {resetOpen && <div className="demo-checklist__reset-confirm">
+        <p>This resets the shared sandbox for everyone, clearing alerts, responses and visitor changes. Checklist progress clears only after a successful reset.</p>
+        <div><FgButton variant="primary" loading={resetState === 'pending'} onClick={() => void reset()}>Reset demo for everyone</FgButton><FgButton variant="quiet" disabled={resetState === 'pending'} onClick={() => setResetOpen(false)}>Cancel</FgButton></div>
+      </div>}
       {resetState === 'pending' && <p role="status">Resetting the demo… Checklist progress will clear only if the reset succeeds.</p>}
-      {resetState === 'failed' && <p role="alert">Reset did not complete. Checklist progress is unchanged. Try again when the demo is ready.</p>}
+      {resetState === 'failed' && <p role="alert">{props.resetFailure || 'Reset did not complete.'} Checklist progress is unchanged. Try again when the demo is ready.</p>}
     </div>}
   </Surface>
 }

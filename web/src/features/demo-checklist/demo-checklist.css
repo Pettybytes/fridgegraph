@@ -23,5 +23,7 @@
 .demo-checklist__step-foot input{width:17px;height:17px;margin:0;accent-color:var(--fg-primary)}
 .demo-checklist__reset{display:grid;justify-items:start;gap:8px;padding-top:14px;border-top:1px solid var(--fg-border)}
 .demo-checklist__reset p{font-size:.88rem}
+.demo-checklist__reset-confirm{display:grid;gap:10px;max-width:58ch}
+.demo-checklist__reset-confirm>div{display:flex;flex-wrap:wrap;gap:8px}
 .demo-checklist__reset [role=alert]{color:var(--fg-attention)}
 @media(max-width:600px){.demo-checklist__header{align-items:stretch;flex-direction:column}.demo-checklist__step p,.demo-checklist__step-foot{padding-left:0}.demo-checklist__step-foot{align-items:flex-start;flex-direction:column}}

@@ -1,0 +1,60 @@
+import { useState } from 'react'
+import { useSession } from '@/features/personas/Session'
+import { useChildAccess } from '@/features/personas/childContext'
+import { useOrbit } from '@/features/orbit/runtime'
+import { DemoChecklist } from './DemoChecklist'
+import { checklistStorageKey } from './storage'
+import { DEMO_CHECKLIST_EVIDENCE } from './evidence'
+
+const RUN_KEY = 'fg:judge-checklist-run'
+let memoryRunId = ''
+function newRunId() { return globalThis.crypto?.randomUUID?.() ?? `run-${Date.now()}-${Math.random()}` }
+function currentRunId() {
+  try {
+    const saved = sessionStorage.getItem(RUN_KEY)
+    if (saved) return saved
+    const next = newRunId()
+    sessionStorage.setItem(RUN_KEY, next)
+    return next
+  } catch { return memoryRunId ||= newRunId() }
+}
+function rotateRunId() {
+  const next = newRunId()
+  memoryRunId = next
+  try { sessionStorage.setItem(RUN_KEY, next) } catch { /* The in-memory run is still distinct. */ }
+  return next
+}
+
+export function TodayDemoChecklist({ reopenSignal }: { reopenSignal: number }) {
+  const { session, authMode, resetDemo, resetError } = useSession()
+  const child = useChildAccess()
+  const orbit = useOrbit()
+  const [runId] = useState(currentRunId)
+  if (!session) return null
+  const guide = session.marks?.demoGuide === true || session.persona.id === 'demo-guide'
+  if (!guide && session.persona.id !== 'kendra') return null
+  const childId = child?.selectedChildId ?? session.scope.childId
+  const live = authMode === 'live' && Boolean(session.accessToken)
+  const parent = !guide && session.persona.parent && live
+  const availability = {
+    noticeConfirmReady: parent && import.meta.env.VITE_NOTICE_PLAN_LIVE === 'true',
+    villageReady: parent && import.meta.env.VITE_ADD_VILLAGER_LIVE === 'true',
+    orbitReady: parent && Boolean(orbit && !orbit.scope.readOnly),
+    voiceReady: parent && typeof MediaRecorder !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia),
+    // This build mounts no browser photo-descriptor adapter; Orbit uses the explicit unavailable adapter.
+    photoReady: false,
+  }
+  const onReset = parent && session.marks?.demo === true ? async () => {
+    const success = await resetDemo()
+    if (success) {
+      try { localStorage.removeItem(checklistStorageKey('1', session.persona.id, childId, runId)) } catch { /* Storage may be unavailable. */ }
+      rotateRunId()
+    }
+    return success
+  } : undefined
+  return <div id="today-demo-checklist" tabIndex={-1}>
+    <DemoChecklist demoRunId={runId} personaId={session.persona.id} childId={childId} mode={guide ? 'guide' : 'parent'}
+      evidenceLinks={DEMO_CHECKLIST_EVIDENCE} availability={availability} reopenSignal={reopenSignal}
+      onReset={onReset} resetFailure={resetError} />
+  </div>
+}
