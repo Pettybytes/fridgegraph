@@ -159,7 +159,13 @@ function schoolReportProposalFrom(data: unknown): SchoolReportProposalResult | n
  * `school_reports` (see `.apollo/mcp.local.yaml` and `supabase/migrations/0071_*.sql`).
  * `ConfirmSchoolDayReport` — the mutation that files the real, parent-visible report — is NOT in
  * this set and has no MCP operation file anywhere: Rosina cannot reach it no matter what the
- * model asks for, so a model tool call or generated text can never confirm itself. */
+ * model asks for, so a model tool call or generated text can never confirm itself.
+ *
+ * `ProposeAddVillager` (TASK: Add a Villager) is the SECOND such exception. It can only ever stage
+ * a draft in `villager_proposals`; it structurally cannot write `relationships` or `grants` (see
+ * `.apollo/mcp.local.yaml` and `supabase/migrations/0073_*.sql`). `ConfirmAddVillager` is NOT in
+ * this set and has no MCP operation file either, for the same reason as `ConfirmSchoolDayReport`.
+ */
 const ALLOWED_MCP_TOOL_NAMES = new Set([
   'PickupCandidates',
   'Attempts',
@@ -172,6 +178,7 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'OrbitVocabulary',
   'CareFacts',
   'ProposeSchoolDayReport',
+  'ProposeAddVillager',
 ]);
 
 /**
@@ -191,6 +198,11 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   OrbitStatus: 'childId',
   CareFacts: 'childId',
   ProposeSchoolDayReport: 'childId',
+  // ProposeAddVillager is parent-only authority, checked inside propose_add_villager itself —
+  // same posture as CheckInStatus/OrbitStatus below: MyChildren only proves the id is KNOWN to
+  // this caller, never that they are its parent. No REQUIRED_SCOPE_BY_TOOL entry exists for it,
+  // on purpose: "parent" is not one of the scope strings MyChildren ever reports.
+  ProposeAddVillager: 'childId',
   // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
 };
 

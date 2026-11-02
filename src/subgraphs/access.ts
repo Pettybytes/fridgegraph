@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { parse } from 'graphql';
+import { GraphQLError } from 'graphql';
 import {
   SCOPE,
   authorizeChild,
@@ -52,6 +53,34 @@ const typeDefs = parse(`
       validUntil: String
     ): Grant
     revokeGrant(id: ID!): Boolean!
+
+    """
+    Stages a reviewable "Add a Villager" proposal — the Rosina tool this is wired to may call this
+    on the parent's behalf, but it never adds anyone by itself. \`personName\` resolves ONLY among
+    people who already have some relationship to this exact child (any status) — the same set the
+    parent's own \`relationships(childId)\` query already shows them; this never searches a wider
+    directory and never creates a new person. \`scopes\` must be a non-empty subset of the scopes
+    this flow is allowed to grant (pickup.request, schedule.read) — nothing else, ever, regardless
+    of what is asked for.
+    """
+    proposeAddVillager(
+      childId: ID!
+      personName: String!
+      scopes: [String!]!
+      relationshipType: String
+      validFrom: String
+      validUntil: String
+    ): AddVillagerProposal!
+
+    """
+    Commits the EXACT reviewed proposal — the relationship and the grant — in one transaction.
+    Only the child's authorized parent/guardian may call this, through their own deliberate click.
+    Never reachable from Rosina's tool transport (no MCP operation exists for it): a model tool
+    call or generated text can never confirm itself. Idempotent: confirming the same proposal
+    twice (sequentially or concurrently) returns the SAME result both times. Never makes the
+    villager a parent/guardian, and never links the two households.
+    """
+    confirmAddVillager(proposalId: ID!, version: Int!): AddVillagerResult!
   }
 
   type Person @key(fields: "id") {
@@ -121,6 +150,38 @@ const typeDefs = parse(`
     approver: Person
     fyiParents: [Person!]!
   }
+
+  """A staged, reviewable Add-a-Villager proposal. Writes nothing to relationships or grants
+  until confirmed."""
+  type AddVillagerProposal {
+    id: ID!
+    version: Int!
+    child: Child!
+    person: Person!
+    relationshipType: String!
+    scopes: [String!]!
+    validFrom: String
+    validUntil: String
+    createdAt: String!
+    expiresAt: String!
+  }
+
+  """What confirming an Add-a-Villager proposal actually changed."""
+  type AddVillagerResult {
+    relationship: VillagerRelationship!
+    grant: Grant!
+  }
+
+  """The relationship half of an Add-a-Villager confirm. Deliberately its own small type, not a
+  reference to village's federated Relationship — this echoes what THIS confirm just did; it does
+  not make access.ts a second owner of the relationships table's general shape."""
+  type VillagerRelationship {
+    id: ID!
+    from: Person!
+    to: Child!
+    type: String!
+    status: String!
+  }
 `);
 
 type GrantShape = {
@@ -144,6 +205,65 @@ const toGrant = (row: Record<string, unknown>): GrantShape => ({
 });
 
 const GRANT_COLUMNS = 'id,actor_id,child_id,scopes,valid_from,valid_until,granted_by';
+
+type ProposalShape = {
+  id: string;
+  version: number;
+  childId: string;
+  personId: string;
+  relationshipType: string;
+  scopes: string[];
+  validFrom: string | null;
+  validUntil: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+
+const toProposal = (row: Record<string, unknown>): ProposalShape => ({
+  id: String(row.id),
+  version: Number(row.version),
+  childId: String(row.child_id),
+  personId: String(row.person_id),
+  relationshipType: String(row.relationship_type),
+  scopes: (row.scopes as string[]) ?? [],
+  validFrom: row.valid_from ? String(row.valid_from).slice(0, 10) : null,
+  validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : null,
+  createdAt: String(row.created_at),
+  expiresAt: String(row.expires_at),
+});
+
+/**
+ * Maps a `propose_add_villager`/`confirm_add_villager` RPC failure to a clean GraphQLError — same
+ * shape as school.ts's `schoolReportProposalError` / coordination.ts's `rpcError`. Message
+ * substring matching is the primary signal, exactly like those two; the SQLSTATE fallback below is
+ * new here specifically because evidence 65 (docs/evidence/65-teacher-report-live.md) found that,
+ * on at least one live deployment, a RAISE EXCEPTION's literal message did not reliably reach this
+ * code at all — every refusal surfaced as the generic RPC_FAILED despite the correct SECURITY
+ * outcome (refused, nothing written). The SQLSTATE fallback cannot always pick the exact code (two
+ * meanings share 42501 and three share 22023 below), but it turns an opaque RPC_FAILED into at
+ * least the right CLASS of error rather than none at all. Never trusted as the only signal.
+ */
+function addVillagerError(e: unknown): never {
+  const message = e instanceof Error ? e.message : String(e);
+  const known = [
+    'UNAUTHENTICATED', 'DEMO_GUIDE_READ_ONLY', 'UNAUTHORIZED',
+    'VILLAGER_SCOPES_REQUIRED', 'VILLAGER_SCOPE_NOT_ALLOWED', 'VILLAGER_NOT_FOUND',
+    'VILLAGER_NAME_AMBIGUOUS', 'VILLAGER_RELATIONSHIP_TYPE_NOT_ALLOWED',
+    'PROPOSAL_NOT_FOUND', 'PROPOSAL_EXPIRED', 'PROPOSAL_STALE',
+  ];
+  const byMessage = known.find((k) => message.includes(k));
+  if (byMessage) throw new GraphQLError(byMessage, { extensions: { code: byMessage } });
+
+  const sqlstate = (e as { code?: string } | null)?.code;
+  const byCode: Record<string, string> = {
+    '42501': 'UNAUTHORIZED',
+    P0002: 'PROPOSAL_NOT_FOUND', // also VILLAGER_NOT_FOUND; not_found is not_found either way
+    '22023': 'VILLAGER_SCOPE_NOT_ALLOWED', // also a few other validation meanings
+    '40001': 'PROPOSAL_STALE',
+  };
+  const code = (sqlstate && byCode[sqlstate]) ?? 'RPC_FAILED';
+  throw new GraphQLError(code, { extensions: { code } });
+}
 
 /** Writes the audit row for a grant decision. `access` owns `approvals`. */
 async function recordApproval(
@@ -428,6 +548,67 @@ const resolvers = {
       await recordApproval(ctx, id, 'REVOKED');
       return true;
     },
+
+    proposeAddVillager: async (
+      _: unknown,
+      {
+        childId, personName, scopes, relationshipType, validFrom, validUntil,
+      }: {
+        childId: string; personName: string; scopes: string[];
+        relationshipType?: string; validFrom?: string; validUntil?: string;
+      },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('propose_add_villager', {
+        p_child: childId,
+        p_person_name: personName,
+        p_scopes: scopes,
+        p_relationship_type: relationshipType ?? 'family_friend',
+        p_valid_from: validFrom ?? null,
+        p_valid_until: validUntil ?? null,
+      });
+      if (error) addVillagerError(error);
+      const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
+      return toProposal(row);
+    },
+
+    confirmAddVillager: async (
+      _: unknown,
+      { proposalId, version }: { proposalId: string; version: number },
+      ctx: Ctx,
+    ) => {
+      // Rosina's tool transport cannot reach this resolver at all (no MCP operation file exists
+      // for it) — this guard is defense in depth, same posture as school.ts's confirm.
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('confirm_add_villager', {
+        p_proposal: proposalId,
+        p_version: version,
+      });
+      if (error) addVillagerError(error);
+      const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
+      if (!row) throw deny();
+      return {
+        relationship: {
+          id: String(row.relationship_id),
+          from: { id: String(row.person_id) },
+          to: { id: String(row.child_id) },
+          type: String(row.relationship_type),
+          status: String(row.relationship_status),
+        },
+        grant: toGrant({
+          id: row.grant_id,
+          actor_id: row.person_id,
+          child_id: row.child_id,
+          scopes: row.scopes,
+          valid_from: row.valid_from,
+          valid_until: row.valid_until,
+          granted_by: row.granted_by,
+        }),
+      };
+    },
   },
 
   Grant: {
@@ -449,6 +630,16 @@ const resolvers = {
   ParentingSchedule: {
     child: (s: { child: { id: string }; childId?: string }) => s.child ?? { id: s.childId },
     parent: (s: { parent: { id: string }; parentId?: string }) => s.parent ?? { id: s.parentId },
+  },
+
+  AddVillagerProposal: {
+    child: (p: ProposalShape) => ({ id: p.childId }),
+    person: (p: ProposalShape) => ({ id: p.personId }),
+  },
+
+  VillagerRelationship: {
+    from: (r: { from: { id: string } }) => r.from,
+    to: (r: { to: { id: string } }) => r.to,
   },
 };
 
