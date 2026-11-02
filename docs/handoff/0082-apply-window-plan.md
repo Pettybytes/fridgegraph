@@ -25,6 +25,18 @@ The window is done when this exact sequence holds **against one target**:
 
 Step 1 is the one that gets skipped. Reproducing the failure is what makes step 3 mean something.
 
+### Guardrails on the baseline — non-negotiable
+
+- **Observe pre-apply privileges; never revoke an existing live privilege to manufacture a failing
+  baseline.** If `service_role` already holds `SELECT` on the project before the window, the 403
+  simply will not reproduce. Record that as the finding, capture the existing grant, and proceed.
+  Revoking a live privilege to produce a red result is forbidden: it degrades the environment to
+  manufacture evidence.
+- **Verify unchanged write privileges through catalogue checks, not live mutation attempts.** Ask the
+  catalogue with `has_table_privilege('service_role','public.shared_statuses','INSERT'|'UPDATE'|'DELETE')`
+  (and the same for `anon` and `authenticated`). Do **not** issue probe INSERT/UPDATE/DELETE against
+  the live project to "prove" a refusal — a catalogue read answers the question and modifies no data.
+
 ## 3. Where the verification runs
 
 **Live verification runs against the intended Supabase PostgREST endpoint** — the project the command
@@ -72,11 +84,16 @@ the caller". Repairing either is a separate decision with its own proof.
 2. **Verify the target**: for the live path, confirm it is the intended project; for an offline
    rehearsal, confirm `127.0.0.1` and that `fg81` is still on `127.0.0.1:55434`. Abort otherwise.
 3. **Establish the pre-0082 posture** on the chosen target.
-4. **Reproduce the 403** (§2 step 1). Record the exact body.
+4. **Observe pre-apply privileges first** (catalogue: `service_role`, `anon`, `authenticated` on
+   `shared_statuses`). **Then** reproduce the 403 (§2 step 1) and record the exact body. If it does
+   not reproduce because the privilege is already present, record that honestly — do **not** revoke
+   anything to create the failure.
 5. **Apply 0082** — reviewed single file, one connection, no ledger push.
 6. **Re-run** the same command (§2 step 3).
 7. **Confirm other tables unchanged** (§2 step 4).
-8. **Confirm writes still refused**: `service_role` INSERT/UPDATE/DELETE still `permission denied`.
+8. **Confirm writes still refused — catalogue only**: `service_role` INSERT/UPDATE/DELETE remain
+   `false`; `anon` unchanged; `authenticated` unchanged. **No mutation is attempted against live
+   data.**
 9. **Tear down** any optional local endpoint and rehearsal tokens; say what was left running.
 10. **Receipt** with both runs, the exact command, the endpoint, and the revocation.
 
