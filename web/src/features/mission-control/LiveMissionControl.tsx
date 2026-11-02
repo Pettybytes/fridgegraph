@@ -7,6 +7,7 @@ import {formatRecordedTime,contactBadge} from './v2/model'
 import {pickupStatusLabel,contactChannelLabel} from '@/lib/frontendData/displayCopy'
 import {reasonLabel} from '@/lib/frontendData/types'
 import {MissionControlV2} from './v2/MissionControlV2'
+import {VillagePulse} from './pulse/VillagePulse'
 import './v2/mission-control-v2.css'
 const title:Record<string,string>={JOB_CREATED:'Pickup request recorded',ATTEMPT_OPENED:'Outreach recorded',ATTEMPT_CLOSED:'Contact attempt ended',COST_CALCULATED:'Travel estimate recorded',CONFIRMATION:'Parent approval recorded'}
 export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
@@ -18,6 +19,7 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
  {/* Live read provenance does not prove dispatch. No execution-source field is delivered. */}
  <p className="mcv-missing">Sample activity from stored demo records. Calls and texts are simulated in this example; sending isn’t verified here.</p>
  {session?.marks?.demoGuide&&<p className="mcv-missing">Demo guide is read-only</p>}
+ <VillagePulse result={result}/>
  {result.loading&&!data?<p role="status">Loading recorded pickup activity…</p>:result.error?/UNAUTHORIZED/.test(result.error.message)?accessDenied:<p role="alert">{dataErrorMessage(result.error)}</p>:!run?<div className="mcv-empty"><h2>No recorded pickup run</h2><p>No records are available to this view</p>{!(session?.persona.parent||session?.marks?.demoGuide)&&accessDenied}</div>:<>
  <label>Pickup record<select aria-label="Pickup record" value={run.job.id} onChange={e=>setSelected(e.target.value)}>{runs.map((r,i)=><option key={r.job.id} value={r.job.id}>Pickup {i+1} · {pickupStatusLabel(r.job.status)}</option>)}</select></label>
  <header className="mcv-job"><div><p>{run.timeline.length?'Sample activity':'Pickup record · event times not recorded'}</p><h2>{session?.scope.childName.split(' ')[0]}’s pickup</h2><p>{pickupStatusLabel(run.job.status)}</p></div></header>
