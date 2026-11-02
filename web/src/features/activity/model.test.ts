@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest'
-import {activityEntries,localMoment,mayReadFamilyActivity,orbitStatusCopy} from './model'
+import {activityEntries,localMoment,mayReadFamilyActivity,orbitStatusCopy,villagerScopesLabel} from './model'
 import type {StoredMissionControl} from '@/lib/frontendData/deliveredAdapter'
 const at='2026-11-01T15:00:00Z'
 const data={candidates:[],events:[],recordedRuns:[{job:{id:'job',status:'CONFIRMED',version:1,candidateEvaluations:[],confirmation:null},attempts:[{id:'attempt',channel:'TEXT',at,candidate:{id:'caregiver',displayName:'Tasha'},destinationMode:'TEST_RESPONDER',closedAt:at,closedReason:'TIMEOUT'}],timeline:[{at,kind:'JOB_CREATED',attemptId:null,candidate:null,detail:null},{at,kind:'ATTEMPT_OPENED',attemptId:'attempt',candidate:{id:'caregiver',displayName:'Tasha'},detail:'TEXT'},{at,kind:'ATTEMPT_CLOSED',attemptId:'attempt',candidate:{id:'caregiver',displayName:'Tasha'},detail:'TIMEOUT'},{at,kind:'CONFIRMATION',attemptId:null,candidate:{id:'caregiver',displayName:'Tasha'},detail:null}]}]} as StoredMissionControl
@@ -34,5 +34,23 @@ describe('activity certainty',()=>{
  it('never promotes a caregiver report to confirmation',()=>{
   const changed=structuredClone(data);changed.recordedRuns[0].timeline=changed.recordedRuns[0].timeline.filter(e=>e.kind!=='CONFIRMATION');changed.recordedRuns[0].timeline.push({at,kind:'WITH_ME',attemptId:null,candidate:null,detail:null})
   expect(activityEntries(changed,[]).some(e=>e.kind==='CONFIRMED')).toBe(false)
+ })
+ it('renders an Add-a-Villager confirmation as who-confirmed-it + what was granted, using only stored data',()=>{
+  const entries=activityEntries(data,[],{mom:'Kendra'},[],[{id:'vp_1',person:{id:'p_dana',displayName:'Dana Coleman'},addedBy:{id:'mom'},relationshipType:'family_friend',scopes:['pickup.request'],confirmedAt:at}])
+  const villager=entries.find(e=>e.id==='villager:vp_1')
+  expect(villager?.kind).toBe('CONFIRMED')
+  expect(villager?.who).toBe('Kendra')
+  expect(villager?.what).toBe('Added Dana Coleman — pickup access.')
+  expect(villager?.href).toBe('#/village')
+ })
+ it('falls back to "A parent" when the confirming parent is not the caller (never fabricates a name)',()=>{
+  const entries=activityEntries(data,[],{},[],[{id:'vp_2',person:{id:'p_dana',displayName:'Dana Coleman'},addedBy:{id:'someone_else'},relationshipType:'family_friend',scopes:['schedule.read'],confirmedAt:at}])
+  expect(entries.find(e=>e.id==='villager:vp_2')?.who).toBe('A parent')
+ })
+ it('villagerScopesLabel renders exactly the granted scopes, never more',()=>{
+  expect(villagerScopesLabel(['pickup.request'])).toBe('pickup access')
+  expect(villagerScopesLabel(['schedule.read'])).toBe('schedule access')
+  expect(villagerScopesLabel(['pickup.request','schedule.read'])).toBe('pickup and schedule access')
+  expect(villagerScopesLabel([])).toBe('village access')
  })
 })

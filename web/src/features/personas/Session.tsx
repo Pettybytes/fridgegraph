@@ -7,13 +7,17 @@ import {BUSY,PerspectiveError} from './liveAuth'
 import {retryReadOnce} from './renewal'
 import {validDay} from '@/features/calendar/time'
 type Cleanup=()=>void|Promise<unknown>
-type SessionContextValue={
+export type SessionContextValue={
  session:AuthSession|null;switching:boolean;error:string;families:DemoFamily[];authMode:AuthAdapter['mode'];notice:string;resetting:boolean;resetError:string;resetRetryAt:number;unavailable:ReadonlySet<PersonaId>;retryAt:Partial<Record<PersonaId,number>>
  getSessionGeneration():number;getCurrentSession():AuthSession|null;renewSession():Promise<AuthSession|null>
  runRead<T>(read:()=>Promise<T>):Promise<T>
  switchPerson(id?:PersonaId):Promise<void>;resetDemo():Promise<boolean>;createDemoFamily(input:DemoFamilyInput):Promise<void>;registerPrivateCleanup(cleanup:Cleanup):()=>void;registerResetVerification(verify:(signal:AbortSignal)=>Promise<void>):()=>void
 }
-const Context=createContext<SessionContextValue|null>(null)
+/** Exported only so dev-only preview harnesses (e.g. activity-preview.html) can provide a fake
+ * session value directly, without a live AuthAdapter. Never imported by application code — use
+ * SessionProvider + useSession for anything that ships. */
+export const SessionContext=createContext<SessionContextValue|null>(null)
+const Context=SessionContext
 export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children:ReactNode}){
  const [session,setSession]=useState<AuthSession|null>(null),[switching,setSwitching]=useState(false),[error,setError]=useState(''),[families,setFamilies]=useState<DemoFamily[]>([])
  const [unavailable,setUnavailable]=useState<Set<PersonaId>>(new Set()),[retryAt,setRetryAt]=useState<Partial<Record<PersonaId,number>>>({})

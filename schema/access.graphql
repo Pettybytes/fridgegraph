@@ -8,6 +8,7 @@ type Query {
   pickupCandidates(childId: ID!, asOf: String): [Candidate!]!
   supervisionCandidates(childId: ID!, asOf: String): [Candidate!]!
   approverFor(childId: ID!, date: String): ApproverResult!
+  villagerAdditions(childId: ID!): [VillagerAddition!]!
 }
 
 type Mutation {
@@ -103,6 +104,16 @@ type VillagerRelationship {
   to: Child!
   type: String!
   status: String!
+}
+
+type VillagerAddition {
+  id: ID!
+  child: Child!
+  person: Person!
+  addedBy: Person!
+  relationshipType: String!
+  scopes: [String!]!
+  confirmedAt: String!
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
