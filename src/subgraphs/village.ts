@@ -52,6 +52,31 @@ const typeDefs = parse(`
   type Mutation {
     """DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later."""
     approveRelationship(relationshipId: ID!): Relationship
+
+    """
+    Set the caller's own shared status, visible to anyone who shares a child's village with
+    them. Opt-in text the person chooses; never inferred from Busy/Free. Replaces any existing
+    status for the caller. The demo guide is refused.
+    """
+    setSharedStatus(emoji: String, text: String!, etaText: String, ttlSeconds: Int): SharedStatus!
+
+    """Clears the caller's own shared status, if any. The demo guide is refused."""
+    clearSharedStatus: Boolean!
+  }
+
+  """
+  A status a person CHOOSES to share with a child's village, e.g. "🍼 Changing a diaper · ETA:
+  unknown". Opt-in and self-reported only — never derived from Busy/Free, calendar gaps, or any
+  other recorded field. Null on the owning \`Person\` when there is no status, it has expired, or
+  the viewer may not see that person — the server owns that authorization.
+  """
+  type SharedStatus {
+    personId: ID!
+    emoji: String
+    text: String!
+    etaText: String
+    setAt: String!
+    expiresAt: String!
   }
 
   type Person @key(fields: "id") {
@@ -60,6 +85,7 @@ const typeDefs = parse(`
     birthDate: String!
     age(asOf: String): Int!
     contactMethods(childId: ID): [ContactMethod!]!
+    sharedStatus: SharedStatus
   }
 
   type Child @key(fields: "id") {
@@ -558,6 +584,55 @@ const resolvers = {
 
       return toRelationship(updated);
     },
+
+    setSharedStatus: async (
+      _: unknown,
+      { emoji, text, etaText, ttlSeconds }: { emoji?: string | null; text: string; etaText?: string | null; ttlSeconds?: number | null },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      const callerId = requireCaller(ctx);
+      const trimmed = text.trim();
+      if (!trimmed || trimmed.length > 60) {
+        throw new GraphQLError('SHARED_STATUS_TEXT_INVALID', { extensions: { code: 'SHARED_STATUS_TEXT_INVALID' } });
+      }
+      const ttl = Math.max(ttlSeconds ?? 86_400, 60);
+      const setAt = new Date();
+      const expiresAt = new Date(setAt.getTime() + ttl * 1000);
+      // Upsert, not propose/confirm: a single row per person with no cross-table write, same
+      // shape as grantAccess's direct RLS-governed insert — the write policy (0076) is the only
+      // thing standing between "the person themselves" and anyone else.
+      const row = await one(
+        dbFor(ctx)
+          .from('shared_statuses')
+          .upsert({
+            person_id: callerId,
+            emoji: emoji ?? null,
+            text: trimmed,
+            eta_text: etaText ?? null,
+            set_at: setAt.toISOString(),
+            expires_at: expiresAt.toISOString(),
+          }, { onConflict: 'person_id' })
+          .select('*')
+          .maybeSingle(),
+      );
+      if (!row) throw new GraphQLError('SHARED_STATUS_WRITE_FAILED', { extensions: { code: 'SHARED_STATUS_WRITE_FAILED' } });
+      return {
+        personId: String(row.person_id),
+        emoji: row.emoji === null ? null : String(row.emoji),
+        text: String(row.text),
+        etaText: row.eta_text === null ? null : String(row.eta_text),
+        setAt: String(row.set_at),
+        expiresAt: String(row.expires_at),
+      };
+    },
+
+    clearSharedStatus: async (_: unknown, _args: unknown, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      const callerId = requireCaller(ctx);
+      await dbFor(ctx).from('shared_statuses').delete().eq('person_id', callerId);
+      return true;
+    },
   },
 
   Person: {
@@ -591,6 +666,26 @@ const resolvers = {
         preferred: Boolean(c.preferred),
         verified: Boolean(c.verified),
       }));
+    },
+    sharedStatus: async (p: PersonLite, _args: unknown, ctx: Ctx) => {
+      requireCaller(ctx);
+      // RLS alone decides both visibility AND expiry (shared_statuses_read, 0076) — no app-level
+      // check of either here, same "no oracle" shape as every other RLS-governed read in this
+      // file. "No status", "expired", and "may not see this person" are all indistinguishable
+      // zero-row results, which is the point: a caller can't tell which of the three it is.
+      const data = await rows(
+        dbFor(ctx).from('shared_statuses').select('*').eq('person_id', p.id),
+      );
+      const row = data[0];
+      if (!row) return null;
+      return {
+        personId: String(row.person_id),
+        emoji: row.emoji === null ? null : String(row.emoji),
+        text: String(row.text),
+        etaText: row.eta_text === null ? null : String(row.eta_text),
+        setAt: String(row.set_at),
+        expiresAt: String(row.expires_at),
+      };
     },
   },
 
