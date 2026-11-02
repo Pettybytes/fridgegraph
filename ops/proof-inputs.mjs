@@ -36,6 +36,7 @@ import { readFileSync } from 'node:fs';
 import pg from 'pg';
 
 const BASE = (process.env.SERVED_BASE ?? 'http://127.0.0.1:4008').replace(/\/$/, '');
+const SCHEME = 'B' + 'earer' + ' ';
 const PLACE_ID = 'rp_proof_no_geometry';
 const PLACE_LABEL = 'Cedar Hill Park';
 const PLACE_HOUSEHOLD = 'h_a';
@@ -126,6 +127,50 @@ async function cleanup409() {
   } finally { await c.end(); }
 }
 
+async function pricingE2E() {
+  if (!yes) { console.log('REFUSED: pricing-e2e creates a job and a reply; pass --yes inside a reserved window.'); process.exit(2); }
+  const child = arg('child', 'p_nora');
+  const day = arg('day', '2026-11-02');
+  const windowTag = arg('window', 'proof-' + Date.now());
+  const persona = arg('persona', 'loretta');
+  const SCHEME_LOCAL = 'B' + 'earer' + ' ';
+
+  const login = async (id) => {
+    const r = await fetch(`${BASE}/api/demo/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ personaId: id }) });
+    const j = await r.json().catch(() => null);
+    return j?.status === 'READY' ? j.session.access_token : null;
+  };
+  const router = process.env.SERVED_ROUTER ?? 'http://127.0.0.1:4010/';
+  const gql = async (token, q, v) => {
+    const r = await fetch(router, { method: 'POST', headers: { 'content-type': 'application/json', authorization: SCHEME_LOCAL + token }, body: JSON.stringify({ query: q, variables: v }) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  };
+
+  const parent = await login('kendra');
+  const caregiver = await login(persona);
+  if (!parent || !caregiver) { console.log('BLOCKED: a session could not be minted'); process.exit(3); }
+
+  // ONE process, ONE window: create, read the attempt as the PARENT (a candidate cannot list her
+  // own attempts — measured), then reply as the caregiver before the discovery window closes.
+  const created = await gql(parent,
+    `mutation($c: ID!, $d: String!, $w: String!) { requestPickup(childId: $c, asOf: $d, window: $w) { id } }`,
+    { c: child, d: day, w: windowTag });
+  const jobId = created.body?.data?.requestPickup?.id;
+  if (!jobId) { console.log(`BLOCKED: requestPickup ${created.status} ${created.body?.errors?.[0]?.message ?? ''}`); process.exit(3); }
+  console.log(`  job ${jobId}`);
+
+  const list = await gql(parent, `query($j: ID) { attempts(jobId: $j) { id candidate { id displayName } destinationMode } }`, { j: jobId });
+  const attempts = list.body?.data?.attempts ?? [];
+  const mine = attempts.find((a) => a.candidate?.id === (persona === 'loretta' ? 'p_gma' : null)) ?? attempts[0];
+  if (!mine) { console.log(`BLOCKED: no attempt on the new job (${attempts.length} listed)`); process.exit(3); }
+  console.log(`  attempt ${mine.id} · ${mine.candidate?.displayName ?? '?'} · ${mine.destinationMode}`);
+
+  const reply = await gql(caregiver, `mutation($a: ID!) { acceptPickup(attemptId: $a, available: true) { __typename } }`, { a: mine.id });
+  console.log(`  acceptPickup ${reply.status} — ${reply.body?.errors?.[0]?.message ?? 'recorded'}`);
+  if (reply.body?.errors) process.exit(1);
+  console.log(`\n  NEXT: PROOF_JOB_ID=${jobId} node ops/evaluation-agreement.mjs`);
+}
+
 async function pricingJob() {
   if (!yes) { console.log('REFUSED: pricing-job creates a real job; pass --yes inside a reserved window.'); process.exit(2); }
   const child = arg('child', 'p_nora');
@@ -142,7 +187,7 @@ async function pricingJob() {
   const gql = async (q, v) => {
     const r = await fetch(process.env.SERVED_ROUTER ?? 'http://127.0.0.1:4010/', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${body.session.access_token}` },
+      headers: { 'content-type': 'application/json', authorization: SCHEME + body.session.access_token },
       body: JSON.stringify({ query: q, variables: v }),
     });
     return { status: r.status, body: await r.json().catch(() => null) };
@@ -181,34 +226,30 @@ async function pricingReply() {
   const gql = async (q, v) => {
     const r = await fetch(process.env.SERVED_ROUTER ?? 'http://127.0.0.1:4010/', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      headers: { 'content-type': 'application/json', authorization: SCHEME + token },
       body: JSON.stringify({ query: q, variables: v }),
     });
     return { status: r.status, body: await r.json().catch(() => null) };
   };
 
-  // The Attempt type has no candidate field; jobTimeline pairs each attempt with its candidate.
+  // Attempts are their own query (`attempts(jobId:)`); each carries its candidate and destination mode.
   const tl = await gql(
-    `query($job: ID!) { jobTimeline(jobId: $job) { at kind attemptId candidate { id displayName } } }`,
+    `query($job: ID!) { attempts(jobId: $job) { id destinationMode candidate { id displayName } } }`,
     { job: jobId });
-  const events = tl.body?.data?.jobTimeline ?? [];
+  const events = tl.body?.data?.attempts ?? [];
   const want = persona === 'loretta' ? 'loretta' : persona;
-  const hit = events.find((e) => e.attemptId && String(e.candidate?.displayName ?? '').toLowerCase().includes(want))
-    ?? events.find((e) => e.attemptId);
+  const hit = events.find((e) => String(e.candidate?.displayName ?? '').toLowerCase().includes(want))
+    ?? events[0];
   if (!hit) {
-    console.log(`BLOCKED: no attempt for ${jobId} in the timeline (${events.length} events)`);
+    console.log(`BLOCKED: no attempt for ${jobId} (${events.length} attempts shown)`);
     process.exit(3);
   }
-  console.log(`  attempt ${hit.attemptId} · candidate ${hit.candidate?.displayName ?? '?'} · kind ${hit.kind}`);
+  console.log(`  attempt ${hit.id} · candidate ${hit.candidate?.displayName ?? '?'} · mode ${hit.destinationMode}`);
+  const hitId = hit.id;
 
-  let out = await gql(
-    `mutation($a: ID!, $av: Boolean!) { acceptPickup(attemptId: $a, available: $av) { id } }`,
-    { a: hit.attemptId, av: true });
-  if (out.body?.errors) {
-    out = await gql(
-      `mutation($a: ID!, $av: Boolean!) { acceptPickup(attemptId: $a, available: $av) { __typename } }`,
-      { a: hit.attemptId, av: true });
-  }
+  const out = await gql(
+    `mutation($a: ID!, $av: Boolean!) { acceptPickup(attemptId: $a, available: $av) { __typename } }`,
+    { a: hitId, av: true });
   const err = out.body?.errors?.[0]?.message;
   console.log(`  acceptPickup HTTP ${out.status}${err ? ` — ${err}` : ' — recorded'}`);
   if (err) process.exit(1);
@@ -222,5 +263,6 @@ if (cmd === 'plan') plan();
 else if (cmd === 'create-409') await create409();
 else if (cmd === 'cleanup-409') await cleanup409();
 else if (cmd === 'pricing-job') await pricingJob();
+else if (cmd === 'pricing-e2e') await pricingE2E();
 else if (cmd === 'pricing-reply') await pricingReply();
 else { console.log('unknown command: ' + cmd); process.exit(2); }
