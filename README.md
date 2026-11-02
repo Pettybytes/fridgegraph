@@ -5,6 +5,8 @@
 
 **School changes. Caregivers coordinate. Parents stay in control.**
 
+**Powered by Meta Muse** · Muse Spark 1.3 · Muse Voice Transcribe 1.0
+
 <a href="#explore-the-demo"><img src="docs/assets/readme/nav-explore-the-demo.svg" alt="Explore the demo"></a>
 <a href="#see-it-work"><img src="docs/assets/readme/nav-see-it-work.svg" alt="See it work"></a>
 <a href="#meet-rosina"><img src="docs/assets/readme/nav-meet-rosina.svg" alt="Meet Rosina"></a>
