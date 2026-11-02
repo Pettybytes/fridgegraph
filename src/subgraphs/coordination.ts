@@ -516,6 +516,63 @@ const resolvers = {
     // RLS decides which rows exist for this caller, so a non-parent gets an empty list rather
     // than an error, and a stranger cannot enumerate jobs, names or history.
 
+    // The stored paid-ride estimate, and nothing else. Cost, basis, distance and the household cap are
+    // parent/guardian reads (or the server-verified demo guide) — schedule.read, address.read, village
+    // visibility and a candidate's own evaluation read are NOT sufficient. A hidden job and a
+    // nonexistent job get the same generic refusal, so this is not an existence oracle.
+    pickupRideEstimate: async (
+      _: unknown,
+      args: { jobId: string; candidateId: string },
+      ctx: Ctx,
+    ) => {
+      requireCaller(ctx);
+      const jobRows = await rows(
+        dbFor(ctx).from('coordination_jobs').select('id,child_id').eq('id', args.jobId),
+      );
+      if (!jobRows.length) throw new GraphQLError('UNAUTHORIZED', { extensions: { code: 'UNAUTHORIZED' } });
+      const childId = String(jobRows[0].child_id);
+
+      const parent = await isParentOf(ctx, childId);
+      if (!parent && ctx.demoGuide !== true) {
+        throw new GraphQLError('UNAUTHORIZED', { extensions: { code: 'UNAUTHORIZED' } });
+      }
+
+      const evalRows = await rows(
+        dbFor(ctx)
+          .from('candidate_evaluations')
+          .select('candidate_id,reason_code,estimated_ride_cost_usd,cost_basis,distance_miles,cost_calculated_at')
+          .eq('job_id', args.jobId)
+          .eq('candidate_id', args.candidateId),
+      );
+      if (!evalRows.length) return null; // authorized job, no stored row for this candidate
+      const e = evalRows[0];
+      // Drivers and non-paid paths carry no price; a stored 0 stays visible because 0 is not null.
+      if (e.estimated_ride_cost_usd == null) return null;
+
+      const households = await householdIdsOfChild(ctx, childId);
+      let cap: number | null = null;
+      if (households.length) {
+        const policy = await rows(
+          dbFor(ctx)
+            .from('household_policies')
+            .select('value')
+            .eq('household_id', households[0])
+            .eq('rule', 'ride_cost_cap_usd'),
+        );
+        if (policy.length && policy[0].value != null) cap = Number(policy[0].value);
+      }
+
+      return {
+        jobId: args.jobId,
+        candidateId: String(e.candidate_id),
+        estimatedRideCostUsd: Number(e.estimated_ride_cost_usd),
+        costBasis: e.cost_basis == null ? null : String(e.cost_basis),
+        distanceMiles: e.distance_miles == null ? null : Number(e.distance_miles),
+        costCalculatedAt: e.cost_calculated_at == null ? null : String(e.cost_calculated_at),
+        householdCapUsd: cap,
+        paidRidePath: true,
+      };
+    },
     orbitAlert: async (_: unknown, { alertId }: { alertId: string }, ctx: Ctx) => {
       requireCaller(ctx);
       const found = await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId));
