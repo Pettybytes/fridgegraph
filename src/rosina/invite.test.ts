@@ -180,3 +180,33 @@ test('per-caller rate limiter returns retryAfterMs when over the limit', () => {
   assert.equal(d.allowed, false);
   if (!d.allowed) assert.ok(d.retryAfterMs > 0 && d.retryAfterMs <= 60_000);
 });
+
+test('a name that is a prefix of a theme word does NOT trip the guard (Star/Fern)', async () => {
+  // "Star" vs "twinkling stars"; "Fern" vs "ferns" — word boundaries, not substrings.
+  assert.doesNotThrow(() => assertNoPii(buildArtPrompt("Star's space party"), { childFirstName: 'Star' }));
+  assert.doesNotThrow(() => assertNoPii(buildArtPrompt("Fern's dinosaur party"), { childFirstName: 'Fern' }));
+  assert.match(buildArtPrompt("Star's space party"), /stars/); // the theme word is really present
+  assert.match(buildArtPrompt("Fern's dinosaur party"), /ferns/);
+
+  // end to end: a child named Star gets a READY invite, not a 502
+  const res = fakeRes();
+  await createInviteHandler(deps({ extractor: async () => ({ childFirstName: 'Star', occasion: 'Space party', date: '2026-12-01' }) }))(fakeReq(auth, body), res);
+  assert.equal(res.code, 200);
+  assert.equal((res.payload as any).status, 'READY');
+});
+
+test('if a name is exactly a theme word, the guard refuses cleanly (502) and REFUNDS the budget', async () => {
+  const budget = createGenerationBudget(1);
+  // "Confetti" is a word in the birthday theme → the guard matches.
+  const r1 = fakeRes();
+  await createInviteHandler(deps({ budget, extractor: async () => ({ childFirstName: 'Confetti', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r1);
+  assert.equal(r1.code, 502);
+  assert.deepEqual(r1.payload, { error: 'IMAGE_FAILED' });
+  assert.equal(budget.remaining(), 1, 'the budget unit was refunded — nothing was generated');
+
+  // the refunded unit is still usable by the next valid request
+  const r2 = fakeRes();
+  await createInviteHandler(deps({ budget, extractor: async () => ({ childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r2);
+  assert.equal(r2.code, 200);
+  assert.equal(budget.remaining(), 0);
+});

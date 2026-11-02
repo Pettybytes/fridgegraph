@@ -37,6 +37,9 @@ export function createInviteRateLimiter(limitPerWindow: number, windowMs = 60_00
 
 export interface GenerationBudget {
   tryConsume(): boolean;
+  /** Give a consumed unit back when nothing was actually generated (e.g. a pre-generation guard
+   *  refused). Never goes below zero. */
+  refund(): void;
   remaining(): number;
 }
 
@@ -49,6 +52,9 @@ export function createGenerationBudget(max: number): GenerationBudget {
       if (used >= max) return false;
       used += 1;
       return true;
+    },
+    refund(): void {
+      if (used > 0) used -= 1;
     },
     remaining(): number {
       return Math.max(0, max - used);
