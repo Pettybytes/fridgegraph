@@ -18,7 +18,8 @@
     "suite": "node --import tsx ops/run-suite.mjs",
     "db:restore-demo": "tsx scripts/db.ts restore:demo",
     "test:village": "node --import tsx --test src/village/*.test.ts",
-    "test:seed": "node --import tsx --test src/demo/identityMap.test.ts"
+    "test:seed": "node --import tsx --test src/demo/identityMap.test.ts",
+    "test:mcp-config": "node --test ops/gen-mcp-config.test.mjs"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
