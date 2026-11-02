@@ -13,6 +13,8 @@ type Query {
 type Mutation {
   grantAccess(actorId: ID!, childId: ID!, scopes: [String!]!, validFrom: String, validUntil: String): Grant
   revokeGrant(id: ID!): Boolean!
+  proposeAddVillager(childId: ID!, personName: String!, scopes: [String!]!, relationshipType: String, validFrom: String, validUntil: String): AddVillagerProposal!
+  confirmAddVillager(proposalId: ID!, version: Int!): AddVillagerResult!
 }
 
 type Person @key(fields: "id") {
@@ -75,6 +77,32 @@ type Candidate {
 type ApproverResult {
   approver: Person
   fyiParents: [Person!]!
+}
+
+type AddVillagerProposal {
+  id: ID!
+  version: Int!
+  child: Child!
+  person: Person!
+  relationshipType: String!
+  scopes: [String!]!
+  validFrom: String
+  validUntil: String
+  createdAt: String!
+  expiresAt: String!
+}
+
+type AddVillagerResult {
+  relationship: VillagerRelationship!
+  grant: Grant!
+}
+
+type VillagerRelationship {
+  id: ID!
+  from: Person!
+  to: Child!
+  type: String!
+  status: String!
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA

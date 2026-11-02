@@ -103,6 +103,25 @@ export type SchoolReportProposalResult = {
   expiresAt: string;
 };
 
+/**
+ * Same role as SchoolReportProposalResult, for `ProposeAddVillager` — the exact
+ * person/relationship/scopes/window this turn's own tool call staged, for the app to build its
+ * own confirm UI from. Never parsed out of the model's own text.
+ */
+export type AddVillagerProposalResult = {
+  id: string;
+  version: number;
+  childId: string;
+  personId: string;
+  personDisplayName: string | null;
+  relationshipType: string;
+  scopes: string[];
+  validFrom: string | null;
+  validUntil: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+
 export type RosinaTurnResult = {
   reply: string;
   actions: CatalogAction[];
@@ -111,6 +130,8 @@ export type RosinaTurnResult = {
    * as the database row it mirrors. This is never present unless this exact turn's own tool call
    * produced it — never carried over from a prior turn, never invented. */
   schoolReportProposal: SchoolReportProposalResult | null;
+  /** Same rule as schoolReportProposal, for ProposeAddVillager. */
+  addVillagerProposal: AddVillagerProposalResult | null;
   provider: ProviderId;
   model: string;
   rounds: number;
@@ -139,6 +160,38 @@ function schoolReportProposalFrom(data: unknown): SchoolReportProposalResult | n
   return { id: r.id, version: r.version, childId, kind: r.kind, text: r.text, createdAt: r.createdAt, expiresAt: r.expiresAt };
 }
 
+/** Defensive parse of ProposeAddVillager's own tool result shape — same posture as
+ * schoolReportProposalFrom: an unexpected shape returns null rather than throwing. */
+function addVillagerProposalFrom(data: unknown): AddVillagerProposalResult | null {
+  const row = (data as { proposeAddVillager?: unknown })?.proposeAddVillager;
+  if (!row || typeof row !== 'object') return null;
+  const r = row as Record<string, unknown>;
+  const childId = (r.child as { id?: unknown } | undefined)?.id;
+  const person = r.person as { id?: unknown; displayName?: unknown } | undefined;
+  const personId = person?.id;
+  if (
+    typeof r.id !== 'string' || typeof r.version !== 'number' || typeof childId !== 'string' ||
+    typeof personId !== 'string' || typeof r.relationshipType !== 'string' ||
+    !Array.isArray(r.scopes) || !r.scopes.every((s) => typeof s === 'string') ||
+    typeof r.createdAt !== 'string' || typeof r.expiresAt !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    id: r.id,
+    version: r.version,
+    childId,
+    personId,
+    personDisplayName: typeof person?.displayName === 'string' ? person.displayName : null,
+    relationshipType: r.relationshipType,
+    scopes: r.scopes as string[],
+    validFrom: typeof r.validFrom === 'string' ? r.validFrom : null,
+    validUntil: typeof r.validUntil === 'string' ? r.validUntil : null,
+    createdAt: r.createdAt,
+    expiresAt: r.expiresAt,
+  };
+}
+
 /** Defense in depth, independent of .apollo/mcp*.yaml: even if MCP ever exposed a mutation, this
  * service refuses to call anything by a name it does not already know is safe. Grown one tool
  * at a time, each addition reviewed on its own (see docs/handoff/HANDOFF.md "Rosina tools
@@ -159,7 +212,13 @@ function schoolReportProposalFrom(data: unknown): SchoolReportProposalResult | n
  * `school_reports` (see `.apollo/mcp.local.yaml` and `supabase/migrations/0071_*.sql`).
  * `ConfirmSchoolDayReport` — the mutation that files the real, parent-visible report — is NOT in
  * this set and has no MCP operation file anywhere: Rosina cannot reach it no matter what the
- * model asks for, so a model tool call or generated text can never confirm itself. */
+ * model asks for, so a model tool call or generated text can never confirm itself.
+ *
+ * `ProposeAddVillager` (TASK: Add a Villager) is the SECOND such exception. It can only ever stage
+ * a draft in `villager_proposals`; it structurally cannot write `relationships` or `grants` (see
+ * `.apollo/mcp.local.yaml` and `supabase/migrations/0074_*.sql`). `ConfirmAddVillager` is NOT in
+ * this set and has no MCP operation file either, for the same reason as `ConfirmSchoolDayReport`.
+ */
 const ALLOWED_MCP_TOOL_NAMES = new Set([
   'PickupCandidates',
   'Attempts',
@@ -172,6 +231,7 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'OrbitVocabulary',
   'CareFacts',
   'ProposeSchoolDayReport',
+  'ProposeAddVillager',
 ]);
 
 /**
@@ -191,6 +251,11 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   OrbitStatus: 'childId',
   CareFacts: 'childId',
   ProposeSchoolDayReport: 'childId',
+  // ProposeAddVillager is parent-only authority, checked inside propose_add_villager itself —
+  // same posture as CheckInStatus/OrbitStatus below: MyChildren only proves the id is KNOWN to
+  // this caller, never that they are its parent. No REQUIRED_SCOPE_BY_TOOL entry exists for it,
+  // on purpose: "parent" is not one of the scope strings MyChildren ever reports.
+  ProposeAddVillager: 'childId',
   // OrbitVocabulary takes no id argument — it is a public, versioned, closed-vocabulary read.
 };
 
@@ -269,6 +334,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       reply: "I couldn't check that just now.",
       actions: [],
       schoolReportProposal: null,
+      addVillagerProposal: null,
       provider: options.provider,
       model: config.model,
       rounds: 0,
@@ -331,6 +397,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // The latest successful ProposeSchoolDayReport result THIS turn — overwritten, never merged, if
   // the model proposes more than once (the database row it mirrors is also replaced, not added).
   let schoolReportProposal: SchoolReportProposalResult | null = null;
+  let addVillagerProposal: AddVillagerProposalResult | null = null;
 
   let finalContent = '';
 
@@ -448,6 +515,10 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         const parsed = schoolReportProposalFrom(callResult.data);
         if (parsed) schoolReportProposal = parsed;
       }
+      if (call.name === 'ProposeAddVillager' && !callResult.isError) {
+        const parsed = addVillagerProposalFrom(callResult.data);
+        if (parsed) addVillagerProposal = parsed;
+      }
       // "Overdue" is real-time arithmetic, not something to trust the model to compute from a
       // dueAt string — the server decides it here, against the real clock, before the result
       // ever reaches a message. Never derived from recorded=false alone (src/rosina/orbit.ts).
@@ -539,6 +610,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     // this turn's actions either — drop them rather than offer a card alongside a corrected reply.
     actions: guarded.triggered ? [] : validateActions(proposedActions),
     schoolReportProposal: guarded.triggered ? null : schoolReportProposal,
+    addVillagerProposal: guarded.triggered ? null : addVillagerProposal,
     provider: options.provider,
     model: config.model,
     rounds: rounds.length,

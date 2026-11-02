@@ -22,6 +22,7 @@ operations:
     - ./ops/CareFacts.graphql
     - ./ops/MyChildren.graphql
     - ./ops/ProposeSchoolDayReport.graphql
+    - ./ops/ProposeAddVillager.graphql
 introspection:
   introspect:
     enabled: false
@@ -55,6 +56,10 @@ introspection:
 # has NO operation file anywhere in this directory, so it is not exposed in any mutation_mode —
 # Rosina's tool transport structurally cannot reach it, the same guarantee this file already
 # documents for grantAccess/revokeGrant above.
+#
+# ProposeAddVillager.graphql (TASK: Add a Villager) is the SECOND such exception, same shape: it
+# only ever writes villager_proposals (migration 0074), never relationships or grants.
+# confirmAddVillager has no operation file here either, for the same reason.
 overrides:
   mutation_mode: explicit
 

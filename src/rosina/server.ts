@@ -119,12 +119,17 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
 
   if (outcome === TIMEOUT || outcome === null) {
     console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} result=${outcome === TIMEOUT ? 'TIMEOUT' : 'ERROR'} latencyMs=${Date.now() - startedAt}`);
-    res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null });
+    res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null, addVillagerProposal: null });
     return;
   }
 
   console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} latencyMs=${Date.now() - startedAt}`);
-  res.status(200).json({ reply: outcome.reply, actions: outcome.actions, schoolReportProposal: outcome.schoolReportProposal });
+  res.status(200).json({
+    reply: outcome.reply,
+    actions: outcome.actions,
+    schoolReportProposal: outcome.schoolReportProposal,
+    addVillagerProposal: outcome.addVillagerProposal,
+  });
 }
 
 export function createRosinaApp() {
