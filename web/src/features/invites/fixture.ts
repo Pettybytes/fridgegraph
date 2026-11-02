@@ -22,7 +22,7 @@ export function createMockInvite(childFirstName: string): InviteCreator {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     return {
       status: 'READY', clarification: null,
-      event: { childFirstName, occasion: 'Birthday party', date: '2026-11-07', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Riverside Pavilion' },
+      event: { childFirstName, occasion: 'Birthday party', date: '2026-11-07', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Riverside Park' },
       art: { mimeType: 'image/png', width: 1000, height: 1400, base64, quietArea: { x: 148, y: 516, w: 704, h: 704 } },
       provenance: { source: 'FIXTURE', model: null, cached: false, promptHash: FIXTURE_PROMPT_HASH },
     } satisfies InviteResponse

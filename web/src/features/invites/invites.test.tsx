@@ -2,17 +2,33 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { InviteComposer } from './InvitesPanel'
 import { inviteCredit, inviteError, type InviteCreator, type InviteEvent } from './invite'
-import { invitationText } from './renderInvite'
+import { drawInvitation, invitationText } from './renderInvite'
 
-const event: InviteEvent = { childFirstName: 'Maya', occasion: 'Birthday party', date: '2026-11-07', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Riverside Pavilion' }
+const event: InviteEvent = { childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-11-07', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Riverside Park' }
 const provenance = { source: 'FIXTURE' as const, model: null, cached: false, promptHash: 'fixture:test' }
 
 describe('invitation contract and honest states', () => {
   it('keeps Detroit event date and time as source fields, and credits art by provenance', () => {
-    expect(invitationText(event)).toEqual(['Maya', 'Birthday party', 'Saturday, November 7, 2026', '2:00 PM – 4:00 PM · Detroit time', 'Riverside Pavilion'])
+    expect(invitationText(event)).toEqual(['Nora', 'Birthday party', 'Saturday, November 7, 2026', '2:00 PM – 4:00 PM · Detroit time', 'Riverside Park'])
     expect(inviteCredit(provenance)).toBe('Sample art')
     expect(inviteCredit({ source: 'MUSE_IMAGE', model: 'muse-image-1.0', cached: true, promptHash: 'x' })).toBe('Art generated with Muse Image')
     expect(inviteCredit({ source: 'MUSE_IMAGE', model: 'muse-image-1.0', cached: false, promptHash: 'x' })).toBe('Art generated with Muse Image')
+  })
+  it.each([
+    [provenance, 'Sample art'],
+    [{ source: 'MUSE_IMAGE' as const, model: 'muse-image-1.0' as const, cached: true, promptHash: 'model:test' }, 'Art generated with Muse Image'],
+  ])('draws the %s provenance credit into the invitation pixels', (source, expected) => {
+    const fillText = vi.fn()
+    const ctx = {
+      drawImage: vi.fn(), getImageData: () => ({ data: [251, 250, 246, 255] }),
+      measureText: (text: string) => ({ width: text.length * 10 }), fillText,
+      font: '', fillStyle: '', textAlign: '', textBaseline: '',
+    } as unknown as CanvasRenderingContext2D
+    const canvas = { width: 1000, height: 1400, getContext: () => ctx } as unknown as HTMLCanvasElement
+    const image = { naturalWidth: 1000, naturalHeight: 1400 } as HTMLImageElement
+    const art = { mimeType: 'image/png' as const, width: 1000, height: 1400, base64: 'YWJj', quietArea: { x: 148, y: 516, w: 704, h: 704 } }
+    drawInvitation(canvas, image, art, event, source)
+    expect(fillText).toHaveBeenCalledWith(expected, 500, expect.any(Number))
   })
   it('describes refusal, rate limit, exhausted budget, and image failure without claiming art', () => {
     expect(inviteError({ status: 403, code: 'UNAUTHORIZED' })).toMatchObject({ state: 'refused' })

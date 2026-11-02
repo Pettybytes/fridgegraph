@@ -30,7 +30,7 @@ export function InvitesPanel({ mode = 'mock', createInvite }: { mode?: 'mock' | 
 export function InviteComposer({ childId, childFirstName, mode, createInvite }: {
   childId: string; childFirstName: string; mode: 'mock' | 'live'; createInvite: InviteCreator | null
 }) {
-  const [request, setRequest] = useState(`Create a birthday invitation for ${childFirstName} on November 7, 2026, from 2–4 PM at Riverside Pavilion.`)
+  const [request, setRequest] = useState(`Create a birthday invitation for ${childFirstName} on November 7, 2026, from 2–4 PM at Riverside Park.`)
   const [phase, setPhase] = useState<Phase>('idle')
   const [detail, setDetail] = useState('')
   const [result, setResult] = useState<InviteResponse | null>(null)
@@ -110,7 +110,7 @@ export function InvitationCard({ result }: { result: InviteResponse & { art: Non
         await waitForInviteFont()
         if (!active) return
         image.current = loaded.image
-        if (canvas.current) drawInvitation(canvas.current, loaded.image, result.art, eventRef.current)
+        if (canvas.current) drawInvitation(canvas.current, loaded.image, result.art, eventRef.current, result.provenance)
         setPreviewReady(true)
       } catch (error) { if (active) setPreviewError(error instanceof Error ? error.message : 'The art could not be displayed.') }
     })()
@@ -121,9 +121,9 @@ export function InvitationCard({ result }: { result: InviteResponse & { art: Non
 
   useEffect(() => {
     if (!image.current || !canvas.current) return
-    try { drawInvitation(canvas.current, image.current, result.art, event); setPreviewError(''); setPreviewReady(true) }
+    try { drawInvitation(canvas.current, image.current, result.art, event, result.provenance); setPreviewError(''); setPreviewReady(true) }
     catch (error) { setPreviewError(error instanceof Error ? error.message : 'The event text does not fit.'); setPreviewReady(false) }
-  }, [event, result.art])
+  }, [event, result.art, result.provenance])
 
   async function download() {
     if (!canvas.current || !image.current || !previewReady || downloading) return
@@ -132,7 +132,7 @@ export function InvitationCard({ result }: { result: InviteResponse & { art: Non
     try {
       await waitForInviteFont()
       await image.current.decode()
-      drawInvitation(canvas.current, image.current, result.art, event)
+      drawInvitation(canvas.current, image.current, result.art, event, result.provenance)
       const png = await canvasPng(canvas.current)
       const url = URL.createObjectURL(png)
       const link = document.createElement('a')
