@@ -91,3 +91,47 @@ test('deps: close reports its failure to the sweeper instead of swallowing it', 
   const bad = pgSweeperDeps(fakePool(async () => { throw new Error('deadlock detected'); }), () => {});
   await assert.rejects(() => bad.close('job_bad'), /close_discovery\(job_bad\) failed — deadlock detected/);
 });
+
+// ---------------------------------------------------------------------------------------------------
+// REAL pool regression — the class of bug the fake pool could not catch.
+//
+// `const onFn = pool.on; onFn('error', …)` throws `TypeError: Cannot read properties of undefined
+// (reading '_events')` on a real pg.Pool, because EventEmitter.on loses `this`. Fake pools ignored
+// `this`, so the suite passed while every boot with the sweeper enabled would have crashed. This test
+// uses a genuine pg.Pool pointed at a dead port and asserts the enabled startup path end to end.
+// ---------------------------------------------------------------------------------------------------
+test('REAL pg.Pool on a dead port: listener registered, timeouts set, start resolves, tick fails without throwing', async () => {
+  const logs: string[] = [];
+  const t0 = Date.now();
+
+  const started = await startPgDiscoverySweeper({
+    dbUrl: 'postgres://postgres:not-a-real-password@127.0.0.1:1/fridgegraph',
+    log: (m) => logs.push(m),
+    intervalMs: 60_000,
+  });
+
+  assert.equal(started.started, true, 'the enabled startup path must resolve, not throw');
+  assert.ok(Date.now() - t0 < 20_000, 'startup must be bounded by the connection timeout');
+
+  const pool = started.pool as unknown as {
+    listenerCount?: (event: string) => number;
+    options?: { connectionTimeoutMillis?: number; query_timeout?: number };
+  };
+  assert.ok(pool, 'the pool must be exposed for inspection');
+  assert.ok((pool.listenerCount?.('error') ?? 0) >= 1, 'an error listener must be registered on the real pool');
+  assert.equal(pool.options?.connectionTimeoutMillis, 5000);
+  assert.equal(pool.options?.query_timeout, 10000);
+
+  // The tick must report a failure rather than reject, and the event loop must stay responsive.
+  let timerFired = false;
+  const timer = setTimeout(() => { timerFired = true; }, 250);
+  const tick = await started.tick?.();
+  await new Promise((r) => setTimeout(r, 350));
+  clearTimeout(timer);
+
+  assert.ok(tick && tick.failed >= 1, 'a dead database must be reported as a failed tick');
+  assert.equal(tick?.closed, 0);
+  assert.ok(timerFired, 'the process must remain responsive while the database is down');
+
+  started.stop();
+});
