@@ -18,6 +18,7 @@ import { useChildAccess } from '@/features/personas/childContext'
 import { ConnectedVillagePreview } from '@/components/signature'
 import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon } from '@/components/fg/primitives'
 import { RosinaAvatar } from '@/components/fg/RosinaAvatar'
+import { Mic } from 'lucide-react'
 import './today.css'
 
 function greeting(now: number): string {
@@ -36,8 +37,6 @@ function shortWhen(at: string): string {
     ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
     : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
-function go(route: string) { window.location.hash = `#/${route}` }
-
 export function Today({ attention, now = Date.now }: { attention?: ReactNode; now?: () => number }) {
   const { session, authMode } = useSession()
   const access = useChildAccess()
@@ -78,7 +77,19 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
               <p>Ask about what’s shared with you. Every change needs your confirmation.</p>
             </div>
           </div>
-          <Composer placeholder={`What’s on ${childName}’s calendar today?`} onSend={() => go('ask-rosina')} sendLabel="Ask Rosina" />
+          <div className="fg-today-askrow">
+            <Composer
+              placeholder={`What’s on ${childName}’s calendar today?`}
+              maxLength={4000}
+              onSend={message => window.dispatchEvent(new CustomEvent('rosina:send-from-today', {
+                detail: { message, generation: session.generation, childId },
+              }))}
+              sendLabel="Ask Rosina"
+            />
+            <button type="button" className="fg-iconbtn fg-today-mic" aria-label="Open Rosina microphone" title="Open Rosina microphone" onClick={() => window.dispatchEvent(new Event('rosina:focus-mic'))}>
+              <Mic size={19} aria-hidden="true" />
+            </button>
+          </div>
         </Surface>
 
         {/* Recorded activity — the latest recorded items. Loading and refusal are

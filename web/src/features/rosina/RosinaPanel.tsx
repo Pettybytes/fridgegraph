@@ -5,6 +5,7 @@ import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
 import type {OrbitController} from '@/features/orbit/controller'
 import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { FormEvent, ReactNode } from 'react'
 import { Dialog } from 'radix-ui'
 import { MessageCircle, X } from 'lucide-react'
@@ -48,7 +49,8 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   const confirmReport = useMemo(() => confirmSchoolReport ?? (adapter.mode === 'mock' ? createMockSchoolReportConfirm() : child?.client ? createLiveSchoolReportConfirm(child.client) : null), [confirmSchoolReport, adapter.mode, child?.client])
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [draft, setDraft] = useState('')
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(() => location.hash.startsWith('#/ask-rosina'))
+  const [focusMicRequest,setFocusMicRequest]=useState(0)
   const [dismissed,setDismissed] = useState(false)
   const [needsSignIn,setNeedsSignIn] = useState(false)
   const requestId=useRef(0)
@@ -60,6 +62,8 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   const [pending, setPending] = useState<{ action: CatalogAction; key: string } | null>(null)
   const nextId = useRef(0), active = useRef(true), abort = useRef<AbortController | null>(null)
   const threadRef = useRef<HTMLDivElement>(null), launcherRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLElement>(null), focusMicOnOpen = useRef(false)
+  const askFromToday = useRef<(message:string)=>void>(()=>{})
   const sent = useRef(false), executed = useRef(new Set<string>())
   const context = { ...calendarScope, canPrepareOrbit:orbit?.canPrepare()??false, readOnly: session?.marks?.demoGuide===true, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
   useEffect(() => {
@@ -76,7 +80,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     return () => { current = false }
   }, [session, dataAdapter])
   useEffect(() => {
-    if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight
+    if (threadRef.current && (messages.length > 0 || busy)) threadRef.current.scrollTop = threadRef.current.scrollHeight
   }, [messages, busy])
   useEffect(() => {
     const followRoute = () => {
@@ -88,6 +92,28 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     return () => window.removeEventListener('hashchange', followRoute)
   }, [])
   useEffect(()=>{const reopen=()=>{setOpen(true);setDismissed(false)};window.addEventListener('rosina:open',reopen);return()=>window.removeEventListener('rosina:open',reopen)},[])
+  useEffect(()=>{
+    const focusMic=()=>{focusMicOnOpen.current=true;setFocusMicRequest(value=>value+1);setOpen(true);setDismissed(false)}
+    window.addEventListener('rosina:focus-mic',focusMic)
+    return()=>window.removeEventListener('rosina:focus-mic',focusMic)
+  },[])
+  useEffect(()=>{
+    if (!open || !focusMicOnOpen.current) return
+    focusMicOnOpen.current=false
+    panelRef.current?.querySelector<HTMLButtonElement>('.fg-voice button[aria-label="Start talking to Rosina"]')?.focus()
+  },[open,dismissed,focusMicRequest])
+  useEffect(()=>{
+    const receive=(event:Event)=>{
+      const detail=(event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail!=='object') return
+      const {message,generation,childId}=detail as Record<string,unknown>
+      if (typeof message!=='string' || !message.trim() || message.length>4000 || generation!==getSessionGeneration() || childId!==(child?.selectedChildId??sessionRef.current?.scope.childId)) return
+      setOpen(true);setDismissed(false)
+      askFromToday.current(message.trim())
+    }
+    window.addEventListener('rosina:send-from-today',receive)
+    return()=>window.removeEventListener('rosina:send-from-today',receive)
+  },[child?.selectedChildId,getSessionGeneration])
   useEffect(()=>{const prepare=(event:Event)=>{const text=(event as CustomEvent<unknown>).detail;if(typeof text==='string'){setDraft(text);setOpen(true);setDismissed(false)}};window.addEventListener('orbit:ask',prepare);return()=>window.removeEventListener('orbit:ask',prepare)},[])
   function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = [], schoolReportProposal?: SchoolReportProposal | null, addVillagerProposal?: AddVillagerProposal | null) {
     if (!active.current) return
@@ -107,6 +133,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   function closePanel() {
     ++requestId.current; abort.current?.abort(); abort.current=null; sent.current=false
     setBusy(false);setError('');setPending(null);setOpen(false);setDismissed(true)
+    if (location.hash.startsWith('#/ask-rosina')) location.hash = '#/today'
   }
   async function ask(message:string, recordUser=true) {
     if (!message || sent.current || needsSignIn) return
@@ -125,6 +152,10 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         else setError('Rosina could not reply. Try again. Your message was not submitted as an action.')
       }
     }finally{if(owns()){setBusy(false);sent.current=false;abort.current=null}}
+  }
+  askFromToday.current=(message:string)=>{
+    if (sent.current || needsSignIn) { setDraft(message); return }
+    void ask(message)
   }
   function send(event:FormEvent){event.preventDefault();const message=draft.trim();if(!message||sent.current||needsSignIn)return;setDraft('');void ask(message)}
   function explanation(screen: ExplainableScreen): string {
@@ -168,9 +199,8 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     if(!confirmReport)return <p role="status">Confirmation is unavailable right now.</p>
     return <SchoolReportCard proposal={proposal} childName={child?.selectedChildName??session?.scope.childName??'Child'} canConfirm accessLoading={false} mode={adapter.mode} confirm={confirmReport}/>
   }
-  return <>
-    <button type="button" ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>
-    <section onKeyDown={event => { if (event.key === 'Escape') { closePanel(); launcherRef.current?.focus() } }} hidden={dismissed} className={`rosina-panel fg-glass ${open ? 'is-open' : ''}`} aria-label="Ask Rosina" data-state={adapter.mode === 'mock' ? 'unavailable' : 'live'}>
+  const pageTarget = currentRoute.startsWith('#/ask-rosina') ? document.getElementById('rosina-route-slot') : null
+  const panel = <section ref={panelRef} onKeyDown={event => { if (event.key === 'Escape') { closePanel(); launcherRef.current?.focus() } }} hidden={dismissed} className={`rosina-panel fg-glass ${open ? 'is-open' : ''} ${pageTarget ? 'is-page' : ''}`} aria-label="Ask Rosina" data-state={adapter.mode === 'mock' ? 'unavailable' : 'live'}>
       <header><div className="rosina-identity"><RosinaAvatar state={busy?'thinking':'ready'} size={48}/><div><h2>Ask Rosina</h2><p>FridgeGraph's AI family coordinator</p></div></div><button type="button" aria-label="Close Ask Rosina" onClick={closePanel}><X size={18} /></button></header>
       <p className="rosina-source"><strong className={`rosina-mode mode-${adapter.mode}`}>{adapter.mode==='live'?'Live':'Sample answers'}</strong><span>Conversation clears when you switch person</span></p>
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
@@ -184,6 +214,9 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
       {error && <p className="rosina-error" role="alert">{error}</p>}
       <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply}/>}</div></form>
     </section>
+  return <>
+    {!pageTarget && <button type="button" ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>}
+    {pageTarget ? createPortal(panel, pageTarget) : panel}
     <Dialog.Root open={!!pending} onOpenChange={value => { if (!value) setPending(null) }}><Dialog.Portal><Dialog.Overlay className="rosina-confirm-overlay" /><Dialog.Content className="rosina-confirm"><Dialog.Title>Confirm pickup request</Dialog.Title><Dialog.Description>Review the child, date and window. {adapter.mode === 'mock' ? 'This is a demo request. It doesn’t arrange a pickup.' : 'Pickup requests aren’t available here yet.'}</Dialog.Description>{pending?.action.id === 'start-pickup' && <dl><dt>Child</dt><dd>{session?.scope.childName}</dd><dt>Date</dt><dd>{pending.action.args.date}</dd><dt>Window</dt><dd>{pending.action.args.window}</dd></dl>}<button type="button" onClick={() => { if (pending) void execute(pending.action, pending.key, true) }}>Confirm {adapter.mode === 'mock' ? 'demo ' : ''}pickup request</button><Dialog.Close>Cancel</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
   </>
 }
