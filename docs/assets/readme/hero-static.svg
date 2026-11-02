@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+    <title id="title">FridgeGraph: the village around a child, connected</title><desc id="desc">An illustrative sequence shows a notice, voice message and care note becoming a Rosina proposal. A parent approval turns the proposed connection into an authorized one. It is not live telemetry.</desc>
+    <rect width="1280" height="520" rx="24" fill="#FBFAF6"/>
+    <rect x="28" y="28" width="1224" height="464" rx="20" fill="none" stroke="#B6BEDF" opacity=".58"/>
+    <text x="76" y="112" fill="#252638" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="700" letter-spacing="-3">FridgeGraph</text>
+    <text x="78" y="151" fill="#4654AD" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" letter-spacing="2">ROSINA PREPARES. PARENTS DECIDE.</text>
+    <text x="78" y="193" fill="#252638" font-family="Arial,Helvetica,sans-serif" font-size="27">The village around a child, connected.</text>
+    <text x="78" y="437" fill="#4654AD" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700">Powered by Meta Muse</text>
+    <text x="78" y="465" fill="#585D72" font-family="Arial,Helvetica,sans-serif" font-size="16">Muse Spark 1.3 · Muse Voice Transcribe 1.0</text>
+    <text x="1170" y="465" text-anchor="end" fill="#585D72" font-family="Arial,Helvetica,sans-serif" font-size="13">Meta AI Hackathon · Indie</text>
+    <g font-family="Arial,Helvetica,sans-serif" font-size="15" fill="#252638">
+      <g class="disconnected"><path d="M620 279h100M620 328h100M620 377h100" stroke="#B6BEDF" stroke-width="2" stroke-dasharray="4 7"/></g>
+      <g class="gather"><path d="M620 279C690 279 688 319 748 319M620 328h128M620 377C690 377 688 337 748 337" fill="none" stroke="#4654AD" stroke-width="2.5"/></g>
+      <g><rect x="438" y="254" width="182" height="43" rx="10" fill="#FFFFFF" stroke="#B6BEDF"/><text x="456" y="281">School notice</text>
+      <rect x="438" y="307" width="182" height="43" rx="10" fill="#FFFFFF" stroke="#B6BEDF"/><text x="456" y="334">Voice message</text>
+      <rect x="438" y="360" width="182" height="43" rx="10" fill="#FFFFFF" stroke="#B6BEDF"/><text x="456" y="387">Care note</text></g>
+      <circle cx="787" cy="328" r="43" fill="#E3E7FF" stroke="#4654AD" stroke-width="2"/><text x="787" y="324" text-anchor="middle" font-size="15" font-weight="700">Child</text><text x="787" y="343" text-anchor="middle" font-size="12">+ village</text>
+      <g class="proposal"><path d="M830 328h47" stroke="#4654AD" stroke-width="2.5"/><rect x="877" y="289" width="139" height="78" rx="12" fill="#FFFFFF" stroke="#4654AD" stroke-width="2"/><text x="946" y="321" text-anchor="middle" font-weight="700">Rosina</text><text x="946" y="342" text-anchor="middle" font-size="13">proposal</text></g>
+      <g class="dashed"><path d="M1016 328h83" stroke="#E88775" stroke-width="3" stroke-dasharray="7 7"/></g>
+      <g class="solid"><path d="M1016 328h83" stroke="#396F60" stroke-width="4"/></g>
+      <g class="approve"><rect x="1099" y="286" width="128" height="84" rx="12" fill="#FFFFFF" stroke="#396F60" stroke-width="2"/><text x="1163" y="318" text-anchor="middle" font-size="14" font-weight="700">Parent</text><text x="1163" y="340" text-anchor="middle" font-size="13">approves</text></g>
+    </g>
+    <text x="438" y="234" fill="#585D72" font-family="Arial,Helvetica,sans-serif" font-size="13">Illustrative process · no automatic action</text>
+    </svg>
