@@ -1,0 +1,38 @@
+# Offline composition config — composes from the committed SDL, not from running services.
+#
+# `supergraph.yaml` fetches each subgraph's schema from a local URL, so it can only compose while the
+# seven services are up and serving the CURRENT code. That makes it useless in CI and dangerous as a
+# release gate: a stale process silently composes a stale supergraph. This file reads `schema/*.graphql`
+# instead, so composition is deterministic and reviewable:
+#
+#   ~/.rover/bin/rover supergraph compose --config supergraph.local.yaml --elv2-license accept
+federation_version: =2.9.0
+subgraphs:
+  village:
+    routing_url: http://127.0.0.1:4001/
+    schema:
+      file: schema/village.graphql
+  access:
+    routing_url: http://127.0.0.1:4002/
+    schema:
+      file: schema/access.graphql
+  coordination:
+    routing_url: http://127.0.0.1:4003/
+    schema:
+      file: schema/coordination.graphql
+  schedule:
+    routing_url: http://127.0.0.1:4004/
+    schema:
+      file: schema/schedule.graphql
+  school:
+    routing_url: http://127.0.0.1:4005/
+    schema:
+      file: schema/school.graphql
+  transport:
+    routing_url: http://127.0.0.1:4006/
+    schema:
+      file: schema/transport.graphql
+  activities:
+    routing_url: http://127.0.0.1:4007/
+    schema:
+      file: schema/activities.graphql

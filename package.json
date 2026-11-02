@@ -21,7 +21,9 @@
     "test:seed": "node --import tsx --test src/demo/identityMap.test.ts",
     "test:mcp-config": "node --test ops/gen-mcp-config.test.mjs",
     "test:0066": "node --test ops/0066-policy-contract.test.mjs",
-    "test:0068": "node --test ops/0068-gate-contract.test.mjs"
+    "test:0068": "node --test ops/0068-gate-contract.test.mjs",
+    "test:village-world": "node --test ops/village-world-contract.test.mjs",
+    "compose:local": "rover supergraph compose --config supergraph.local.yaml --elv2-license accept > supergraph.local.graphql"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
