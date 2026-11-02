@@ -3971,3 +3971,24 @@ Wiring checklist: [VILLAGE-MAP-FRONTEND.md](VILLAGE-MAP-FRONTEND.md). No live st
 | 2026-11-01 21:23 | **W-PHOTO-64 OPEN — content-rich fixture run, deadline `2026-11-01T22:05:00Z`.** Reserved before any call. **No restart, no migration, no deploy:** the stack is already serving Rosina **`539a8b4`** (pid 20096) and the graph **`405f7a7`**. Scope: send the committed fictional fixture `docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg` through Kendra's real authenticated upload and the real `POST /api/rosina/photo-descriptors`, then the five cases again, writing **evidence 64** and leaving **63, its blank-image result and `run01-failed` untouched**. Fixture provenance recorded in `docs/evidence/fixtures/PROVENANCE.md` — generating tool and model taken from the generation receipt (`image_generate`, `google/gemini-3.1-flash-image`), everything unsupported marked **unknown**; **no Muse attribution**, because none is verified. Ends with the ordinary demo reset and a sandbox check. | branch `proof/photo-descriptor-authority` | 4200 · 5189 · 4008 | **OPEN to 2026-11-01T22:05:00Z** |
 | 2026-11-01 21:32 | **W-PHOTO-64 RELEASED — content-rich run PASS 23/23; nothing restarted, nothing migrated.** Fixture `docs/evidence/fixtures/fictional-child-yellow-raincoat.jpg` (tool `image_generate`, model `google/gemini-3.1-flash-image`; seed/timings **unknown**; **no Muse attribution**, since `muse-image-1.0` is unverified) sent through Kendra's real upload (362,754 → **79,141** stored bytes) and the real descriptors endpoint. Returned **`wearColor:yellow`, `carryColor:red`, `carryItem:backpack`** — all three inside the child's 55-entry vocabulary, **none dropped**. **Honest omissions:** `hair` and `wearGarment` were not proposed although braided dark hair and a raincoat are visible; `textInImage` was not asserted. Priya **403**, confirmed ACTIVE-alert AUDIENCE **403 byte-identical**, recipient photo GET **200 `image/jpeg`** with `X-Orbit-Access: AUDIENCE`, unknown photo **404**, alert closed, demo reset. **Evidence 63, its blank-image result and `run01-failed` are untouched.** Serving revisions unchanged: Rosina `539a8b4` (20096), graph `405f7a7`. | `proof/photo-descriptor-authority` | 4200 · 5189 · 4008 | **RELEASED — proof PASS, no deploy** |
 | 2026-11-01 21:30 | **CORRECTION (append-only) to the 21:38 and 21:05 rows — 0055 is APPLIED; my "0055 FALSE" was wrong.** Measured from the database, not inferred: all **12** 0055 functions present; **0 of 12** grant EXECUTE to PUBLIC (my earlier "PUBLIC EXECUTE PRESENT" line matched `postgres=X`, which is a grant to `postgres`, not to PUBLIC); `orbit_alerts` table-level SELECT held only by `postgres` and `service_role`; `authenticated` holds **column-level** SELECT on exactly the 15 safe columns and none of the sensitive ones; `orbit_share_for` carries the `status='ACTIVE'` + `_orbit_is_audience_member` post-close gate. The "0055 false" came from probing a `redacted_at` column **that 0055 never creates** — a fabricated probe. `ops/0055-dry-run.mjs` fails only because it asserts the **pre**-migration grant state, which post-apply is necessarily false. **No migration was replayed and no permission was restored.** Tracking metadata is separate and unresolved: `supabase_migrations.schema_migrations` stops at **0011** because `ops/*-apply.mjs` writes no tracking row; 0012–0057 are **not** assumed applied and are not bulk-stamped. | — | — | **CORRECTION** |
+
+### Village map route/day served preview proof — 2026-11-02, PR #87 draft
+UI revision `06cb26e1fd1c627f668524cb8ed7b81b0dc91fb1` ran on preview
+port 5210 against served demo/graph `c806f46`. Mock checks remain separate:
+355/355 web tests across 60 files passed; the map world remains visibly
+labeled Sample data. Real picker sessions for Kendra and Priya were READY.
+`POST /api/village/day` returned 200 with one linked item for each on
+2026-09-01. Exact place IDs were checked against migration 0053/0062 seed
+identity, not by similar names. Kendra's Drive route returned 200 with
+geometry and 6617 m; Priya's returned 403 `COORDINATES_WITHHELD` and no
+geometry. The delivered route transport mapped the refusal to its restricted
+labels-only state. No route approval or other mutation occurred.
+
+UI: route transport prepared, fixture world retained · backend: route/day
+served; authorized world read, Walk/Bike and stored ride-cost reads pending ·
+integrated + tested: PENDING. Runtime still uses `createMockMapAdapter` and
+cannot truthfully drop Sample data. The W-PROOFS-ONLY slot was released around
+00:09Z, despite an earlier row carrying a later stamp and 01:15Z deadline.
+These UI probes occurred around 00:12–00:16Z before the correction was seen;
+all previews and live requests stopped on discovery. No more live requests
+until Bentley posts a fresh OPEN slot on #78.
