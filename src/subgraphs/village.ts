@@ -47,6 +47,15 @@ const typeDefs = parse(`
     memberships(groupId: ID): [Membership!]!
     goals(childId: ID!): [Goal!]!
     carePlan(childId: ID!): CarePlan
+
+    """
+    Fridge notes for this child. Visibility is entirely RLS-governed (fridge_notes_read, 0083): a
+    parent/guardian sees every note; the note's own author always sees their own note; anyone
+    else sees only notes the author (or a parent) explicitly marked SHARED, and only if they hold
+    a fridge.read grant for this child. No code-level filtering beyond that — unlike goals, this
+    read needs none.
+    """
+    fridgeNotes(childId: ID!): [FridgeNote!]!
   }
 
   type Mutation {
@@ -62,6 +71,97 @@ const typeDefs = parse(`
 
     """Clears the caller's own shared status, if any. The demo guide is refused."""
     clearSharedStatus: Boolean!
+
+    """
+    Parent/guardian only (goals_parent_write, unchanged). \`proposedBy\` is always the caller —
+    never a client argument. \`ownerId\` is a free, optional reference (the existing seed shows it
+    can be a parent, or null; there is no single correct default).
+    """
+    createGoal(childId: ID!, title: String!, ownerId: ID, horizon: String, period: GoalPeriod, status: GoalStatus): Goal!
+
+    """
+    Content-only edit. Never accepts childId or a proposer reassignment — both are permanently
+    immutable once a goal exists (enforced by the goals_guard trigger, 0083), not just omitted
+    from this argument list.
+    """
+    updateGoal(id: ID!, title: String, ownerId: ID, horizon: String, period: GoalPeriod, status: GoalStatus): Goal!
+
+    """Sets completedAt to now(). Independent of status — never changes PROPOSED/APPROVED."""
+    completeGoal(id: ID!): Goal!
+
+    """Clears completedAt. Independent of status."""
+    uncompleteGoal(id: ID!): Goal!
+
+    """Parent/guardian only."""
+    deleteGoal(id: ID!): Boolean!
+
+    """
+    Parent/guardian posting, OR a caregiver holding an explicit fridge.post grant for this child —
+    household membership alone implies nothing. \`authorId\` is always the caller. Audience
+    defaults to PARENTS_ONLY; SHARED must be chosen explicitly.
+    """
+    postFridgeNote(childId: ID!, text: String!, paperColor: PaperColor, audience: FridgeNoteAudience, attachmentRef: String): FridgeNote!
+
+    """
+    Content-only edit (text/paperColor/attachmentRef) by a parent or the note's own author. Never
+    accepts audience — see setFridgeNoteAudience. Never accepts childId/authorId: both are
+    permanently immutable (fridge_notes_guard trigger, 0083).
+    """
+    updateFridgeNote(id: ID!, text: String, paperColor: PaperColor, attachmentRef: String): FridgeNote!
+
+    """
+    Parent/guardian only — a non-parent author's own edits can never touch audience at all (DB-
+    enforced by the same trigger), so there is no separate "unauthorized widening" case to refuse
+    here; it is structurally impossible to reach this mutation's write path as anyone else.
+    """
+    setFridgeNoteAudience(id: ID!, audience: FridgeNoteAudience!): FridgeNote!
+
+    """Parent/guardian only. Not "the author may delete their own note" — that was not asked for."""
+    removeFridgeNote(id: ID!): Boolean!
+  }
+
+  enum GoalPeriod {
+    DAY
+    WEEK
+    MONTH
+  }
+
+  enum GoalStatus {
+    PROPOSED
+    APPROVED
+  }
+
+  enum PaperColor {
+    YELLOW
+    PINK
+    BLUE
+    GREEN
+    WHITE
+  }
+
+  enum FridgeNoteAudience {
+    PARENTS_ONLY
+    SHARED
+  }
+
+  """
+  A parent/guardian- or permitted-caregiver-authored note, first slice of the fridge backend
+  (docs/contracts/fridge-notes.md). \`revision\` exists for a future conflict-aware client; no
+  resolver here compares it — writes are last-write-wins today.
+  """
+  type FridgeNote {
+    id: ID!
+    child: Child!
+    author: Person!
+    text: String!
+    paperColor: PaperColor!
+    audience: FridgeNoteAudience!
+    """No new storage — a reference into whatever store already authorizes/serves it, same shape
+    as Orbit's photo_id. Reserved for Rosina's later intake contract; nothing reads it yet."""
+    attachmentRef: String
+    createdAt: String!
+    updatedAt: String!
+    revision: Int!
   }
 
   """
@@ -232,6 +332,10 @@ const typeDefs = parse(`
     proposedBy: Person
     horizon: String
     status: String!
+    """Explicitly chosen cadence, additive to horizon — never both required, never inferred."""
+    period: GoalPeriod
+    """Independent of status. Set only by completeGoal/uncompleteGoal."""
+    completedAt: String
   }
 
   type CarePlan {
@@ -273,6 +377,85 @@ async function hydratePerson(ctx: Ctx, p: PersonLite): Promise<PersonLite | null
   const row = await personRow(ctx, p.id);
   return row ? toPerson(row) : null;
 }
+
+type GoalShape = {
+  id: string;
+  childId: string;
+  title: string;
+  ownerId: string | null;
+  proposedById: string | null;
+  horizon: string | null;
+  status: string;
+  period: string | null;
+  completedAt: string | null;
+};
+
+const GOAL_COLUMNS = 'id,child_id,title,owner_id,proposed_by_id,horizon,status,period,completed_at';
+
+const toGoal = (row: Record<string, unknown>): GoalShape => ({
+  id: String(row.id),
+  childId: String(row.child_id),
+  title: String(row.title),
+  ownerId: (row.owner_id as string | null) ?? null,
+  proposedById: (row.proposed_by_id as string | null) ?? null,
+  horizon: (row.horizon as string | null) ?? null,
+  status: String(row.status),
+  period: (row.period as string | null) ?? null,
+  completedAt: row.completed_at == null ? null : String(row.completed_at),
+});
+
+/**
+ * Trigger-raised exceptions (goals_guard, fridge_notes_guard — 0083) surface through supabase-js
+ * exactly like a RAISE EXCEPTION from a SECURITY DEFINER function: {message, code}. Same
+ * message-substring-first, SQLSTATE-fallback shape as access.ts's addVillagerError, scoped to the
+ * small set of codes these two triggers can actually raise.
+ */
+function triggerGuardError(e: unknown, known: readonly string[]): never {
+  const message = e instanceof Error ? e.message : String(e);
+  const byMessage = known.find((k) => message.includes(k));
+  if (byMessage) throw new GraphQLError(byMessage, { extensions: { code: byMessage } });
+  const sqlstate = (e as { code?: unknown } | null)?.code;
+  if (sqlstate === '42501') throw deny();
+  console.error('[village.triggerGuardError] unmapped error:', typeof sqlstate === 'string' ? sqlstate : 'unknown', message);
+  throw new GraphQLError('WRITE_FAILED', { extensions: { code: 'WRITE_FAILED' } });
+}
+
+const GOAL_ERROR_CODES = ['GOAL_CHILD_IMMUTABLE', 'GOAL_PROPOSER_IMMUTABLE'] as const;
+const FRIDGE_NOTE_ERROR_CODES = [
+  'FRIDGE_NOTE_CHILD_IMMUTABLE', 'FRIDGE_NOTE_AUTHOR_IMMUTABLE', 'FRIDGE_NOTE_AUDIENCE_LOCKED',
+] as const;
+
+type FridgeNoteShape = {
+  id: string;
+  childId: string;
+  authorId: string;
+  text: string;
+  paperColor: string;
+  audience: string;
+  attachmentRef: string | null;
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+};
+
+const FRIDGE_NOTE_COLUMNS = 'id,child_id,author_id,text,paper_color,audience,attachment_ref,created_at,updated_at,revision';
+
+/** GraphQL enum values are UPPERCASE; the DB's own check constraint is lowercase (0083). */
+const PAPER_COLOR_TO_DB: Record<string, string> = { YELLOW: 'yellow', PINK: 'pink', BLUE: 'blue', GREEN: 'green', WHITE: 'white' };
+const PAPER_COLOR_FROM_DB: Record<string, string> = { yellow: 'YELLOW', pink: 'PINK', blue: 'BLUE', green: 'GREEN', white: 'WHITE' };
+
+const toFridgeNote = (row: Record<string, unknown>): FridgeNoteShape => ({
+  id: String(row.id),
+  childId: String(row.child_id),
+  authorId: String(row.author_id),
+  text: String(row.text),
+  paperColor: PAPER_COLOR_FROM_DB[String(row.paper_color)] ?? 'YELLOW',
+  audience: String(row.audience),
+  attachmentRef: (row.attachment_ref as string | null) ?? null,
+  createdAt: String(row.created_at),
+  updatedAt: String(row.updated_at),
+  revision: Number(row.revision),
+});
 
 const resolvers = {
   Query: {
@@ -488,22 +671,11 @@ const resolvers = {
     goals: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       requireCaller(ctx);
       const data = await rows(
-        dbFor(ctx)
-          .from('goals')
-          .select('id,child_id,title,owner_id,proposed_by_id,horizon,status')
-          .eq('child_id', childId),
+        dbFor(ctx).from('goals').select(GOAL_COLUMNS).eq('child_id', childId),
       );
-      const mapped = data.map((g) => ({
-        id: String(g.id),
-        child: { id: String(g.child_id) },
-        title: String(g.title),
-        ownerId: (g.owner_id as string | null) ?? null,
-        proposedById: (g.proposed_by_id as string | null) ?? null,
-        horizon: (g.horizon as string | null) ?? null,
-        status: String(g.status),
-      }));
+      const mapped = data.map(toGoal);
       if (await isParentOf(ctx, childId)) return mapped;
-      // A grant holder sees approved goals only; a PROPOSED goal is for parents.
+      // A grant holder sees approved goals only; a PROPOSED goal is for parents. Unchanged.
       const grants = await ownGrants(ctx, childId);
       if (grants.some((g) => g.scopes.includes(SCOPE.goals) && inWindow(g, ctx.today))) {
         return mapped.filter((g) => g.status === 'APPROVED');
@@ -516,6 +688,14 @@ const resolvers = {
         dbFor(ctx).from('care_plans').select('child_id,text').eq('child_id', childId).maybeSingle(),
       );
       return row ? { child: { id: String(row.child_id) }, text: String(row.text) } : null;
+    },
+    fridgeNotes: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      // No code-level filtering: fridge_notes_read (0083) is the entire visibility rule.
+      const data = await rows(
+        dbFor(ctx).from('fridge_notes').select(FRIDGE_NOTE_COLUMNS).eq('child_id', childId),
+      );
+      return data.map(toFridgeNote);
     },
   },
 
@@ -636,6 +816,154 @@ const resolvers = {
       await rows(dbFor(ctx).from('shared_statuses').delete().eq('person_id', callerId).select('person_id'));
       return true;
     },
+
+    createGoal: async (
+      _: unknown,
+      { childId, title, ownerId, horizon, period, status }:
+        { childId: string; title: string; ownerId?: string | null; horizon?: string | null; period?: string | null; status?: string | null },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      const callerId = requireCaller(ctx);
+      // goals_parent_write (unchanged) enforces is_parent_of(childId) on the insert itself —
+      // nothing here duplicates that check; a non-parent's insert is refused by RLS with 0 rows.
+      const inserted = await one(
+        dbFor(ctx)
+          .from('goals')
+          .insert({
+            id: `goal_${randomUUID()}`,
+            child_id: childId,
+            title,
+            owner_id: ownerId ?? null,
+            proposed_by_id: callerId,
+            horizon: horizon ?? null,
+            period: period ?? null,
+            status: status ?? 'APPROVED',
+          })
+          .select(GOAL_COLUMNS)
+          .maybeSingle(),
+      );
+      if (!inserted) throw deny();
+      return toGoal(inserted);
+    },
+
+    updateGoal: async (
+      _: unknown,
+      { id, title, ownerId, horizon, period, status }:
+        { id: string; title?: string | null; ownerId?: string | null; horizon?: string | null; period?: string | null; status?: string | null },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const patch: Record<string, unknown> = {};
+      if (title !== undefined && title !== null) patch.title = title;
+      if (ownerId !== undefined) patch.owner_id = ownerId;
+      if (horizon !== undefined) patch.horizon = horizon;
+      if (period !== undefined) patch.period = period;
+      if (status !== undefined && status !== null) patch.status = status;
+      // Direct error handling, not one(): this resolver's own patch never sets child_id/
+      // proposed_by_id, but a future change to this function must not silently mask
+      // goals_guard's specific refusal behind a generic DB_UNAVAILABLE — same defense-in-depth
+      // posture as the fridge_notes mutations below, which genuinely can reach their trigger.
+      const { data, error } = await dbFor(ctx)
+        .from('goals').update(patch).eq('id', id).select(GOAL_COLUMNS).maybeSingle();
+      if (error) triggerGuardError(error, GOAL_ERROR_CODES);
+      if (!data) throw deny();
+      return toGoal(data);
+    },
+
+    completeGoal: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const updated = await one(
+        dbFor(ctx).from('goals').update({ completed_at: new Date().toISOString() }).eq('id', id).select(GOAL_COLUMNS).maybeSingle(),
+      );
+      if (!updated) throw deny();
+      return toGoal(updated);
+    },
+
+    uncompleteGoal: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const updated = await one(
+        dbFor(ctx).from('goals').update({ completed_at: null }).eq('id', id).select(GOAL_COLUMNS).maybeSingle(),
+      );
+      if (!updated) throw deny();
+      return toGoal(updated);
+    },
+
+    deleteGoal: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const deleted = await rows(dbFor(ctx).from('goals').delete().eq('id', id).select('id'));
+      return deleted.length > 0;
+    },
+
+    postFridgeNote: async (
+      _: unknown,
+      { childId, text, paperColor, audience, attachmentRef }:
+        { childId: string; text: string; paperColor?: string | null; audience?: string | null; attachmentRef?: string | null },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      const callerId = requireCaller(ctx);
+      // fridge_notes_insert (0083) is the entire authorization: is_parent_of(childId) OR an
+      // explicit fridge.post grant. Household membership alone grants nothing.
+      const { data, error } = await dbFor(ctx)
+        .from('fridge_notes')
+        .insert({
+          id: `fnote_${randomUUID()}`,
+          child_id: childId,
+          author_id: callerId,
+          text,
+          paper_color: paperColor ? PAPER_COLOR_TO_DB[paperColor] : undefined,
+          audience: audience ?? undefined,
+          attachment_ref: attachmentRef ?? null,
+        })
+        .select(FRIDGE_NOTE_COLUMNS)
+        .maybeSingle();
+      if (error) triggerGuardError(error, FRIDGE_NOTE_ERROR_CODES);
+      if (!data) throw deny();
+      return toFridgeNote(data);
+    },
+
+    updateFridgeNote: async (
+      _: unknown,
+      { id, text, paperColor, attachmentRef }:
+        { id: string; text?: string | null; paperColor?: string | null; attachmentRef?: string | null },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const patch: Record<string, unknown> = {};
+      if (text !== undefined && text !== null) patch.text = text;
+      if (paperColor !== undefined && paperColor !== null) patch.paper_color = PAPER_COLOR_TO_DB[paperColor];
+      if (attachmentRef !== undefined) patch.attachment_ref = attachmentRef;
+      const { data, error } = await dbFor(ctx)
+        .from('fridge_notes').update(patch).eq('id', id).select(FRIDGE_NOTE_COLUMNS).maybeSingle();
+      if (error) triggerGuardError(error, FRIDGE_NOTE_ERROR_CODES);
+      if (!data) throw deny();
+      return toFridgeNote(data);
+    },
+
+    setFridgeNoteAudience: async (_: unknown, { id, audience }: { id: string; audience: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      // A non-parent author's attempt reaches the trigger (fridge_notes_update's own RLS lets
+      // them attempt it) and is refused there with FRIDGE_NOTE_AUDIENCE_LOCKED — not here.
+      const { data, error } = await dbFor(ctx)
+        .from('fridge_notes').update({ audience }).eq('id', id).select(FRIDGE_NOTE_COLUMNS).maybeSingle();
+      if (error) triggerGuardError(error, FRIDGE_NOTE_ERROR_CODES);
+      if (!data) throw deny();
+      return toFridgeNote(data);
+    },
+
+    removeFridgeNote: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const deleted = await rows(dbFor(ctx).from('fridge_notes').delete().eq('id', id).select('id'));
+      return deleted.length > 0;
+    },
   },
 
   Person: {
@@ -752,6 +1080,11 @@ const resolvers = {
 
   CarePlan: {
     child: (c: { child: { id: string }; childId?: string }) => c.child ?? { id: c.childId },
+  },
+
+  FridgeNote: {
+    child: (n: FridgeNoteShape) => ({ id: n.childId }),
+    author: (n: FridgeNoteShape) => ({ id: n.authorId }),
   },
 };
 

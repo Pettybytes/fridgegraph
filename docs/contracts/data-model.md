@@ -21,7 +21,7 @@ Every subgraph writes **only its own tables**. Cross-table reads happen through 
 
 | Subgraph | Port | Owns |
 | --- | --- | --- |
-| village | 4001 | `person`, `child`, `village`, `household`, `household_members`, `relationships`, `contact_methods`, `capabilities`, `groups`, `memberships`, `goals`, `care_plan`, `village_event` |
+| village | 4001 | `person`, `child`, `village`, `household`, `household_members`, `relationships`, `contact_methods`, `capabilities`, `groups`, `memberships`, `goals`, `care_plan`, `village_event`, `fridge_notes` (Phase 2, migration `0083`, STAGED — see `docs/contracts/fridge-notes.md`) |
 | access | 4002 | `grants`, `approvals`, `household_policies`, `parenting_schedules` |
 | coordination | 4003 | `coordination_jobs`, `attempts`, `information_requests`, `confirmations` |
 | schedule | 4004 | `events` |

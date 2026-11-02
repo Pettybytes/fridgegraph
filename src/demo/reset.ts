@@ -33,10 +33,21 @@ const SANDBOX_TABLES = [
   // is never deleted here; `events` has no sandbox column and is restored by fixture upsert instead.
   'coordination_jobs', 'attempts', 'holidays', 'routines', 'adult_availability',
   'holiday_arrangements', 'expected_checkins', 'care_facts',
+  // fridge_notes (0083, staged): every note created through the live demo app is demo content
+  // (sandbox defaults true) — nothing is restored for it, only cleared. Unlike shared_statuses,
+  // there is no canonical seeded note, so it belongs here, not in ID_TABLES.
+  'fridge_notes',
 ] as const;
 
 /** Tables whose fixture rows are identified by their own primary key, not by a sandbox flag. */
-const ID_TABLES = ['households', 'people', 'children', 'household_members', 'household_policies', 'grants', 'relationships', 'shared_statuses'] as const;
+const ID_TABLES = [
+  'households', 'people', 'children', 'household_members', 'household_policies', 'grants',
+  'relationships', 'shared_statuses',
+  // goals (0083, staged): a pre-existing gap — goals was never in this list, so editing a goal's
+  // status/title/period/completedAt persisted across resets indefinitely. pkOf('goals') is the
+  // default (['id']), so no entry is needed there.
+  'goals',
+] as const;
 
 function pkOf(table: string): string[] {
   if (table === 'care_facts') return ['child_id', 'key'];
@@ -79,6 +90,21 @@ function fixtures(): Record<string, Row[]> {
       set_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     }],
+    // The two canonical seeded goals (src/fixtures.ts), byte-for-byte including the new period/
+    // completed_at columns (0083) — a demo edit (title changed, marked complete, re-proposed)
+    // reverts to exactly this shape on reset, same as every other ID_TABLES member.
+    goals: [
+      {
+        id: 'goal_reading', child_id: 'p_nora', title: 'Reading level 3 by June',
+        owner_id: 'p_mom', proposed_by_id: null, horizon: 'June 2027', status: 'APPROVED',
+        period: null, completed_at: null,
+      },
+      {
+        id: 'goal_passing', child_id: 'p_nora', title: 'Left-foot passing this season',
+        owner_id: null, proposed_by_id: 'p_marcus', horizon: '2026 season', status: 'PROPOSED',
+        period: null, completed_at: null,
+      },
+    ],
   };
 }
 
@@ -175,9 +201,9 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     // households before children, children before everything that references them, events LAST
     // (the fixture's audit event references the audit child).
     const RESTORE_ORDER = [
-      'people', 'shared_statuses', 'households', 'children', 'household_members', 'holidays',
-      'routines', 'adult_availability', 'holiday_arrangements', 'coordination_jobs', 'attempts',
-      'expected_checkins', 'care_facts', 'household_policies', 'events',
+      'people', 'shared_statuses', 'households', 'children', 'household_members', 'goals',
+      'holidays', 'routines', 'adult_availability', 'holiday_arrangements', 'coordination_jobs',
+      'attempts', 'expected_checkins', 'care_facts', 'household_policies', 'events',
     ];
     for (const table of RESTORE_ORDER) {
       const n = await upsertRows(c, table, data[table] ?? []);

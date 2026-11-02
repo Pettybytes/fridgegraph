@@ -14,6 +14,7 @@ type Query {
   memberships(groupId: ID): [Membership!]!
   goals(childId: ID!): [Goal!]!
   carePlan(childId: ID!): CarePlan
+  fridgeNotes(childId: ID!): [FridgeNote!]!
 }
 
 type Mutation {
@@ -33,6 +34,54 @@ type Mutation {
   Clears the caller's own shared status, if any. The demo guide is refused.
   """
   clearSharedStatus: Boolean!
+
+  createGoal(childId: ID!, title: String!, ownerId: ID, horizon: String, period: GoalPeriod, status: GoalStatus): Goal!
+  updateGoal(id: ID!, title: String, ownerId: ID, horizon: String, period: GoalPeriod, status: GoalStatus): Goal!
+  completeGoal(id: ID!): Goal!
+  uncompleteGoal(id: ID!): Goal!
+  deleteGoal(id: ID!): Boolean!
+
+  postFridgeNote(childId: ID!, text: String!, paperColor: PaperColor, audience: FridgeNoteAudience, attachmentRef: String): FridgeNote!
+  updateFridgeNote(id: ID!, text: String, paperColor: PaperColor, attachmentRef: String): FridgeNote!
+  setFridgeNoteAudience(id: ID!, audience: FridgeNoteAudience!): FridgeNote!
+  removeFridgeNote(id: ID!): Boolean!
+}
+
+enum GoalPeriod {
+  DAY
+  WEEK
+  MONTH
+}
+
+enum GoalStatus {
+  PROPOSED
+  APPROVED
+}
+
+enum PaperColor {
+  YELLOW
+  PINK
+  BLUE
+  GREEN
+  WHITE
+}
+
+enum FridgeNoteAudience {
+  PARENTS_ONLY
+  SHARED
+}
+
+type FridgeNote {
+  id: ID!
+  child: Child!
+  author: Person!
+  text: String!
+  paperColor: PaperColor!
+  audience: FridgeNoteAudience!
+  attachmentRef: String
+  createdAt: String!
+  updatedAt: String!
+  revision: Int!
 }
 
 """
@@ -200,6 +249,8 @@ type Goal {
   proposedBy: Person
   horizon: String
   status: String!
+  period: GoalPeriod
+  completedAt: String
 }
 
 type CarePlan {
