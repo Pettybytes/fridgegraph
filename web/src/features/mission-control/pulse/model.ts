@@ -25,7 +25,7 @@ export function pulseCohort(runs: StoredRun[], window: PulseWindow) {
   return {
     jobs,
     requests: jobs.length,
-    withOutreach: jobs.filter(run => run.attempts.some(attempt => Number.isFinite(Date.parse(attempt.at)))).length,
+    withContactAttempts: jobs.filter(run => run.attempts.some(attempt => Number.isFinite(Date.parse(attempt.at)))).length,
     withParentApproval: jobs.filter(run => Boolean(run.job.confirmation?.id)).length,
     undated: new Set(runs.filter(run => run.job.type === 'PICKUP' && !jobCreatedAt(run)).map(run => run.job.id)).size,
   }
@@ -34,7 +34,7 @@ export function pulseCohort(runs: StoredRun[], window: PulseWindow) {
 export function recordedJobStatus(status: string): string {
   return ({
     pending: 'Request recorded',
-    discovering: 'Outreach in progress',
+    discovering: 'Coordination in progress',
     awaiting_approval: 'Waiting for parent approval',
     confirmed: 'Parent approval recorded',
     failed: 'Coordination ended',
