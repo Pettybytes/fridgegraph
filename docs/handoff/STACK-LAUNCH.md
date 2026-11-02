@@ -2,6 +2,12 @@
 
 Written after two refresh failures that each cost a live window:
 
+0. **Rosina MUST carry `ROSINA_GRAPHQL_URL` (2026-11-02).** Without it, `GRAPHQL_URL` falls back to
+`ROSINA_MCP_URL.replace(/\/mcp\/?$/, '/graphql')` — i.e. **5051/graphql**, not the router — and every
+Notice→Plan prepare answers **502 NOTICE_ERROR (SCHEDULE_READ_FAILED)** because the authorized schedule
+read fails closed. Point it at the router the demo/browser path uses (`http://127.0.0.1:4012/`).
+`ops/stack-health.mjs` now refuses to call a stack healthy unless a prepare returns a proposal.
+
 1. **Rosina came up against a dead MCP** because it reads `ROSINA_MCP_URL`, and `MCP_URL` is silently
    ignored (`src/rosina/server.ts:25`, default `http://127.0.0.1:5050/mcp` — a port nothing serves).
 2. **The demo-login listener never started** because `startDemoLogin()` returns early unless
@@ -19,7 +25,7 @@ proving it with a check that goes through the browser's own path.
 | Alt subgraphs | 4101–4107 | `DEMO_CLOCK=1 npx tsx ops/stack-alt.mjs` | `DEMO_CLOCK=1` for the test clock |
 | Router (alt) | 4012 | `router-v2.18.0 --supergraph supergraph.graphql --config <alt-router.yaml>` | config generated from `router.yaml` (licence-free variant) |
 | Router (licensed) | 4010 | `router-v2.18.0 --supergraph supergraph.graphql --config router.yaml` | `APOLLO_KEY` from `.env` |
-| **Rosina** | 4200 | `npx tsx src/rosina/server.ts` | **`ROSINA_PORT=4200`**, **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, `ROSINA_PROVIDER=meta` |
+| **Rosina** | 4200 | `npx tsx src/rosina/server.ts` | **`ROSINA_PORT=4200`**, **`ROSINA_MCP_URL=http://127.0.0.1:5051/mcp`**, **`ROSINA_GRAPHQL_URL=http://127.0.0.1:4012/`**, `ROSINA_PROVIDER=meta` |
 | MCP | 5051 | `apollo-mcp-server-v2.1.0 <mcp.yaml>` | config generated from `.apollo/mcp.local.yaml` with port rebased 5050→5051 |
 
 **`MCP_URL` is NOT read by Rosina.** Setting it produces a process that starts happily, logs

@@ -14,6 +14,7 @@
  * Run: node ops/stack-health.mjs
  */
 import { execFileSync } from 'node:child_process';
+import { noticePrepareSmoke } from './notice-prepare-smoke.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
@@ -176,6 +177,12 @@ if (session) {
 } else {
   check('a Rosina chat turn as Kendra succeeds', false, 'no session to test with');
 }
+
+// 5c. Notice→Plan PREPARE. A fail-closed schedule reader used to answer 502 NOTICE_ERROR while the
+// endpoint itself looked up; the only way to see that is to ask for a proposal.
+const notice = await noticePrepareSmoke({ appBase: APP, rosinaBase: 'http://127.0.0.1:4200' });
+check('Notice→Plan prepare returns a proposal (no 502)', notice.ok,
+  notice.blocked ? notice.reason : `status=${notice.status}${notice.error ? ' ' + notice.error : ''}`);
 
 // 6. WHAT CODE IS ACTUALLY SERVING (separate fact from schema state)
 const rosinaCwd = (() => {
