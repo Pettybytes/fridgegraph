@@ -33,3 +33,7 @@ The feature-local AppPreview mounts the actual App → Session → ChildAccess �
 Existing warnings: jsdom canvas implementation messages and Vite bundle-size warning. No dependency changes.
 
 Goal editing, unsupported school-notice/proposal listings and live care/goals proof remain outside this slice. Bryan's capture review remains pending; #153 stays draft.
+
+## CI correction
+
+First published head b0fae63 failed CI web build: `routes.test.tsx(34,63) TS2769`, `exact` is not a valid Testing Library ByRoleOptions property. The preceding local build command also failed, but its shell continued into staging/commit; the earlier build-pass statement applied to the pre-guide UI and was mistakenly carried forward. Removed only the invalid option: a string `name` already matches exactly. No assertion changed. See final/ci-first-failure.txt. Final build and suite are rerun with exit codes checked before republishing. This test-only correction does not change the captured UI.

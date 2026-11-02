@@ -1,0 +1,12 @@
+web build	Build web	﻿2026-11-02T22:47:59.8203180Z ##[group]Run npm --prefix web run build
+web build	Build web	2026-11-02T22:47:59.8203553Z ^[[36;1mnpm --prefix web run build^[[0m
+web build	Build web	2026-11-02T22:47:59.8237468Z shell: /usr/bin/bash -e {0}
+web build	Build web	2026-11-02T22:47:59.8237755Z ##[endgroup]
+web build	Build web	2026-11-02T22:47:59.9440851Z 
+web build	Build web	2026-11-02T22:47:59.9441885Z > web@0.0.0 build
+web build	Build web	2026-11-02T22:47:59.9443045Z > tsc -b && vite build
+web build	Build web	2026-11-02T22:47:59.9443676Z 
+web build	Build web	2026-11-02T22:48:02.4660589Z ##[error]src/features/fridge/routes.test.tsx(34,63): error TS2769: No overload matches this call.
+web build	Build web	2026-11-02T22:48:02.4670986Z   The last overload gave the following error.
+web build	Build web	2026-11-02T22:48:02.4672000Z     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+web build	Build web	2026-11-02T22:48:02.5147895Z ##[error]Process completed with exit code 1.
