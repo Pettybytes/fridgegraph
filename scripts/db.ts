@@ -71,7 +71,7 @@ const TABLES = [
   'approvals', 'household_policies', 'parenting_schedules', 'events', 'school_reports',
   'permission_slips', 'bus_rosters', 'vehicles', 'practices', 'locations', 'coordination_jobs', 'attempts',
   'information_requests', 'confirmations', 'conversation_state', 'village_event', 'routines', 'care_facts',
-  'orbit_vocabulary',
+  'orbit_vocabulary', 'shared_statuses',
 ] as const;
 
 /** Tables where reset removes non-baseline rows (test artifacts, onboarding ghosts). */
@@ -190,11 +190,23 @@ function baseline() {
       id: l.id, owner_type: l.ownerType, owner_id: l.ownerId, label: l.label,
       lat: l.lat, lng: l.lng, source: l.source, captured_at: l.capturedAt,
     })),
+    // Andre's shared status chip (0076). Computed HERE, not hardcoded: `baseline()` is called
+    // fresh on every seed/reset, so `expires_at` is always "reset time + 24h" rather than a fixed
+    // timestamp that would eventually read as expired. Opt-in, person-chosen text — the seed
+    // mirrors what Andre himself would have typed, never a Busy/Free inference.
+    shared_statuses: [{
+      person_id: 'p_dad',
+      emoji: '🍼',
+      text: 'Changing a diaper',
+      eta_text: 'unknown',
+      set_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }],
   } as Record<string, Record<string, unknown>[]>;
 }
 
 const CONFLICT: Record<string, string | undefined> = {
-  children: 'person_id', care_plans: 'child_id', household_policies: 'household_id,rule',
+  children: 'person_id', shared_statuses: 'person_id', care_plans: 'child_id', household_policies: 'household_id,rule',
   parenting_schedules: 'child_id,parent_id', bus_rosters: 'date,child_id',
   household_members: 'person_id,household_id', memberships: 'person_id,group_id',
   capabilities: 'person_id,name', contact_methods: 'person_id,channel,value',
@@ -361,6 +373,18 @@ export async function resetDatabase() {
   // test-authored approvals and synthetic history never survive a reset
   const ap = await fetchAll('approvals');
   if (ap.length) { await del('approvals', 'id=not.is.null'); deleted.approvals = ap.length; }
+  // shared_statuses is keyed by person_id, not id, so it can't use the generic RESET_SCOPED loop
+  // above (which assumes an `id` column) — same special-case shape as approvals/village_event.
+  // Anyone's live-test-set status is removed here; Andre's seeded one is restored by the
+  // seedDatabase() call below with a freshly computed expiry, same as every other reset.
+  const stat = await fetchAll('shared_statuses');
+  const keepPeople = new Set((b.shared_statuses ?? []).map((r) => String(r.person_id)));
+  const extraStatuses = stat.filter((r) => !keepPeople.has(String(r.person_id)));
+  if (extraStatuses.length) {
+    const ids = extraStatuses.map((r) => `"${String(r.person_id)}"`).join(',');
+    await del('shared_statuses', `person_id=in.(${ids})`);
+    deleted.shared_statuses = extraStatuses.length;
+  }
   const synth = await fetchAll('village_event');
   const synthetic = synth.filter((r) => r.source === 'SYNTHETIC_SCENARIO');
   if (synthetic.length) {

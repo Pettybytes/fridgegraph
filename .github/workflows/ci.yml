@@ -58,6 +58,9 @@ jobs:
       - name: Demo route guards
         run: npm run test:demo-guards
 
+      - name: Launcher offline compose
+        run: npm run test:launcher-compose
+
       - name: villageWorld contract
         run: npm run test:village-world
 

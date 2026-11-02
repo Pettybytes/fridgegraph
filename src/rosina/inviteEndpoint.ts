@@ -98,8 +98,20 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
     if (!deps.budget.tryConsume()) { log(429, ' BUDGET'); res.status(429).json({ error: 'BUDGET_EXHAUSTED' }); return; }
 
     const prompt = buildArtPrompt(validation.event.occasion);
-    assertNoPii(prompt, validation.event); // belt-and-suspenders: never a name/date/venue in the prompt
     const hash = promptHash(prompt);
+
+    // Belt-and-suspenders: the prompt is built from fixed theme strings and never echoes input, so a
+    // name/date/venue is impossible — but if the guard ever matches (a name that is exactly a theme
+    // word), refuse cleanly and REFUND the budget: nothing was generated. Logs metadata only, never
+    // the name/prompt/key.
+    try {
+      assertNoPii(prompt, validation.event);
+    } catch {
+      deps.budget.refund();
+      log(502, ' PROMPT_GUARD');
+      res.status(502).json({ error: 'IMAGE_FAILED' });
+      return;
+    }
 
     let result;
     try {

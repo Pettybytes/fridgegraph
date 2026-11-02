@@ -36,7 +36,7 @@ const SANDBOX_TABLES = [
 ] as const;
 
 /** Tables whose fixture rows are identified by their own primary key, not by a sandbox flag. */
-const ID_TABLES = ['households', 'people', 'children', 'household_members', 'household_policies', 'grants', 'relationships'] as const;
+const ID_TABLES = ['households', 'people', 'children', 'household_members', 'household_policies', 'grants', 'relationships', 'shared_statuses'] as const;
 
 function pkOf(table: string): string[] {
   if (table === 'care_facts') return ['child_id', 'key'];
@@ -45,6 +45,7 @@ function pkOf(table: string): string[] {
   if (table === 'children') return ['person_id'];
   if (table === 'grants') return ['id'];
   if (table === 'relationships') return ['id'];
+  if (table === 'shared_statuses') return ['person_id'];
   return ['id'];
 }
 
@@ -65,6 +66,19 @@ function fixtures(): Record<string, Row[]> {
     household_policies: orbit.household_policies,
     expected_checkins: checkin.expected_checkins,
     care_facts: facts.care_facts,
+    // Andre's Dad status chip (0076). Computed HERE, not hardcoded: `fixtures()` is called fresh
+    // on every reset, so `expires_at` is always "reset time + 24h" rather than a timestamp that
+    // would eventually read as expired. Delete-then-reinsert by its own `person_id` only (the
+    // ID_TABLES step below) — any OTHER person's live-set status is never touched, preserving
+    // unrelated and non-demo status rows exactly as this feature's write path leaves them.
+    shared_statuses: [{
+      person_id: 'p_dad',
+      emoji: '🍼',
+      text: 'Changing a diaper',
+      eta_text: 'unknown',
+      set_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }],
   };
 }
 
@@ -161,8 +175,8 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     // households before children, children before everything that references them, events LAST
     // (the fixture's audit event references the audit child).
     const RESTORE_ORDER = [
-      'people', 'households', 'children', 'household_members', 'holidays', 'routines',
-      'adult_availability', 'holiday_arrangements', 'coordination_jobs', 'attempts',
+      'people', 'shared_statuses', 'households', 'children', 'household_members', 'holidays',
+      'routines', 'adult_availability', 'holiday_arrangements', 'coordination_jobs', 'attempts',
       'expected_checkins', 'care_facts', 'household_policies', 'events',
     ];
     for (const table of RESTORE_ORDER) {
