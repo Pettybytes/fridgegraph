@@ -12,7 +12,7 @@
  */
 import type { Request, Response } from 'express';
 import { classifyPin, type RawPinExtraction, type PinProposalBody } from './pinClassify';
-import { AUDIENCE_OPTIONS, type Audience } from './pinTypes';
+import { AUDIENCE_OPTIONS, type Audience, type PinExtracted } from './pinTypes';
 import {
   buildPinProposal,
   captionHashOf,
@@ -36,7 +36,7 @@ export interface MediaStore {
 
 export type PinExtractor = (input: { assetId: string; childId: string; caption: string | null; today: string }) => Promise<RawPinExtraction>;
 
-export type PinRecord = { pinId: string; callerId: string; childId: string; assetId: string; kind: string; audience: string; caption: string | null };
+export type PinRecord = { pinId: string; callerId: string; childId: string; assetId: string; kind: string; audience: string; caption: string | null; extracted: PinExtracted | null };
 export interface PinStore {
   /** Idempotent: a repeated key returns the SAME pin (created:false), never a second. */
   pin(key: string, make: () => PinRecord): { record: PinRecord; created: boolean };
@@ -160,12 +160,23 @@ export function createPinHandlers(deps: PinEndpointDeps) {
     const asset = await deps.media.access({ assetId: claims.assetId, personId: identity.personId, bearer });
     if (!asset.ok || asset.childId !== claims.childId) { res.status(409).json({ error: 'ASSET_CHANGED' }); return; }
 
-    // Idempotent pin: a retry returns the same pin.
+    // Preserve the EXACT reviewed content — do NOT re-extract at confirm. The client echoes the
+    // reviewed caption + fields; we accept them only if they match the signed hashes (so the stored
+    // content is provably the content the parent reviewed, bound to this proposal's signature).
+    const reviewed = (body.reviewed ?? {}) as { caption?: unknown; extracted?: unknown };
+    const caption: string | null = typeof reviewed.caption === 'string' ? reviewed.caption : null;
+    const extracted = (reviewed.extracted && typeof reviewed.extracted === 'object' ? reviewed.extracted : null) as PinExtracted | null;
+    if (captionHashOf(caption) !== claims.captionHash || fieldsHashOf((extracted ?? {}) as PinExtracted) !== claims.fieldsHash) {
+      res.status(400).json({ error: 'INVALID_PROPOSAL' }); return; // reviewed content does not match what was signed
+    }
+
+    // Idempotent pin, bound to this proposal (key includes proposalId): a retry returns the same pin;
+    // a distinct proposal for the same image is a different pin with its own content + audience.
     const { record, created } = deps.pinStore.pin(pinIdempotencyKey(claims), () => ({
       pinId: newId('pinned'), callerId: claims.callerId, childId: claims.childId, assetId: claims.assetId,
-      kind: claims.kind, audience: claims.audience, caption: null,
+      kind: claims.kind, audience: claims.audience, caption, extracted,
     }));
-    res.status(200).json({ status: 'PINNED', created, pin: { id: record.pinId, childId: record.childId, assetId: record.assetId, kind: record.kind, audience: record.audience } });
+    res.status(200).json({ status: 'PINNED', created, pin: { id: record.pinId, childId: record.childId, assetId: record.assetId, kind: record.kind, audience: record.audience, caption: record.caption, extracted: record.extracted } });
   }
 
   return { upload, prepare, confirm };

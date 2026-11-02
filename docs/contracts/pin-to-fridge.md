@@ -45,7 +45,7 @@ invented date.
 
 | kind | typed fields | default audience | what pinning does / does NOT do |
 | --- | --- | --- | --- |
-| `drawing` | `title?`, `caption` | `FAMILY` | pins the art + caption. No document claims. |
+| `drawing` | `title?`, `caption` | `PARENTS_ONLY` | pins the art + caption. No document claims. |
 | `permission_slip` | `title`, `dueDate?`, `event?`, `signatureRequired:true` | `PARENTS_ONLY` | pins a reminder. **Does NOT sign or submit.** |
 | `report_card` | `term?`, `date?` | `PARENTS_ONLY` | pins privately. Parents-only by default. |
 | `appointment_card` | `title?`, `date?`, `startTime?`, `place?` | `PARENTS_ONLY` | pins a reminder. **Does NOT book.** |
@@ -64,7 +64,7 @@ confirm (§5).
   "classification": { /* §2 */ },
   "asset": { "assetId": "pma_…", "mimeType": "image/png" },
   "extracted": { /* typed per kind, §3; each field { value, source } */ },
-  "audience": { "selected": "PARENTS_ONLY", "options": ["PARENTS_ONLY","FAMILY","CAREGIVERS"] },
+  "audience": { "selected": "PARENTS_ONLY", "options": ["PARENTS_ONLY","SHARED"] },  // #157: exactly two; nothing defaults to SHARED
   "suggestions": [                       // shown WITHOUT claiming any record was created
     { "kind": "appointment", "text": "Looks like an appointment on 2026-11-20. Pinning does not book it; a calendar entry needs a separate, verified contract (not created)." }
   ],
@@ -82,27 +82,44 @@ date return **one** clarifying question, never a guess.
 
 ## 5. Separate parent confirmation — bound + re-authorized + idempotent
 
-`POST /api/rosina/pin/confirm` `{ claims, signature }` (claims echoed verbatim from the proposal).
+`POST /api/rosina/pin/confirm` `{ claims, signature, reviewed: { caption, extracted } }`.
+`claims` is echoed verbatim from the proposal; `reviewed` is the **exact content the parent
+reviewed**.
 
 The signature binds, and confirm re-derives, **all** of:
-`{ callerId, childId, assetId, captionHash, fieldsHash, audience, kind, version, expiresAt }`
-— so a changed caption, a changed field, a **changed audience**, a different kind, a different child,
-a different asset, or a different caller all invalidate the token.
+`{ proposalId, version, callerId, childId, assetId, captionHash, fieldsHash, audience, kind, expiresAt }`
+— so a changed caption, a changed field, a **changed audience** (e.g. `PARENTS_ONLY → SHARED`), a
+different kind, a different child, a different asset, or a different caller all invalidate the token.
 
 Server steps (each a hard gate):
 1. Verify the HMAC over the exact claims with `callerId` taken from the **authenticated** bearer (not
    the body) — caller binding.
 2. **Re-authorize** the caller as parent/guardian of `childId` **at confirm time** (not trusting the
-   proposal), and re-check access to `assetId` (§6). Failure → generic `403` (no oracle).
-3. Expiry → `410`; a tampered field/caption/audience → `400`.
-4. **Idempotent pin:** the pin key is `(callerId, childId, assetId, version)`. A retry / double-click
-   returns the **same** pinned note, never a second. (Mocked here with an in-memory keyed store; the
-   real store enforces it — §7.)
-5. **Uploaded text is untrusted content, never instructions** — the caption and any extracted text are
+   proposal), and re-check access to `assetId` (§6). Failure → generic `403`/`409` (no oracle).
+3. Expiry → `410`.
+4. **Preserve the exact reviewed content — never re-extract at confirm.** `reviewed.caption` and
+   `reviewed.extracted` are accepted ONLY if `captionHash(reviewed.caption) == claims.captionHash`
+   and `fieldsHash(reviewed.extracted) == claims.fieldsHash`; otherwise `400`. The stored note carries
+   exactly that caption + fields (not `null`). (Editing is a re-prepare → a new `proposalId`/`version`,
+   not an edit at confirm.)
+5. **Idempotent pin, bound to the PROPOSAL:** the key is
+   `(callerId, childId, assetId, proposalId, version)`. A retry / double-click returns the **same**
+   pinned note; **two distinct proposals for the same image (different `proposalId`) are different pins
+   and never return each other's content or audience.** (Every `prepare` emits `version:1`, so a
+   caller+child+asset+version key collided across proposals — fixed by keying on `proposalId`.)
+6. **Uploaded text is untrusted content, never instructions** — the caption and any extracted text are
    treated as data at every step; nothing in them changes classification, audience, or authorization.
 
-Pinning writes **only** the pinned note (image ref + caption + fields + audience, bound to caller +
-child). It does **not** create a to-do, calendar entry, signature, or submission (§7).
+### Persistence mapping (to #157's `fridge_notes`)
+`reviewed.caption → fridge_notes.text`; `audience → fridge_notes.audience` (`PARENTS_ONLY`|`SHARED`
+only — never silently widened); the private `assetId → fridge_notes.attachment_ref` (a plain ref;
+**this intake owns the authorized loader and re-checks the caller's live authority on every fetch**,
+exactly as #157 reserves it). **The structured extracted fields (date/term/event/dueDate/place) have
+NO column in #157's `fridge_notes` table — that persistence is explicitly PENDING** (they ride in the
+proposal + are preserved in the mocked record; a real column/table is a follow-up, not invented here).
+
+Pinning writes **only** the pinned note (image ref + caption + audience, bound to caller + child). It
+does **not** create a to-do, calendar entry, signature, or submission (§7).
 
 ## 6. Private media design
 
@@ -159,7 +176,7 @@ answer:
 | --- | --- | --- |
 | **goal** | `Goals(childId)` — **new** Rosina read tool (`ops/Goals.graphql`), gated in `model.ts` by `childId` ∈ MyChildren + scope `goals.read`. The subgraph `goals` field already exists (`village.ts`) — **not changed**. | ADDED (this task) |
 | **care information** | `CareFacts(childId)` — existing tool (`careplan.read`). Only the fields needed to describe the fridge are used. **CareFacts and carePlan are distinct contracts**; carePlan is not read here. | EXISTS |
-| **fridge note** | The teacher-persona **note contract** — exact read/fields/audience/revision **coordinated with teacher-persona**; the field is theirs and is **not added here**. Until it lands, notes are supplied through an injected (mocked) reader. | **DEPENDENCY** |
+| **fridge note** | **#157** (`feat/fridge-notes`): read `fridgeNotes(childId): [FridgeNote!]!`; RLS = parent/guardian OR note author OR (`audience=SHARED` AND `fridge.read` grant); the **demo guide has no read policy** (parents-only AND shared both unavailable to it). Op doc `ops/FridgeNotes.graphql` is written to #157's exact shape but **NOT wired** into `.apollo/mcp.local.yaml`/the allowlist yet — #157's field is on its branch, not `main`; wiring (+ the scope-gate decision: rely on RLS vs require `fridge.read`, pending whether a parent's MyChildren reports `fridge.read`) lands in the window #157 is applied. Until then the composer takes an injected (mocked) reader. | **DEPENDENCY (#157, staged)** |
 
 ### Visibility & grounding
 - The caller's bearer governs every read; **permissions are never widened to make Rosina aware**.

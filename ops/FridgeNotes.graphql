@@ -1,0 +1,30 @@
+# Rosina tool: FridgeNotes — a child's fridge notes, read AS THE CALLER through RLS. COORDINATED with
+# #157 (feat/fridge-notes, docs/contracts/fridge-notes.md) — the `fridgeNotes(childId)` field and the
+# FridgeNote type below are #157's, NOT added or changed here.
+#
+# STAGED / NOT WIRED YET: the field lives on #157's branch and is not on `main`, so this operation is
+# deliberately NOT in `.apollo/mcp.local.yaml` or `ALLOWED_MCP_TOOL_NAMES` yet — adding it before the
+# schema serves `fridgeNotes` would fail the MCP load (`field fridgeNotes not found`). Wire it in the
+# same window #157 is applied.
+#
+# Authorization is #157's RLS: parent/guardian, OR the note's own author, OR (audience = SHARED AND a
+# fridge.read grant). PARENTS_ONLY notes never reach a caregiver/guide; the demo guide has no
+# fridge_notes read policy at all. A child the caller cannot see returns [], never an error.
+query FridgeNotes($childId: ID!) {
+  fridgeNotes(childId: $childId) {
+    id
+    text
+    paperColor
+    audience
+    attachmentRef
+    createdAt
+    revision
+    author {
+      id
+      displayName
+    }
+    child {
+      id
+    }
+  }
+}

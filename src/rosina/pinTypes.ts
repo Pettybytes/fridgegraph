@@ -10,18 +10,22 @@ export const PIN_KINDS: readonly PinKind[] = ['drawing', 'permission_slip', 'rep
 
 export type Confidence = 'high' | 'medium' | 'low';
 
-export type Audience = 'PARENTS_ONLY' | 'FAMILY' | 'CAREGIVERS';
+/** Aligned to #157's `fridge_notes.audience` — exactly two values. Nothing defaults to SHARED;
+ *  "explicit sharing" means a parent deliberately chooses SHARED. FAMILY/CAREGIVERS do NOT exist and
+ *  are never silently translated into broader access. */
+export type Audience = 'PARENTS_ONLY' | 'SHARED';
 
-/** report_card and document images default to parents-only; drawings default to family. */
+/** EVERY kind defaults to PARENTS_ONLY (report cards + documents especially). SHARED is only ever an
+ *  explicit, deliberate parent choice at prepare time — never a default, never inferred. */
 export const DEFAULT_AUDIENCE: Record<PinKind, Audience> = {
-  drawing: 'FAMILY',
+  drawing: 'PARENTS_ONLY',
   permission_slip: 'PARENTS_ONLY',
   report_card: 'PARENTS_ONLY',
   appointment_card: 'PARENTS_ONLY',
   other: 'PARENTS_ONLY',
 };
 
-export const AUDIENCE_OPTIONS: readonly Audience[] = ['PARENTS_ONLY', 'FAMILY', 'CAREGIVERS'];
+export const AUDIENCE_OPTIONS: readonly Audience[] = ['PARENTS_ONLY', 'SHARED'];
 
 /** Classification keeps uncertainty VISIBLE — confidence is a hint, not calibrated proof. */
 export type Classification = {

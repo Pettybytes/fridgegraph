@@ -61,9 +61,15 @@ export function fieldsHashOf(extracted: PinExtracted): string {
   return sha256(extracted);
 }
 
-/** Idempotency: one pin per (caller, child, asset, version). A retry returns the same pin. */
-export function pinIdempotencyKey(claims: Pick<PinSignedClaims, 'callerId' | 'childId' | 'assetId' | 'version'>): string {
-  return `pin:${claims.callerId}:${claims.childId}:${claims.assetId}:${claims.version}`;
+/**
+ * Idempotency is bound to the EXACT PROPOSAL, not just the image: the key includes `proposalId` (and
+ * `version`). Replaying one confirmation returns the same pin; two DISTINCT proposals for the same
+ * image (different `proposalId`) are different pins and can never silently return each other's content
+ * or audience. (Every `prepare` previously emitted `version:1`, so a caller+child+asset+version key
+ * collided across proposals — fixed by keying on `proposalId`.)
+ */
+export function pinIdempotencyKey(claims: Pick<PinSignedClaims, 'callerId' | 'childId' | 'assetId' | 'proposalId' | 'version'>): string {
+  return `pin:${claims.callerId}:${claims.childId}:${claims.assetId}:${claims.proposalId}:${claims.version}`;
 }
 
 export type BuildPinProposalInput = {

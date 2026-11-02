@@ -17,12 +17,20 @@
 
 export type ReadResult<T> = { status: 'ok'; value: T } | { status: 'unavailable' } | { status: 'failed' };
 
+// Aligned to #157's FridgeNote (feat/fridge-notes). A fridge note carries NO event date — only a
+// `createdAt`, which is NOT a deadline and is never treated as one; so notes are standing unless a
+// future field supplies an explicit date. `audience` is PARENTS_ONLY|SHARED (RLS already filtered the
+// caller's view, so the composer just displays authorized notes — it never widens).
 export type FridgeNote = {
   id: string;
   source: 'fridge_note' | 'school_report';
   text: string; // UNTRUSTED content
-  date?: string | null; // explicit YYYY-MM-DD, or null/undefined when undated
+  audience?: 'PARENTS_ONLY' | 'SHARED';
+  attachmentRef?: string | null;
+  paperColor?: string;
+  createdAt?: string | null; // a timestamp, NOT a deadline
   revision?: number | null;
+  date?: string | null; // reserved: an explicit event date if a future field supplies one; else undated
   sample?: boolean; // true for sample/decorative manifests — EXCLUDED
 };
 export type FridgeGoal = { id: string; title: string; status: string; horizon?: string | null }; // horizon is FREE TEXT, never a date
