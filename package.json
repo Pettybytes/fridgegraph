@@ -30,7 +30,8 @@
     "test:mcp-schema": "node --test ops/mcp-schema-selection.test.mjs",
     "check:mcp-schema": "node ops/mcp-schema-check.mjs",
     "test:demo-guards": "node --import tsx --test src/demo/guards.test.ts",
-    "test:launcher-compose": "node --test ops/launcher-compose.test.mjs"
+    "test:launcher-compose": "node --test ops/launcher-compose.test.mjs",
+    "test:hosting-artifact": "node --test ops/hosting-artifact.test.mjs"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
