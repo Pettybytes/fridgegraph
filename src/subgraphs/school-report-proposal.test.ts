@@ -25,6 +25,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { GraphQLError } from 'graphql';
+import { PostgrestError } from '@supabase/supabase-js';
 import type { Ctx } from '../authz';
 import schoolSubgraph from './school';
 
@@ -421,4 +422,103 @@ test('reportedAt: null maps through as null (legacy row); a real filing maps thr
 
   const after = await school.Query.schoolReports(null, { childId: 'p_nora' }, parent);
   assert.equal(after.find((r: { id: string }) => r.id === filed.id)?.reportedAt, filed.reportedAt);
+});
+
+// ---------------------------------------------------------------------------------------------
+// 3. ERROR MAPPING — real @supabase/supabase-js PostgrestError-shaped fixtures, not the fake
+// RPC's plain Error. Reproduces docs/evidence/65-teacher-report-live.md: a live deployment where
+// error.message did not carry the raised literal text, and schoolReportProposalError's SQLSTATE
+// fallback (the fix) is what actually resolves it there.
+// ---------------------------------------------------------------------------------------------
+
+/** A db whose `.rpc()` always returns the given error, for exercising schoolReportProposalError
+ * directly through the real resolver without needing a full proposal lifecycle. */
+function erroringDb(error: PostgrestError) {
+  return { rpc: async () => ({ data: null, error }) } as unknown as Ctx['db'];
+}
+
+function pgError(fields: { message: string; code: string; details?: string; hint?: string }): PostgrestError {
+  return new PostgrestError({ details: '', hint: '', ...fields });
+}
+
+test('SQLSTATE fallback: message carries no known literal, but code=42501 still maps to UNAUTHORIZED', async () => {
+  // This is the live shape found in evidence 65: a generic/opaque message, the real signal in code.
+  const error = pgError({ message: 'permission denied for function propose_school_report', code: '42501' });
+  const ctx: Ctx = { callerId: 'p_whitfield', today: '2026-11-03', db: erroringDb(error) };
+  await assert.rejects(
+    () => school.Mutation.proposeSchoolDayReport(null, { childId: 'p_nora', kind: 'health', text: 'fever' }, ctx),
+    (e: unknown) => e instanceof GraphQLError && e.extensions.code === 'UNAUTHORIZED',
+  );
+});
+
+test('SQLSTATE fallback: P0002 maps to PROPOSAL_NOT_FOUND, 40001 maps to PROPOSAL_STALE', async () => {
+  const notFound = pgError({ message: 'no rows', code: 'P0002' });
+  const ctxA: Ctx = { callerId: 'p_whitfield', today: '2026-11-03', db: erroringDb(notFound) };
+  await assert.rejects(
+    () => school.Mutation.confirmSchoolDayReport(null, { proposalId: 'srp_x', version: 1 }, ctxA),
+    (e: unknown) => e instanceof GraphQLError && e.extensions.code === 'PROPOSAL_NOT_FOUND',
+  );
+
+  const stale = pgError({ message: 'could not serialize access', code: '40001' });
+  const ctxB: Ctx = { callerId: 'p_whitfield', today: '2026-11-03', db: erroringDb(stale) };
+  await assert.rejects(
+    () => school.Mutation.confirmSchoolDayReport(null, { proposalId: 'srp_x', version: 1 }, ctxB),
+    (e: unknown) => e instanceof GraphQLError && e.extensions.code === 'PROPOSAL_STALE',
+  );
+});
+
+test('SQLSTATE fallback: 22023 maps to the documented generic SCHOOL_REPORT_INVALID (known overlap, not a new one)', async () => {
+  const error = pgError({ message: 'invalid input value', code: '22023' });
+  const ctx: Ctx = { callerId: 'p_whitfield', today: '2026-11-03', db: erroringDb(error) };
+  await assert.rejects(
+    () => school.Mutation.proposeSchoolDayReport(null, { childId: 'p_nora', kind: 'health', text: '' }, ctx),
+    (e: unknown) => e instanceof GraphQLError && e.extensions.code === 'SCHOOL_REPORT_INVALID',
+  );
+});
+
+test('message match still wins over SQLSTATE when both are present', async () => {
+  // code says 22023 (would fall back to SCHOOL_REPORT_INVALID), but the message carries the exact
+  // literal — the more specific signal must still be preferred.
+  const error = pgError({ message: 'PROPOSAL_EXPIRED', code: '22023' });
+  const ctx: Ctx = { callerId: 'p_whitfield', today: '2026-11-03', db: erroringDb(error) };
+  await assert.rejects(
+    () => school.Mutation.confirmSchoolDayReport(null, { proposalId: 'srp_x', version: 1 }, ctx),
+    (e: unknown) => e instanceof GraphQLError && e.extensions.code === 'PROPOSAL_EXPIRED',
+  );
+});
+
+test('an error matching neither message nor a known SQLSTATE: generic RPC_FAILED with a correlationId, and the server log carries no raw message/details/hint', async () => {
+  const sensitiveDetail = 'SELECT secret_column FROM internal_table WHERE token = abc123';
+  const error = pgError({
+    message: 'totally unrecognized failure',
+    code: '99999',
+    details: sensitiveDetail,
+    hint: 'also sensitive',
+  });
+  const ctx: Ctx = { callerId: 'p_whitfield', today: '2026-11-03', db: erroringDb(error) };
+
+  const logged: string[] = [];
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => { logged.push(args.map(String).join(' ')); };
+  let thrown: GraphQLError | undefined;
+  try {
+    await school.Mutation.proposeSchoolDayReport(null, { childId: 'p_nora', kind: 'health', text: 'fever' }, ctx);
+  } catch (e) {
+    thrown = e as GraphQLError;
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.ok(thrown instanceof GraphQLError);
+  assert.equal(thrown!.extensions.code, 'RPC_FAILED');
+  const correlationId = thrown!.extensions.correlationId as string;
+  assert.equal(typeof correlationId, 'string');
+  assert.ok(correlationId.length > 0);
+
+  assert.equal(logged.length, 1);
+  assert.ok(logged[0].includes(correlationId), 'log line must carry the SAME correlation id as the client response');
+  assert.ok(logged[0].includes('99999'), 'log line should carry the sqlstate for triage');
+  assert.equal(logged[0].includes(sensitiveDetail), false, 'raw details must never be logged');
+  assert.equal(logged[0].includes('also sensitive'), false, 'raw hint must never be logged');
+  assert.equal(logged[0].includes('totally unrecognized failure'), false, 'raw message must never be logged');
 });

@@ -19,7 +19,8 @@
     "db:restore-demo": "tsx scripts/db.ts restore:demo",
     "test:village": "node --import tsx --test src/village/*.test.ts",
     "test:seed": "node --import tsx --test src/demo/identityMap.test.ts",
-    "test:mcp-config": "node --test ops/gen-mcp-config.test.mjs"
+    "test:mcp-config": "node --test ops/gen-mcp-config.test.mjs",
+    "test:0066": "node --test ops/0066-policy-contract.test.mjs"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
