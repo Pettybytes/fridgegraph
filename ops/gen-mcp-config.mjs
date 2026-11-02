@@ -18,6 +18,8 @@
  *   node ops/gen-mcp-config.mjs --out /tmp/mcp.yaml --root . --endpoint http://127.0.0.1:4010/ --port 5051
  *   node ops/gen-mcp-config.mjs --out … --self-check     (validate the committed file only)
  */
+import { createHash } from 'node:crypto';
+import { isAbsolute, join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -34,7 +36,7 @@ export function topLevelKeys(text) {
   return keys;
 }
 
-export function generate(srcText, { root, endpoint, port }) {
+export function generate(srcText, { root, endpoint, port, schema, expectFields = [] }) {
   const keys = topLevelKeys(srcText);
   if (!keys.length) throw new Error('source config has no top-level keys; refusing');
 
@@ -52,9 +54,23 @@ export function generate(srcText, { root, endpoint, port }) {
     }
   }
   if (root) {
-    out = out
-      .replace(/^(\s*)path:\s*\.\/supergraph\.graphql\s*$/m, `$1path: ${root}/supergraph.graphql`)
-      .replace(/^(\s*-\s+)\.\/ops\/([^\s]+\.graphql)\s*$/gm, `$1${root}/ops/$2`);
+    out = out.replace(/^(\s*-\s+)\.\/ops\/([^\s]+\.graphql)\s*$/gm, `$1${root}/ops/$2`);
+  }
+  if (schema) {
+    // Explicit, and checked: the file must exist and carry the fields the config's operations need.
+    const schemaPath = isAbsolute(schema) ? schema : join(root ?? process.cwd(), schema);
+    const schemaText = readFileSync(schemaPath, 'utf8');
+    if (!out.includes('./supergraph.graphql')) {
+      throw new Error('the source config no longer names ./supergraph.graphql; --schema has nothing to replace');
+    }
+    out = out.replace(/^(\s*)path:\s*\.\/supergraph\.graphql\s*$/m, `$1path: ${schemaPath}`);
+    const missing = expectFields.filter((f) => !schemaText.includes(f));
+    if (missing.length) {
+      throw new Error(`schema ${schemaPath} is missing expected field(s): ${missing.join(', ')} — refusing to point the MCP at a stale artifact`);
+    }
+    const digest = createHash('sha256').update(schemaText).digest('hex');
+    out = `# mcp_schema_path: ${schemaPath}\n# mcp_schema_sha256: ${digest}\n` + out;
+    console.log(`mcp schema -> ${schemaPath} sha256=${digest.slice(0, 24)}…`);
   }
 
   // Key parity. This is the check that would have caught the missing forward_headers.
@@ -82,13 +98,24 @@ export function generate(srcText, { root, endpoint, port }) {
 function args() {
   const a = process.argv.slice(2);
   const get = (n, d) => { const i = a.indexOf(`--${n}`); return i >= 0 && a[i + 1] ? a[i + 1] : d; };
-  return { out: get('out', null), root: get('root', process.cwd()), endpoint: get('endpoint', null), port: get('port', null), src: get('src', SRC_DEFAULT), selfCheck: a.includes('--self-check') };
+  return {
+    out: get('out', null),
+    root: get('root', process.cwd()),
+    endpoint: get('endpoint', null),
+    port: get('port', null),
+    src: get('src', SRC_DEFAULT),
+    // The MCP schema artifact is an INPUT, never inferred: a committed supergraph.graphql goes stale the
+    // moment routers compose a new one, and the MCP then rejects operations the router serves.
+    schema: get('schema', null),
+    expectFields: (get('expect-fields', '') || '').split(',').map((x) => x.trim()).filter(Boolean),
+    selfCheck: a.includes('--self-check'),
+  };
 }
 
 async function main() {
-  const { out, root, endpoint, port, src, selfCheck } = args();
+  const { out, root, endpoint, port, src, schema, expectFields, selfCheck } = args();
   const srcText = readFileSync(src, 'utf8');
-  const result = generate(srcText, { root, endpoint, port });
+  const result = generate(srcText, { root, endpoint, port, schema, expectFields });
   if (selfCheck) {
     console.log(`MCP CONFIG SELF-CHECK PASS — ${result.keys.length} top-level keys, ${result.operations} operation(s), forward_headers=authorization, mutation_mode=explicit`);
     return;
