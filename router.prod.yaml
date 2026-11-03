@@ -1,0 +1,45 @@
+# router.prod.yaml — the public-origin router (Phase 1).
+# Dev configs (router.yaml / router.graphos.yaml) are untouched. Values that must not be literal
+# (JWKS URL, issuer) come from the environment; the CORS origin is the ONE public origin, literal.
+
+supergraph:
+  listen: 127.0.0.1:4010
+  introspection: false
+
+health_check:
+  enabled: true
+  listen: 127.0.0.1:8090
+
+include_subgraph_errors:
+  all: false
+
+sandbox:
+  enabled: false
+
+homepage:
+  enabled: false
+
+authentication:
+  router:
+    jwt:
+      jwks:
+        - url: "${env.SUPABASE_JWKS_URL}"
+          issuers: ["${env.SUPABASE_URL}/auth/v1"]
+          audiences: [authenticated]
+          algorithms: [ES256]
+      header_name: Authorization
+      header_value_prefix: Bearer
+      on_error: RedactedError
+
+cors:
+  origins: ["https://fridgegraph.loomz.stream"]
+  allow_credentials: true
+  allow_headers: [authorization, content-type]
+  methods: [GET, POST, OPTIONS]
+
+headers:
+  all:
+    request:
+      operations:
+        - propagate:
+            named: Authorization
