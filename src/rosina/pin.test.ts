@@ -59,7 +59,7 @@ test('every kind defaults to PARENTS_ONLY; options are exactly PARENTS_ONLY | SH
 // ---- endpoint ----
 
 async function seedAsset(media: ReturnType<typeof createInMemoryMediaStore>, personId = 'p_mom', childId = 'p_nora') {
-  const r = await media.put({ childId, mimeType: 'image/png', bytes: Buffer.from([1, 2, 3]), personId });
+  const r = await media.put({ childId, mimeType: 'image/png', bytes: Buffer.from([1, 2, 3]), personId, bearer: 'T' });
   if (!r.ok) throw new Error('seed failed');
   return r.assetId;
 }
