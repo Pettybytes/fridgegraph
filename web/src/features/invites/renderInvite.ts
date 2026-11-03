@@ -1,5 +1,8 @@
-import type { InviteArt, InviteEvent, InviteProvenance } from './invite'
-import { inviteCredit, validArt } from './invite'
+import type { InviteArt, InviteEvent, InviteProvenance, InviteReferenceImage } from './invite'
+import {
+  inviteCredit, validArt, fitsRevisionLimits,
+  REFERENCE_MAX_BYTES, REFERENCE_MIN_DIM, REFERENCE_MAX_DIM,
+} from './invite'
 
 const DETROIT = 'America/Detroit'
 const DARK_INK = '#252638' // the light paper/ink palette used by the fixture and app
@@ -217,6 +220,46 @@ export async function waitForInviteFont(): Promise<void> {
   await Promise.all(INVITE_FONT_WEIGHTS.map(weight => document.fonts.load(`${weight} 88px "Geist Variable"`)))
   await document.fonts.load('italic 500 88px "Geist Variable"').catch(() => {})
   await document.fonts.ready
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => { const s = String(reader.result); const c = s.indexOf(','); resolve(c < 0 ? '' : s.slice(c + 1)) }
+    reader.onerror = () => reject(new Error('Could not read the resized design.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+/**
+ * Turn a generated result into a revision INPUT the server will accept. A generated image can be
+ * larger than the reference-input limits (the generator bound is 8 MB / provider aspect ratio; the
+ * reference bound is 5 MB / 16–4096 px), so an accepted result would otherwise be un-revisable. This
+ * is the explicit resize path: within limits it is sent verbatim; otherwise it is downscaled to fit
+ * REFERENCE_MAX_DIM and re-encoded as PNG, shrinking until it is also under REFERENCE_MAX_BYTES.
+ */
+export async function toRevisionReference(art: InviteArt): Promise<InviteReferenceImage> {
+  if (fitsRevisionLimits(art)) return { mimeType: art.mimeType, dataBase64: art.base64 }
+  const { image, dispose } = await decodeInviteArt(art)
+  try {
+    const maxDim = Math.max(art.width, art.height)
+    let scale = Math.min(1, REFERENCE_MAX_DIM / maxDim)
+    for (let attempt = 0; attempt < 7; attempt++) {
+      const w = Math.max(REFERENCE_MIN_DIM, Math.round(art.width * scale))
+      const h = Math.max(REFERENCE_MIN_DIM, Math.round(art.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not resize the design for revision.')
+      ctx.drawImage(image, 0, 0, w, h)
+      const blob = await canvasPng(canvas)
+      if (blob.size <= REFERENCE_MAX_BYTES) return { mimeType: 'image/png', dataBase64: await blobToBase64(blob) }
+      if (w <= REFERENCE_MIN_DIM || h <= REFERENCE_MIN_DIM) break
+      scale *= 0.8
+    }
+    throw new Error('This design is too large to revise. Download it, then start a new request.')
+  } finally { dispose() }
 }
 
 export async function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {

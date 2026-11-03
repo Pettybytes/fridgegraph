@@ -3,9 +3,11 @@ import { expect, it, vi } from 'vitest'
 import { InviteComposer } from './InvitesPanel'
 import type { InviteResponse } from './invite'
 
-const CLARIFY: InviteResponse = {
-  status: 'NEEDS_CLARIFICATION',
-  clarification: { question: 'What date is the party?' },
+// A minimal response used only to let a prepare() resolve so we can inspect the request it sent;
+// art:null means no card renders, which is fine for these upload-focused tests.
+const NO_ART: InviteResponse = {
+  status: 'READY',
+  suggestion: null,
   event: { childFirstName: 'Nora', occasion: 'Birthday', date: null, startTime: null, endTime: null, timezone: 'America/Detroit', placeLabel: null, hostName: '', message: '' },
   art: null,
   provenance: { source: 'MUSE_IMAGE', model: null, cached: false, promptHash: '' },
@@ -16,7 +18,7 @@ const fileInputOf = (c: HTMLElement) => c.querySelector('input[type="file"]') as
 it('renders the optional reference control and the no-reference dropzone', () => {
   const { container } = render(<InviteComposer childId="p_nora" childFirstName="Nora" mode="live" createInvite={vi.fn()} />)
   expect(screen.getByRole('group', { name: /Reference image/i })).toBeInTheDocument()
-  expect(screen.getByText(/never shown in the card/i)).toBeInTheDocument()
+  expect(screen.getByText(/remixed to match your request/i)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Choose image' })).toBeInTheDocument()
   expect(fileInputOf(container).accept).toContain('image/png')
 })
@@ -41,7 +43,7 @@ it('a non-image file is rejected client-side with no state change', async () => 
 
 it('the reference image is sent with the prepare request', async () => {
   let captured: { referenceImage?: { mimeType: string; dataBase64: string } } | null = null
-  const createInvite = vi.fn(async (req: { childId: string; request: string; referenceImage?: { mimeType: string; dataBase64: string } }) => { captured = req; return CLARIFY })
+  const createInvite = vi.fn(async (req: { childId: string; request: string; referenceImage?: { mimeType: string; dataBase64: string } }) => { captured = req; return NO_ART })
   const { container } = render(<InviteComposer childId="p_nora" childFirstName="Nora" mode="live" createInvite={createInvite} />)
   fireEvent.change(fileInputOf(container), { target: { files: [pngFile()] } })
   await screen.findByAltText(/Reference: party\.png/)
@@ -57,5 +59,5 @@ it('in mock mode the control renders and honestly says the reference is ignored'
   expect(screen.getByRole('group', { name: /Reference image/i })).toBeInTheDocument() // still renders with live off
   fireEvent.change(fileInputOf(container), { target: { files: [pngFile()] } })
   await screen.findByAltText(/Reference: party\.png/)
-  expect(screen.getByText(/guide the art style only when live generation is on/i)).toBeInTheDocument()
+  expect(screen.getByText(/turn on live generation to remix/i)).toBeInTheDocument()
 })
