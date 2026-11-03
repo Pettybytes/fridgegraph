@@ -11,7 +11,7 @@ The preview and export use the local illustrative fixture in `web/src/features/s
 - [Standalone static export on phone](export-phone.png)
 - [One complete loop](complete-loop.webm)
 
-The browser preview was run at 1440 × 900 and 390 × 844 with Playwright CLI. The 390px viewport had no horizontal overflow. Switching Parent → Caregiver → Teacher kept the same progress value. Reduced motion loaded at 100% on the static final frames and did not play automatically. The full-loop fixture proof blocked `/api/`, `/graphql/`, and `/voice/` requests; the browser resource list showed none. Sound remained visibly unavailable because no approved Loretta audio file was supplied. No waveform or word timing was fabricated.
+The browser preview was run at 1440 × 900 and 390 × 844 with Playwright CLI. The 390px viewport had no horizontal overflow. Switching Parent → Caregiver → Teacher kept the same progress value. Reduced motion loaded at 100% on the static final frames and did not play automatically. The full-loop fixture proof blocked `/api/`, exact `/graphql`, and `/voice/` requests; the browser resource list showed none. Sound remained visibly unavailable because no approved Loretta audio file was supplied. No waveform or word timing was fabricated.
 
 The standalone Vite export was served from `web/story-replay-export/` through a local static file server. It rendered three phones and made zero API requests. Its 14 files total about 432 KB and include only local WebP art, font subsets, CSS and JavaScript. Source art is Bryan's and provenance is recorded in `web/src/features/story-replay/README.md`.
 
