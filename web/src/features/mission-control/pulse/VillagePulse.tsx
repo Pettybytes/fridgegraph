@@ -10,10 +10,14 @@ import { formatDay, formatTime } from '@/features/calendar/time'
 import { approvalBreakdown, dailyCurrentStatuses, pulseCohort, pulseWindow, requestsByWeekday, statusOrder } from './model'
 import { ApprovalDonut, ContactGauge, CountUp, RequestsStream, StatusDonut, WeekdayBars } from './PulseVisuals'
 import { orbitPulseRead } from './orbitPulseRead'
-import backdrop640 from '@/assets/pulse-backdrop-640.webp'
-import backdrop1280 from '@/assets/pulse-backdrop-1280.webp'
-import backdrop2000 from '@/assets/pulse-backdrop-2000.webp'
+import type { CardType } from '@/components/fg/cards'
+import '@/components/fg/cards.css'
 import './village-pulse.css'
+
+// The one sky backdrop, self-hosted under web/public (same image app-wide for continuity).
+const backdrop640 = '/sky-backdrop-640.webp'
+const backdrop1280 = '/sky-backdrop-1280.webp'
+const backdrop2000 = '/sky-backdrop-2000.webp'
 
 export type PulseRead<T> = { kind: 'loading' } | { kind: 'ready'; value: T } | { kind: 'refused' } | { kind: 'failed' }
 export type PulseOrbit = { alertId: string | null; status: string | null }
@@ -37,10 +41,10 @@ function CalculationHelp({ from, through }: { from: string; through: string }) {
   </div></details>
 }
 
-function GlassCard({ label, name, icon: Icon, color, span2 = false, delay = 0, still, children }: { label: string; name: string; icon: LucideIcon; color: string; span2?: boolean; delay?: number; still: boolean; children: React.ReactNode }) {
-  return <motion.section className={`vp-glass-tile${span2 ? ' vp-span2' : ''}`} role="region" aria-label={name} initial={still ? false : { opacity: 0, y: 30, scale: .95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={still ? { duration: 0 } : { duration: .6, delay: delay * .1, ease: [0.25, 0.46, 0.45, 0.94] }}>
-    <div className="vp-tile-shine" aria-hidden="true"/>
-    <div className="vp-tile-head"><h3>{label}</h3><span className="vp-icon-chip" style={{ '--vp-chip': color } as React.CSSProperties}><Icon size={16} aria-hidden="true"/></span></div>
+function PulseTile({ label, name, icon: Icon, type, span2 = false, delay = 0, still, children }: { label: string; name: string; icon: LucideIcon; type: CardType; span2?: boolean; delay?: number; still: boolean; children: React.ReactNode }) {
+  return <motion.section className={`vp-tile${span2 ? ' vp-span2' : ''}`} data-fgc-type={type} role="region" aria-label={name} initial={still ? false : { opacity: 0, y: 30, scale: .95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={still ? { duration: 0 } : { duration: .6, delay: delay * .1, ease: [0.25, 0.46, 0.45, 0.94] }}>
+    <span className="vp-tile-bar" aria-hidden="true"/>
+    <div className="vp-tile-head"><h3>{label}</h3><span className="vp-icon-chip"><Icon size={16} aria-hidden="true"/></span></div>
     {children}
   </motion.section>
 }
@@ -113,14 +117,14 @@ export function VillagePulseView({ jobs, orbit, now, readAt = null }: PulseProps
       <div className="vp-carousel" style={mobile && panelHeight ? { height: panelHeight } : undefined} onTouchStart={event => { touchStart.current = event.changedTouches[0].clientX }} onTouchEnd={event => { const delta = event.changedTouches[0].clientX - touchStart.current; if (mobile && Math.abs(delta) > 50) changePage(page + (delta < 0 ? 1 : -1)) }} onKeyDown={event => { if (!mobile || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return; event.preventDefault(); changePage(page + (event.key === 'ArrowRight' ? 1 : -1)) }}>
         <motion.div className="vp-grid" initial={false} animate={{ x: mobile ? `-${page * 50}%` : '0%' }} transition={still ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}>
           <div className="vp-slide" ref={node => { slides.current[0] = node }} inert={mobile && page !== 0} aria-hidden={mobile && page !== 0}>
-            <GlassCard label="Requests over 30 days" name="Requests over 30 days" icon={Activity} color="#f97316" span2 still={still}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <RequestsStream days={days}/> : null}{!!cohort?.undated && <p className="vp-undated">{cohort.undated} visible pickup {cohort.undated === 1 ? 'request has' : 'requests have'} no recorded creation time.</p>}</GlassCard>
-            <GlassCard label="Contact coverage" name="Contact coverage" icon={Gauge} color="#8b5cf6" still={still} delay={1}>{requestContent('request records')}{cohort?.jobs.length ? <><ContactGauge contacted={cohort.withContactAttempts} total={cohort.requests}/><p className="vp-tile-subtitle">Jobs with a contact attempt recorded</p></> : null}</GlassCard>
-            <GlassCard label="Status mix" name="Status mix" icon={ChartPie} color="#ec4899" still={still} delay={2}>{requestContent('request records')}{cohort?.jobs.length ? <StatusDonut counts={counts}/> : null}</GlassCard>
+            <PulseTile label="Requests over 30 days" name="Requests over 30 days" icon={Activity} type="pickup" span2 still={still}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <RequestsStream days={days}/> : null}{!!cohort?.undated && <p className="vp-undated">{cohort.undated} visible pickup {cohort.undated === 1 ? 'request has' : 'requests have'} no recorded creation time.</p>}</PulseTile>
+            <PulseTile label="Contact coverage" name="Contact coverage" icon={Gauge} type="pickup" still={still} delay={1}>{requestContent('request records')}{cohort?.jobs.length ? <><ContactGauge contacted={cohort.withContactAttempts} total={cohort.requests}/><p className="vp-tile-subtitle">Jobs with a contact attempt recorded</p></> : null}</PulseTile>
+            <PulseTile label="Status mix" name="Status mix" icon={ChartPie} type="pickup" still={still} delay={2}>{requestContent('request records')}{cohort?.jobs.length ? <StatusDonut counts={counts}/> : null}</PulseTile>
           </div>
           <div className="vp-slide" ref={node => { slides.current[1] = node }} inert={mobile && page !== 1} aria-hidden={mobile && page !== 1}>
-            <GlassCard label="Requests by weekday" name="Requests by weekday" icon={ChartColumn} color="#f97316" span2 still={still} delay={3}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <WeekdayBars values={requestsByWeekday(dated)}/> : null}</GlassCard>
-            <GlassCard label="Parent approvals" name="Parent approvals" icon={ClipboardCheck} color="#3b82f6" still={still} delay={4}>{requestContent('request records')}{cohort?.jobs.length ? <ApprovalDonut approved={approvals.approved} pending={approvals.pending}/> : null}</GlassCard>
-            <GlassCard label="Open items" name="Open items" icon={BellRing} color="#22c55e" still={still} delay={5}><div className="vp-open-grid"><div><span>Pending parent approvals</span><ReadBoundary state={jobs} subject="approval records"/>{jobs.kind === 'ready' && <><strong><CountUp value={pendingCount}/></strong><a href="#/mission-control">Mission Control</a></>}</div><div><span>Latest visible active Orbit alert</span><ReadBoundary state={orbit} subject="Orbit status"/>{orbit.kind === 'ready' && <><strong><CountUp value={activeOrbit ? 1 : 0}/></strong><a href="#/orbit">Orbit</a></>}</div></div>{jobs.kind === 'ready' && !pendingCount && orbit.kind === 'ready' && !activeOrbit && <p className="vp-empty">No current open item is available in these reads.</p>}</GlassCard>
+            <PulseTile label="Requests by weekday" name="Requests by weekday" icon={ChartColumn} type="pickup" span2 still={still} delay={3}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <WeekdayBars values={requestsByWeekday(dated)}/> : null}</PulseTile>
+            <PulseTile label="Parent approvals" name="Parent approvals" icon={ClipboardCheck} type="safe" still={still} delay={4}>{requestContent('request records')}{cohort?.jobs.length ? <ApprovalDonut approved={approvals.approved} pending={approvals.pending}/> : null}</PulseTile>
+            <PulseTile label="Open items" name="Open items" icon={BellRing} type="orbit" still={still} delay={5}><div className="vp-open-grid"><div><span>Pending parent approvals</span><ReadBoundary state={jobs} subject="approval records"/>{jobs.kind === 'ready' && <><strong><CountUp value={pendingCount}/></strong><a href="#/mission-control">Mission Control</a></>}</div><div><span>Latest visible active Orbit alert</span><ReadBoundary state={orbit} subject="Orbit status"/>{orbit.kind === 'ready' && <><strong><CountUp value={activeOrbit ? 1 : 0}/></strong><a href="#/orbit">Orbit</a></>}</div></div>{jobs.kind === 'ready' && !pendingCount && orbit.kind === 'ready' && !activeOrbit && <p className="vp-empty">No current open item is available in these reads.</p>}</PulseTile>
           </div>
         </motion.div>
       </div>

@@ -303,10 +303,14 @@ body,
        (picker, Today, village). Palette-tinted so it adapts light/dark; fixed so it
        reads as a field the content floats over, not a scrolling texture. No motion. */
     background-color: var(--fg-canvas);
-    /* Soft sky field (Framer-landing): airy sky-blue bloom from the top over white. */
+    /* The one sky backdrop (Framer landing cloud sky, self-hosted in web/public), app-wide
+       for continuity: photo at the top under a white veil that fades it into the canvas,
+       so cards and text always sit on a light field. */
     background-image:
-      radial-gradient(1500px 940px at 50% -20%, color-mix(in oklch, var(--fg-sky) 24%, transparent), transparent 60%),
-      radial-gradient(1000px 680px at 102% 0%, color-mix(in oklch, var(--fg-sky) 12%, transparent), transparent 56%);
+      linear-gradient(color-mix(in srgb, #fff 34%, transparent), var(--fg-canvas) 75vh),
+      image-set(url('/sky-backdrop-1280.webp') type('image/webp') 1x, url('/sky-backdrop-2000.webp') type('image/webp') 2x);
+    background-size: auto, cover;
+    background-position: top center, top center;
     background-attachment: fixed;
     background-repeat: no-repeat;
     color: var(--fg-ink);

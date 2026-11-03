@@ -51,12 +51,13 @@ it('renders the approved holiday band, weekly return, proposals, conflict and Bu
  expect(screen.getAllByText('Approved arrangement')).toHaveLength(3);expect(screen.getAllByText('Proposed')).toHaveLength(1)
  expect(await findPill('Proposed commitment')).toHaveClass('is-proposed');expect(screen.getByText(/overlapping arrangements/)).toBeVisible()
  expect(screen.getByText('Andre Ellison · free time recorded')).toBeVisible();expect(screen.getByText('Kendra Ellison · Busy')).toBeVisible();expect(screen.queryByText(/PRIVATE employer|available to watch|late shift/)).not.toBeInTheDocument()
- expect(screen.getByText(/School-closure information isn’t available/)).toBeVisible();client.stop()
+ // Pristine rule (Bryan 2026-11-03): no "isn't available in this view" copy on the happy path.
+ expect(screen.queryByText(/available in this view/)).not.toBeInTheDocument();client.stop()
 })
 it('cancelled stays hidden until the toggle requests includeCancelled; missing source fields stay missing',async()=>{
  const {adapter,calls,client}=await fixture();mount(adapter);await findPill('Confirmed commitment');expect(pill('Cancelled commitment')).toBeNull()
  fireEvent.click(screen.getByLabelText('Show cancelled events'));expect(await findPill('Cancelled commitment')).toHaveClass('is-cancelled');expect(calls.filter(c=>c.name==='WebChildEvents').at(-1)?.variables.includeCancelled).toBe(true)
- fireEvent.click(pill('Proposed commitment')!);const detail=screen.getByRole('dialog');expect(detail).toHaveTextContent('Not confirmed yet');expect(detail).toHaveTextContent('Category not recorded');expect(detail).toHaveTextContent('Linked records are not available');client.stop()
+ fireEvent.click(pill('Proposed commitment')!);const detail=screen.getByRole('dialog');expect(detail).toHaveTextContent('Not confirmed yet');expect(detail).toHaveTextContent('Category not recorded');expect(detail).not.toHaveTextContent('Linked records are not available');client.stop()
 })
 it('authorized empty, authorization refusal and upstream failure have distinct exact wordings',async()=>{
  for(const state of ['empty','refused','failed'] as const){
