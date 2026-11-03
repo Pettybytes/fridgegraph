@@ -20,7 +20,7 @@ const routes = [
   { path: 'village', label: 'Living Village', icon: Network },
 ] as const
 function readRoute(): string { const route = window.location.hash.slice(2).split('?')[0]; return ['fridge/notes', 'fridge/goals'].includes(route) ? 'fridge' : route === 'parent-chat' ? 'ask-rosina' : route || 'today' }
-export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>> }) {
+export function Shell({ slots = {}, sessionChip }: { slots?: Partial<Record<Route, ReactNode>>; sessionChip?: ReactNode }) {
   const [route, setRoute] = useState(readRoute)
   const { scope } = useDataContext()
   useEffect(() => {
@@ -38,10 +38,10 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
       <nav aria-label="Main navigation">{routes.map(({ path, label, icon: Icon }) =>
         <a onMouseEnter={path==='fridge'?prefetchFridgeRoute:undefined} onFocus={path==='fridge'?prefetchFridgeRoute:undefined} key={path} href={`#/${path}`} className={cn('nav-link', route === path && 'active')} aria-current={route === path ? 'page' : undefined}><Icon size={19} aria-hidden="true" />{label}</a>
       )}</nav>
-      <div className="sidebar-footer"><span className="avatar">{scope.parentName[0]}</span><div><strong>{scope.parentName}</strong><small>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</small></div></div>
+      <div className="sidebar-footer"><span className="avatar">{scope.parentName[0]}</span><div><strong>{scope.parentName}</strong><small>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : 'Your perspective'}</small></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><span>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</span></header>
+      <header className="topbar"><span className="topbar-context">{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</span>{sessionChip && <div className="topbar-tools">{sessionChip}</div>}</header>
       <main id="main" tabIndex={-1}>
         {route !== 'fridge' && <div className={cn('page-heading', route === 'ask-rosina' && 'sr-only')}><div><h1>{current?.label ?? 'Page not found'}</h1></div></div>}
         {current ? slots[current.path] ?? <section className="route-slot" aria-label={`${current.label} workspace`}><div className="slot-symbol"><current.icon size={32} aria-hidden="true" /></div><h2>{current.label === 'Living Village' ? 'Room for your Living Village' : `Your ${current.label.toLowerCase()} workspace`}</h2><p>{current.path === 'village' ? `The people and relationships around ${scope.childName} will come together here.` : 'This workspace is ready for the next feature.'}</p><a href={current.path === 'village' ? '#/mission-control' : '#/village'}>{current.path === 'village' ? 'Back to Mission Control' : 'Explore Living Village'}<ArrowUpRight size={16} aria-hidden="true" /></a></section>

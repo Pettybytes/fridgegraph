@@ -325,10 +325,12 @@ h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spac
   .brand { font-size: 22px; padding: 0; }
   .village-caption { margin: 5px 0 22px; }
   .sidebar nav { display: flex; gap: 5px; overflow-x: auto; min-width: 0; }
-  .nav-link { font-size: 11px; padding: 12px 8px; gap: 6px; flex: 0 0 auto; justify-content: center; white-space: nowrap; }
+  .nav-link { font-size: 11px; padding: 12px 8px 14px; gap: 6px; flex: 0 0 auto; justify-content: center; white-space: nowrap; line-height: 1.4; }
   .nav-link svg { width: 16px; }
   .sidebar-footer { display: none; }
-  .topbar { padding: 0 22px; min-height: 60px; }
+  .topbar { padding: 8px 22px; min-height: 60px; }
+  .topbar-context { font-size: 12px; }
+  .topbar .session-chip { font-size: 11px; gap: 4px 12px; }
   .workspace main { padding: 28px 20px; }
   .page-heading { margin-bottom: 24px; }
   .page-heading p { font-size: 11px; max-width: 28ch; line-height: 1.6; }

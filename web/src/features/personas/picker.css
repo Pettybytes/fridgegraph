@@ -9,7 +9,10 @@
   background: color-mix(in oklch, var(--fg-primary) 8%, color-mix(in oklch, var(--fg-surface) 60%, transparent));
   backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
   border-bottom: 1px solid var(--fg-border);
-  position: sticky; top: 0; z-index: var(--z-sticky);
+  /* Not sticky: the workspace topbar is the sticky row. Two sticky rows at top:0 stacked on top of
+     each other, which is what produced the overlapping banner/title in the served defect capture. */
+  position: relative;
+  z-index: 1;
 }
 /* Solid fallbacks where glass can't render or the viewer prefers less transparency. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
