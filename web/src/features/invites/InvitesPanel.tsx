@@ -43,14 +43,15 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite }: 
     pending.current?.abort()
     const controller = new AbortController()
     pending.current = controller
-    setResult(null)
+    // The last successful design (`result`) is deliberately NOT cleared here — it stays on screen
+    // while this request is in flight, and stays put if it fails, so a parent never loses a good
+    // card to a regeneration attempt. It is only ever replaced by a NEW successful result below.
     setDetail('')
     setPhase('generating')
     try {
       const next = await createInvite({ childId, request: request.trim() }, controller.signal)
       if (!active.current || controller.signal.aborted) return
       if (next.status === 'NEEDS_CLARIFICATION') {
-        setResult(null)
         const question = next.clarification?.question.trim()
         setDetail(question || 'The invitation service did not return its clarification question. Try again later.')
         setPhase(question ? 'clarification' : 'failed')
@@ -79,13 +80,17 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite }: 
     {mode === 'mock' && <InlineFeedback>This is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.</InlineFeedback>}
     {mode === 'live' && !createInvite && <InlineFeedback tone="warning">The invitation service is not available in this view.</InlineFeedback>}
     <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={() => { void prepare() }}>
-      {phase === 'generating' ? (mode === 'mock' ? 'Loading sample art…' : 'Generating art…') : mode === 'mock' ? 'Show sample invitation' : 'Prepare invitation'}
+      {phase === 'generating' ? (mode === 'mock' ? 'Loading sample art…' : 'Generating art…') : mode === 'mock' ? 'Show sample invitation' : result ? 'Prepare a new invitation' : 'Prepare invitation'}
     </FgButton>
-    {phase === 'generating' && <p role="status">{mode === 'mock' ? 'Loading the sample art. No model call is being made.' : 'Preparing invitation art. Wait for a result before editing or downloading.'}</p>}
-    {phase === 'clarification' && <InlineFeedback tone="warning"><strong>One detail is needed:</strong> {detail} Add it to your request and prepare again. No art was returned.</InlineFeedback>}
-    {phase === 'refused' && <InlineFeedback tone="error">{detail}</InlineFeedback>}
-    {phase === 'failed' && <InlineFeedback tone="error">{detail}</InlineFeedback>}
-    {phase === 'ready' && result?.art && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} />}
+    {phase === 'generating' && <p role="status">{mode === 'mock' ? 'Loading the sample art. No model call is being made.' : result ? 'Preparing a new design. Your current card stays ready below until this finishes.' : 'Preparing invitation art. Wait for a result before editing or downloading.'}</p>}
+    {phase === 'clarification' && <InlineFeedback tone="warning"><strong>One detail is needed:</strong> {detail} Add it to your request and prepare again. No new art was returned{result ? ' — your current card is unchanged.' : '.'}</InlineFeedback>}
+    {(phase === 'refused' || phase === 'failed') && <>
+      <InlineFeedback tone="error">{detail}</InlineFeedback>
+      {phase === 'failed' && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim()} onClick={() => { void prepare() }}>Retry</FgButton>}
+    </>}
+    {/* The last successful design stays visible across every later phase — generating, a
+        clarification request, or a failure never remove a card the parent already has. */}
+    {result?.art && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} />}
   </Surface>
 }
 

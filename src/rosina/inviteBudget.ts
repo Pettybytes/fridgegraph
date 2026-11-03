@@ -1,8 +1,11 @@
 /**
- * Invite throttling: a per-caller fixed-window rate limiter (returns retryAfterMs so the 429 can tell
- * the client when to retry) and a process-wide generation budget. The budget is a single counter for
- * the whole process — NOT keyed by caller or session — so a new login cannot reset it. Both are
- * in-memory (ephemeral slice, no DB).
+ * Invite throttling: a per-caller fixed-window rate limiter — returns retryAfterMs so the 429 can
+ * tell the client when to retry. In-memory (ephemeral), process-wide across callers.
+ *
+ * The generation BUDGET used to live here too (a single process-wide counter). It is now the
+ * real, per-CHILD, persistent ledger in inviteLedgerBudget.ts (0085) — a process-wide in-memory
+ * counter is not a "per-family limit" and does not survive a restart. This file keeps only the
+ * rate limiter, which is abuse-prevention, not money-adjacent.
  */
 
 export type RateDecision = { allowed: true } | { allowed: false; retryAfterMs: number };
@@ -35,29 +38,3 @@ export function createInviteRateLimiter(limitPerWindow: number, windowMs = 60_00
   };
 }
 
-export interface GenerationBudget {
-  tryConsume(): boolean;
-  /** Give a consumed unit back when nothing was actually generated (e.g. a pre-generation guard
-   *  refused). Never goes below zero. */
-  refund(): void;
-  remaining(): number;
-}
-
-/** Process-wide total generations. One counter, no per-caller/per-session key — a fresh login shares
- *  the same counter and cannot reset it. */
-export function createGenerationBudget(max: number): GenerationBudget {
-  let used = 0;
-  return {
-    tryConsume(): boolean {
-      if (used >= max) return false;
-      used += 1;
-      return true;
-    },
-    refund(): void {
-      if (used > 0) used -= 1;
-    },
-    remaining(): number {
-      return Math.max(0, max - used);
-    },
-  };
-}

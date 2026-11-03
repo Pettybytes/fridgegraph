@@ -95,6 +95,21 @@ const typeDefs = parse(`
       acceptOverLimit: Boolean = false
     ): CoordinationJob!
 
+    """
+    Invites (slim), money-adjacent (AGENTS.md §1.6: senior-only, human review required before any
+    apply — this mutation is STAGED, never applied live by this PR). Reserves cost against the
+    CHILD's per-day budget (0085) atomically — concurrent callers for the same child cannot both
+    pass. Parent/guardian of the child only, same generic UNAUTHORIZED as every other money-
+    adjacent read here. Never returns another family's data, a model name, a prompt, or a raw
+    cost figure — only whether this reservation was allowed and what remains today.
+    """
+    reserveInviteBudget(childId: ID!, costUsd: Float!, source: String!, promptHash: String!): InviteBudgetReservation!
+
+    """Settles a reservation after the image call resolves — SUCCEEDED keeps the cost counted
+    toward today's cap; FAILED drops it (nothing was actually spent). Caller must own the
+    reservation; a generation id from someone else's reservation is refused."""
+    settleInviteBudget(generationId: ID!, status: String!, model: String, outputSha256: String): Boolean!
+
     """Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing."""
     orbitDraft(
       childId: ID!
@@ -314,6 +329,12 @@ const typeDefs = parse(`
     costCalculatedAt: String
     householdCapUsd: Float
     paidRidePath: Boolean!
+  }
+
+  type InviteBudgetReservation {
+    allowed: Boolean!
+    generationId: ID
+    remainingUsd: Float!
   }
 
   type CandidateEvaluation {
@@ -1185,6 +1206,44 @@ const resolvers = {
       });
       if (error) rpcError(error);
       return jobById(ctx, args.jobId);
+    },
+
+    reserveInviteBudget: async (
+      _: unknown,
+      args: { childId: string; costUsd: number; source: string; promptHash: string },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('invite_budget_reserve', {
+        p_child: args.childId,
+        p_cost_usd: args.costUsd,
+        p_source: args.source,
+        p_prompt_hash: args.promptHash,
+      });
+      if (error) rpcError(error);
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { allowed: boolean; generation_id: string | null; remaining_usd: number }
+        | undefined;
+      if (!row) throw new GraphQLError('RPC_FAILED', { extensions: { code: 'RPC_FAILED' } });
+      return { allowed: row.allowed, generationId: row.generation_id, remainingUsd: Number(row.remaining_usd) };
+    },
+
+    settleInviteBudget: async (
+      _: unknown,
+      args: { generationId: string; status: string; model?: string | null; outputSha256?: string | null },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('invite_budget_settle', {
+        p_generation: args.generationId,
+        p_status: args.status,
+        p_model: args.model ?? null,
+        p_output_sha256: args.outputSha256 ?? null,
+      });
+      if (error) rpcError(error);
+      return Boolean(data);
     },
   },
 

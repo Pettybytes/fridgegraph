@@ -27,8 +27,10 @@ import { createSparkNoticeExtractor } from './noticeExtractor';
 import { buildScheduleReader, buildPickupRequester, requireGraphqlUrl } from './noticeDeps';
 import { createInviteHandler } from './inviteEndpoint';
 import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
-import { createInviteRateLimiter, createGenerationBudget } from './inviteBudget';
+import { createInviteRateLimiter } from './inviteBudget';
 import { createSparkInviteExtractor, buildInviteParentAuthorizer } from './inviteDeps';
+import { buildInviteLedgerBudget, INVITE_GENERATION_COST_USD } from './inviteLedgerBudget';
+import { createInviteDedup } from './inviteDedup';
 
 loadEnv();
 
@@ -53,9 +55,10 @@ const NOTICE_SCENARIO_DATE = process.env.ROSINA_NOTICE_SCENARIO_DATE ?? '2026-10
 
 // Invites (slim). Field extraction uses Muse Spark; image is a FIXTURE by default, live muse-image-1.0
 // only behind INVITE_LIVE=1 (UNVERIFIED — reconfirm Meta's image docs first). Parent authz runs AS
-// THE CALLER against the router (ROSINA_GRAPHQL_URL). Budget is process-wide (a new login can't reset).
+// THE CALLER against the router (ROSINA_GRAPHQL_URL). Budget is per-CHILD and persistent (0085,
+// STAGED) — the daily cap itself lives in the DB (household_policies 'invite_daily_budget_usd',
+// default $1.00/day), not here; a new login sharing the same child shares the same budget.
 const INVITE_LIVE = process.env.INVITE_LIVE === '1';
-const INVITE_BUDGET = Number(process.env.INVITE_GENERATION_BUDGET ?? 50);
 const INVITE_RATE_PER_MIN = Number(process.env.INVITE_RATE_LIMIT_PER_MIN ?? 6);
 
 const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
@@ -240,7 +243,11 @@ export function createRosinaApp() {
       extractor: createSparkInviteExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model }),
       image,
       rateLimiter: createInviteRateLimiter(INVITE_RATE_PER_MIN),
-      budget: createGenerationBudget(INVITE_BUDGET),
+      dedup: createInviteDedup(),
+      // Per-CHILD persistent budget (0085) — only ever called when source is MUSE_IMAGE;
+      // FIXTURE spends nothing and never reaches it.
+      ledgerBudget: buildInviteLedgerBudget({ graphqlUrl }),
+      generationCostUsd: INVITE_GENERATION_COST_USD,
       source: INVITE_LIVE ? 'MUSE_IMAGE' : 'FIXTURE',
     });
     app.post('/api/rosina/invite', (req, res) => {
