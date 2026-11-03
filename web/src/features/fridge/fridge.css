@@ -148,3 +148,7 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 .fridge-sample-card-tray img{width:100%;height:100%;object-fit:cover;display:block}
 .fridge-sample-card-tray strong{position:absolute;inset:auto 0 0 0;margin:0;padding:20px 10px 9px;color:#fff;font:600 14px/1.25 var(--font-sans,Arial,sans-serif);background:linear-gradient(transparent,rgba(16,14,12,.72));text-shadow:0 1px 2px rgba(0,0,0,.5)}
 @media(max-width:700px){.fridge-sample-card-tray{padding-inline:12px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}}
+/* Task C — editable, per-item caption inside the opened-item dialog (parents). */
+.fridge-caption-edit{display:flex;flex-direction:column;gap:4px;margin-top:14px;font-size:14px;color:var(--fg-muted)}
+.fridge-caption-edit textarea{font:inherit;min-height:44px;padding:8px 12px;border:1px solid var(--fg-border,#d0d0d8);border-radius:10px;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832);resize:vertical}
+.fridge-caption-edit small{color:var(--fg-muted)}

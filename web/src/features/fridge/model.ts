@@ -19,4 +19,9 @@ export const notePositions:Record<'care',Position>={care:{x:.211,y:.344,width:.1
 export function loadLayout(person:string):Record<string,Position>{try{const raw=JSON.parse(localStorage.getItem(`fridge-layout:${person}`)??'{}');return Object.fromEntries(Object.entries(raw).filter(([,p])=>{const v=p as Position;return v&&[v.x,v.y,v.width,v.rotation].every(Number.isFinite)&&v.x>=.19&&v.x+v.width<=.496&&v.y>=.09&&v.y<=.49&&v.width>0&&v.width<=.306&&Math.abs(v.rotation)<=15})) as Record<string,Position>}catch{return {}}}
 export function saveLayout(person:string,layout:Record<string,Position>){try{localStorage.setItem(`fridge-layout:${person}`,JSON.stringify(layout))}catch{/* Browser layout is optional, never family data. */}}
 
+// Per-item captions a parent can edit on decorative/sample items. Browser-local only (never sent as
+// family data); real pinned media carries its caption server-side through fridge_notes. Capped length.
+export function loadCaptions(person:string):Record<string,string>{try{const raw=JSON.parse(localStorage.getItem(`fridge-captions:${person}`)??'{}');return Object.fromEntries(Object.entries(raw).filter(([,v])=>typeof v==='string'&&(v as string).length<=300)) as Record<string,string>}catch{return {}}}
+export function saveCaptions(person:string,captions:Record<string,string>){try{localStorage.setItem(`fridge-captions:${person}`,JSON.stringify(captions))}catch{/* Browser caption is optional, never family data. */}}
+
 export function authorInk(owner:string|null){if(!owner)return '#263a4a';let hash=0;for(const c of owner)hash=(hash*31+c.charCodeAt(0))>>>0;return ['#263a4a','#4d365c','#315241','#763e31'][hash%4]}

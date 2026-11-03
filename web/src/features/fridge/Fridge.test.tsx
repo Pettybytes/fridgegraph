@@ -12,4 +12,26 @@ it('clears dialogs on a child or persona change and discards late results',async
 it('stores only layout geometry per person, validates malformed storage and tidies it',async()=>{saveLayout('parent',{'sample-sofa':{x:.25,y:.2,width:.16,rotation:2}});expect(loadLayout('other')).toEqual({});render(<Fridge {...props}/>);fireEvent.click(screen.getByRole('button',{name:'Tidy up'}));expect(loadLayout('parent')).toEqual({});localStorage.setItem('fridge-layout:parent','not json');expect(loadLayout('parent')).toEqual({})})
 it('supports keyboard movement only in explicit Arrange mode',()=>{render(<Fridge {...props}/>);const photo=screen.getByRole('button',{name:'A quiet afternoon'});fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Arrange items'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')['sample-sofa'].x).toBeCloseTo(.220)})
 it('keeps author marker ink stable and unknown authors neutral',()=>{expect(authorInk(null)).toBe('#263a4a');expect(authorInk('recorded-author')).toBe(authorInk('recorded-author'));expect(authorInk('a')).not.toBe(authorInk('b'))})
+it('lets a parent edit a per-item caption that persists across a remount, and hides the editor for a read-only view',async()=>{
+ const {within}=await import('@testing-library/react')
+ const open=()=>{fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}));fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}))}
+ render(<Fridge {...props}/>)
+ open()
+ fireEvent.change(within(screen.getByRole('dialog')).getByRole('textbox',{name:'Edit caption for A quiet afternoon'}),{target:{value:'Our trip to the lake'}})
+ expect(JSON.parse(localStorage.getItem('fridge-captions:parent') as string)['sample-sofa']).toBe('Our trip to the lake')
+ cleanup()
+ // Remount (a refresh): the saved caption is loaded and shown.
+ render(<Fridge {...props}/>)
+ open()
+ const dialog=screen.getByRole('dialog')
+ expect(within(dialog).getByRole('textbox',{name:'Edit caption for A quiet afternoon'})).toHaveValue('Our trip to the lake')
+ cleanup()
+ // Read-only perspective: the saved caption shows, but there is no editor.
+ render(<Fridge {...props} readOnly/>)
+ open()
+ const ro=screen.getByRole('dialog')
+ expect(within(ro).getByText('Our trip to the lake')).toBeInTheDocument()
+ expect(within(ro).queryByRole('textbox',{name:/Edit caption/})).not.toBeInTheDocument()
+ localStorage.clear()
+})
 it('shows a not-connected state, not a load failure, when a source is unavailable offline',async()=>{render(<Fridge {...props} reader={{read:async()=>({status:'unavailable'})}}/>);expect(await screen.findByText('Not connected in this view.')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Open goals door'}));expect(screen.getByText('These notes aren’t connected in this view.')).toBeInTheDocument();expect(screen.queryByRole('button',{name:/Retry/})).not.toBeInTheDocument();expect(screen.queryByRole('alert')).not.toBeInTheDocument()})
