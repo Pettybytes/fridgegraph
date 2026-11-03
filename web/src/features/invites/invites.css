@@ -10,6 +10,7 @@
 .invites-panel>.fg-btn{justify-self:start}
 .invites-panel__actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .invites-panel__revise-hint{font-size:13px;line-height:1.45;color:var(--fg-muted);margin:0}
+.invites-panel__counter{font-size:12px;font-weight:400;color:var(--fg-muted);justify-self:end}
 
 /* The card: artwork + its readable text on the left, the editable fields on the right. */
 .invites-card{display:grid;grid-template-columns:minmax(260px,440px) minmax(280px,1fr);gap:22px;align-items:start;border-top:1px solid var(--fg-border);padding-top:18px}

@@ -33,12 +33,15 @@ POST /api/rosina/invite        Authorization: Bearer <caller jwt>
 }
 ```
 
-`childId` (string, required), `request` (string, required, ≤ 2000 chars) — the parent's own words.
-`referenceImage` (optional): the **only** accepted upload field — PNG/JPEG/WebP, ≤ 5 MB, dims
-16–4096 px, validated by magic bytes and **EXIF/GPS/XMP-stripped** server-side before it reaches the
-provider. Any **other** image/photo/upload key is rejected `400` (see below). `revise: true` reuses
-the edits path with the prior generated art as the reference, so the result keeps every existing
-element the request does not ask to change.
+`childId` (string, required), `request` (string, required) — the parent's own words, bounded by the
+**single** shared limit `MAX_REQUEST_CHARS = 2000` (`invitePrompt.ts`). That one limit is enforced at
+the endpoint (over-length → `400`) AND shown on the web textarea (`maxLength` + a live counter) — the
+full accepted request reaches the brief, with **no separate, smaller silent truncation** (an earlier
+900-char cap is removed). `referenceImage` (optional): the **only** accepted upload field —
+PNG/JPEG/WebP, ≤ 5 MB, dims 16–4096 px, validated by magic bytes and **EXIF/GPS/XMP-stripped**
+server-side before it reaches the provider. Any **other** image/photo/upload key is rejected `400`
+(see below). `revise: true` reuses the edits path with the prior generated art as the reference, so
+the result keeps every existing element the request does not ask to change.
 
 ## Response `200`
 
@@ -320,6 +323,22 @@ original.
 sample cannot remix it (`applied:false`) and the UI says so. In live mode an applied edit reports
 `applied:true`; if the edit could not be applied the UI says the reference wasn't applied — never
 silently approximated.
+
+**Revision & retry invariants (web, `InvitesPanel.tsx`).**
+- **Edited fields survive a revision.** The editable event is held by the composer, not the card. A
+  successful revision keeps the parent's current (edited) name/date/place/host/message and only fills
+  a still-empty field from the fresh extraction — a revision-only instruction ("add balloons") never
+  replaces an existing value with an empty or default one. A *fresh* "Prepare a new invitation"
+  adopts the new extraction outright (it is a new design).
+- **Retry repeats the exact failed operation.** The last attempt's `{ request, referenceImage,
+  revise }` is captured; **Retry** replays that — same mode, same reference, same revision intent —
+  rather than silently starting a fresh prepare.
+- **Every accepted result is revisable (limit reconciliation + resize path).** The generator bound is
+  8 MB at the provider's aspect ratio; the revision-input (reference) bound is 5 MB / 16–4096 px. A
+  generated result can exceed the reference bound, which would otherwise make it un-revisable. Before
+  a result is sent back as a revision reference, `renderInvite.toRevisionReference` sends it verbatim
+  when it already fits, and otherwise **downscales it to ≤ 4096 px and re-encodes PNG, shrinking until
+  it is also ≤ 5 MB** — an explicit resize path, so any accepted result can be revised.
 
 ### 8.4 Proof
 

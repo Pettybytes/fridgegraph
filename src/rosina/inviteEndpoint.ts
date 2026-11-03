@@ -25,7 +25,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { buildCreativeBrief, promptHash } from './invitePrompt';
+import { buildCreativeBrief, promptHash, MAX_REQUEST_CHARS } from './invitePrompt';
 import { validateInviteFields, detroitToday, type RawInviteExtraction, type InviteEvent } from './inviteFields';
 import { InviteImageUncertainFailure, type InviteImageGenerator, type InviteArt, type InviteProvenance } from './inviteImage';
 import type { InviteRateLimiter } from './inviteBudget';
@@ -116,7 +116,7 @@ function sha256Base64(base64: string): string {
 
 export function createInviteHandler(deps: InviteEndpointDeps) {
   const now = deps.now ?? (() => new Date());
-  const maxRequestChars = deps.maxRequestChars ?? 2000;
+  const maxRequestChars = deps.maxRequestChars ?? MAX_REQUEST_CHARS;
 
   return async function handle(req: Request, res: Response): Promise<void> {
     const identity = await deps.verify(req.header('authorization'));

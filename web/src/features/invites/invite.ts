@@ -21,6 +21,10 @@ export type InviteEvent = {
 /** App-owned default note shown on the card until a family edits it. Never model-generated. */
 export const DEFAULT_INVITE_MESSAGE = 'Please join us to celebrate!'
 
+/** The one request-length limit, matching the backend's `MAX_REQUEST_CHARS`. Enforced visibly on the
+ *  textarea (maxLength + a counter) so the parent sees the bound — nothing is silently truncated. */
+export const REQUEST_MAX_CHARS = 2000
+
 /**
  * Fills the app-owned hostName/message fields when a source (fixture or live backend) left them
  * blank, without ever overwriting a value the family already set. Idempotent.
@@ -72,7 +76,23 @@ export type InviteResponse = {
  *  revision. Held in memory, sent with the request, discarded server-side after generation. */
 export type InviteReferenceImage = { mimeType: string; dataBase64: string }
 export const REFERENCE_MAX_BYTES = 5 * 1024 * 1024
+export const REFERENCE_MIN_DIM = 16
+export const REFERENCE_MAX_DIM = 4096
 export const REFERENCE_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'] as const
+
+/** Decoded byte length of a base64 payload (what the server's size check sees), without decoding it. */
+export function base64ByteLength(base64: string): number {
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
+  return Math.floor(base64.length * 3 / 4) - padding
+}
+
+/** True when a generated result is already within the reference-input limits, so it can be sent back
+ *  as a revision reference verbatim. When false, the caller must resize it (see toRevisionReference). */
+export function fitsRevisionLimits(art: InviteArt): boolean {
+  return base64ByteLength(art.base64) <= REFERENCE_MAX_BYTES &&
+    art.width >= REFERENCE_MIN_DIM && art.height >= REFERENCE_MIN_DIM &&
+    art.width <= REFERENCE_MAX_DIM && art.height <= REFERENCE_MAX_DIM
+}
 
 /** Read a picked/dropped file into the request shape with a first-pass client guard (the server
  *  re-validates authoritatively: sniffs the real type, re-checks size + dimensions, strips EXIF). */

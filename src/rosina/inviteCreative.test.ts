@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Request, Response } from 'express';
 import { sniffImageMime, stripImageMetadata, readImageDimensions } from './imageHygiene';
+import { buildCreativeBrief, MAX_REQUEST_CHARS } from './invitePrompt';
 import { createInviteHandler, type InviteEndpointDeps } from './inviteEndpoint';
 import { createInviteDedup } from './inviteDedup';
 import { createLiveImageGenerator, InviteImageUncertainFailure, type InviteImageGenerator, type InviteImageRef, type InviteImageResult } from './inviteImage';
@@ -41,6 +42,16 @@ test('imageHygiene: sniff by magic bytes, strip metadata, read dimensions', () =
   assert.equal(stripImageMetadata(png(), 'image/png').includes(Buffer.from('SECRET')), false);
   assert.deepEqual(readImageDimensions(png({ w: 120, h: 90 }), 'image/png'), { width: 120, height: 90 });
   assert.deepEqual(readImageDimensions(webp({ w: 200, h: 100 }), 'image/webp'), { width: 200, height: 100 });
+});
+
+// ---- request limit: one consistent bound, no silent 900-char truncation ----
+test('the creative brief carries the FULL accepted request — no silent 900-char cap', () => {
+  assert.equal(MAX_REQUEST_CHARS, 2000);
+  const tail = 'ZZ_TAIL_MARKER_ZZ';
+  const long = 'add a tiny hand-lettered flourish '.repeat(32) + tail; // ~1100 chars, well past 900, under 2000
+  assert.ok(long.length > 900 && long.length <= MAX_REQUEST_CHARS);
+  const brief = buildCreativeBrief(long);
+  assert.match(brief, /ZZ_TAIL_MARKER_ZZ/); // the tail survives — it was NOT cut at 900
 });
 
 // ---- live generator: real endpoints, verified output format + dimensions ----

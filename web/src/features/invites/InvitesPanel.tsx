@@ -4,13 +4,35 @@ import { useChildAccess } from '@/features/personas/childContext'
 import { useSession } from '@/features/personas/Session'
 import { createMockInvite } from './fixture'
 import {
-  inviteCredit, inviteError, withInviteDefaults, readReferenceFile, REFERENCE_ACCEPT,
+  inviteCredit, inviteError, withInviteDefaults, readReferenceFile, REFERENCE_ACCEPT, REQUEST_MAX_CHARS,
   type InviteCreator, type InviteEvent, type InviteResponse, type InviteReferenceImage,
 } from './invite'
-import { canvasPng, decodeInviteArt, drawInvitation, invitationText, lineSpecs, waitForInviteFont } from './renderInvite'
+import { canvasPng, decodeInviteArt, drawInvitation, invitationText, lineSpecs, toRevisionReference, waitForInviteFont } from './renderInvite'
 import './invites.css'
 
 type Phase = 'idle' | 'generating' | 'ready' | 'refused' | 'failed'
+
+/** The exact inputs of one generate attempt, captured so Retry can repeat THAT operation — same
+ *  mode, same reference, same revision intent — instead of silently starting a fresh prepare. */
+type Attempt = { request: string; referenceImage?: InviteReferenceImage; revise: boolean }
+
+/** On a successful REVISION, keep the parent's already-edited event fields; only fill a still-empty
+ *  field from the fresh extraction. A revision instruction ("add balloons") does not describe the
+ *  schedule, so it must never replace an existing name/date/place/host/message with an empty default. */
+function mergePreservingEdits(prior: InviteEvent, next: InviteEvent): InviteEvent {
+  const keep = (a: string, b: string) => (a.trim() ? a : b)
+  return {
+    childFirstName: keep(prior.childFirstName, next.childFirstName),
+    occasion: keep(prior.occasion, next.occasion),
+    date: prior.date ?? next.date,
+    startTime: prior.startTime ?? next.startTime,
+    endTime: prior.endTime ?? next.endTime,
+    timezone: 'America/Detroit',
+    placeLabel: prior.placeLabel ?? next.placeLabel,
+    hostName: keep(prior.hostName, next.hostName),
+    message: keep(prior.message, next.message),
+  }
+}
 
 /** One-line mock mount: <InvitesPanel />. A later adapter may pass the authenticated
  * creator and mode="live" after the invite endpoint is served and verified. */
@@ -44,6 +66,11 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   const [phase, setPhase] = useState<Phase>('idle')
   const [detail, setDetail] = useState('')
   const [result, setResult] = useState<InviteResponse | null>(null)
+  // The editable event is lifted HERE (not owned by the card) so a successful revision can keep the
+  // parent's already-edited fields instead of replacing them with a fresh, often-empty extraction.
+  const [event, setEvent] = useState<InviteEvent | null>(null)
+  const eventRef = useRef<InviteEvent | null>(null)
+  eventRef.current = event
   // Optional reference image to REMIX: the actual image is transformed to match the request
   // (image-to-image). Held in memory; sent with the request and discarded server-side after use.
   const [reference, setReference] = useState<{ image: InviteReferenceImage; previewUrl: string; name: string } | null>(null)
@@ -52,6 +79,7 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const pending = useRef<AbortController | null>(null)
+  const lastAttempt = useRef<Attempt | null>(null)
   const active = useRef(true)
   useEffect(() => { active.current = true; return () => { active.current = false; pending.current?.abort() } }, [])
 
@@ -66,31 +94,26 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     setReference({ image: read.image, previewUrl: read.previewUrl, name: file.name })
   }
 
-  // `revise` re-runs the request against the CURRENT generated art (sent back as the reference) so
-  // the result keeps every existing element the request doesn't ask to change. A fresh prepare uses
-  // any uploaded reference instead. Art is never gated on a complete event schedule.
-  async function run({ revise = false } = {}) {
-    if (!createInvite || !request.trim() || phase === 'generating') return
-    if (revise && !result?.art) return
-    const revising = revise && !!result?.art
-    const referenceImage: InviteReferenceImage | undefined = revising && result?.art
-      ? { mimeType: result.art.mimeType, dataBase64: result.art.base64 }
-      : reference?.image
+  // The one request path. The last successful design (`result`/`event`) is deliberately NOT cleared
+  // while a request is in flight or on failure, so a parent never loses a good card to a retry.
+  async function execute(attempt: Attempt) {
+    if (!createInvite || !attempt.request || phase === 'generating') return
+    lastAttempt.current = attempt // captured so Retry repeats THIS exact operation
     pending.current?.abort()
     const controller = new AbortController()
     pending.current = controller
-    // The last successful design (`result`) is deliberately NOT cleared here — it stays on screen
-    // while this request is in flight, and stays put if it fails, so a parent never loses a good
-    // card to a regeneration attempt. It is only ever replaced by a NEW successful result below.
     setDetail('')
     setPhase('generating')
     try {
-      const next = await createInvite({ childId, request: request.trim(), referenceImage, revise: revising }, controller.signal)
+      const next = await createInvite({ childId, request: attempt.request, referenceImage: attempt.referenceImage, revise: attempt.revise }, controller.signal)
       if (!active.current || controller.signal.aborted) return
       if (next.art) {
-        // hostName/message are app-owned, not part of any backend extraction: fill them here so
-        // the card always reads like a real invitation, and never overwrite a family's own value.
-        setResult({ ...next, event: withInviteDefaults(next.event, defaultHostName) })
+        // hostName/message are app-owned: fill blanks here, never overwriting a family's own value.
+        const extracted = withInviteDefaults(next.event, defaultHostName)
+        // A revision keeps the parent's current (edited) fields; a fresh design adopts the new ones.
+        const nextEvent = attempt.revise && eventRef.current ? mergePreservingEdits(eventRef.current, extracted) : extracted
+        setResult(next)
+        setEvent(nextEvent)
         setPhase('ready')
       } else {
         setDetail('The invitation service returned no art. No card is ready to download.')
@@ -106,11 +129,30 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     }
   }
 
+  // A fresh generation driven by the request + any uploaded reference.
+  function prepareNew() { void execute({ request: request.trim(), referenceImage: reference?.image, revise: false }) }
+
+  // A revision re-runs against the CURRENT generated art (sent back as the reference) so the result
+  // keeps every existing element the request doesn't change. The result may exceed the reference
+  // limits, so it is resized to fit before it is sent (toRevisionReference) — every result is revisable.
+  async function reviseDesign() {
+    if (!createInvite || !request.trim() || phase === 'generating' || !result?.art) return
+    let referenceImage: InviteReferenceImage
+    try { referenceImage = await toRevisionReference(result.art) }
+    catch (error) { setDetail(error instanceof Error ? error.message : 'This design could not be prepared for revision.'); setPhase('failed'); return }
+    if (!active.current) return
+    void execute({ request: request.trim(), referenceImage, revise: true })
+  }
+
+  // Retry repeats the LAST attempt exactly — same mode, reference and revision intent.
+  function retry() { void execute(lastAttempt.current ?? { request: request.trim(), referenceImage: reference?.image, revise: false }) }
+
   return <Surface className="invites-panel" role="region" aria-label="Prepare invitation" data-phase={phase} data-mode={mode}>
     <div className="invites-panel__heading"><div><p className="invites-panel__eyebrow">{mode === 'mock' ? 'Sample preview' : 'Invitation'}</p><h2>Invitation card</h2></div></div>
     <label className="invites-panel__request">Your invitation request
-      <textarea value={request} onChange={event => setRequest(event.target.value)} rows={3} disabled={phase === 'generating'} />
+      <textarea value={request} onChange={event => setRequest(event.target.value.slice(0, REQUEST_MAX_CHARS))} rows={3} maxLength={REQUEST_MAX_CHARS} disabled={phase === 'generating'} />
     </label>
+    <span className="invites-panel__counter" aria-live="polite">{request.length} / {REQUEST_MAX_CHARS}</span>
 
     {/* Optional reference image — the actual image is remixed to match the request (image-to-image). */}
     <div className="invites-panel__reference" role="group" aria-label="Reference image (optional)">
@@ -156,21 +198,21 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     {mode === 'mock' && <InlineFeedback>This is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.</InlineFeedback>}
     {mode === 'live' && !createInvite && <InlineFeedback tone="warning">The invitation service is not available in this view.</InlineFeedback>}
     <div className="invites-panel__actions">
-      <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={() => { void run() }}>
+      <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={prepareNew}>
         {phase === 'generating' ? (mode === 'mock' ? 'Loading sample art…' : 'Generating art…') : mode === 'mock' ? 'Show sample invitation' : result ? 'Prepare a new invitation' : 'Prepare invitation'}
       </FgButton>
-      {result?.art && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim() || phase === 'generating'} onClick={() => { void run({ revise: true }) }}>Revise this design</FgButton>}
+      {result?.art && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim() || phase === 'generating'} onClick={() => { void reviseDesign() }}>Revise this design</FgButton>}
     </div>
-    {result?.art && phase !== 'generating' && <p className="invites-panel__revise-hint">To revise, edit your request above (for example, “add floating balloons but keep the unicorns”) and choose <strong>Revise this design</strong> — it changes the current art, keeping everything you don’t ask to change.</p>}
+    {result?.art && phase !== 'generating' && <p className="invites-panel__revise-hint">To revise, edit your request above (for example, “add floating balloons but keep the unicorns”) and choose <strong>Revise this design</strong> — it changes the current art, keeping everything you don’t ask to change, and keeps your edited event text.</p>}
     {phase === 'generating' && <p role="status">{mode === 'mock' ? 'Loading the sample art. No model call is being made.' : result ? 'Preparing a new design. Your current card stays ready below until this finishes.' : 'Preparing invitation art. Wait for a result before editing or downloading.'}</p>}
     {phase === 'ready' && result?.suggestion && <InlineFeedback>{result.suggestion}</InlineFeedback>}
     {(phase === 'refused' || phase === 'failed') && <>
       <InlineFeedback tone="error">{detail}</InlineFeedback>
-      {phase === 'failed' && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim()} onClick={() => { void run() }}>Retry</FgButton>}
+      {phase === 'failed' && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim()} onClick={retry}>Retry</FgButton>}
     </>}
-    {/* The last successful design stays visible across every later phase — generating, a
-        clarification request, or a failure never remove a card the parent already has. */}
-    {result?.art && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} mode={mode} />}
+    {/* The last successful design stays visible across every later phase — generating or a failure
+        never remove a card the parent already has. */}
+    {result?.art && event && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} event={event} onEventChange={setEvent} mode={mode} />}
   </Surface>
 }
 
@@ -188,10 +230,10 @@ function sourceNote(result: InviteResponse & { art: NonNullable<InviteResponse['
     : 'Live art generation is switched off here, so this is the labelled fixture illustration — not a newly generated image.'
 }
 
-export function InvitationCard({ result, mode = 'mock' }: {
-  result: InviteResponse & { art: NonNullable<InviteResponse['art']> }; mode?: 'mock' | 'live'
+export function InvitationCard({ result, event, onEventChange, mode = 'mock' }: {
+  result: InviteResponse & { art: NonNullable<InviteResponse['art']> }
+  event: InviteEvent; onEventChange: (next: InviteEvent) => void; mode?: 'mock' | 'live'
 }) {
-  const [event, setEvent] = useState<InviteEvent>(result.event)
   const [previewReady, setPreviewReady] = useState(false)
   const [previewError, setPreviewError] = useState('')
   const [downloading, setDownloading] = useState(false)
@@ -248,7 +290,7 @@ export function InvitationCard({ result, mode = 'mock' }: {
     finally { setDownloading(false) }
   }
 
-  const update = <K extends keyof InviteEvent>(key: K, value: InviteEvent[K]) => setEvent(current => ({ ...current, [key]: value }))
+  const update = <K extends keyof InviteEvent>(key: K, value: InviteEvent[K]) => onEventChange({ ...event, [key]: value })
   const text = invitationText(event)
   const readout = lineSpecs(event)
   return <div className="invites-card" role="region" aria-label="Invitation card ready">
