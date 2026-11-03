@@ -119,6 +119,8 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 .fridge-intake-check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-ink)}
 .fridge-intake-check input{width:18px;height:18px}
 .fridge-intake-note{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--fg-muted);margin:0}
+.fridge-intake-sample{align-self:flex-start;background:none;border:0;padding:4px 0;min-height:32px;font:inherit;font-size:13px;color:var(--fg-primary,#514b97);text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}
+.fridge-intake-sample:disabled{opacity:.6;cursor:default}
 .fridge-intake-error{color:var(--fg-danger,#b4231f)}
 .fridge-intake-done{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--fg-ink)}
 .fridge-intake-done svg{color:var(--fg-safe,#2e7d55)}

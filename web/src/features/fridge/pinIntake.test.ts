@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest'
-import {createPinIntakeClient,PinError,pinErrorMessage} from './pinIntake'
+import {createPinIntakeClient,PinError,pinErrorMessage,sampleSlipFile,SAMPLE_SLIP_PATH} from './pinIntake'
 
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}})
 const token=()=>'tok-abc'
@@ -41,6 +41,16 @@ describe('pin intake client',()=>{
   expect(out.pin.id).toBe('pinned_1')
   const body=JSON.parse(((send.mock.calls[0] as unknown as [string,RequestInit])[1]).body as string)
   expect(body).toMatchObject({signature:'sig',claims:{proposalId:'pin_1'},reviewed:{caption:'Field trip'}})
+ })
+
+ it('sampleSlipFile fetches the Lincoln Elementary demo photo as a File',async()=>{
+  const send=vi.fn(async()=>({ok:true,blob:async()=>new Blob([new Uint8Array([0x89,0x50,0x4e,0x47])],{type:'image/png'})}))
+  const file=await sampleSlipFile(send as unknown as typeof fetch)
+  expect((send.mock.calls[0] as unknown as [string])[0]).toBe(SAMPLE_SLIP_PATH)
+  expect(file.name).toMatch(/lincoln-permission-slip-photo/)
+  expect(file.type).toBe('image/png')
+  // a missing sample surfaces as UNAVAILABLE, never a broken upload
+  await expect(sampleSlipFile((async()=>new Response('x',{status:404})) as unknown as typeof fetch)).rejects.toMatchObject({code:'UNAVAILABLE'})
  })
 
  it('pinErrorMessage returns a plain message for every known code',()=>{

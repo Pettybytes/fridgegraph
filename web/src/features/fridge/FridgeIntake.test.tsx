@@ -46,6 +46,8 @@ it('parent flow: upload -> review (SAM crop + read fields) -> confirm -> pinned'
  render(<FridgeIntake client={client} childId="p_nora" canUse onPinned={onPinned}/>)
  const add=await screen.findByRole('button',{name:'+ Add image and upload'})
  expect(add).toBeEnabled()
+ // The Lincoln Elementary sample is offered so a parent can demo SAM on a known slip.
+ expect(screen.getByRole('button',{name:/Lincoln Elementary permission slip/})).toBeInTheDocument()
  const input=document.querySelector('input[type=file]') as HTMLInputElement
  fireEvent.change(input,{target:{files:[png()]}})
  // review appears
