@@ -5,7 +5,7 @@ import type { StoredRun } from '@/lib/frontendData/deliveredAdapter'
 import type { OrbitState } from '@/features/orbit/controller'
 import { VillagePulseView } from './VillagePulse'
 import { orbitPulseRead } from './orbitPulseRead'
-import { pulseCohort, pulseWindow, recordedJobStatus } from './model'
+import { dailyCurrentStatuses, pulseCohort, pulseWindow, recordedJobStatus } from './model'
 
 function run(id: string, type = 'PICKUP', status = 'awaiting_approval', created = '2026-11-01T13:00:00Z', attempts = 1, approved = false): StoredRun {
   return {
@@ -30,6 +30,43 @@ describe('Village pulse: caller-visible recorded measures', () => {
     expect(pulseCohort(jobs, window)).toMatchObject({ requests: 2, withContactAttempts: 1, withParentApproval: 1 })
   })
 
+  it('groups Detroit creation dates by CURRENT status without reconstructing a history', () => {
+    const range = pulseWindow(now)
+    const jobs = pulseCohort([
+      run('one', 'PICKUP', 'confirmed', '2026-10-04T04:00:00Z'),
+      run('two', 'PICKUP', 'awaiting_approval', '2026-10-04T05:00:00Z'),
+      run('three', 'PICKUP', 'failed', '2026-10-05T03:59:59Z'),
+    ], range).jobs
+    const days = dailyCurrentStatuses(jobs, range)
+    expect(days.find(day => day.day === '2026-10-04')).toMatchObject({ total: 3, counts: { 'Parent approval recorded': 1, 'Waiting for parent approval': 1, 'Coordination ended': 1 } })
+    render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: jobs }} orbit={orbit} readAt={Date.parse('2026-11-02T23:42:00Z')} />)
+    const chart = screen.getByRole('region', { name: 'Requests by date' })
+    expect(chart).toHaveTextContent('current recorded status')
+    expect(chart).toHaveTextContent('This does not show status transitions')
+    expect(within(chart).getByRole('img', { name: 'Pickup requests by creation date and current recorded status' })).toBeInTheDocument()
+    expect(screen.getByText('Requests updated 6:42 PM')).toBeInTheDocument()
+    expect(screen.queryByText(/LIVE/)).not.toBeInTheDocument()
+  })
+
+  it('shows visible, keyboard navigable phone panels without autoplay', () => {
+    const width = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    const view = render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one')] }} orbit={orbit} />)
+    fireEvent(window, new Event('resize'))
+    expect(screen.getByRole('status', { name: '' })).toHaveTextContent('1 of 3')
+    fireEvent.click(screen.getByRole('button', { name: 'Next pulse panel' }))
+    expect(screen.getByRole('status', { name: '' })).toHaveTextContent('2 of 3')
+    const viewport = document.querySelector('.vp-viewport')!
+    fireEvent.keyDown(viewport, { key: 'ArrowRight' })
+    expect(screen.getByRole('status', { name: '' })).toHaveTextContent('3 of 3')
+    fireEvent.touchStart(viewport, { changedTouches: [{ clientX: 30 }] })
+    fireEvent.touchEnd(viewport, { changedTouches: [{ clientX: 100 }] })
+    expect(screen.getByRole('status', { name: '' })).toHaveTextContent('2 of 3')
+    expect(screen.getByRole('region', { name: 'Requests by date', hidden: true }).parentElement).toHaveAttribute('inert')
+    view.unmount()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+  })
+
   it('uses conservative attempt wording and independent accessible bars', () => {
     expect(recordedJobStatus('confirmed')).toBe('Parent approval recorded')
     expect(recordedJobStatus('discovering')).toBe('Coordination in progress')
@@ -44,15 +81,16 @@ describe('Village pulse: caller-visible recorded measures', () => {
   })
 
   it('keeps panel refusals and failures distinct from empty data', () => {
-    render(<VillagePulseView now={now} jobs={{ kind: 'refused' }} orbit={{ kind: 'failed' }} />)
+    render(<VillagePulseView now={now} jobs={{ kind: 'refused' }} orbit={{ kind: 'failed' }} readAt={Date.parse('2026-11-02T23:42:00Z')} />)
     expect(screen.getAllByText(/Access to request records is refused/)).toHaveLength(2)
     expect(screen.getByText(/Couldn’t load Orbit status/)).toBeInTheDocument()
     expect(screen.queryByText(/No dated pickup requests/)).not.toBeInTheDocument()
+    expect(screen.getByText('Last successful request read 6:42 PM; current refresh unavailable')).toBeInTheDocument()
   })
 
   it('keeps loading, empty, and failed reads explicit per panel', () => {
     const view = render(<VillagePulseView now={now} jobs={{ kind: 'loading' }} orbit={{ kind: 'loading' }} />)
-    expect(screen.getAllByRole('status')).toHaveLength(4)
+    expect(screen.getAllByText(/^Loading /)).toHaveLength(4)
     view.rerender(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [] }} orbit={orbit} />)
     expect(screen.getAllByText('No dated pickup requests are available in this window.')).toHaveLength(2)
     view.rerender(<VillagePulseView now={now} jobs={{ kind: 'failed' }} orbit={{ kind: 'failed' }} />)

@@ -40,3 +40,23 @@ export function recordedJobStatus(status: string): string {
     failed: 'Coordination ended',
   } as Record<string, string>)[status] ?? 'Recorded status not recognized'
 }
+
+export const statusOrder = ['Request recorded', 'Coordination in progress', 'Waiting for parent approval', 'Parent approval recorded', 'Coordination ended', 'Recorded status not recognized'] as const
+export type DailyStatus = { day: string; total: number; counts: Record<string, number> }
+
+/** Creation-date buckets use each job's CURRENT status; this is not a status history. */
+export function dailyCurrentStatuses(jobs: StoredRun[], window: PulseWindow): DailyStatus[] {
+  const days: DailyStatus[] = []
+  for (let day = window.from; day <= window.through; day = addDays(day, 1)) days.push({ day, total: 0, counts: {} })
+  const byDay = new Map(days.map(day => [day.day, day]))
+  for (const run of jobs) {
+    const created = jobCreatedAt(run)
+    if (!created) continue
+    const bucket = byDay.get(localDay(created))
+    if (!bucket) continue
+    const status = recordedJobStatus(run.job.status)
+    bucket.total += 1
+    bucket.counts[status] = (bucket.counts[status] ?? 0) + 1
+  }
+  return days
+}
