@@ -1,4 +1,4 @@
-import { addDays, localDay } from '@/features/calendar/time'
+import { addDays, localDay, weekday } from '@/features/calendar/time'
 import type { StoredRun } from '@/lib/frontendData/deliveredAdapter'
 
 export type PulseWindow = { from: string; through: string }
@@ -39,4 +39,41 @@ export function recordedJobStatus(status: string): string {
     confirmed: 'Parent approval recorded',
     failed: 'Coordination ended',
   } as Record<string, string>)[status] ?? 'Recorded status not recognized'
+}
+
+export const statusOrder = ['Request recorded', 'Coordination in progress', 'Waiting for parent approval', 'Parent approval recorded', 'Coordination ended', 'Recorded status not recognized'] as const
+export type DailyStatus = { day: string; total: number; counts: Record<string, number> }
+
+/** Creation-date buckets use each job's CURRENT status; this is not a status history. */
+export function dailyCurrentStatuses(jobs: StoredRun[], window: PulseWindow): DailyStatus[] {
+  const days: DailyStatus[] = []
+  for (let day = window.from; day <= window.through; day = addDays(day, 1)) days.push({ day, total: 0, counts: {} })
+  const byDay = new Map(days.map(day => [day.day, day]))
+  for (const run of jobs) {
+    const created = jobCreatedAt(run)
+    if (!created) continue
+    const bucket = byDay.get(localDay(created))
+    if (!bucket) continue
+    const status = recordedJobStatus(run.job.status)
+    bucket.total += 1
+    bucket.counts[status] = (bucket.counts[status] ?? 0) + 1
+  }
+  return days
+}
+
+/** Same distinct-job cohort as the stream; weekdays are Detroit creation dates. */
+export function requestsByWeekday(jobs: StoredRun[]): number[] {
+  const totals = Array.from({ length: 7 }, () => 0)
+  for (const job of jobs) {
+    const created = jobCreatedAt(job)
+    if (created) totals[(weekday(localDay(created)) + 6) % 7] += 1
+  }
+  return totals
+}
+
+export function approvalBreakdown(jobs: StoredRun[]): { approved: number; pending: number } {
+  return {
+    approved: jobs.filter(run => Boolean(run.job.confirmation?.id)).length,
+    pending: jobs.filter(run => run.job.status === 'awaiting_approval' && !run.job.confirmation?.id).length,
+  }
 }
