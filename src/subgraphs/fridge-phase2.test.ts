@@ -107,6 +107,17 @@ test('createGoal derives proposedById from current_person(), never a client argu
   assert.equal(result.period, 'WEEK');
 });
 
+test('createGoal asserts sandbox=true explicitly — never relies on the column default, which is false for pre-existing-row safety', async () => {
+  const goalsRows: Row[] = [];
+  const ctx = ctxFor('p_mom', goalsRows, []);
+  await village.Mutation.createGoal(
+    null,
+    { childId: 'p_nora', title: 'New goal', ownerId: null, horizon: null, period: null, status: null },
+    ctx,
+  );
+  assert.equal(goalsRows[0].sandbox, true);
+});
+
 test('postFridgeNote derives authorId from current_person() and maps the GraphQL PaperColor enum to the DB\'s lowercase value', async () => {
   const notesRows: Row[] = [];
   const ctx = ctxFor('p_priya', [], notesRows);

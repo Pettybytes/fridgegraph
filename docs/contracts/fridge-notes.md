@@ -1,8 +1,12 @@
 # Contract — Fridge backend, Phase 2 (goals CRUD + fridge notes)
 
-Status: **STAGED, NOT APPLIED.** Migration `0083_fridge_phase2.sql` is written and rehearsed on a
-disposable Postgres container only. Nothing in this contract has touched the shared/project
-database. Code-only branch `feat/fridge-notes`; draft PR, never merged.
+Status: **STAGED, NOT APPLIED.** `feat/fridge-notes` (#157) merged the code and the staged
+migration file `0083_fridge_phase2.sql` into `main` — the file itself has **never been applied to
+any database**, shared or disposable. A correction after that merge (`fix/0083-goals-provenance`,
+this branch) fixed a real `goals.sandbox` provenance bug found in review before any live apply —
+see §3. The migration's content hash changed as a result; §3 and the PR record the new one. Every
+proof in this contract still runs exclusively on a disposable, loopback-bound Postgres container
+this session creates and removes.
 
 Relationship to `#153` (`feat/fridge-experience`, draft, web-only): that PR builds **The Fridge**
 UI — a photographic collage with a **read-only** goals whiteboard and mock/visual-only paper notes
@@ -30,7 +34,7 @@ goal is for parents. This contract does not touch that policy.
 | --- | --- | --- |
 | `period` | `text`, nullable, `check (period in ('DAY','WEEK','MONTH'))` | An **optional**, explicitly-chosen cadence. Never inferred from `horizon`. |
 | `completed_at` | `timestamptz`, nullable | Set only by an explicit `completeGoal`/`uncompleteGoal` call. **Independent of `status`** — an `APPROVED` goal can be completed or not; a `PROPOSED` goal can even carry a stale `completed_at` from before it was re-proposed (the UI's job to render sensibly, not this layer's to prevent — re-proposing is out of scope here since there is no re-propose flow yet). |
-| `sandbox` | `boolean`, default `true` | Demo-content provenance, same convention as `fridge_notes` and every other `SANDBOX_TABLES` member — **not exposed on the `Goal` GraphQL type**, purely reset bookkeeping. See §3; added after an incorrect first cut where a demo-created goal could never be cleared. |
+| `sandbox` | `boolean`, default `false` | Demo-content provenance — **not exposed on the `Goal` GraphQL type**, purely reset bookkeeping. **Default is `false`, deliberately** — unlike `fridge_notes` (a brand-new table, safe to default `true`), `goals` already has rows at apply time, so a `true` default would retroactively mark every pre-existing goal as demo-clearable. The two canonical demo goals are marked `true` by 0083's own targeted `UPDATE ... WHERE id IN (...)`; `createGoal`'s resolver asserts `true` explicitly on every insert it makes. See §3 for the full correction history (two review rounds, not one). |
 
 `horizon` (existing, free text) is untouched — `period` is additive, not a replacement. A goal may
 have a `horizon` of `"June 2027"` and no `period`, or a `period` of `MONTH` and no `horizon`, or
@@ -208,28 +212,49 @@ and is not built.
 - `goals` joins **both** `SANDBOX_TABLES` and `ID_TABLES`, the same two-step shape Cast v2 itself
   already uses for its own sandboxed content (`care_facts`/`routines`): cleared by the blanket
   `sandbox = true` delete, then the two canonical rows restored by upsert in `RESTORE_ORDER`,
-  afterward. **Corrected from the first cut of this PR**, which put `goals` in `ID_TABLES` only
-  (restore-by-known-id) — review caught that this left every OTHER goal, including anything a
-  judge creates live through `createGoal`, permanently un-clearable: a real demo-pollution bug, not
-  a hypothetical one. Fixed by adding the same `sandbox` column every other demo-content table
-  already carries (§1), rather than inferring ownership from an id prefix or deleting every goal
-  for a fixture child (which would also delete a genuinely non-demo goal for the same child, if one
-  ever existed) — ownership is the column, explicit and server-defaulted, full stop.
+  afterward.
 
-  - `createGoal`'s resolver never sets `sandbox` itself — the column's own `default true` handles
-    every insert made through the app. The fixture rows in `reset.ts` restate `sandbox: true`
-    explicitly rather than relying on the default, so restore always reasserts it even if a live
-    write somehow cleared it.
-  - Proven in `ops/fridge-phase2-reset-proof.mjs` by contrast, not in isolation: a demo-created goal
-    (`sandbox: true`) for the *same child* as the canonical seeds is removed (check 3); an
-    otherwise-identical goal for that same child with `sandbox: false` (set only by the proof
-    script, simulating a hypothetical non-demo row — nothing in this PR ever writes `false`)
-    survives completely untouched (check 4). The contrast is the actual proof that this is
-    column-driven, not child- or id-driven.
+  **Two review corrections, not one** — recorded in full because both are real, found-live bugs,
+  not hypothetical:
+
+  1. *First cut* put `goals` in `ID_TABLES` only (restore-by-known-id) — this left every OTHER
+     goal, including anything a judge creates live through `createGoal`, permanently un-clearable:
+     a real demo-pollution bug. Fixed by adding a `sandbox` column, same convention as
+     `fridge_notes`.
+  2. *Second cut*, same PR, before any live apply: that `sandbox` column was added as
+     `not null default true`. **`goals` is an existing, already-populated table** (unlike
+     `fridge_notes`, a brand-new one) — a `true` default on `ALTER TABLE ... ADD COLUMN`
+     retroactively backfills every row that already exists at apply time, which would have marked
+     any genuinely non-demo goal already in a real database as demo-clearable, deleting it on the
+     very next reset. **Corrected:** the column defaults `false` (an unknown pre-existing row is
+     never assumed to be demo content); the two verified canonical demo goals are marked `true` by
+     0083's own targeted `UPDATE goals SET sandbox = true WHERE id IN ('goal_reading',
+     'goal_passing')` — never a blanket default, never an id prefix, never "every goal belonging to
+     a fixture child" (which would also catch a real, non-demo goal for the same child).
+     `createGoal`'s resolver now asserts `sandbox: true` explicitly on every insert it makes,
+     rather than relying on any column default (which is now `false`, specifically so it is never
+     mistaken for "this is demo content" by omission).
+
+  - Proven in `ops/fridge-phase2-reset-proof.mjs` with a two-phase migration apply specifically
+    built to catch the second bug: every migration except `0083` first, an "unrelated, pre-existing"
+    goal inserted into the table in its *pre-0083 shape* (simulating a real row already in a live
+    database), **then** `0083` applied as its own phase. Checks 1–2 assert directly against the
+    migration's own behavior (the pre-existing row is `sandbox = false`, the two canonical rows are
+    `sandbox = true`) before any further write. Checks 3–6 then run the real `resetDemo()` and
+    prove, by contrast, that the SAME pre-existing row survives the entire reset untouched while a
+    freshly demo-created one (`sandbox: true`, exactly what `createGoal` asserts) is cleared —
+    ownership is the column, tracked from before migration, through migration, through a real
+    reset, never the child or the id.
 
 - Both additions are scoped exactly as their own content: `fridge_notes` touches nothing outside
   its own sandboxed rows; `goals` touches nothing outside its own sandboxed rows and its two known
   fixture ids. Neither widens any existing `SANDBOX_TABLES`/`ID_TABLES` member's own boundary.
+
+**Migration content hash, post-correction:** `0083_fridge_phase2.sql` sha256
+`559b98238fe8ff06a2ced37115ccfc90c403ed37801ef834ab77d05fb24c6280` (was
+`f5842893fe9403a086281f5509807337eef6b5f658bff6ca99d9bb8477f8d4dd` at `#157`'s merge — changed by
+this correction, recorded here since the file was never applied and is therefore still safe to
+edit in place, per the project's "never edit an applied migration" rule).
 
 ## 4. Deploy ordering — migration BEFORE code, not after
 
