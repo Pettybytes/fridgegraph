@@ -91,7 +91,7 @@ function proxy(req, res, rule) {
   // Hop-by-hop headers must not be forwarded.
   if (headers.connection) delete headers.connection;
   const upstream = httpRequest(
-    { host: '127.0.0.1', port: rule.port, path: req.url, method: req.method, headers },
+    { host: '127.0.0.1', port: rule.port, path: rule.name === 'graphql' ? '/' : req.url, method: req.method, headers },
     (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
