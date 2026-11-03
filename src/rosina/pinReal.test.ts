@@ -37,7 +37,7 @@ const PNG = Buffer.concat([
   pngChunk('IEND', Buffer.alloc(0)),
 ]);
 
-// ---- a fake RLS db mirroring 0085's register_pin_media / pin_media_access ----
+// ---- a fake RLS db mirroring 0090's register_pin_media / pin_media_access ----
 type FakeOpts = { parents: Record<string, string[]>; shareReaders?: Record<string, string[]>; sharedAssets?: Set<string> };
 function fakeDb(opts: FakeOpts) {
   const media = new Map<string, { childId: string; mime: string; path: string; owner: string }>();

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * DISPOSABLE-POSTGRES AUTHORIZATION PROOF for "Pin it to the fridge" made real (migration 0085,
+ * DISPOSABLE-POSTGRES AUTHORIZATION PROOF for "Pin it to the fridge" made real (migration 0090,
  * STAGED — not applied anywhere). Mirrors ops/fridge-phase2-proof.mjs.
  *
  * Proves the real private-media + persistence authority the TS handlers rely on:
@@ -48,7 +48,7 @@ const MIGRATIONS = [
   'supabase/migrations/0006_local_today.sql',
   'supabase/migrations/0024_authority_model.sql',
   'supabase/migrations/0083_fridge_phase2.sql',
-  'supabase/migrations/0085_pin_media.sql',
+  'supabase/migrations/0090_pin_media.sql',
 ];
 
 async function applyMigrations(client) {

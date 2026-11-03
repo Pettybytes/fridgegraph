@@ -2,7 +2,7 @@
  * Real private-media backing for "Pin it to the fridge" (contract §6).
  *
  * Mirrors the orbit photo store (photoDeps.ts): every decision is made with the CALLER'S OWN bearer
- * through an RLS-scoped client — no service-role bypass — using the 0085 database authority
+ * through an RLS-scoped client — no service-role bypass — using the 0090 database authority
  * (`register_pin_media` / `pin_media_access`) and a private directory for the bytes. No public bucket,
  * no signed URL; access is re-evaluated on EVERY load. Raw bytes and paths are NEVER logged.
  *

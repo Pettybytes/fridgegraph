@@ -1,6 +1,6 @@
--- 0085 — private media for "Pin it to the fridge" (Phase 2 intake made real).
+-- 0090 — private media for "Pin it to the fridge" (Phase 2 intake made real).
 --
--- STAGED ONLY — never applied by this PR. Forward-only; 0001-0084 never edited. In particular 0083
+-- STAGED ONLY — never applied by this PR. Forward-only; 0001-0089 never edited. In particular 0083
 -- (teacher-persona's fridge_notes) is UNCHANGED: its `attachment_ref` column already exists and this
 -- intake only WRITES that column (a plain ref) and reads it back — no column/contract change there.
 -- Full design: docs/contracts/pin-to-fridge.md §6.
