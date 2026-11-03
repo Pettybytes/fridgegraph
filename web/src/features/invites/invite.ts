@@ -1,4 +1,11 @@
-/** UI contract for POST /api/rosina/invite. The endpoint is not enabled by this feature. */
+/**
+ * UI contract for POST /api/rosina/invite. The endpoint is not enabled by this feature.
+ *
+ * `hostName` and `message` are app-owned fields, never extracted or returned by the backend
+ * (the backend contract only covers childFirstName/occasion/date/time/placeLabel). They exist
+ * so the card can show who is hosting and a personal note; the app fills sensible defaults and
+ * the family can edit them. The model never sees or generates these strings.
+ */
 export type InviteEvent = {
   childFirstName: string
   occasion: string
@@ -7,6 +14,23 @@ export type InviteEvent = {
   endTime: string | null
   timezone: 'America/Detroit'
   placeLabel: string | null
+  hostName: string
+  message: string
+}
+
+/** App-owned default note shown on the card until a family edits it. Never model-generated. */
+export const DEFAULT_INVITE_MESSAGE = 'Please join us to celebrate!'
+
+/**
+ * Fills the app-owned hostName/message fields when a source (fixture or live backend) left them
+ * blank, without ever overwriting a value the family already set. Idempotent.
+ */
+export function withInviteDefaults(event: InviteEvent, defaultHostName: string): InviteEvent {
+  return {
+    ...event,
+    hostName: event.hostName || defaultHostName || '',
+    message: event.message || DEFAULT_INVITE_MESSAGE,
+  }
 }
 export type InviteArt = {
   mimeType: 'image/png' | 'image/jpeg'
@@ -30,8 +54,11 @@ export type InviteResponse = {
 }
 export type InviteCreator = (request: { childId: string; request: string }, signal?: AbortSignal) => Promise<InviteResponse>
 
+/** Plainly says whether this card is a real generation or a placeholder — never ambiguous.
+ * Burned into the exported PNG footer AND shown in the UI, so the distinction survives a
+ * download, a screenshot, or someone reading only the image. */
 export function inviteCredit(provenance: InviteProvenance): string {
-  return provenance.source === 'MUSE_IMAGE' ? 'Art generated with Muse Image' : 'Sample art'
+  return provenance.source === 'MUSE_IMAGE' ? 'Art generated with Muse Image' : 'Sample art — not generated'
 }
 
 export function inviteError(error: unknown): { state: 'refused' | 'failed'; message: string } {

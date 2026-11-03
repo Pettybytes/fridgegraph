@@ -23,7 +23,9 @@ export function createMockInvite(childFirstName: string): InviteCreator {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     return {
       status: 'READY', clarification: null,
-      event: { childFirstName, occasion: 'Birthday party', date: '2026-11-15', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Maple Hall' },
+      // hostName/message stay blank here: the caller (InviteComposer) fills them with the real
+      // signed-in parent's name and the app-owned default note, so fixture and live behave alike.
+      event: { childFirstName, occasion: 'Birthday party', date: '2026-11-15', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Maple Hall', hostName: '', message: '' },
       art: { mimeType: 'image/png', width: 1024, height: 1024, base64, quietArea: { x: 96, y: 600, w: 832, h: 328 } },
       provenance: { source: 'FIXTURE', model: null, cached: false, promptHash: FIXTURE_PROMPT_HASH },
     } satisfies InviteResponse

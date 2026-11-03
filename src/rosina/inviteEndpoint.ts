@@ -12,7 +12,12 @@
  * required before any apply): gated per-CHILD by the real persistent ledger (0085,
  * inviteLedgerBudget.ts) — reserved before the image call, settled after. ONLY for source ===
  * 'MUSE_IMAGE': FIXTURE makes no real model call and spends nothing, so it never touches the
- * ledger at all, by construction (no code path reaches reserve/settle in fixture mode).
+ * ledger at all, by construction (no code path reaches reserve/settle in fixture mode). Price is
+ * decided server-side only — this file never sends a cost figure. A cache hit (provenance.cached)
+ * settles free; a CONFIRMED pre-generation/provider refusal settles FAILED, free; an UNCERTAIN
+ * outcome (a network error after send, or a local validation failure on an otherwise-200
+ * response — see inviteImage.ts's error classes) settles charged, conservatively, never refunded
+ * by default.
  *
  * Deduplication: a double-click, a network retry, or two tabs firing the identical request
  * (same caller, same child, same request text) share ONE real extraction+image+budget pipeline
@@ -23,13 +28,21 @@ import { createHash } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { buildArtPrompt, promptHash, assertNoPii } from './invitePrompt';
 import { validateInviteFields, detroitToday, type RawInviteExtraction, type InviteEvent } from './inviteFields';
-import type { InviteImageGenerator, InviteArt, InviteProvenance } from './inviteImage';
+import { InviteImageUncertainFailure, type InviteImageGenerator, type InviteArt, type InviteProvenance } from './inviteImage';
 import type { InviteRateLimiter } from './inviteBudget';
 import type { InviteLedgerBudget } from './inviteLedgerBudget';
 import type { InviteDedup } from './inviteDedup';
 import { dedupKey } from './inviteDedup';
 
 export type InviteIdentity = { ok: true; personId: string; demoGuide: boolean } | { ok: false };
+
+/**
+ * Bounds on the two provider calls. Without them a stalled provider left the request (and every
+ * deduplicated retry of it) hanging indefinitely, which the UI renders as "Generating art…" —
+ * indistinguishable from progress. A timeout turns that into a definite, honest failure.
+ */
+const EXTRACT_TIMEOUT_MS = 12_000;
+const IMAGE_TIMEOUT_MS = 45_000;
 
 export type InviteExtractor = (input: { request: string; today: string; signal?: AbortSignal }) => Promise<RawInviteExtraction>;
 
@@ -43,10 +56,9 @@ export type InviteEndpointDeps = {
   image: InviteImageGenerator;
   rateLimiter: InviteRateLimiter;
   dedup: InviteDedup;
-  /** Unused (never called) when source === 'FIXTURE'. */
+  /** Unused (never called) when source === 'FIXTURE'. No cost is ever passed to it — price is
+   *  decided server-side only, inside the 0085 RPCs themselves. */
   ledgerBudget: InviteLedgerBudget;
-  /** Per-generation cost in USD, charged only for source === 'MUSE_IMAGE'. */
-  generationCostUsd: number;
   /** The active image source, for provenance on a clarification (no image generated). */
   source: 'MUSE_IMAGE' | 'FIXTURE';
   now?: () => Date;
@@ -106,7 +118,7 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
       // Muse Spark: extract fields. A failure folds into the single model-pipeline error (502).
       let raw: RawInviteExtraction;
       try {
-        raw = await deps.extractor({ request, today });
+        raw = await deps.extractor({ request, today, signal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS) });
       } catch {
         return { kind: 'ERROR', status: 502, body: { error: 'IMAGE_FAILED' } };
       }
@@ -130,27 +142,42 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
 
       // READY, live source → the per-CHILD ledger gates the image step (a new login cannot reset
       // it; a different parent of the SAME child shares the SAME budget). FIXTURE spends nothing
-      // and never reaches this branch at all.
+      // and never reaches this branch at all. A request already known to be a cache hit (many
+      // families' prompts collapse to the same small set of occasion-based themes) skips
+      // reservation entirely — it is never billed, so it must never be blocked by an exhausted
+      // budget either. If the cache state changes before the real generate() call (a race with a
+      // concurrent request), the settle-time `cached` FACT below is still the authoritative
+      // charge — a reservation made here is still correctly released to $0 if it turns out cached.
       let generationId: string | null = null;
-      if (deps.source === 'MUSE_IMAGE') {
-        const reservation = await deps.ledgerBudget.reserve({
-          childId, costUsd: deps.generationCostUsd, source: 'MUSE_IMAGE', promptHash: hash, bearer,
-        });
+      if (deps.source === 'MUSE_IMAGE' && !deps.image.peekCached(hash)) {
+        // No costUsd argument — the server charges its own fixed per-generation price.
+        const reservation = await deps.ledgerBudget.reserve({ childId, source: 'MUSE_IMAGE', promptHash: hash, bearer });
         if (!reservation.allowed) return { kind: 'ERROR', status: 429, body: { error: 'BUDGET_EXHAUSTED' } };
         generationId = reservation.generationId;
       }
 
       let result;
       try {
-        result = await deps.image.generate({ prompt, promptHash: hash });
-      } catch {
-        if (generationId) await deps.ledgerBudget.settle({ generationId, status: 'FAILED', model: null, outputSha256: null, bearer });
+        result = await deps.image.generate({ prompt, promptHash: hash, signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
+      } catch (err) {
+        if (generationId) {
+          // UNCERTAIN (the provider may have billed even though we have no usable result) is
+          // charged conservatively — never silently released. Only a CONFIRMED pre-generation
+          // refusal (never reached the provider at all) settles FAILED, free.
+          const uncertain = err instanceof InviteImageUncertainFailure;
+          await deps.ledgerBudget.settle({
+            generationId, status: uncertain ? 'UNCERTAIN' : 'FAILED', model: null, outputSha256: null, cached: false, bearer,
+          });
+        }
         return { kind: 'ERROR', status: 502, body: { error: 'IMAGE_FAILED' } };
       }
 
       if (generationId) {
+        // `cached` is a FACT this process observed (the image client's own cache) — the server
+        // decides the actual charge from it; a cache hit is never billed.
         await deps.ledgerBudget.settle({
-          generationId, status: 'SUCCEEDED', model: result.provenance.model, outputSha256: sha256Base64(result.art.base64), bearer,
+          generationId, status: 'SUCCEEDED', model: result.provenance.model,
+          outputSha256: sha256Base64(result.art.base64), cached: result.provenance.cached, bearer,
         });
       }
 

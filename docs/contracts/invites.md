@@ -152,25 +152,72 @@ for authorization.
   Kendra / `h_b` Andre) shares ONE budget regardless of which parent is asking — a per-household
   split would let the same party be re-generated twice for free by switching parents. "Per family"
   in the brief is realized as "per child," the unambiguous scope.
-- **Cost model.** Muse Image has no published price (it is this project's own fictional provider
-  abstraction — `src/rosina/inviteImage.ts` mirrors the OpenAI-compatible Images shape but is not a
-  real Meta product). Modeled on **DALL-E 3's published Standard 1024×1024 price, $0.04/image**
-  (the same resolution this endpoint requests), the closest real, currently-published comparable —
-  observed 2026-11-03, see `src/rosina/inviteLedgerBudget.ts`'s `INVITE_GENERATION_COST_USD`.
-  Revisit if Muse Image ever publishes a real figure of its own.
-- **Default cap: $1.00/child/day → 25 generations/day**, the brief's own target. Overridable per
-  household via the EXISTING `household_policies` mechanism (same table `ride_cost_cap_usd`
-  already uses), rule `invite_daily_budget_usd`.
+- **Cost model.** Muse Image is priced at **$0.01 per generated image**, per Meta's published
+  docs — a real, current, citable figure, not modeled on a third-party comparable (an earlier
+  draft of this contract wrongly described Muse Image as a "fictional provider" priced off DALL-E
+  3's $0.04/image; that was incorrect and has been corrected). The constant lives ONLY as a SQL
+  literal inside `invite_budget_reserve` (migration 0085) — `src/rosina/inviteLedgerBudget.ts`'s
+  `INVITE_GENERATION_COST_USD` export mirrors it for tests/documentation only and is never sent to
+  the server.
+- **Cost and settlement are decided SERVER-SIDE ONLY.** `reserveInviteBudget` takes no cost
+  argument at all. `settleInviteBudget`'s outcome is a closed GraphQL enum,
+  `InviteGenerationOutcome { SUCCEEDED FAILED UNCERTAIN }`, plus a `cached: Boolean!` argument that
+  conveys a FACT the caller observed (its own image client's cache), not a price — the SQL function
+  computes the actual charge itself from `(status, cached)`. No caller-accessible mutation can set
+  or influence either the per-generation price or the settled outcome's cost.
+- **Settlement is trusted server work, not a caller-reported fact.** Removing the cost argument
+  and closing `status` to an enum stops a caller from naming its own PRICE, but does nothing to
+  stop the reservation's own legitimate owner from calling `settleInviteBudget` directly (GraphQL
+  or the raw RPC) and simply lying about the outcome — claiming `FAILED` or `cached: true` to
+  falsely release/zero a real, billed generation. `status`/`cached` are genuinely knowable only by
+  whoever made the real provider call — Rosina's own backend (`src/rosina/inviteLedgerBudget.ts`)
+  — which alone holds `INVITE_SETTLEMENT_HMAC_SECRET`. Every `settle()` call now includes `proof`,
+  an hmac-sha256 over the exact settlement facts (`generationId|status|cached|model|outputSha256`)
+  keyed with that secret; `invite_budget_settle` (0085) verifies the SAME hmac against the
+  `app.invite_settlement_hmac_secret` database setting (configured out of band when 0085 is
+  applied, never checked into any migration file) and fails CLOSED — uniform `false`, no oracle —
+  on any mismatch or unconfigured secret. This check lives INSIDE the SQL function, so it protects
+  a direct RPC call identically to the GraphQL mutation; it is not a UI-only restriction. Ownership
+  of the reservation remains necessary (unchanged) but is no longer sufficient on its own — proven
+  directly in `ops/invite-budget-proof.mjs` check 13: the reservation's own owner, with a garbage
+  or missing proof, cannot release it; the same reservation settles normally once a correctly
+  computed proof is supplied.
+- **A cache hit is never a paid generation.** A repeat prompt (many families' requests collapse
+  onto the same small set of occasion-based themes) returns `provenance.cached: true` from the
+  image client with no real provider call. `InviteImageGenerator.peekCached(promptHash)` lets
+  `inviteEndpoint.ts` skip `reserve()` entirely for a confidently-known cache hit — it is never
+  blocked by an exhausted budget, because it costs nothing. If the cache state changes between
+  that check and the real `generate()` call (a race with a concurrent request), a reservation IS
+  made, but `generate()`'s own `provenance.cached` remains the single source of truth `settle()`
+  charges against — `cached: true` at settle time always replaces the provisional charge with $0,
+  regardless of what `peekCached` predicted.
+- **An UNCERTAIN outcome is charged conservatively, never silently released.** Not every thrown
+  error reverses the reservation. `inviteImage.ts` distinguishes a CONFIRMED failure (the provider
+  gave a clean, synchronous rejection — a non-2xx HTTP status — before producing anything; settles
+  FAILED, free) from an UNCERTAIN failure (a network error/timeout/abort after the request was
+  sent, where it's never learned whether the provider received and billed it; or a local
+  validation failure on an otherwise-200 response, where the provider most likely DID generate and
+  the parsing/bound check is what rejected it). An UNCERTAIN outcome settles charged, at the full
+  reserved amount, and is never refunded by default — the provider may have billed for it.
+- **Default cap: $1.00/child/day → 100 generations/day** at the real $0.01/generation price.
+  Overridable per household via the EXISTING `household_policies` mechanism (same table
+  `ride_cost_cap_usd` already uses), rule `invite_daily_budget_usd`. Scope is strictly **per
+  child** (see above) — "per family" is never accurate wording for this limit unless a future
+  slice actually implements per-household splitting, which this one does not.
 - **FIXTURE never touches the ledger at all** — no real spend, no reservation, by construction
-  (the endpoint only calls `reserve`/`settle` when `source === 'MUSE_IMAGE'`).
+  (the endpoint only calls `reserve`/`settle` when `source === 'MUSE_IMAGE'`, and even then only
+  when `peekCached` cannot already answer "free").
 - **Atomic, race-safe.** `invite_budget_reserve` takes a `pg_advisory_xact_lock` keyed per child
   before reading today's spend, so two concurrent requests for the SAME child cannot both pass the
   check before either writes — proven under real concurrency in `ops/invite-budget-proof.mjs`
   check 6 (two simultaneous reservations at the cap boundary: exactly one succeeds).
-  `invite_budget_settle` only updates a reservation the SAME caller created (proof check 7).
+  `invite_budget_settle` only updates a reservation the SAME caller created, and only once — a
+  second settle on an already-terminal reservation is refused, so no replay/override of a prior
+  outcome is possible (proof check 7).
 - **Retries cost nothing extra beyond what they actually spend.** `reserve` happens before the
-  image call; `settle(FAILED)` after a model error reverses it immediately — the same refund
-  semantics the old in-memory budget had, now persisted (proof check 4).
+  image call; `settle(FAILED)` after a CONFIRMED model error reverses it immediately — the same
+  refund semantics the old in-memory budget had, now persisted (proof check 4). An UNCERTAIN
+  outcome is the deliberate exception: it is NOT reversed, per above.
 - **Deduplication** (`src/rosina/inviteDedup.ts`) collapses a double-click, a network retry, or two
   tabs firing the identical request (same caller + child + request text) into ONE real
   extraction+reservation+image call — never two. Authorization and the per-request rate limit
@@ -184,7 +231,7 @@ for authorization.
   "keep credentials and provider accounting out of client responses" exactly.
 - **Demo reset never touches it.** `invite_generations` is NOT in `ID_TABLES`/`RESET_SCOPED`/
   `SANDBOX_TABLES` (`src/demo/reset.ts`) — `resetDemo()` never references it, so it survives
-  untouched by construction. Proven directly: `ops/invite-budget-proof.mjs` check 8 inserts,
+  untouched by construction. Proven directly: `ops/invite-budget-proof.mjs` check 14 inserts,
   calls the REAL `resetDemo()`, and confirms the row count is identical before and after.
 - **Evidence recorded per generation**: `model`, `prompt_hash`, `output_sha256` (sha256 of the
   returned art bytes, computed server-side after generation), `cost_usd`, `source`, `status`,
@@ -207,15 +254,37 @@ equivalent to real reference-image support.
 
 ### 8.4 Proof
 
-- **Mocked-provider tests** (`src/rosina/invite.test.ts`, 20 tests, no network/DB): authorization
+- **Mocked-provider tests** (`src/rosina/invite.test.ts`, 21 tests, no network/DB): authorization
   (unchanged from the original slice), the per-child ledger budget (a new login sharing the same
   child's budget, independent budgets per child, FIXTURE never reaching the ledger), the PII guard
-  refusing before any reservation, deduplication (concurrent/duplicate/retry-after-failure), and a
-  successful generation settling with a real output hash.
-- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 8/8 checks): reservation,
-  shared per-child budget across logins, independent per-child budgets, settle(FAILED) reversal,
-  authorization refusals (stranger + wrong-child parent), concurrency at the cap boundary, settle
-  ownership, and the demo-reset survival proof.
+  refusing before any reservation, deduplication (concurrent/duplicate/retry-after-failure), a
+  successful generation settling with a real output hash, a known cache hit skipping reservation
+  entirely, the settle-time `cached` fact still correctly zeroing the cost on a cache-hit race, an
+  UNCERTAIN outcome charging conservatively, a CONFIRMED failure settling free, and direct unit
+  coverage of `createLiveImageGenerator`'s CONFIRMED-vs-UNCERTAIN failure classification.
+- **GraphQL-layer forgery tests** (`src/subgraphs/coordination.inviteBudgetAuthz.test.ts`, 9
+  tests, real `buildSubgraphSchema` execution against this subgraph's own typeDefs + resolvers):
+  schema introspection proves `reserveInviteBudget`/`settleInviteBudget` have no cost/price
+  argument of any kind, that `status` is the closed `InviteGenerationOutcome` enum (not a free
+  string), and that `proof` is a required argument on `settleInviteBudget`; execution proves an
+  out-of-enum `status` or a missing `proof` is a GraphQL validation error before the RPC is ever
+  called, both resolvers forward ONLY their fixed, documented argument set to the RPC (no
+  `p_cost_usd` or other price-shaped field reaches it; `proof` is forwarded verbatim, never
+  computed or validated by the resolver), the RPC's own allow/deny decision passes through
+  unmodified including a refusal of a forged proof (never silently upgraded to success), and an
+  unauthenticated caller is refused before either RPC is reached.
+- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 14/14 checks): reservation
+  with no caller-supplied cost, shared per-child budget across logins, independent per-child
+  budgets, settle(FAILED) reversal, authorization refusals (stranger + wrong-child parent),
+  concurrency at the cap boundary, settle ownership and replay refusal, a cache-hit settle
+  charging $0 and releasing its budget, an UNCERTAIN settle keeping the full reserved charge,
+  forged RPC signatures (an extra cost argument) resolving to no function at all (SQLSTATE
+  42883), a total stranger refused when settling/releasing a reservation it does not own, the
+  `authenticated` role having no direct select/insert/update/delete grant on
+  `invite_generations` at all (SQLSTATE 42501, checked even for the reservation's own owner), the
+  reservation's own LEGITIMATE OWNER refused when settling with a garbage or missing hmac proof
+  (the core settlement-trust negative test — ownership alone is not sufficient), and the
+  demo-reset survival proof.
 - **Web tests** (`web/src/features/invites/*.test.tsx`): the existing honest-states suite plus new
   coverage for preserve-last-design-while-regenerating, the explicit Retry button actually
   re-running the request, and no Retry offered on a 403 refusal.
@@ -226,13 +295,20 @@ equivalent to real reference-image support.
 ### 8.5 Rollout order
 
 1. Review this PR (money-adjacent + schema; AGENTS.md §1.6 human review).
-2. Bentley applies migration 0085 in an authorized window (content hash recorded in the PR), on
+2. Generate a real `INVITE_SETTLEMENT_HMAC_SECRET` (e.g. 32+ random bytes, base64/hex) and
+   configure it in TWO places that must match exactly: Rosina's own environment, and the database
+   — `alter database <db> set app.invite_settlement_hmac_secret = '<the same secret>';` (run once,
+   out of band; never checked into any migration file or committed anywhere). Settlement cannot
+   succeed until both sides agree — that is the fail-closed design, not a bug.
+3. Bentley applies migration 0085 in an authorized window (content hash recorded in the PR), on
    the real project database — never by this PR, never by an agent.
-3. Deploy the updated `coordination` subgraph (adds `reserveInviteBudget`/`settleInviteBudget`) and
-   the updated Rosina service (adds the ledger-backed budget + dedup) — backend only; the web
-   cutover (which bundle actually serves `InvitesPanel mode="live"`) is a separate, later window,
-   same split every other live-wiring deploy in this project's history has used.
-4. `INVITE_LIVE` stays **off** through this rollout — fixture mode is the default and spends
+4. Deploy the updated `coordination` subgraph (adds `reserveInviteBudget`/`settleInviteBudget`) and
+   the updated Rosina service (adds the ledger-backed budget + dedup + the settlement proof) —
+   backend only; the web cutover (which bundle actually serves `InvitesPanel mode="live"`) is a
+   separate, later window, same split every other live-wiring deploy in this project's history has
+   used. Rosina fails fast at startup if `INVITE_LIVE=1` but `INVITE_SETTLEMENT_HMAC_SECRET` is
+   unset — invites stay OFF (logged), never silently running without settlement trust.
+5. `INVITE_LIVE` stays **off** through this rollout — fixture mode is the default and spends
    nothing; enabling it is an explicit, separate decision requiring Meta's real image-docs
    reconfirmation (§ live Muse Image path) first.
 
@@ -250,3 +326,32 @@ equivalent to real reference-image support.
   already achieves this); the table can be left in place inert, or dropped in a dedicated
   forward-only migration if ever desired. No data from any OTHER table is referenced by anything
   this migration removes.
+
+### 8.7 App-owned card text — host and personal note (web only, no backend change)
+
+The backend response shape above is unchanged: extraction returns `childFirstName`, `occasion`,
+`date`, `startTime`, `endTime`, `timezone`, `placeLabel`, and nothing else. The **card** also shows a
+host line and a short personal note, and those are app-owned text — the same principle already stated
+at the top of this document ("the app owns the text layer; the child's name, date and venue are
+**never** sent to the image model"). They are:
+
+- `hostName` and `message`, added to the web `InviteEvent` type in
+  `web/src/features/invites/invite.ts`. Never extracted, never returned by the endpoint, never sent
+  to any model, never persisted.
+- Filled by `withInviteDefaults(event, defaultHostName)`: a blank host becomes the signed-in parent's
+  name, a blank note becomes `DEFAULT_INVITE_MESSAGE`. A value the family typed is never overwritten.
+  Applied once, in `InviteComposer`'s READY branch, so the fixture and live paths behave identically.
+- Editable in the card's field list ("Hosted by", "Personal message") and dropped from the layout
+  entirely when blank — the remaining type scale does not shift.
+
+**Fixture labelling is explicit in both layers.** The API says it with `provenance.source`
+(`FIXTURE` | `MUSE_IMAGE`) and `provenance.cached`; the UI says it three ways — the panel eyebrow
+("Sample preview"), a plain-words source note under the preview (in live mode it states outright that
+live art generation is switched off and the fixture is being shown), and the credit burned into the
+exported PNG footer, now `Sample art — not generated` for a fixture and `Art generated with Muse
+Image` for real Muse output. A fixture can therefore never be mistaken for newly generated art in a
+download, a screenshot, or the page itself.
+
+The rendered canvas is captioned as the downloaded PNG, and the readable card beside it is generated
+from the same ordered line spec (`lineSpecs`), so the exported image and the on-screen text cannot
+drift apart.

@@ -1,0 +1,26 @@
+{
+  "base": "http://127.0.0.1:5198",
+  "at": "2026-11-03T07:06:41.257Z",
+  "runs": [
+    {
+      "label": "desktop",
+      "viewport": "1440x900",
+      "text": "Invitations\n\nInvitation\n\nInvitation card\nYour invitation request\nGenerating art…\n\nPreparing invitation art. Wait for a result before editing or downloading.",
+      "hasSampleLabel": false,
+      "hasHost": false,
+      "canvasCount": 0,
+      "imgCount": 0,
+      "errors": []
+    },
+    {
+      "label": "phone",
+      "viewport": "390x844",
+      "text": "Invitations\n\nInvitation\n\nInvitation card\nYour invitation request\nGenerating art…\n\nPreparing invitation art. Wait for a result before editing or downloading.",
+      "hasSampleLabel": false,
+      "hasHost": false,
+      "canvasCount": 0,
+      "imgCount": 0,
+      "errors": []
+    }
+  ]
+}
