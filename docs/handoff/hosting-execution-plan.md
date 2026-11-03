@@ -9,6 +9,11 @@ stop rules and rollback. Where the two disagree, this one wins only after the an
 
 Base measured at `origin/main` **`00dbc1d173ad4e78f7492c86c0f62b6ee92fd85b`** on 2026-11-03.
 
+**Two phases, two separate goes.** Everything in §1–§12 is Phase 1 (core app). §13 is Phase 2 —
+judge voice and SMS outreach — on the *same public origin*, and it does not run until Bryan gives a
+second, explicit go. Voice and outreach are excluded from Phase 1 only because they are not yet
+deployable, not because they are unwanted.
+
 ---
 
 ## 0. Pinned artifacts (record these, never "latest")
@@ -359,10 +364,13 @@ exposure, report, and plan a forward fix.
 
 ---
 
-## 11. Explicit exclusions
+## 11. Explicit exclusions (Phase 1)
 
 Fridge editing · live photo intake · live invitation generation · 0084/0085 · public voice routes ·
-every SMS/call send · MCP, subgraph and health-port exposure · any wildcard CORS · merging this plan.
+every SMS/call send · **phone calls at any phase** · MCP, subgraph and health-port exposure · any
+wildcard CORS · merging this plan.
+
+Voice and SMS are **deferred to Phase 2 (§13)**, not cancelled.
 
 ---
 
@@ -373,3 +381,123 @@ every SMS/call send · MCP, subgraph and health-port exposure · any wildcard CO
 3. **Village map / Orbit photos** — leave dark, or admit exactly one read-only route each.
 4. **The public hostname** — the literal origin, so `DEMO_ALLOWED_APP_ORIGINS` and `cors.origins` can
    be pinned rather than placeholdered.
+
+---
+
+## 13. Phase 2 — judge voice and SMS outreach (separate go)
+
+**Status: PLAN ONLY.** Same public origin as Phase 1, one additional explicit go from Bryan. Phase 1
+does not wait for it, and Phase 2 never re-opens a Phase 1 gate.
+
+### 13.1 Preconditions before the §13 go
+
+1. **#187 merged and its real run passed.** The single-Loretta loop passes first; three-responder
+   fan-out only after that. A merged PR is not a passing run.
+2. **#182 voice auth deployed and verified** — JWKS issuer/audience/expiry checked before any paid
+   provider is touched, `sub` mapped through `data/identity-map.json`.
+3. **The kill switch is readable at runtime and honoured at handoff**, default OFF.
+4. The Phase 1 validation battery (§8) is green on the exact same origin.
+
+### 13.2 Exact public routes to add (and nothing else)
+
+| Public route | Local target | Authentication |
+| --- | --- | --- |
+| `POST /voice/turn` | `127.0.0.1:4118` | Bearer, JWKS-verified (#182) |
+| `POST /voice/transcribe` | `127.0.0.1:4118` | Bearer, JWKS-verified |
+| `POST /voice/speak` | `127.0.0.1:4118` | Bearer, JWKS-verified |
+| `POST /webhooks/coordination/reply` | `127.0.0.1:4110` | Machine callback: `x-fridgegraph-timestamp` + `x-fridgegraph-signature`, constant-time compare. **Not** bearer |
+
+Admitted as **three exact paths plus one exact webhook**, never `/voice/*` as a prefix. Everything
+else on 4118 and 4110 stays 404 at the edge. `/voice/*` is 404 throughout Phase 1, so the app must
+already render the typing alternative and no mic (P-1 in §1).
+
+### 13.3 Rate limits and per-session caps
+
+Existing and verified today: Rosina text `20/min` per person (`ROSINA_RATE_LIMIT_PER_MIN`, keyed by
+`identity.personId`), invites `6/min`. These key on **person**, not IP, so the tunnel's single-bucket
+login problem does not apply to them.
+
+Phase 2 must add and then **verify on the public URL**:
+
+| Limit | Value | Scope |
+| --- | --- | --- |
+| voice turns (turn + transcribe) | **6 / min** per person | per JWT `sub` |
+| voice turns per session | **120** | one browser session |
+| audio per request | **≤ 20 s** and **≤ 1 MB** | rejected before ASR |
+| concurrent captures | **3** per person | ends one, never queues forever |
+| speech synthesis | **10 / min** per person, text ≤ 4 000 chars | per JWT `sub` |
+| Spark model calls | **20 / min** (existing) and **300 / day** per person | per JWT `sub` |
+| per-turn wall clock budget | **8 s**, then a bounded honest failure | not a silent retry |
+
+Refusals are `429` with `Retry-After`; a capped turn must say so in the UI rather than hang.
+
+### 13.4 Outreach caps, backstop and the 5-second update
+
+- **Caps: 50 segments per run, 15 per recipient, 150 per America/Detroit day**, enforced atomically
+  with the claim and reservation (0087), not as a separate check.
+- **$1.00 run backstop** in the same reservation.
+- **5-second app update**: the reply webhook → dispatch response → Activity timeline must land within
+  **5 s p95**, measured end to end — the same budget the app-update work was assigned.
+- **Kill switch**: one flag read at the final handoff, default OFF, effective without a restart,
+  blocks new handoffs only, and does not promise recall of anything already handed off.
+- Every permitted message kind has its own durable identity and reservation; only `REQUEST` ships in
+  the first proof, so an identity prompt or nudge cannot borrow a request's allowance.
+
+### 13.5 Acting directives stay inside the caller's permissions
+
+Rosina **advises; she never executes.** The chain is:
+
+1. the model returns `actions[]` drawn from a **closed catalog** (`web/src/features/rosina/catalog.ts`)
+   with typed argument schemas; unknown ids or malformed args are dropped by `validateActions`;
+2. the UI renders each permitted action as a **button** — there is no auto-execute path, and an action
+   that is not `implemented` is not rendered at all;
+3. the person clicks, and the click runs the **same authenticated GraphQL mutation** a manual action
+   would, carrying the caller's own bearer — RLS and subgraph authorization decide, exactly as they do
+   without Rosina.
+
+There is no service-role shortcut and no "Rosina said so" path. A directive the caller lacks the grant
+for fails at the database, identically to a manual attempt.
+
+### 13.6 The judge flow that triggers SMS, and whose numbers
+
+1. A judge signs in as a demo persona and opens Mission Control → **request pickup** for Nora. No
+   phone number is ever typed into the public app.
+2. `requestPickup` creates the job. Dispatch resolves recipients only from the triple: the
+   `fg-test-responder` tag **AND** the roster (`p_gma`, `p_tasha`, `p_bryan`) **AND** the private
+   mapping.
+3. The number itself exists only in the GHL contact record and environment — never in a browser
+   payload, never in a response body. The page shows the child/attempt, not the number.
+4. One permitted SMS goes out. The reply arrives at `/webhooks/coordination/reply`, binds to the
+   dispatch by provider message id (or the exact attempt/candidate/version set), and appears in
+   **Activity**.
+5. **Phone calls stay out of both phases**: GHL's one-call-per-day limit and judging risk make them a
+   bad demo. If a judge asks, the story is the **rideshare fallback**, not a voice call.
+
+### 13.7 Validation on the public URL (Phase 2)
+
+| # | Check | Pass |
+| --- | --- | --- |
+| V1 | spoken turn | transcript returns, reply is **audible**, measured end-of-speech → first audio byte recorded |
+| V2 | interruption | talking over the reply stops playback and starts one new turn — no double capture |
+| V3 | real SMS reply | appears in **Activity within 5 s** (p95 over repeated runs) |
+| V4 | Ask Rosina proposes an edit from that reply | the action renders, requires a click, and lands only if the caller's permissions allow |
+| V5 | no stray spend | no provider call outside `/voice/{turn,speak,transcribe}` and the invited Spark turn |
+| V6 | no number leak | no phone number appears in any page payload or response body |
+
+Latency is reported as **measured**, never as a product claim. Voice stays "unverified" until V1–V2
+have run against the public URL.
+
+### 13.8 Phase 2 stop rules
+
+- Any `/voice/*` path reachable without a verified bearer.
+- The kill switch unreadable, or not honoured at handoff.
+- Any send to a number outside the private mapping, or to a browser-supplied number.
+- Activity update slower than 5 s p95.
+- Any directive that lands without a person's click.
+- Any need to widen a grant, add a wildcard route, or set `DEMO_CLOCK` to make a check pass.
+
+### 13.9 Phase 2 rollback
+
+Remove the three `/voice` routes and the reply webhook from the dashboard **first** — the app falls
+back to text with the typing alternative, and no new dispatch can start. Then stop 4118/4110 if
+needed. Never roll back by reverting an applied migration, and never by widening a permission.
