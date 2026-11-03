@@ -1,7 +1,7 @@
 # Living Village v2 browser evidence
 
 Production build preview: http://127.0.0.1:5182/.
-Run: `browser automation -s=village run-code --filename=web/evidence/village-v2/browser-proof.js`
+Run: `playwright-cli -s=village run-code --filename=web/evidence/village-v2/browser-proof.js`
 
 Seven verified browser flows: Kendra team directory/teacher boundary; Priya separate Nora/Malik
 grants; Dana selected-child-only bus connection; Rosa guardian village and mobile teacher sheet;

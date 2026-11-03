@@ -45,21 +45,21 @@ output.
    (`Please join us to celebrate!`) that is editable in one field, and it is never described as
    model-generated. A more specific default would have implied an event detail nobody supplied.
 
-## Detector pass
+## Detector pass (`impeccable` 0.1.18)
 
-**Source scan** (reviewing the invitation source) found one anti-pattern: a 3px
+**Source scan** (`impeccable detect web/src/features/invites`) found one anti-pattern: a 3px
 `border-left` accent on the provenance note — the recognisable single-side-colour tab of generated
 UIs. Resolved in `invites.css`: the note now uses a full 1px hairline and a subtle `color-mix` tint
 built from existing tokens, so the fixture state is carried by the text (which already said it
 outright) plus a quiet surface change, with no side tab.
 
-**Rendered scan** (reviewing the served invitation preview) reports one
+**Rendered scan** (`impeccable detect http://127.0.0.1:4183/invites-preview.html`) reports one
 finding: the cream page background `rgb(253, 250, 244)`. That colour is `--fg-canvas` in
 `web/src/index.css` — the repo's shared warm-paper surface, fixed by `docs/contracts/design.md` §6
 as the deliberate canvas for the whole product. The invites panel introduces no background of its
 own, so this is a **justified waiver, not a change**: the CLI's only scoping option for this rule
 is a file glob, which would also suppress a genuine cream misuse in this folder, so the reasoning
-is recorded here rather than as a local detector suppression.
+is recorded here rather than as an ignore in `.impeccable/config.json`.
 
 Both scans state their own limits: the source scan runs regex matching only, so the element rules
 (tiny text, low contrast) do not run on files — those were checked in the real browser instead, at

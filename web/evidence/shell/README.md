@@ -35,8 +35,8 @@ Playwright console inspection: **0 errors, 0 warnings**. The probe's Vite module
 its CommonJS default export wrapper; this browser-harness correction changed no application code.
 
 To reproduce, start `npm --prefix web run dev -- --host 127.0.0.1 --port 4173 --strictPort`,
-then from the repository root run `browser automation open http://127.0.0.1:4173/` and
-`browser automation run-code --filename=web/evidence/shell/verify-browser.js`.
+then from the repository root run `playwright-cli open http://127.0.0.1:4173/` and
+`playwright-cli run-code --filename=web/evidence/shell/verify-browser.js`.
 The script injects a temporary hidden adapter probe into the local page only, cleans it up,
 and writes screenshots. It does not add a product feature or contact any caregiver.
 
