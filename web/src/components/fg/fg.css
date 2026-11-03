@@ -147,14 +147,16 @@
 .fg-iconbtn:disabled { opacity: 0.5; pointer-events: none; }
 
 /* ── Primary/secondary pressables (when not using the shadcn Button) ───── */
+/* design-v2 landing pills: primary = solid near-black pill, white label;
+   secondary = white pill with a soft shadow. 999px radius, generous padding. */
 .fg-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 44px; padding: 0 18px;
-  border-radius: var(--radius-control);
+  min-height: 44px; padding: 0 22px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   font: inherit; font-size: 14px; font-weight: 600;
   cursor: pointer;
-  transition: background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), border-color var(--dur-feedback) var(--ease-out);
+  transition: background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), border-color var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
 }
 .fg-btn:active { transform: scale(0.98); }
 .fg-btn:focus-visible {
@@ -163,10 +165,10 @@
 }
 .fg-btn:disabled { opacity: 0.55; pointer-events: none; }
 .fg-btn svg { width: 16px; height: 16px; }
-.fg-btn[data-variant='primary'] { background: var(--fg-primary); color: var(--fg-on-primary); }
-.fg-btn[data-variant='primary']:hover { background: var(--fg-primary-hover); }
-.fg-btn[data-variant='secondary'] { background: var(--fg-surface); color: var(--fg-ink); border-color: var(--fg-border); }
-.fg-btn[data-variant='secondary']:hover { background: color-mix(in oklch, var(--fg-ink) 4%, var(--fg-surface)); }
+.fg-btn[data-variant='primary'] { background: var(--fg-ink); color: var(--fg-surface); }
+.fg-btn[data-variant='primary']:hover { background: color-mix(in oklch, var(--fg-ink) 86%, var(--fg-surface)); }
+.fg-btn[data-variant='secondary'] { background: var(--fg-surface); color: var(--fg-ink); border-color: var(--fg-border); box-shadow: var(--card-elev-1); }
+.fg-btn[data-variant='secondary']:hover { background: color-mix(in oklch, var(--fg-ink) 3%, var(--fg-surface)); box-shadow: var(--card-elev-2); }
 .fg-btn[data-variant='quiet'] { background: transparent; color: var(--fg-primary); }
 .fg-btn[data-variant='quiet']:hover { background: var(--fg-selection); }
 .fg-btn[data-loading='true'] { color: transparent; position: relative; }

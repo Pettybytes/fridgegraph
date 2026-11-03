@@ -22,7 +22,7 @@
 /* ── Base card ────────────────────────────────────────────────────────────── */
 .fgc {
   position: relative;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-card-v2);
   background: var(--card-surface-1);
   border: 1px solid var(--fg-border);
   box-shadow: var(--card-elev-1);
@@ -64,12 +64,11 @@
 }
 .fgc[data-interactive='true']:active { transform: translateY(0) scale(0.995); }
 
-/* Type glow — a soft bloom of the type colour behind the card. Opt-in; job:
-   orientation (which type this is) / elevation (approval). */
-.fgc[data-glow='true']::before {
-  content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit;
-  background: radial-gradient(130% 90% at 0% 0%, color-mix(in oklch, var(--tc) 28%, transparent), transparent 60%);
-  opacity: 0.9; pointer-events: none;
+/* Type glow ring — a soft tinted halo around an elevated card. Opt-in; job:
+   orientation (which type this is) / elevation (approval). Subtle on white. */
+.fgc[data-glow='true'] {
+  box-shadow: var(--card-elev-3), 0 0 0 1px color-mix(in oklch, var(--tc) 30%, transparent),
+              0 10px 40px -12px color-mix(in oklch, var(--tc) 36%, transparent);
 }
 
 /* ── Accent-bar row (ref-stacked-status) ─────────────────────────────────────
@@ -79,21 +78,21 @@
   content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background: linear-gradient(90deg, color-mix(in oklch, var(--tc) 9%, transparent), transparent 34%);
 }
-.fgc-accent-bar { position: relative; z-index: 1; width: 4px; align-self: stretch; border-radius: var(--radius-pill); background: var(--tc); box-shadow: 0 0 9px -4px var(--tc); }
+.fgc-accent-bar { position: relative; z-index: 1; width: 4px; align-self: stretch; border-radius: var(--radius-pill); background: var(--tc); }
 .fgc-accent-body { position: relative; z-index: 1; min-width: 0; display: grid; gap: 3px; }
 
-/* ── Type icon node (ref-timeline / status). Colour encodes type; the glyph
-   is a dark ink for >=3:1 contrast, so it never reads as a bare colour dot. */
-.fgc-node { display: inline-grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--radius-pill); background: var(--tc); color: var(--type-node-ink); box-shadow: 0 0 10px -5px var(--tc); }
+/* ── Type icon chip (ref-timeline / status). A soft tinted chip with the type
+   colour as the glyph — colour + icon encode the type, never a bare dot. */
+.fgc-node { display: inline-grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; background: color-mix(in oklch, var(--tc) 14%, var(--fg-surface)); color: var(--tc); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--tc) 24%, transparent); }
 .fgc-node svg { width: 17px; height: 17px; }
-.fgc-node[data-size='sm'] { width: 26px; height: 26px; }
-.fgc-node[data-size='sm'] svg { width: 13px; height: 13px; }
+.fgc-node[data-size='sm'] { width: 28px; height: 28px; border-radius: 9px; }
+.fgc-node[data-size='sm'] svg { width: 14px; height: 14px; }
 
 /* ── Status card (ref-upload-toasts): corner glow by state, node + body + actions. */
 .fgc-status { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 16px; overflow: hidden; }
 .fgc-status::after {
   content: ''; position: absolute; top: -40%; right: -10%; width: 60%; height: 120%; z-index: 0; pointer-events: none;
-  background: radial-gradient(circle, color-mix(in oklch, var(--tc) 34%, transparent), transparent 62%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--tc) 16%, transparent), transparent 64%);
 }
 .fgc-status > * { position: relative; z-index: 1; }
 .fgc-status-body { min-width: 0; display: grid; gap: 4px; }
@@ -105,7 +104,7 @@
 .fgc-media { display: grid; grid-template-columns: auto 1fr; gap: 14px; padding: 12px; align-items: center; overflow: hidden; }
 .fgc-media::after {
   content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: linear-gradient(90deg, transparent 40%, color-mix(in oklch, var(--tc) 16%, transparent));
+  background: linear-gradient(90deg, transparent 45%, color-mix(in oklch, var(--tc) 9%, transparent));
 }
 .fgc-media > * { position: relative; z-index: 1; }
 .fgc-media-thumb { width: 56px; height: 56px; border-radius: var(--radius-nested); object-fit: cover; background: var(--card-surface-2); flex: 0 0 auto; }
@@ -136,11 +135,11 @@
 /* ── Metric / bento tile (ref-color-tiles): gradient per type, big number. ──── */
 /* Opaque base (surface) under the type gradient so the ambient page field never
    bleeds through and muddies the hue. */
-.fgc-tile { display: grid; gap: 8px; align-content: space-between; padding: 16px; min-height: 120px; border: 1px solid color-mix(in oklch, var(--tc) 30%, var(--fg-border)); background:
-    radial-gradient(86% 104% at 114% 120%, color-mix(in oklch, var(--tc) 54%, var(--card-surface-2)), transparent 68%),
-    var(--card-surface-2); overflow: hidden; }
+.fgc-tile { display: grid; gap: 8px; align-content: space-between; padding: 16px; min-height: 120px; box-shadow: var(--card-elev-1); border: 1px solid color-mix(in oklch, var(--tc) 18%, var(--fg-border)); background:
+    radial-gradient(92% 110% at 112% 118%, color-mix(in oklch, var(--tc) 16%, var(--fg-surface)), transparent 72%),
+    var(--fg-surface); overflow: hidden; }
 .fgc-tile > * { position: relative; }
-.fgc-tile-label { font-size: var(--text-caption); font-weight: 550; color: color-mix(in oklch, var(--fg-ink) 82%, var(--tc)); }
+.fgc-tile-label { font-size: var(--text-caption); font-weight: 600; color: color-mix(in oklch, var(--fg-ink) 74%, var(--tc)); }
 .fgc-tile-value { font-size: clamp(26px, 3.4vw, 36px); font-weight: 650; letter-spacing: -0.02em; line-height: 1; color: var(--fg-ink); font-variant-numeric: tabular-nums; }
 .fgc-tile-foot { font-size: var(--text-caption); color: var(--fg-muted); }
 

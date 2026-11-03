@@ -39,7 +39,7 @@ export function CardShowcase() {
       <header className="cs-head">
         <p className="fg-caption">FridgeGraph design-v2</p>
         <h1>Card family</h1>
-        <p className="fgc-sub">One card family. A card's type drives its colour everywhere: accent bar, icon node, corner glow, progress and tile gradient. Dark canvas, layered elevation, tabular figures.</p>
+        <p className="fgc-sub">One card family. A card's type drives its colour everywhere: left accent bar, tinted icon chip, soft glow, progress and tile tint. Bright white canvas, soft layered shadows, Inter, tabular figures.</p>
       </header>
 
       <Section title="Type legend">

@@ -286,12 +286,18 @@ visually distinct from each other.
 
 ---
 
-## 12. Design-v2 — dark theme, type-coloured card family (Bryan, 2026-11-03)
+## 12. Design-v2 — light Framer-landing look, type-coloured card family (Bryan, 2026-11-03, amended)
 
-Supersedes the light "unify" direction. The app moves to **one dark theme** (near-black
-canvas, layered elevation, frosted glass over imagery) with Geist type scale and tabular
-figures. Rolled out in slices: tokens + card family first, then pages two at a time, so the
-earlier light surfaces are replaced progressively.
+The app shares the public landing aesthetic (Framer/Machi, fridgegraph.dreemzy.com): a
+**bright, airy LIGHT theme** — white and soft sky-blue canvas, lots of whitespace, **Inter**
+type (big tight-tracked headlines, 16–18px body), tabular figures, real family photography,
+and **pill buttons** (primary = solid near-black pill, secondary = white pill with a soft
+shadow). Cards are **white** with soft layered neutral shadows and a 20–28px radius; the
+card's type shows as a **left accent bar + tinted icon chip + soft tinted glow** (never a
+dark card, never a bare dot). Frosted glass only over photos. Elevated approvals are the
+brightest white card with a type-coloured glow ring and a large black pill action, pinned
+top. (This amends the earlier "one dark theme" line; everything else in design-v2 stands.)
+Rolled out in slices: tokens + card family first, then pages two at a time.
 
 ### Card type → colour legend
 

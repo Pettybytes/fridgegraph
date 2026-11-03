@@ -3,7 +3,6 @@ import '@/index.css'
 import './card-showcase.css'
 import { CardShowcase } from './CardShowcase'
 
-// Dev-only showcase: force the dark canvas so the card family is reviewed as it
-// will ship. Not wired into the product router.
-document.documentElement.classList.add('dark')
+// Dev-only showcase on the light Framer-landing canvas (design-v2). Not wired
+// into the product router.
 createRoot(document.getElementById('root')!).render(<CardShowcase />)
