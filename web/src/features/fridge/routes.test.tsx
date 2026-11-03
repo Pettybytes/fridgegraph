@@ -32,6 +32,6 @@ it('labels the mounted mock Demo guide perspective read-only',async()=>{
  render(<App/> )
  fireEvent.click(screen.getByRole('button',{name:'Explore as the Demo guide'}))
  const link=await screen.findByRole('link',{name:'The Fridge'});fireEvent.click(link)
- expect(await screen.findByText(/Sample Ellison family art pack\. Read-only perspective\./)).toBeInTheDocument()
+ expect(await screen.findByText(/Family artwork\. Read-only perspective\./)).toBeInTheDocument()
  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
 })
