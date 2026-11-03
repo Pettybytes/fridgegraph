@@ -1,0 +1,99 @@
+{
+  "at": "2026-11-03T05:38:26.879Z",
+  "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
+  "migrations": 83,
+  "resetReport": {
+    "cleared": {
+      "routines": 32,
+      "care_facts": 3,
+      "goals": 2,
+      "recorded_places_seeded": 11
+    },
+    "restored": {
+      "people": 17,
+      "shared_statuses": 1,
+      "households": 5,
+      "children": 1,
+      "household_members": 15,
+      "goals": 2,
+      "holidays": 1,
+      "routines": 34,
+      "adult_availability": 1,
+      "holiday_arrangements": 2,
+      "coordination_jobs": 22,
+      "attempts": 23,
+      "candidate_evaluations": 20,
+      "confirmations": 5,
+      "voice_notes": 3,
+      "expected_checkins": 1,
+      "care_facts": 9,
+      "household_policies": 1,
+      "events": 90,
+      "event_place_linked": 15,
+      "recorded_places_seeded": 11
+    }
+  },
+  "before": {
+    "suppression": 1,
+    "dispatch": 1,
+    "reservation": 1,
+    "used": 9
+  },
+  "after": {
+    "suppression": 1,
+    "dispatch": 1,
+    "reservation": 1,
+    "used": 9
+  },
+  "checks": [
+    {
+      "name": "disposable database started",
+      "status": "PASS",
+      "detail": "127.0.0.1:55443"
+    },
+    {
+      "name": "supabase-shaped prelude",
+      "status": "PASS",
+      "detail": "roles, auth schema, pgcrypto"
+    },
+    {
+      "name": "migration chain applies to the disposable schema",
+      "status": "PASS",
+      "detail": "83 migrations"
+    },
+    {
+      "name": "schema shape",
+      "status": "PASS",
+      "detail": "61 tables, 5 reset_demo* functions"
+    },
+    {
+      "name": "cast baseline rows inserted (repo fixtures, FK-safe order)",
+      "status": "PASS",
+      "detail": "192 rows"
+    },
+    {
+      "name": "safety records inserted before the reset",
+      "status": "PASS",
+      "detail": "{\"suppression\":1,\"dispatch\":1,\"reservation\":1,\"used\":9}"
+    },
+    {
+      "name": "real resetDemo() runs to completion",
+      "status": "PASS",
+      "detail": "cleared=4 restored=21"
+    },
+    {
+      "name": "safety records are byte-for-byte unchanged after the real reset",
+      "status": "PASS",
+      "detail": "{\"suppression\":1,\"dispatch\":1,\"reservation\":1,\"used\":9} → {\"suppression\":1,\"dispatch\":1,\"reservation\":1,\"used\":9}"
+    },
+    {
+      "name": "the suppression key still suppresses after a reset",
+      "status": "PASS"
+    },
+    {
+      "name": "reset left a usable demo dataset",
+      "status": "PASS",
+      "detail": "people=40"
+    }
+  ]
+}

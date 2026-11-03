@@ -252,8 +252,19 @@ begin
          ('RUN', v_dispatch.run_id, v_run_day, v_run_limit, v_cap)
   on conflict (scope_kind, scope_key, window_start) do nothing;
 
-  -- Caps are read from the row so an operator can TIGHTEN a scope; `least()` with the default
-  -- means a row can never be raised above the operator ceiling.
+  -- LOCK FIRST, THEN READ. Reading used/limit before taking the row locks let two concurrent
+  -- reservations both read the same `used` and both pass the cap check (a lost update: 16 of 15
+  -- could succeed). Every read below is therefore preceded by a deterministic lock acquisition.
+  -- Lock order is (scope_kind, window_start) — identical for every caller, so no deadlock pairing.
+  perform 1 from outreach_allowance
+   where (scope_kind = 'DAY' and scope_key = 'America/Detroit' and window_start = v_day)
+      or (scope_kind = 'RECIPIENT' and scope_key = p_recipient_key and window_start = v_day)
+      or (scope_kind = 'RUN' and scope_key = v_dispatch.run_id and window_start = v_run_day)
+   order by scope_kind, window_start
+   for update;
+
+  -- Caps are read from the (now locked) row so an operator can TIGHTEN a scope; `least()` with the
+  -- default means a row can never be raised above the operator ceiling.
   select used_segments, used_micros,
          least(limit_segments, outreach_default_limit('RUN')),
          coalesce(limit_micros, outreach_run_cost_cap_micros())
@@ -270,14 +281,6 @@ begin
     into v_day_used, v_day_limit
     from outreach_allowance
    where scope_kind = 'DAY' and scope_key = 'America/Detroit' and window_start = v_day;
-
-  -- Deterministic lock order: scope_kind, then window_start.
-  perform 1 from outreach_allowance
-   where (scope_kind = 'DAY' and scope_key = 'America/Detroit' and window_start = v_day)
-      or (scope_kind = 'RECIPIENT' and scope_key = p_recipient_key and window_start = v_day)
-      or (scope_kind = 'RUN' and scope_key = v_dispatch.run_id and window_start = v_run_day)
-   order by scope_kind, window_start
-   for update;
 
   if v_run_used + p_segments > v_run_limit then
     return jsonb_build_object('ok', false, 'reason', 'LIMIT_RUN', 'used', v_run_used, 'limit', v_run_limit);
@@ -308,6 +311,58 @@ begin
                             'cost_micros', v_cost, 'day', v_day, 'run_day', v_run_day);
 end $$;
 
+/**
+ * The ONE entry point the dispatcher should call: claim and reserve atomically.
+ *
+ * Claim first (row lock on the dispatch), then reserve (row locks in scope_kind order). If the
+ * reservation is refused, the claim this call created is released back to PENDING so a capped
+ * dispatch cannot sit holding a lease it can never use. Because both steps run in this single
+ * function call — one transaction — no caller can observe a claimed-but-unreserved dispatch for
+ * longer than the call itself, and handoff refuses without a reservation regardless.
+ */
+create or replace function outreach_claim_and_reserve(
+  p_dispatch_id text,
+  p_owner text,
+  p_lease_seconds integer,
+  p_recipient_key text,
+  p_segments integer,
+  p_day date default null
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_claim jsonb;
+  v_res jsonb;
+  v_token text;
+begin
+  v_claim := outreach_claim(p_dispatch_id, p_owner, p_lease_seconds);
+  if not coalesce((v_claim->>'ok')::boolean, false) then
+    return v_claim;
+  end if;
+  v_token := v_claim->>'token';
+
+  v_res := outreach_reserve(p_dispatch_id, p_recipient_key, p_segments, p_day);
+  if not coalesce((v_res->>'ok')::boolean, false) then
+    update outreach_dispatch
+       set state = 'PENDING', claim_owner = null, claim_token = null,
+           claimed_at = null, claim_expires_at = null, updated_at = now()
+     where dispatch_id = p_dispatch_id
+       and state = 'CLAIMED'
+       and handoff_started_at is null
+       and claim_token = v_token;
+    return v_res || jsonb_build_object('claimReleased', true);
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'token', v_token,
+    'expires_at', v_claim->>'expires_at',
+    'reclaimed', v_claim->'reclaimed',
+    'segments', v_res->'segments',
+    'reserved', v_res->'reserved',
+    'reused', v_res->'reused'
+  );
+end $$;
+
 -- ──────────────────────────────────────────────────── fenced state changes ──
 
 /** MUST be called and MUST return true BEFORE the provider request. */
@@ -316,13 +371,18 @@ returns boolean
 language plpgsql security definer set search_path = public as $$
 declare v integer;
 begin
-  update outreach_dispatch
+  -- A handoff is only legal with a CURRENT claim AND a matching reservation. Without the
+  -- reservation the message could be sent with no allowance charged, which is the one accounting
+  -- hole a later cap check can never repair.
+  update outreach_dispatch d
      set state = 'HANDOFF_STARTED', handoff_started_at = now(), updated_at = now()
-   where dispatch_id = p_dispatch_id
-     and claim_token = p_token
-     and state = 'CLAIMED'
-     and handoff_started_at is null
-     and claim_expires_at > now();
+   where d.dispatch_id = p_dispatch_id
+     and d.claim_token = p_token
+     and d.state = 'CLAIMED'
+     and d.handoff_started_at is null
+     and d.claim_expires_at > now()
+     and exists (select 1 from outreach_reservation r
+                  where r.dispatch_id = d.dispatch_id and r.segments > 0);
   get diagnostics v = row_count;
   return v = 1;
 end $$;
@@ -403,6 +463,7 @@ revoke all on table outreach_allowance   from public, anon, authenticated;
 revoke all on table outreach_reservation from public, anon, authenticated;
 
 revoke all on function outreach_claim(text, text, integer) from public, anon, authenticated;
+revoke all on function outreach_claim_and_reserve(text, text, integer, text, integer, date) from public, anon, authenticated;
 revoke all on function outreach_reserve(text, text, integer, date) from public, anon, authenticated;
 revoke all on function outreach_mark_handoff(text, text) from public, anon, authenticated;
 revoke all on function outreach_mark_accepted(text, text, text) from public, anon, authenticated;
@@ -420,6 +481,7 @@ begin
     grant select, insert, update on outreach_allowance   to service_role;
     grant select, insert         on outreach_reservation to service_role;
     grant execute on function outreach_claim(text, text, integer) to service_role;
+    grant execute on function outreach_claim_and_reserve(text, text, integer, text, integer, date) to service_role;
     grant execute on function outreach_reserve(text, text, integer, date) to service_role;
     grant execute on function outreach_mark_handoff(text, text) to service_role;
     grant execute on function outreach_mark_accepted(text, text, text) to service_role;

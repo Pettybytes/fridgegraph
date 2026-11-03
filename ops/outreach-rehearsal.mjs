@@ -187,6 +187,8 @@ async function main() {
   const claim2 = (await q(`select outreach_claim($1,'w2',60) as r`, [d1]))[0].r
   record('a live claim cannot be stolen', claim2.ok === false && claim2.reason === 'NOT_CLAIMABLE' ? 'PASS' : 'FAIL', claim2.reason)
 
+  // Handoff is now gated on a reservation; give this dispatch one before exercising the fence.
+  await q(`select outreach_reserve($1,$2,1,$3)`, [d1, 'c'.repeat(64), '2030-03-01'])
   const wrong = (await q(`select outreach_mark_handoff($1,$2) as ok`, [d1, 'not-the-token']))[0].ok
   record('mark_handoff is fenced (wrong token refused)', wrong === false ? 'PASS' : 'FAIL')
 
@@ -280,6 +282,73 @@ async function main() {
   record('$1 run backstop refuses when segments would exceed the ceiling',
     costGate.ok === false && costGate.reason === 'LIMIT_COST_RUN' ? 'PASS' : 'FAIL', costGate.reason)
 
+  // ── 7b. handoff requires a reservation (accounting hole closure) ──
+  const dNoRes = await makeDispatch({ run: 'run_N', recipient: 'n'.repeat(64) })
+  const claimNoRes = (await q(`select outreach_claim($1,'wN',60) as r`, [dNoRes]))[0].r
+  const handoffNoRes = (await q(`select outreach_mark_handoff($1,$2) as ok`, [dNoRes, claimNoRes.token]))[0].ok
+  record('handoff is refused when the dispatch has no reservation',
+    claimNoRes.ok === true && handoffNoRes === false ? 'PASS' : 'FAIL', `claim=${claimNoRes.ok} handoff=${handoffNoRes}`)
+
+  await q(`select outreach_reserve($1,$2,1,$3)`, [dNoRes, 'n'.repeat(64), '2030-02-02'])
+  const handoffAfterRes = (await q(`select outreach_mark_handoff($1,$2) as ok`, [dNoRes, claimNoRes.token]))[0].ok
+  record('the same handoff succeeds once the reservation exists', handoffAfterRes === true ? 'PASS' : 'FAIL')
+
+  // ── 7c. the atomic claim+reserve entry point ──
+  const dAtomic = await makeDispatch({ run: 'run_O', recipient: 'o'.repeat(64) })
+  const atomic = (await q(`select outreach_claim_and_reserve($1,'wO',60,$2,2,$3) as r`,
+    [dAtomic, 'o'.repeat(64), '2030-02-03']))[0].r
+  const atomicHandoff = (await q(`select outreach_mark_handoff($1,$2) as ok`, [dAtomic, atomic.token]))[0].ok
+  record('claim+reserve entry point yields a usable token in one call',
+    atomic.ok === true && atomic.reserved === true && atomicHandoff === true ? 'PASS' : 'FAIL',
+    `token=${!!atomic.token} reserved=${atomic.reserved}`)
+
+  // A capped claim through the atomic path must be released, not left holding a lease.
+  const dCappedR = 'capped'.repeat(10) + 'abcd'
+  await q(`insert into outreach_allowance (scope_kind,scope_key,window_start,used_segments,limit_segments,limit_micros)
+           values ('RECIPIENT',$1,'2030-02-04',15,15,null)
+           on conflict (scope_kind,scope_key,window_start) do update set used_segments = 15, limit_segments = 15`, [dCappedR])
+  const dCapped = await makeDispatch({ run: 'run_P', recipient: dCappedR })
+  const capped = (await q(`select outreach_claim_and_reserve($1,'wP',60,$2,1,$3) as r`,
+    [dCapped, dCappedR, '2030-02-04']))[0].r
+  const cappedState = (await q(`select state, claim_token from outreach_dispatch where dispatch_id=$1`, [dCapped]))[0]
+  record('a refused reservation releases its claim (no lease left holding an unusable dispatch)',
+    capped.ok === false && capped.claimReleased === true && cappedState.state === 'PENDING' && cappedState.claim_token === null
+      ? 'PASS' : 'FAIL', `${JSON.stringify(capped)} state=${cappedState.state}`)
+
+  // ── 7d. CONCURRENT EXHAUSTION with independent connections ──
+  // 20 workers reserve 1 segment each against a 15-segment recipient cap. With read-before-lock,
+  // two workers could read the same `used` and both pass; exactly 15 must succeed.
+  const concRecipient = 'q'.repeat(64)
+  const concDay = '2030-02-05'
+  const concIds = []
+  for (let i = 0; i < 20; i++) {
+    concIds.push(await makeDispatch({ run: `run_Q${i}`, recipient: concRecipient }))
+  }
+  const workers = await Promise.all(concIds.map(async (id, i) => {
+    const c = new pg.Client({ host: '127.0.0.1', port: PORT, user: 'postgres', database: 'postgres', connectionTimeoutMillis: 4000 })
+    await c.connect()
+    c.on('error', () => {})
+    try {
+      await c.query('begin')
+      const r = (await c.query(`select outreach_reserve($1,$2,1,$3) as r`, [id, concRecipient, concDay])).rows[0].r
+      await c.query('commit')
+      return r
+    } catch (error) {
+      await c.query('rollback').catch(() => {})
+      return { ok: false, reason: codeOf(error) }
+    } finally {
+      await c.end().catch(() => {})
+    }
+  }))
+  const won = workers.filter(r => r.ok === true).length
+  const lost = workers.filter(r => r.ok === false).length
+  const concUsed = (await q(
+    `select used_segments from outreach_allowance where scope_kind='RECIPIENT' and scope_key=$1 and window_start=$2`,
+    [concRecipient, concDay]))[0].used_segments
+  record('20 concurrent reservers against a cap of 15: exactly 15 succeed',
+    won === 15 && lost === 5 && concUsed === 15 ? 'PASS' : 'FAIL',
+    `won=${won} lost=${lost} used=${concUsed}`)
+
   // ── 8. app-update latency (≤ 5 s, measured not assumed) ──
   const samples = []
   for (let i = 0; i < 12; i++) {
@@ -293,8 +362,10 @@ async function main() {
   }
   samples.sort((x, y) => x - y)
   const p95 = samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.95))]
-  record('app update round trip (claim→reserve→handoff→accept) p95 ≤ 5 s', p95 <= 5000 ? 'PASS' : 'FAIL',
-    `p95 ${p95.toFixed(1)} ms over ${samples.length}`)
+  // This is DATABASE lifecycle timing only. The judge-visible budget — reply → visible in Activity,
+  // Mission Control and Ask Rosina within 5 s — is a browser measurement and stays UNVERIFIED here.
+  record('local SQL lifecycle timing (claim→reserve→handoff→accept) p95 ≤ 5 s', p95 <= 5000 ? 'PASS' : 'FAIL',
+    `p95 ${p95.toFixed(1)} ms over ${samples.length} — local SQL only; reply→visible ≤5 s is NOT proven by this`)
 
   await client.end().catch(() => {})
 }

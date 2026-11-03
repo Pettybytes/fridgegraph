@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-03T05:22:02.248Z",
+  "at": "2026-11-03T05:34:59.499Z",
   "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
   "migration": "supabase/migrations/0087_outreach_dispatch.sql",
   "checks": [
@@ -75,7 +75,7 @@
     {
       "name": "first claim on PENDING succeeds",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"token\":\"ebe8caa1-d60c-48b4-b9a4-46d63d6e3c1e\",\"reclaimed\":false,\"expires_at\":\"2026-11-03T05:23:01.764013+00:"
+      "detail": "{\"ok\":true,\"token\":\"a733fd24-1d52-4cfe-8133-cf31e57917fa\",\"reclaimed\":false,\"expires_at\":\"2026-11-03T05:35:58.858565+00:"
     },
     {
       "name": "a live claim cannot be stolen",
@@ -144,9 +144,33 @@
       "detail": "LIMIT_COST_RUN"
     },
     {
-      "name": "app update round trip (claim→reserve→handoff→accept) p95 ≤ 5 s",
+      "name": "handoff is refused when the dispatch has no reservation",
       "status": "PASS",
-      "detail": "p95 15.5 ms over 12"
+      "detail": "claim=true handoff=false"
+    },
+    {
+      "name": "the same handoff succeeds once the reservation exists",
+      "status": "PASS"
+    },
+    {
+      "name": "claim+reserve entry point yields a usable token in one call",
+      "status": "PASS",
+      "detail": "token=true reserved=true"
+    },
+    {
+      "name": "a refused reservation releases its claim (no lease left holding an unusable dispatch)",
+      "status": "PASS",
+      "detail": "{\"ok\":false,\"used\":15,\"limit\":15,\"reason\":\"LIMIT_RECIPIENT\",\"claimReleased\":true} state=PENDING"
+    },
+    {
+      "name": "20 concurrent reservers against a cap of 15: exactly 15 succeed",
+      "status": "PASS",
+      "detail": "won=15 lost=5 used=15"
+    },
+    {
+      "name": "local SQL lifecycle timing (claim→reserve→handoff→accept) p95 ≤ 5 s",
+      "status": "PASS",
+      "detail": "p95 3.8 ms over 12 — local SQL only; reply→visible ≤5 s is NOT proven by this"
     }
   ]
 }
