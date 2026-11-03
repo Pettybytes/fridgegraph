@@ -1,0 +1,34 @@
+{
+  "base": "http://127.0.0.1:5197",
+  "at": "2026-11-03T07:05:45.668Z",
+  "runs": [
+    {
+      "label": "desktop",
+      "viewport": "1280x900",
+      "geometry": {
+        "composerTop": 650,
+        "noticeTop": 669,
+        "threadTop": 323,
+        "noticeInsideComposer": true,
+        "noticeAboveComposer": false
+      },
+      "hasComposer": true,
+      "hasNotice": true,
+      "errors": []
+    },
+    {
+      "label": "phone",
+      "viewport": "390x844",
+      "geometry": {
+        "composerTop": 637,
+        "noticeTop": 656,
+        "threadTop": 472,
+        "noticeInsideComposer": true,
+        "noticeAboveComposer": false
+      },
+      "hasComposer": true,
+      "hasNotice": true,
+      "errors": []
+    }
+  ]
+}
