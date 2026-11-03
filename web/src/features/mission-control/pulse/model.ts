@@ -1,4 +1,4 @@
-import { addDays, localDay } from '@/features/calendar/time'
+import { addDays, localDay, weekday } from '@/features/calendar/time'
 import type { StoredRun } from '@/lib/frontendData/deliveredAdapter'
 
 export type PulseWindow = { from: string; through: string }
@@ -59,4 +59,21 @@ export function dailyCurrentStatuses(jobs: StoredRun[], window: PulseWindow): Da
     bucket.counts[status] = (bucket.counts[status] ?? 0) + 1
   }
   return days
+}
+
+/** Same distinct-job cohort as the stream; weekdays are Detroit creation dates. */
+export function requestsByWeekday(jobs: StoredRun[]): number[] {
+  const totals = Array.from({ length: 7 }, () => 0)
+  for (const job of jobs) {
+    const created = jobCreatedAt(job)
+    if (created) totals[(weekday(localDay(created)) + 6) % 7] += 1
+  }
+  return totals
+}
+
+export function approvalBreakdown(jobs: StoredRun[]): { approved: number; pending: number } {
+  return {
+    approved: jobs.filter(run => Boolean(run.job.confirmation?.id)).length,
+    pending: jobs.filter(run => run.job.status === 'awaiting_approval' && !run.job.confirmation?.id).length,
+  }
 }

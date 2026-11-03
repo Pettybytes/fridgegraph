@@ -15,7 +15,7 @@ const jobs = [
   ].map(([at, status], index) => ({ job: { id: `fixture-pickup-extra-${index}`, type: 'PICKUP', status, version: 1, candidateEvaluations: [], confirmation: status === 'confirmed' ? { id: `fixture-confirmation-extra-${index}` } : null }, attempts: index % 2 ? [{ id: `fixture-attempt-extra-${index}`, at, channel: 'SMS', candidate: null, destinationMode: 'TEST_RESPONDER', closedAt: null, closedReason: null }] : [], timeline: [{ at, kind: 'JOB_CREATED', attemptId: null, candidate: null, detail: null }] })),
 ] as StoredRun[]
 
-createRoot(document.getElementById('root')!).render(<main style={{ maxWidth: 1160, margin: '32px auto', padding: '0 16px' }}>
-  <p style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Controlled fictional fixture · no live reads</p>
-  <VillagePulseView jobs={{ kind: 'ready', value: jobs }} orbit={{ kind: 'ready', value: { alertId: 'fixture-alert', status: 'ACTIVE' } }} now={Date.parse('2026-11-02T16:00:00Z')} readAt={Date.parse('2026-11-02T23:42:00Z')} sourceLabel="Controlled fictional fixture, not live data" />
+createRoot(document.getElementById('root')!).render(<main style={{ position: 'relative' }}>
+  <p style={{ position: 'absolute', zIndex: 5, top: 8, left: 12, margin: 0, fontSize: 11, color: '#fff', textShadow: '0 1px 3px #000' }}>Controlled fictional fixture · no live reads</p>
+  <VillagePulseView jobs={{ kind: 'ready', value: jobs }} orbit={{ kind: 'ready', value: { alertId: 'fixture-alert', status: 'ACTIVE' } }} now={Date.parse('2026-11-02T16:00:00Z')} readAt={Date.parse('2026-11-02T23:42:00Z')} />
 </main>)
