@@ -33,7 +33,10 @@ export function withInviteDefaults(event: InviteEvent, defaultHostName: string):
   }
 }
 export type InviteArt = {
-  mimeType: 'image/png' | 'image/jpeg'
+  // The provider's REAL output format (verified from the returned bytes, not assumed) — Muse Image
+  // defaults to WebP, so the card must accept it as well as PNG/JPEG. The downloaded card is always
+  // re-encoded to PNG by the canvas regardless of the source format.
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp'
   width: number
   height: number
   base64: string
@@ -44,19 +47,29 @@ export type InviteProvenance = {
   model: 'muse-image-1.0' | null
   cached: boolean
   promptHash: string
+  /** The actual output format the provider returned (verified, never assumed). */
+  outputFormat?: string
+  /** Whether a reference image drove the result — an /images/edits remix or a revision. */
+  edited?: boolean
 }
 export type InviteResponse = {
-  status: 'READY' | 'NEEDS_CLARIFICATION'
-  clarification: { question: string } | null
+  status: 'READY'
+  /** Kept for back-compat with earlier callers/fixtures; the pipeline no longer blocks on it. */
+  clarification?: { question: string } | null
   event: InviteEvent
   art: InviteArt | null
   provenance: InviteProvenance
-  /** Present when the request carried a reference image: whether it was requested and whether its
-   *  style was actually applied (false in fixture mode, or if style extraction didn't land). */
+  /** Non-blocking nudge naming the editable event fields the family still needs to add (never
+   *  invented, never required to make the art). */
+  suggestion?: string | null
+  /** Present when the request carried a reference image: whether it was requested and whether the
+   *  actual image guided the result (false in fixture mode, which can't remix). */
   reference?: { requested: boolean; applied: boolean }
 }
 
-/** Optional reference image a parent uploads for STYLE inspiration (never placed in the card). */
+/** Optional reference image a parent uploads to REMIX: the actual image is transformed to match the
+ *  request (image-to-image via Muse Image /images/edits), or sent back as the prior result for a
+ *  revision. Held in memory, sent with the request, discarded server-side after generation. */
 export type InviteReferenceImage = { mimeType: string; dataBase64: string }
 export const REFERENCE_MAX_BYTES = 5 * 1024 * 1024
 export const REFERENCE_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'] as const
@@ -81,7 +94,7 @@ export async function readReferenceFile(file: File): Promise<{ ok: true; image: 
   return { ok: true, image: { mimeType: file.type, dataBase64: dataUrl.slice(comma + 1) }, previewUrl: dataUrl }
 }
 
-export type InviteCreator = (request: { childId: string; request: string; referenceImage?: InviteReferenceImage }, signal?: AbortSignal) => Promise<InviteResponse>
+export type InviteCreator = (request: { childId: string; request: string; referenceImage?: InviteReferenceImage; revise?: boolean }, signal?: AbortSignal) => Promise<InviteResponse>
 
 /** Plainly says whether this card is a real generation or a placeholder — never ambiguous.
  * Burned into the exported PNG footer AND shown in the UI, so the distinction survives a
@@ -96,7 +109,7 @@ export function inviteError(error: unknown): { state: 'refused' | 'failed'; mess
   const status = value?.status
   if (status === 413 || code === 'PAYLOAD_TOO_LARGE') return { state: 'failed', message: 'That reference image is too large (5 MB max). Choose a smaller one and try again.' }
   if (status === 415 || code === 'UNSUPPORTED_MEDIA_TYPE') return { state: 'failed', message: 'That reference image type is not supported. Use a PNG, JPEG, or WebP.' }
-  if (status === 400 || code === 'INVALID_REQUEST') return { state: 'failed', message: 'The invitation request is invalid. Check the event details and try again.' }
+  if (status === 400 || code === 'INVALID_REQUEST') return { state: 'failed', message: 'The invitation request is invalid. Check your request and try again.' }
   if (status === 401 || code === 'UNAUTHENTICATED') return { state: 'refused', message: 'Your session ended. Choose a perspective again.' }
   if (status === 403 || code === 'UNAUTHORIZED') return { state: 'refused', message: 'Only a parent or guardian of this child can prepare an invitation. No art was generated.' }
   if (code === 'BUDGET_EXHAUSTED') return { state: 'failed', message: 'Image generation is unavailable because the demo budget is exhausted. No invitation art was returned.' }
@@ -107,7 +120,7 @@ export function inviteError(error: unknown): { state: 'refused' | 'failed'; mess
 
 export function validArt(art: InviteArt): boolean {
   const { x, y, w, h } = art.quietArea
-  return ['image/png', 'image/jpeg'].includes(art.mimeType) && Number.isInteger(art.width) && Number.isInteger(art.height) &&
+  return ['image/png', 'image/jpeg', 'image/webp'].includes(art.mimeType) && Number.isInteger(art.width) && Number.isInteger(art.height) &&
     art.width > 0 && art.height > 0 && Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) &&
     x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= art.width && y + h <= art.height && /^[A-Za-z0-9+/]+={0,2}$/.test(art.base64)
 }

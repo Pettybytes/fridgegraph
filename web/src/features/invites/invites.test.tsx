@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { InviteComposer } from './InvitesPanel'
 import { DEFAULT_INVITE_MESSAGE, inviteCredit, inviteError, withInviteDefaults, type InviteCreator, type InviteEvent } from './invite'
@@ -88,12 +88,15 @@ describe('invitation contract and honest states', () => {
     expect(inviteError({ status: 502, code: 'IMAGE_FAILED' })).toMatchObject({ state: 'failed' })
     expect(inviteError({ status: 400, error: 'INVALID_REQUEST' })).toMatchObject({ state: 'failed' })
   })
-  it('shows the returned clarification question, never a made-up one', async () => {
-    const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'NEEDS_CLARIFICATION', clarification: { question: 'Which Sunday?' }, event, art: null, provenance })
+  it('shows a non-blocking suggestion on a ready card, and never blocks the download on missing details', async () => {
+    const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
+    const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', suggestion: 'Add a date below to finish the invitation.', event: { ...event, date: null }, art, provenance })
     render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
-    expect(await screen.findByText(/Which Sunday\?/)).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Download PNG' })).not.toBeInTheDocument()
+    // The art is ready even though the schedule is incomplete; the suggestion is advisory, not a gate.
+    expect(await screen.findByRole('region', { name: 'Invitation card ready' })).toBeVisible()
+    expect(screen.getByText('Add a date below to finish the invitation.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Download PNG' })).toBeInTheDocument()
   })
   it('keeps a 403 refusal distinct from a failed image request', async () => {
     const createInvite: InviteCreator = async () => { throw { status: 403, code: 'UNAUTHORIZED' } }
@@ -103,6 +106,7 @@ describe('invitation contract and honest states', () => {
     expect(screen.queryByRole('button', { name: 'Download PNG' })).not.toBeInTheDocument()
   })
   it('discards a late response when the persona or child remounts the composer', async () => {
+    const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
     let resolve!: (value: Awaited<ReturnType<InviteCreator>>) => void
     const createInvite: InviteCreator = vi.fn(() => new Promise<Awaited<ReturnType<InviteCreator>>>(done => { resolve = done }))
     const view = render(<InviteComposer key="persona-a:child-a" childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
@@ -110,8 +114,7 @@ describe('invitation contract and honest states', () => {
     expect(screen.getByText(/Preparing invitation art/)).toBeVisible()
     view.rerender(<InviteComposer key="persona-b:child-b" childId="child-b" childFirstName="Leo" mode="live" createInvite={createInvite} />)
     expect((screen.getByLabelText('Your invitation request') as HTMLTextAreaElement).value).toContain('Leo')
-    await act(async () => resolve({ status: 'NEEDS_CLARIFICATION', clarification: { question: 'Private question for Maya' }, event, art: null, provenance }))
-    expect(screen.queryByText(/Private question for Maya/)).not.toBeInTheDocument()
+    await act(async () => resolve({ status: 'READY', event, art, provenance }))
     expect(screen.queryByRole('region', { name: 'Invitation card ready' })).not.toBeInTheDocument()
   })
   it('preserves the last successful design while regenerating, and on a failed regeneration', async () => {
@@ -129,10 +132,28 @@ describe('invitation contract and honest states', () => {
     expect(screen.getByRole('region', { name: 'Invitation card ready' })).toBeVisible()
     expect(screen.getByText(/Your current card stays ready below/)).toBeVisible()
 
-    // The regeneration fails — the OLD card must still be there, not blanked.
-    await act(async () => resolveSecond({ status: 'NEEDS_CLARIFICATION', clarification: null, event, art: null, provenance }))
+    // The regeneration returns no art — the OLD card must still be there, not blanked.
+    await act(async () => resolveSecond({ status: 'READY', event, art: null, provenance }))
     expect(screen.getByRole('region', { name: 'Invitation card ready' })).toBeVisible()
-    expect(screen.getByText(/did not return its clarification question/)).toBeVisible()
+    expect(screen.getByText(/returned no art/)).toBeVisible()
+  })
+  it('revises the current design by sending the prior art back as the reference with revise:true', async () => {
+    const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
+    const calls: Array<{ referenceImage?: { mimeType: string; dataBase64: string }; revise?: boolean }> = []
+    const createInvite: InviteCreator = vi.fn(async req => {
+      calls.push(req)
+      return { status: 'READY' as const, event, art, provenance: { source: 'MUSE_IMAGE' as const, model: 'muse-image-1.0' as const, cached: false, promptHash: 'muse:test', edited: !!req.referenceImage } }
+    })
+    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
+    await screen.findByRole('region', { name: 'Invitation card ready' })
+    fireEvent.click(screen.getByRole('button', { name: 'Revise this design' }))
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(2))
+    expect(calls[0].revise).toBe(false) // the first prepare is a fresh generation, not a revision
+    expect(calls[0].referenceImage).toBeUndefined()
+    expect(calls[1].revise).toBe(true) // the revision sends the current art back to preserve it
+    expect(calls[1].referenceImage?.dataBase64).toBe('YWJj')
+    expect(calls[1].referenceImage?.mimeType).toBe('image/png')
   })
   it('offers an explicit Retry after a failure, which actually re-runs the request — never automatically', async () => {
     const createInvite: InviteCreator = vi.fn().mockRejectedValue({ status: 502, code: 'IMAGE_FAILED' })

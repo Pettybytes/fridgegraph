@@ -10,7 +10,7 @@ import {
 import { canvasPng, decodeInviteArt, drawInvitation, invitationText, lineSpecs, waitForInviteFont } from './renderInvite'
 import './invites.css'
 
-type Phase = 'idle' | 'generating' | 'clarification' | 'ready' | 'refused' | 'failed'
+type Phase = 'idle' | 'generating' | 'ready' | 'refused' | 'failed'
 
 /** One-line mock mount: <InvitesPanel />. A later adapter may pass the authenticated
  * creator and mode="live" after the invite endpoint is served and verified. */
@@ -44,8 +44,8 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   const [phase, setPhase] = useState<Phase>('idle')
   const [detail, setDetail] = useState('')
   const [result, setResult] = useState<InviteResponse | null>(null)
-  // Optional reference image (style inspiration only — never placed in the card). Held in memory;
-  // sent with the request and discarded server-side after generation.
+  // Optional reference image to REMIX: the actual image is transformed to match the request
+  // (image-to-image). Held in memory; sent with the request and discarded server-side after use.
   const [reference, setReference] = useState<{ image: InviteReferenceImage; previewUrl: string; name: string } | null>(null)
   const [referenceBusy, setReferenceBusy] = useState(false)
   const [referenceError, setReferenceError] = useState('')
@@ -66,8 +66,16 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     setReference({ image: read.image, previewUrl: read.previewUrl, name: file.name })
   }
 
-  async function prepare() {
+  // `revise` re-runs the request against the CURRENT generated art (sent back as the reference) so
+  // the result keeps every existing element the request doesn't ask to change. A fresh prepare uses
+  // any uploaded reference instead. Art is never gated on a complete event schedule.
+  async function run({ revise = false } = {}) {
     if (!createInvite || !request.trim() || phase === 'generating') return
+    if (revise && !result?.art) return
+    const revising = revise && !!result?.art
+    const referenceImage: InviteReferenceImage | undefined = revising && result?.art
+      ? { mimeType: result.art.mimeType, dataBase64: result.art.base64 }
+      : reference?.image
     pending.current?.abort()
     const controller = new AbortController()
     pending.current = controller
@@ -77,13 +85,9 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     setDetail('')
     setPhase('generating')
     try {
-      const next = await createInvite({ childId, request: request.trim(), referenceImage: reference?.image }, controller.signal)
+      const next = await createInvite({ childId, request: request.trim(), referenceImage, revise: revising }, controller.signal)
       if (!active.current || controller.signal.aborted) return
-      if (next.status === 'NEEDS_CLARIFICATION') {
-        const question = next.clarification?.question.trim()
-        setDetail(question || 'The invitation service did not return its clarification question. Try again later.')
-        setPhase(question ? 'clarification' : 'failed')
-      } else if (next.status === 'READY' && next.art) {
+      if (next.art) {
         // hostName/message are app-owned, not part of any backend extraction: fill them here so
         // the card always reads like a real invitation, and never overwrite a family's own value.
         setResult({ ...next, event: withInviteDefaults(next.event, defaultHostName) })
@@ -108,11 +112,11 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
       <textarea value={request} onChange={event => setRequest(event.target.value)} rows={3} disabled={phase === 'generating'} />
     </label>
 
-    {/* Optional reference image — style inspiration only; never placed in the card. */}
+    {/* Optional reference image — the actual image is remixed to match the request (image-to-image). */}
     <div className="invites-panel__reference" role="group" aria-label="Reference image (optional)">
       <div className="invites-panel__reference-head">
         <span className="invites-panel__reference-title">Add a reference image <span className="invites-panel__optional">optional</span></span>
-        <span className="invites-panel__reference-hint">Guides the art style (palette, look, mood) — your image is never shown in the card.</span>
+        <span className="invites-panel__reference-hint">Your image guides the generated art — it is remixed to match your request (for example, “turn these into warrior unicorns”).</span>
       </div>
       {!reference ? (
         <div
@@ -144,21 +148,25 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
         </div>
       )}
       {referenceError && <InlineFeedback tone="error">{referenceError}</InlineFeedback>}
-      {mode === 'mock' && reference && <InlineFeedback>Reference images guide the art style only when live generation is on. This sample ignores it.</InlineFeedback>}
-      {result?.reference?.requested && result.reference.applied === false && phase === 'ready' &&
-        <InlineFeedback tone="warning">Your reference was received, but its style wasn’t applied to this card{mode === 'live' ? ' — live style generation is off or the style could not be read' : ''}. The default art style was used.</InlineFeedback>}
+      {mode === 'mock' && reference && <InlineFeedback>This sample preview doesn’t transform your reference — turn on live generation to remix your image.</InlineFeedback>}
+      {result?.reference?.requested && result.reference.applied === false && phase === 'ready' && mode === 'live' &&
+        <InlineFeedback tone="warning">Your reference was received, but it couldn’t be applied to this card. The default art was used.</InlineFeedback>}
     </div>
 
     {mode === 'mock' && <InlineFeedback>This is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.</InlineFeedback>}
     {mode === 'live' && !createInvite && <InlineFeedback tone="warning">The invitation service is not available in this view.</InlineFeedback>}
-    <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={() => { void prepare() }}>
-      {phase === 'generating' ? (mode === 'mock' ? 'Loading sample art…' : 'Generating art…') : mode === 'mock' ? 'Show sample invitation' : result ? 'Prepare a new invitation' : 'Prepare invitation'}
-    </FgButton>
+    <div className="invites-panel__actions">
+      <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={() => { void run() }}>
+        {phase === 'generating' ? (mode === 'mock' ? 'Loading sample art…' : 'Generating art…') : mode === 'mock' ? 'Show sample invitation' : result ? 'Prepare a new invitation' : 'Prepare invitation'}
+      </FgButton>
+      {result?.art && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim() || phase === 'generating'} onClick={() => { void run({ revise: true }) }}>Revise this design</FgButton>}
+    </div>
+    {result?.art && phase !== 'generating' && <p className="invites-panel__revise-hint">To revise, edit your request above (for example, “add floating balloons but keep the unicorns”) and choose <strong>Revise this design</strong> — it changes the current art, keeping everything you don’t ask to change.</p>}
     {phase === 'generating' && <p role="status">{mode === 'mock' ? 'Loading the sample art. No model call is being made.' : result ? 'Preparing a new design. Your current card stays ready below until this finishes.' : 'Preparing invitation art. Wait for a result before editing or downloading.'}</p>}
-    {phase === 'clarification' && <InlineFeedback tone="warning"><strong>One detail is needed:</strong> {detail} Add it to your request and prepare again. No new art was returned{result ? ' — your current card is unchanged.' : '.'}</InlineFeedback>}
+    {phase === 'ready' && result?.suggestion && <InlineFeedback>{result.suggestion}</InlineFeedback>}
     {(phase === 'refused' || phase === 'failed') && <>
       <InlineFeedback tone="error">{detail}</InlineFeedback>
-      {phase === 'failed' && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim()} onClick={() => { void prepare() }}>Retry</FgButton>}
+      {phase === 'failed' && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim()} onClick={() => { void run() }}>Retry</FgButton>}
     </>}
     {/* The last successful design stays visible across every later phase — generating, a
         clarification request, or a failure never remove a card the parent already has. */}

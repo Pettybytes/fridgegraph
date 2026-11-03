@@ -1,15 +1,19 @@
 /**
- * Invite art generation. Two implementations behind one interface: a FIXTURE generator (default) and
- * a live muse-image-1.0 generator (behind INVITE_LIVE). Both return bounded bytes + provenance (model
- * id, prompt hash, generated-vs-cached). The live client sends the ART-ONLY prompt and the key only in
- * the Authorization header — it never logs the key and never returns a provider URL. n=1, size and a
- * bounded output size are forced server-side. Contract: docs/contracts/invites.md.
+ * Invite art generation on Meta's DOCUMENTED Muse Image interfaces:
+ *   - generations: POST ${baseUrl}/images/generations  { model, prompt, n, size, response_format,
+ *     output_format }  (https://dev.meta.ai/docs/image-generation)
+ *   - edits:       POST ${baseUrl}/images/edits         { model, prompt, images:[{image_url}], n,
+ *     response_format, output_format }  (https://dev.meta.ai/docs/api-reference/images/edit-image)
+ *
+ * `size` is an ASPECT RATIO, not an exact pixel size, and `output_format` defaults to webp — so we
+ * request png but READ the actual `output_format` from the response and the actual pixel dimensions
+ * from the returned bytes (never assume PNG 1024×1024). A reference image (parent upload, or the prior
+ * generated result for a revision) routes to /images/edits so the actual image guides the result. The
+ * key lives only in the Authorization header and is never logged; no provider URL is returned.
  */
+import { readImageDimensions, sniffImageMime, type ImageMime } from './imageHygiene';
 import {
-  INVITE_FIXTURE_BASE64,
-  INVITE_FIXTURE_HEIGHT,
-  INVITE_FIXTURE_WIDTH,
-  INVITE_QUIET_AREA,
+  INVITE_FIXTURE_BASE64, INVITE_FIXTURE_HEIGHT, INVITE_FIXTURE_WIDTH, INVITE_QUIET_AREA,
 } from './inviteFixture';
 
 export type InviteArt = {
@@ -25,112 +29,97 @@ export type InviteProvenance = {
   model: 'muse-image-1.0' | null;
   cached: boolean;
   promptHash: string;
+  /** The actual output format the provider returned (verified, never assumed). */
+  outputFormat?: string;
+  /** Whether a reference image was used (an /images/edits remix/revision rather than a fresh generation). */
+  edited?: boolean;
 };
 
 export type InviteImageResult = { art: InviteArt; provenance: InviteProvenance };
 
+/** A reference image for an edit/revision — raw bytes + its real mime. */
+export type InviteImageRef = { bytes: Uint8Array; mimeType: ImageMime };
+
 export interface InviteImageGenerator {
-  generate(input: { prompt: string; promptHash: string; signal?: AbortSignal }): Promise<InviteImageResult>;
-  /** True if this exact prompt is already cached — answerable with NO provider call, so the
-   *  caller (inviteEndpoint.ts) can skip reserving budget for a request it already knows will be
-   *  free. This is an optimization only: if the cache state changes between this check and the
-   *  actual generate() call (a race with a concurrent request), generate()'s own
-   *  `provenance.cached` remains the single source of truth the ledger settles against — a
-   *  reservation made because this returned false is still correctly charged $0 if the real call
-   *  turns out cached anyway. */
+  generate(input: { prompt: string; promptHash: string; images?: InviteImageRef[]; signal?: AbortSignal }): Promise<InviteImageResult>;
   peekCached(promptHash: string): boolean;
 }
 
-/** The provider gave a clear, synchronous error BEFORE any image was produced — safe to treat as
- *  never billed. Thrown only for a definite provider-side rejection (a non-2xx HTTP status). */
 export class InviteImageConfirmedFailure extends Error {}
-
-/** The provider MAY have generated (and billed for) the image even though this process has no
- *  usable result — a network error/timeout/abort after the request was sent (we never learn
- *  whether the provider received and processed it), or a local validation failure on an
- *  otherwise-200 response (malformed/empty/oversized body — the provider likely did generate;
- *  our own parsing or bound check is what rejected it). Must be charged conservatively, never
- *  silently released. */
 export class InviteImageUncertainFailure extends Error {}
 
 export const INVITE_IMAGE_MODEL = 'muse-image-1.0';
-const QUIET = { x: INVITE_QUIET_AREA.x, y: INVITE_QUIET_AREA.y, w: INVITE_QUIET_AREA.w, h: INVITE_QUIET_AREA.h };
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-/** The default: a labelled fixture. Never calls the model; always a cache miss (nothing is cached). */
+/** A calm lower-centre text area as a fraction of the ACTUAL image, so it tracks any aspect/size. */
+export function quietAreaFor(width: number, height: number): { x: number; y: number; w: number; h: number } {
+  return { x: Math.round(width * 0.08), y: Math.round(height * 0.5), w: Math.round(width * 0.84), h: Math.round(height * 0.44) };
+}
+
+/** The default: a labelled fixture. Never calls the model; always a cache miss. */
 export function createFixtureImageGenerator(): InviteImageGenerator {
   return {
-    async generate({ promptHash }) {
+    async generate({ promptHash, images }) {
       return {
-        art: { mimeType: 'image/png', width: INVITE_FIXTURE_WIDTH, height: INVITE_FIXTURE_HEIGHT, base64: INVITE_FIXTURE_BASE64, quietArea: { ...QUIET } },
-        provenance: { source: 'FIXTURE', model: null, cached: false, promptHash },
+        art: { mimeType: 'image/png', width: INVITE_FIXTURE_WIDTH, height: INVITE_FIXTURE_HEIGHT, base64: INVITE_FIXTURE_BASE64, quietArea: { ...INVITE_QUIET_AREA } },
+        provenance: { source: 'FIXTURE', model: null, cached: false, promptHash, outputFormat: 'png', edited: Boolean(images?.length) },
       };
     },
-    // Fixture mode never reserves budget at all (gated on source, not on this) — moot either way.
     peekCached: () => false,
   };
 }
 
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // bounded server-side output
+const MIME_FOR: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', jpg: 'image/jpeg', webp: 'image/webp' };
 
-/**
- * Live muse-image-1.0. UNVERIFIED tonight — the exact Meta request shape must be reconfirmed before
- * enabling (see contract §live). A process cache keyed by promptHash makes a repeat prompt a cache
- * HIT (source still MUSE_IMAGE, cached:true). The key is used only in the Authorization header.
- */
-export function createLiveImageGenerator(cfg: {
-  apiKey: string;
-  baseUrl: string;
-  fetchFn?: typeof fetch;
-}): InviteImageGenerator {
+/** Live muse-image-1.0 over Meta's generations + edits endpoints. UNVERIFIED against a running
+ *  provider until the Bentley window; the request/response shapes follow the published docs. */
+export function createLiveImageGenerator(cfg: { apiKey: string; baseUrl: string; fetchFn?: typeof fetch; size?: string }): InviteImageGenerator {
   const base = cfg.baseUrl.replace(/\/$/, '');
   const doFetch = cfg.fetchFn ?? fetch;
-  const cache = new Map<string, string>(); // promptHash -> base64
+  const size = cfg.size ?? '1024x1536'; // a portrait-ish invitation aspect ratio
+  const cache = new Map<string, InviteImageResult>();
 
   return {
     peekCached: (promptHash) => cache.has(promptHash),
-    async generate({ prompt, promptHash, signal }) {
-      const cachedB64 = cache.get(promptHash);
-      if (cachedB64) {
-        return {
-          art: { mimeType: 'image/png', width: 1024, height: 1024, base64: cachedB64, quietArea: { ...QUIET } },
-          provenance: { source: 'MUSE_IMAGE', model: INVITE_IMAGE_MODEL, cached: true, promptHash },
-        };
+    async generate({ prompt, promptHash, images, signal }) {
+      const cached = cache.get(promptHash);
+      if (cached) return { art: cached.art, provenance: { ...cached.provenance, cached: true } };
+
+      const edit = Boolean(images && images.length);
+      const url = edit ? `${base}/images/edits` : `${base}/images/generations`;
+      const body: Record<string, unknown> = { model: INVITE_IMAGE_MODEL, prompt, n: 1, size, response_format: 'b64_json', output_format: 'png' };
+      if (edit) {
+        body.images = images!.map((im) => ({ image_url: `data:${im.mimeType};base64,${Buffer.from(im.bytes).toString('base64')}` }));
       }
-      // The request itself may or may not have reached the provider if this throws (network
-      // error, timeout, abort) — we never learn which, so that case is UNCERTAIN, not confirmed
-      // failed.
+
       let res: Response;
       try {
-        res = await doFetch(`${base}/images/generations`, {
-          method: 'POST',
-          signal,
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.apiKey}` },
-          body: JSON.stringify({ model: INVITE_IMAGE_MODEL, prompt, n: 1, size: '1024x1024', response_format: 'b64_json' }),
-        });
+        res = await doFetch(url, { method: 'POST', signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.apiKey}` }, body: JSON.stringify(body) });
       } catch (err) {
         throw new InviteImageUncertainFailure(`IMAGE_NETWORK_${err instanceof Error ? err.message : String(err)}`);
       }
-      // A clean, synchronous provider rejection — the provider explicitly refused before
-      // producing anything. Safe to treat as never billed.
       if (!res.ok) throw new InviteImageConfirmedFailure(`IMAGE_HTTP_${res.status}`);
-      // Past this point the provider returned 200 — it most likely DID generate (and bill for)
-      // an image. Any failure below is OUR local parsing/validation rejecting an otherwise-
-      // successful response, which is exactly the "local validation failure" case that must be
-      // charged conservatively, not released.
-      let json: { data?: { b64_json?: string }[] };
-      try {
-        json = (await res.json()) as { data?: { b64_json?: string }[] };
-      } catch {
-        throw new InviteImageUncertainFailure('IMAGE_BODY_UNPARSEABLE');
-      }
+
+      let json: { data?: { b64_json?: string }[]; output_format?: string };
+      try { json = (await res.json()) as typeof json; } catch { throw new InviteImageUncertainFailure('IMAGE_BODY_UNPARSEABLE'); }
       const b64 = json.data?.[0]?.b64_json;
       if (typeof b64 !== 'string' || b64.length === 0) throw new InviteImageUncertainFailure('IMAGE_EMPTY');
-      if (Buffer.byteLength(b64, 'base64') > MAX_IMAGE_BYTES) throw new InviteImageUncertainFailure('IMAGE_TOO_LARGE');
-      cache.set(promptHash, b64);
-      return {
-        art: { mimeType: 'image/png', width: 1024, height: 1024, base64: b64, quietArea: { ...QUIET } },
-        provenance: { source: 'MUSE_IMAGE', model: INVITE_IMAGE_MODEL, cached: false, promptHash },
+      const bytes = Buffer.from(b64, 'base64');
+      if (bytes.length > MAX_IMAGE_BYTES) throw new InviteImageUncertainFailure('IMAGE_TOO_LARGE');
+
+      // VERIFY the actual format + dimensions from the bytes — never assume.
+      const sniffed = sniffImageMime(bytes);
+      const outputFormat = (json.output_format ?? (sniffed ? sniffed.split('/')[1] : 'png')).toLowerCase();
+      const mimeType = (sniffed as string | null) ?? MIME_FOR[outputFormat] ?? 'image/png';
+      const dims = sniffed ? readImageDimensions(bytes, sniffed) : null;
+      if (!dims || dims.width < 1 || dims.height < 1) throw new InviteImageUncertainFailure('IMAGE_DIMENSIONS_UNREADABLE');
+
+      const result: InviteImageResult = {
+        art: { mimeType, width: dims.width, height: dims.height, base64: b64, quietArea: quietAreaFor(dims.width, dims.height) },
+        provenance: { source: 'MUSE_IMAGE', model: INVITE_IMAGE_MODEL, cached: false, promptHash, outputFormat, edited: edit },
       };
+      cache.set(promptHash, result);
+      return result;
     },
   };
 }
