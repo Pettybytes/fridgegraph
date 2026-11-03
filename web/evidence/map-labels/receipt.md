@@ -26,8 +26,8 @@ Existing shell/right-dock composition is outside this small fix and unchanged.
 342 web tests / 60 files PASS; focused map tests 18 / 5 files PASS.
 Root typecheck PASS; web typecheck/build PASS. Initial build caught a Map import/global Map
 name collision (TS2554/TS7009); corrected to globalThis.Map, then build passed.
-Source Impeccable scan: no regex findings, parsed-element checks not run by that scan.
-Rendered Impeccable launches a separate unauthenticated page: flags shared cream palette plus
+Source visual review scan: no regex findings, parsed-element checks not run by that scan.
+Rendered visual review launches a separate unauthenticated page: flags shared cream palette plus
 picker contrast 4.3:1 and a text-wrap advisory. These are existing frozen picker/tokens,
 not the authenticated map. No theme override or global waiver applied. Browser checks above
 cover the actual map. Labels use the existing surface/ink tokens.

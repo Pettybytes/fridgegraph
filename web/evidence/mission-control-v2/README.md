@@ -1,7 +1,7 @@
 # Mission Control v2 — recorded mock browser proof
 
 Production preview: http://127.0.0.1:5183/.
-Run `playwright-cli -s=mc run-code --filename=web/evidence/mission-control-v2/browser-proof.js`.
+Run `browser automation -s=mc run-code --filename=web/evidence/mission-control-v2/browser-proof.js`.
 
 Normal afternoon: initial request, all four lanes waiting, automatic replay through recorded
 reply evaluations/timeout/recommendation, per-attempt Test responder labels, candidate detail,

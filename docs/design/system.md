@@ -136,6 +136,6 @@ Avoid making every section an identical rounded card (contract §3). The surface
 
 ## 8. Before a visual PR
 
-Run the gates in contract §2 (accessibility, motion performance, break-ui, Impeccable
-detector on source **and** rendered, humanizer on copy, Playwright at 390×844 and 1440×900,
+Run the gates in contract §2 (accessibility, motion performance, worst-case data, source **and** rendered review,
+plain-language copy, browser verification at 390×844 and 1440×900,
 light and dark). Evidence is append-only under `web/evidence/design/`.

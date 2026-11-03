@@ -34,48 +34,13 @@ Rules:
 
 | Agent | Best at | Definition of done | Forbidden moves |
 | --- | --- | --- | --- |
-| **Claude Code** | multi-file refactors, auth/authz reasoning, schema work | `npm run typecheck` + `npm run check` + the named proof run and pasted | merging; touching payments without senior review; copying `frontend-design` code verbatim (no upstream LICENSE) |
+| **Claude Code** | multi-file refactors, auth/authz reasoning, schema work | `npm run typecheck` + `npm run check` + the named proof run and pasted | merging; touching payments without senior review; copying unlicensed third-party code |
 | **Codex** | focused implementation, test-first patches, surgical diffs | same three, plus a diff review of its own changes | creating worktrees on its own initiative; reaching outside its declared layer |
 | **Gemini CLI** | exploration, broad reading, browser checks via Playwright | same three, plus a Playwright run for any visual claim | installing skills or tools mid-task without reporting it |
 | **Hermes** | the pickup job's reasoning loop, skill-shaped workflows | same three, plus an explicit statement of which model/provider produced the result | running with `--yolo` on this repo; installing skills mid-task |
 | **OpenClaw** | orchestration, long-running ops, evidence runs | same three, plus a durable artifact path for any long run | acting as the authority for merges; editing this contract unilaterally |
 
 **No one merges on an agent's say-so.** An agent reports; Bryan merges. "Tests pass" is a report, not a permission.
-
-## 4. Skills: where each agent finds them
-
-Verified on this machine, 2026-10-28. Discovery differs per agent — copying a file is not the same as installing it.
-
-| Agent | Skills location | How discovery was proven |
-| --- | --- | --- |
-| Claude Code | `~/.claude/skills/` | invoked as `/skill-name`; documented auto-discovery |
-| Codex CLI 0.165.0 | `~/.agents/skills/` + `~/.codex/skills/` | `codex debug prompt-input` lists every skill in `~/.agents/skills`; there is **no** `codex skills` subcommand |
-| Gemini CLI 0.26.0 | `~/.gemini/skills/` | `gemini skills list --all` reports `[Enabled]` |
-| Hermes 0.22.5 | `~/.hermes/skills/<category>/` | `hermes skills list` reports `enabled` |
-| OpenClaw | `~/.agents/skills/` | present in the session's own skill catalog |
-
-Instruction files: Claude auto-detects `CLAUDE.md`; Codex auto-loads `AGENTS.md` **from the working directory only** (nested `AGENTS.md` files are not auto-loaded — verified); Gemini reads `GEMINI.md`; Hermes carries instructions in `SKILL.md` files; OpenClaw reads its agent/workspace context files.
-
-**Therefore:** `AGENTS.md` at the repo root is the one file every agent sees. That is why it holds the rules and the others only point at it.
-
-## 5. Required skills
-
-Installed and verified discoverable:
-
-| Skill | Source | Licence | Why |
-| --- | --- | --- | --- |
-| `supabase`, `supabase-postgres-best-practices` | github.com/supabase/agent-skills | MIT | every DB read/write, RLS, migrations |
-| `apollo-federation`, `apollo-router`, `apollo-server`, `apollo-client`, `apollo-mcp-server`, `apollo-connectors`, `apollo-router-plugin-creator` | github.com/apollographql/skills | MIT | the graph, the router, MCP |
-| `graphql-schema`, `graphql-operations` | github.com/apollographql/skills | MIT | SDL and operation authoring |
-| `graphos-factory`, `rover` | github.com/apollographql/skills | MIT | composition and registration |
-| `playwright-cli` | @playwright/cli 0.1.22 (Microsoft) | Apache-2.0 | every browser/visual verification |
-| `frontend-design` | github.com/anthropics/skills | **none upstream** | visual judgement for `web/` |
-
-Notes:
-
-- `frontend-design` ships **no LICENSE file**. Use it as guidance only; do not copy its code into the repo.
-- The CLI binary is **`playwright-cli`**, not `playwright`.
-- Gemini has only `playwright-cli` from this list. If a Gemini task needs Apollo skills, installing them is a reported action, not a silent one.
 
 ## 6. Handoff out
 
