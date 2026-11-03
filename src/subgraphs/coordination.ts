@@ -607,7 +607,7 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
       ? null
       : { id: String(shareRow.last_seen_place_id), kind: String(shareRow.place_kind), label: String(shareRow.place_label) },
     lastSeenAt: shareRow?.last_seen_at ?? null,
-    // How the recorded place/time came to exist. 0087 returns the place/time pair only when this is
+    // How the recorded place/time came to exist. 0089 returns the place/time pair only when this is
     // present, so a legacy or synthetic timestamp can never be read as an observation. The resolver
     // passes it through rather than computing a fallback: absence IS the answer.
     lastSeenProvenance: shareRow?.last_seen_source ?? null,

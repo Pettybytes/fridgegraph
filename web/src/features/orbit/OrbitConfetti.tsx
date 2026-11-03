@@ -30,7 +30,10 @@ export function OrbitConfetti() {
       const halo = index < Math.ceil(count / 4)
       const side = index % 2 ? 1 : -1
       const seed = (index * 47) % 101 / 100
-      const dx = halo ? (seed - .5) * 300 : side * (160 + seed * 460)
+      // A particle released at an edge must travel INWARD. `side` decides which edge it starts on
+      // (side<0 → 4%, side>0 → 96%), so the offset has the opposite sign; with `side *` they flew
+      // outward and off-screen on the first frame, leaving only the centre halo visible.
+      const dx = halo ? (seed - .5) * 300 : -side * (160 + seed * 460)
       const height = halo ? 170 + seed * 180 : 220 + seed * 280
       const start = halo ? '50%' : side < 0 ? '4%' : '96%'
       const shape = shapes[index % shapes.length]
