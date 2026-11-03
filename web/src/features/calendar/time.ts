@@ -43,6 +43,12 @@ export function formatDay(day: string, long = false): string {
   return new Intl.DateTimeFormat('en-US', { timeZone: CALENDAR_ZONE, weekday: long ? 'long' : 'short', month: 'short', day: 'numeric' }).format(new Date(midnight(day) + 12 * 3600000))
 }
 export function formatInstant(instant: string, other?: string): string { return `${formatDay(localDay(instant), true)}, ${formatTime(instant, dayHours(localDay(instant)) !== 24 || !!other && crossesClockChange(instant, other))}` }
+/** Same day/time, with seconds. Used where two recorded instants land in one displayed minute —
+ *  an activation and a close — so the record cannot read as if they happened simultaneously. */
+export function formatInstantSeconds(instant: string): string {
+  const clock = new Intl.DateTimeFormat('en-US', { timeZone: CALENDAR_ZONE, hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date(instant))
+  return `${formatDay(localDay(instant), true)}, ${clock}`
+}
 export function intersects(start: string, end: string, from: number, to: number): boolean { return Date.parse(start) < to && Date.parse(end) > from }
 export function segmentLabel(start: string, end: string, day: string): string {
   const before = Date.parse(start) < midnight(day), after = Date.parse(end) > midnight(addDays(day, 1))

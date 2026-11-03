@@ -219,6 +219,12 @@ const typeDefs = parse(`
     """
     lastSeenPlace: RecordedPlace
     lastSeenAt: String
+    """
+    How the last-seen place/time was recorded: PARENT_ENTERED only when a parent supplied both.
+    Null means no provenance was captured, and lastSeenPlace/lastSeenAt are then null too — a
+    timestamp is never derived from an activation or any other synthetic instant.
+    """
+    lastSeenProvenance: String
     audience: [OrbitAudienceMember!]!
     responses: [OrbitResponseEntry!]!
     latestResponses: [OrbitResponseEntry!]!
@@ -601,6 +607,10 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
       ? null
       : { id: String(shareRow.last_seen_place_id), kind: String(shareRow.place_kind), label: String(shareRow.place_label) },
     lastSeenAt: shareRow?.last_seen_at ?? null,
+    // How the recorded place/time came to exist. 0087 returns the place/time pair only when this is
+    // present, so a legacy or synthetic timestamp can never be read as an observation. The resolver
+    // passes it through rather than computing a fallback: absence IS the answer.
+    lastSeenProvenance: shareRow?.last_seen_source ?? null,
     audience: audience.map((m) => ({
       person: { id: String(m.person_id) },
       notifyOrder: Number(m.notify_order),

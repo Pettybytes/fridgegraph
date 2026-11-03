@@ -66,3 +66,63 @@
 .orbit-constellation-ring{animation:orbit-ring-arrive .7s .25s cubic-bezier(.23,1,.32,1) both}@keyframes orbit-ring-arrive{from{opacity:0;transform:translate(-50%,-50%) scale(.85)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 .orbit-glass-scene,.orbit-takeover.is-alert{animation:orbit-glass-enter .45s cubic-bezier(.23,1,.32,1) both}@keyframes orbit-glass-enter{from{opacity:.6}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.orbit-connectors line[data-fresh],.orbit-constellation-face,.orbit-constellation-face:after,.orbit-constellation-ring,.orbit-glass-scene,.orbit-takeover.is-alert{animation:none}}
+
+/* ---- Orbit alert surfaces, 2026-11-03 --------------------------------------------------------
+   One translucent glass surface per state. Names carry the state; the surface only supports it.
+   Contained type: every flexible column gets min-width:0 and long names wrap instead of pushing a
+   neighbour out of the card or clipping against it. Readable text always sits on a scrim. */
+.orbit-takeover-stage{max-width:1160px;margin:0 auto;min-width:0}
+/* A single-member ledger must not stretch to the constellation's height: balance over fill. */
+.orbit-constellation{align-items:start}
+.orbit-takeover .orbit-alert-facts{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.orbit-takeover .orbit-alert-facts h2{max-width:100%;overflow-wrap:anywhere;word-break:break-word;hyphens:auto}
+.orbit-takeover .orbit-alert-facts p{max-width:100%;min-width:0;flex-wrap:wrap}
+.orbit-takeover .orbit-alert-facts p span{min-width:0;overflow-wrap:anywhere}
+.orbit-takeover .orbit-alert-facts dl{max-width:100%}
+.orbit-glass-heading h2{overflow-wrap:anywhere}
+.orbit-constellation-center strong{max-width:150px;overflow-wrap:anywhere;line-height:1.15}
+.orbit-constellation-ledger li>div{min-width:0}
+.orbit-constellation-ledger li strong{overflow-wrap:anywhere}
+.orbit-found .orbit-thankyou{overflow-wrap:anywhere;max-width:100%}
+.orbit-found h2{overflow-wrap:anywhere}
+/* Provenance is stated in words, not implied by the presence of a clock. */
+.orbit-provenance{align-self:center;font-size:11px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.42);background:rgba(0,0,0,.2);white-space:nowrap}
+/* A status ring around the found-safe mark: geometry only, one release. */
+.orbit-safe-mark{position:relative;display:grid;place-items:center;flex:none;line-height:0}
+.orbit-safe-ring{position:absolute;width:130px;height:130px;border-radius:50%;border:1px solid rgba(232,255,242,.42);pointer-events:none}
+.orbit-found[data-celebrating] .orbit-safe-ring{animation:orbit-ring-confirm 1.15s cubic-bezier(.23,1,.32,1) both}
+.orbit-found:not([data-celebrating]) .orbit-safe-ring{opacity:.5;transform:scale(1.04)}
+@keyframes orbit-ring-confirm{from{opacity:.95;transform:scale(.62)}to{opacity:0;transform:scale(2.15)}}
+@media(max-width:600px){
+ .orbit-safe-ring{width:104px;height:104px}
+ .orbit-provenance{font-size:10px;padding:3px 7px}
+}
+@media(prefers-reduced-motion:reduce){
+ .orbit-found[data-celebrating] .orbit-safe-ring{animation:none;opacity:.5;transform:scale(1.04)}
+}
+/* One-shot confetti flight. Position/rotation only; the release itself is a single keyframe run. */
+.orbit-particle{animation:orbit-particle-flight 2.5s cubic-bezier(.18,.65,.35,1) both}
+@keyframes orbit-particle-flight{
+  0%{opacity:0;transform:translate3d(0,0,0) rotate(0deg) rotateX(0deg)}
+  10%{opacity:1}
+  34%{opacity:1;transform:translate3d(calc(var(--dx) * .35),var(--rise),0) rotate(calc(var(--rot) * .22)) rotateX(90deg)}
+  65%{opacity:1;transform:translate3d(calc(var(--dx) * .72),calc(var(--rise) * .64),0) rotate(calc(var(--rot) * .57)) rotateX(220deg)}
+  100%{opacity:0;transform:translate3d(var(--dx),var(--fall),0) rotate(var(--rot)) rotateX(360deg)}
+}
+@media(prefers-reduced-motion:reduce){.orbit-particle{animation:none}}
+
+/* ---- Proportions pass, 2026-11-03 --------------------------------------------------------------
+   The recipient flow has to fit one screen at 1440x900 so the record and the three response targets
+   are visible together; nothing here changes the phone stack, which is allowed to scroll. */
+@media(min-width:761px){
+ .orbit-takeover .orbit-constellation-field{min-height:360px}
+ .orbit-takeover .orbit-constellation-ledger ul{max-height:330px}
+ .orbit-takeover.is-alert .orbit-alert-subject{padding:16px}
+ .orbit-takeover .orbit-glass-heading{margin-bottom:16px;padding:14px 22px}
+ .orbit-takeover-stage>.orbit-constellation{margin-bottom:16px}
+}
+/* A single short line of own-response history must not orphan its time onto a line by itself. */
+.orbit-found p:not(.orbit-thankyou):not(.orbit-found-name){text-wrap:pretty;max-width:52ch;margin-inline:auto}
+@media(max-width:600px){
+ .orbit-found p:not(.orbit-thankyou):not(.orbit-found-name){font-size:13px;line-height:1.5;max-width:34ch}
+}
