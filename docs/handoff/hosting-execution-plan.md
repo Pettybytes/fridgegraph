@@ -144,6 +144,9 @@ their own services (§4). Locally after the swap, `/graphql` and `/api/*` on 518
 — the public origin is the only place they exist. State this in the receipt so a later reader does not
 report it as a regression.
 
+**5190 is local-only and has no public route.** It exists for local click-through and
+app-vs-routing triage; the edge must never point at it.
+
 **Keep a working local app: 5189 is the artifact, 5190 is the workbench.** Alongside the static server,
 keep one `vite preview` instance on **`127.0.0.1:5190`** serving the *same pinned build* with its API
 proxy intact. It preserves local click-through with live data when the edge is not involved, and it is
@@ -263,6 +266,10 @@ origins exactly. Localhost stays allowed by design.
 
 `NODE_ENV` must **not** be `production` on 4008 — `startDemoLogin()` returns false and the endpoint
 disappears. Record the observed value.
+
+**Phase 1 uses the limits as deployed.** New session-keyed accounting is explicitly deferred: do not
+assume a `jti` claim exists or is unique per browser. Two independent Kendra contexts must be exercised
+under whatever limits the running 4008 actually enforces, and the observed numbers are recorded.
 
 **Verify the effective limits, not the constants** (each result recorded separately):
 
@@ -571,3 +578,53 @@ have run against the public URL.
 
 Never roll back by reverting an applied migration, and never by widening a permission. Removing routes
 before draining is not a rollback — it is a data-loss window.
+
+---
+
+## 14. Authorization and execution corrections (2026-11-03)
+
+**This go covers Phase 1 hosting only.** It does not enable public voice, SMS/calls, live invitation
+generation, photo intake, Fridge editing, or **any apply of 0084–0087**. Phase 2 keeps its own go.
+
+### 14.1 Pins are per component
+`§0` pins the artifacts; `#188`'s pin-table comment pins the *processes*. Re-read them together. Two
+things that table exposes and this plan must not paper over:
+
+- the 4101–4107 subgraphs run a **different commit** (`405f7a7`) from the 4001–4007 set (`bbe11a4`),
+  while both routers serve a supergraph composed as `bbe11a4`. A `router.prod.yaml` proof must name
+  which upstream set it targets.
+- the Activity failure originates in **`bbe11a4`** (`src/db.ts`), not in the web build and not in the
+  alternate stack.
+
+### 14.2 P-10 must be in the running 4008
+Prepare a **narrowly patched build compatible with the deployed schema** — not current `main`
+wholesale — carrying the login-limiter fix. Rehearse login and the real `resetDemo()` against that
+exact build before it serves the public origin.
+
+### 14.3 Client IP through Cloudflare
+Verify trusted-proxy resolution end to end. A spoofed `X-Forwarded-For` must not let an external
+caller choose another caller's rate-limit bucket or appear local. **Do not enable blanket Express
+`trust proxy`**; trust exactly the loopback peer that cloudflared presents.
+
+### 14.4 Limits
+Session-keyed accounting is deferred from Phase 1. Do not assume `jti` is present or unique per
+browser. Verify two Kendra contexts under the limits actually deployed.
+
+### 14.5 Secrets
+Inventory every consumer **before** rotating. Hidden-input tooling only. Update all consumers, test
+each dependency without printing values, and make the rollback artifacts use the rotated credentials
+as well — a stale backup is how a rotation becomes an outage.
+
+### 14.6 DNS and ingress
+One hostname → one DNS mapping, multiple **ordered path rules**. Preserve unrelated hostnames
+(`app.loomz.stream` belongs to LOOM). **No public route to 5190.**
+
+### 14.7 Release acceptance
+In addition to §8: Activity loads, map and recorded places render, route/ride calculations answer,
+authorized Orbit photos load, and Rosina's conversation-first journey works. Expected refusals must
+pass their negative assertions; an unexpected failure in an authorized flow **stops release**.
+
+The known smoke-test defects remain assigned repairs. Hosting infrastructure passing does not close
+them. On failure: remove FridgeGraph's public exposure and keep the working local environment.
+
+No merging. No HANDOFF edits.
