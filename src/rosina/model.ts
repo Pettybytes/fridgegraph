@@ -230,6 +230,7 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'OrbitStatus',
   'OrbitVocabulary',
   'CareFacts',
+  'Goals',
   'ProposeSchoolDayReport',
   'ProposeAddVillager',
 ]);
@@ -250,6 +251,7 @@ const ID_ARG_BY_TOOL: Record<string, string> = {
   CheckInStatus: 'childId',
   OrbitStatus: 'childId',
   CareFacts: 'childId',
+  Goals: 'childId',
   ProposeSchoolDayReport: 'childId',
   // ProposeAddVillager is parent-only authority, checked inside propose_add_villager itself —
   // same posture as CheckInStatus/OrbitStatus below: MyChildren only proves the id is KNOWN to
@@ -273,6 +275,7 @@ const REQUIRED_SCOPE_BY_TOOL: Record<string, string> = {
   ChildEvents: SCOPE.schedule,
   EffectiveSchedule: SCOPE.schedule,
   CareFacts: SCOPE.careplan,
+  Goals: SCOPE.goals,
   ProposeSchoolDayReport: SCOPE.schoolReport,
 };
 

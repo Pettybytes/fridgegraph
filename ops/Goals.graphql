@@ -1,0 +1,25 @@
+# Rosina tool: Goals — a child's goals (standing items), read AS THE CALLER through RLS.
+#
+# Authorization is the row's own RLS (parent/guardian, or a goals.read grant holder); a child the
+# caller cannot see returns an EMPTY list, never an error — the same shape a nonexistent child id
+# returns, so the tool cannot be used to probe for ids. `horizon` is FREE TEXT, not a deadline: it
+# never establishes a date, and Rosina must not treat it as one. Goals carry no author timestamp here.
+query Goals($childId: ID!) {
+  goals(childId: $childId) {
+    id
+    title
+    status
+    horizon
+    owner {
+      id
+      displayName
+    }
+    proposedBy {
+      id
+      displayName
+    }
+    child {
+      id
+    }
+  }
+}

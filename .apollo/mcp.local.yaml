@@ -22,6 +22,7 @@ operations:
     - ./ops/CheckInStatus.graphql
     - ./ops/OrbitVocabulary.graphql
     - ./ops/CareFacts.graphql
+    - ./ops/Goals.graphql
     - ./ops/MyChildren.graphql
     - ./ops/ProposeSchoolDayReport.graphql
     - ./ops/ProposeAddVillager.graphql
