@@ -10,7 +10,7 @@ import {FridgeReadContext} from './FridgeReadContext'
 import type {FridgeReader} from './model'
 export function ConnectedFridge(){
  const {session}=useSession(),access=useChildAccess(),evidenceReader=useContext(FridgeReadContext)
- const reader=useMemo<FridgeReader>(()=>evidenceReader??(access?.client?createFridgeReader(access.client,access.runRead):{read:async()=>({status:'failed'})}),[evidenceReader,access?.client,access?.runRead])
+ const reader=useMemo<FridgeReader>(()=>evidenceReader??(access?.client?createFridgeReader(access.client,access.runRead):{read:async()=>({status:'unavailable'})}),[evidenceReader,access?.client,access?.runRead])
  const preview=usePhase2Preview()
  // Off until the migration + compatible backend have been deployed and verified.
  const verified=import.meta.env.VITE_FRIDGE_EDITING_VERIFIED==='true'

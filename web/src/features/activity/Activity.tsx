@@ -18,11 +18,12 @@ type View={data:Source<StoredMissionControl|null>;slips:Source<Slip[]>;orbit:Sou
 const EMPTY:View={data:{state:'ready',data:null},slips:{state:'ready',data:[]},orbit:{state:'ready',data:null},check:{state:'ready',data:null},additions:{state:'ready',data:[]},reports:{state:'ready',data:[]}}
 const NAMED:[keyof View,string][]=[['data','Activity feed'],['slips','Consent decisions'],['orbit','Orbit status'],['check','Check-in'],['additions','Village additions'],['reports','School reports']]
 export function Activity({client,adapter}:{client:ReturnType<typeof createGraphClient>|null;adapter:FrontendAdapter}){
- const {session,runRead,getSessionGeneration}=useSession(),[phase,setPhase]=useState<'loading'|'ready'|'refused'>('loading'),[view,setView]=useState<View>(EMPTY)
+ const {session,runRead,getSessionGeneration}=useSession(),[phase,setPhase]=useState<'loading'|'ready'|'refused'|'unavailable'>('loading'),[view,setView]=useState<View>(EMPTY)
  const childId=session?.scope.childId,personId=session?.persona.personId,parent=mayReadFamilyActivity(!!session?.persona.parent,!!session?.persona.guardian)
  useEffect(()=>{
   let active=true;const generation=session?.generation;setPhase('loading');setView(EMPTY)
-  if(!session||!client||!parent){setPhase('refused');return()=>{active=false}}
+  if(!session||!parent){setPhase('refused');return()=>{active=false}}
+  if(!client){setPhase('unavailable');return()=>{active=false}}
   const read=async<T,>(query:typeof SLIPS,field:string)=>runRead(async()=>{const result=await client.query<Record<string,T>>({query,variables:{childId},fetchPolicy:'no-cache'});if(!result.data||result.data[field]===undefined)throw Error('READ_UNAVAILABLE');return result.data[field]})
   void (async()=>{
    // Every source is contained. One failing read can no longer reject the others.
@@ -41,6 +42,7 @@ export function Activity({client,adapter}:{client:ReturnType<typeof createGraphC
  },[client,adapter,session?.generation,childId,personId,parent,runRead,getSessionGeneration])
  if(phase==='loading')return <section className="activity" role="status">Loading activity…</section>
  if(phase==='refused')return <section className="activity" role="alert"><h2>This activity is not shared with you</h2><p>Your perspective cannot read this child’s family activity.</p></section>
+ if(phase==='unavailable')return <section className="activity" data-state="unavailable"><h2>Activity isn’t connected in this view.</h2><p>Choose a live perspective to see the records shared with it.</p></section>
  const entries=activityEntries(view.data.state==='ready'&&view.data.data?view.data.data:{candidates:[],events:[],recordedRuns:[]} as unknown as StoredMissionControl,view.slips.state==='ready'?view.slips.data:[],{[personId!]:session!.persona.name},view.reports.state==='ready'?view.reports.data:[],view.additions.state==='ready'?view.additions.data:[])
  for(const response of (view.orbit.state==='ready'?view.orbit.data?.latestResponses:[])??[]){
   if(Number.isFinite(Date.parse(response.respondedAt)))entries.push({id:`orbit:${response.person.id}:${response.respondedAt}`,at:response.respondedAt,day:localDay(response.respondedAt),kind:'REPORTED',who:response.person.displayName,what:response.response==='WITH_ME'?'Reported WITH_ME. This is a report, not verification.':`Reported ${response.response.replaceAll('_',' ').toLowerCase()}. This is a report, not verification.`,href:'#/orbit',place:'Orbit'})
