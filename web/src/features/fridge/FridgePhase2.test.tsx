@@ -26,10 +26,23 @@ it.each([
  ['refused','These records aren’t shared with this perspective.'],
  ['network','Couldn’t connect just now. Try again.'],
  ['database','Couldn’t load these records just now. Try again.'],
+ ['server','The fridge service answered with an error. Try again.'],
  ['failed','Couldn’t load these records. Try again.'],
 ] as const)('keeps compatibility %s distinct from absent capability',async(kind,message)=>{
  render(<FridgePhase2 fridge={fridge} viewer={viewer} service={service(kind)} enabled/>)
  expect(await screen.findByText(message)).toBeInTheDocument();expect(screen.queryByText(/this version/)).not.toBeInTheDocument();expect(screen.getByText('Original whiteboard')).toBeInTheDocument();expect(screen.queryByRole('button',{name:'Manage goals'})).not.toBeInTheDocument()
+})
+it('discards a compatibility result from a previous persona so editing never mounts stale',async()=>{
+ let resolveFirst!:(value:Compatibility)=>void
+ const first:Phase2Service={check:vi.fn(()=>new Promise<Compatibility>(done=>{resolveFirst=done})),adapter:mockFridgeEditingAdapter()}
+ const second=service('refused')
+ const {rerender}=render(<FridgePhase2 fridge={fridge} viewer={viewer} service={first} enabled/>)
+ expect(first.check).toHaveBeenCalledTimes(1)
+ rerender(<FridgePhase2 fridge={fridge} viewer={{...viewer,personId:'priya',role:'CAREGIVER',sessionKey:'two'}} service={second} enabled/>)
+ expect(await screen.findByText('These records aren’t shared with this perspective.')).toBeInTheDocument()
+ await act(async()=>resolveFirst({kind:'ready'}))
+ expect(screen.queryByRole('button',{name:'Manage goals'})).not.toBeInTheDocument()
+ expect(screen.getByText('These records aren’t shared with this perspective.')).toBeInTheDocument()
 })
 it('updates the mounted whiteboard only after a confirmed completion, without changing approval',async()=>{
  const live=service();let resolve!:(goal:typeof sampleGoals[number])=>void
