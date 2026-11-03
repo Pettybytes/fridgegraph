@@ -1,0 +1,27 @@
+### Result
+{"conditions":"Local Vite, 1440x900, mounted App, memory mock adapters, no network throttling; 500ms module-only hover prefetch before first navigation; meaningful content = recorded goal DOM","cold":533.7000000476837,"warm":[115.30000001192093,55.80000001192093,49.200000047683716,55.60000002384186,103.80000001192093,55,21.899999976158142,22,43.69999998807907,34.19999998807907],"resources":[{"path":"/src/features/fridge/Phase2IntegrationPreview.tsx","ms":54.89999997615814,"bytes":11940},{"path":"/src/features/fridge/FridgeReadContext.ts","ms":129.9000000357628,"bytes":1172},{"path":"/src/features/fridge/FridgePhase2.tsx","ms":162,"bytes":23505},{"path":"/src/features/fridge/mockEditingAdapter.ts","ms":119.29999995231628,"bytes":13560},{"path":"/src/features/fridge/routeLoader.ts","ms":43.90000003576279,"bytes":2104},{"path":"/src/features/fridge/Fridge.tsx","ms":100.59999996423721,"bytes":86870},{"path":"/src/features/fridge/phase2Adapter.ts","ms":109.80000001192093,"bytes":20239},{"path":"/src/features/fridge/FridgeEditing.tsx","ms":109.30000001192093,"bytes":58391},{"path":"/src/features/fridge/useFridgeEditing.ts","ms":109.60000002384186,"bytes":19800},{"path":"/src/features/fridge/model.ts","ms":149.39999997615814,"bytes":10244},{"path":"/src/features/fridge/Magnet.tsx","ms":149.5999999642372,"bytes":15436},{"path":"/src/features/fridge/useFridgeSource.ts","ms":150.89999997615814,"bytes":4082},{"path":"/src/features/fridge/useFridgeViewport.ts","ms":151.60000002384186,"bytes":17553},{"path":"/src/features/fridge/fridge.css","ms":152.5,"bytes":17433},{"path":"/src/features/fridge/FamilyAlbum.tsx","ms":194.30000001192093,"bytes":11615},{"path":"/src/features/fridge/editingContract.ts","ms":189.30000001192093,"bytes":5349},{"path":"/src/features/fridge/fridge-editing.css","ms":189.30000001192093,"bytes":4281},{"path":"/src/features/fridge/ConnectedFridge.tsx","ms":348.5,"bytes":10640},{"path":"/src/features/fridge/reader.ts","ms":144,"bytes":5692},{"path":"/src/features/fridge/packs.ts","ms":144.80000001192093,"bytes":9405},{"path":"/public/fridge/packs/ellison/manifest.json","ms":11.099999964237213,"bytes":33103},{"path":"/fridge/packs/ellison/pack_dog-360.webp","ms":87.20000004768372,"bytes":28408},{"path":"/fridge/packs/ellison/pack_walter_navy-360.webp","ms":89,"bytes":47190},{"path":"/fridge/packs/ellison/pack_crayon_family-360.webp","ms":89.30000001192093,"bytes":25122},{"path":"/fridge/packs/ellison/pack_candid_kitchen-360.webp","ms":89.80000001192093,"bytes":32976}]}
+### Ran Playwright code
+```js
+await (async page=>{
+ await page.route(/\/api\/|\/graphql(?:\?|$)/,r=>r.abort())
+ await page.setViewportSize({width:1440,height:900})
+ await page.goto('http://127.0.0.1:5244/evidence/fridge-editing-integration/preview.html#/today');await page.reload()
+ await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
+ await page.getByRole('link',{name:'The Fridge',exact:true}).waitFor()
+ await page.getByRole('link',{name:'The Fridge',exact:true}).hover();await page.waitForTimeout(500)
+ const times=await page.evaluate(async()=>{
+  const ready=()=>document.querySelector('[aria-label="Recorded goals"]')?.textContent.includes('Read together after school')
+  const one=async()=>{const start=performance.now();location.hash='#/fridge';while(!ready()){if(performance.now()-start>5000)throw Error('Route timeout');await new Promise(requestAnimationFrame)}return performance.now()-start}
+  const cold=await one(),warm=[]
+  for(let i=0;i<10;i++){location.hash='#/today';await new Promise(r=>setTimeout(r,50));warm.push(await one())}
+  return {cold,warm}
+ })
+ return {conditions:'Local Vite, 1440x900, mounted App, memory mock adapters, no network throttling; 500ms module-only hover prefetch before first navigation; meaningful content = recorded goal DOM',...times,resources:await page.evaluate(()=>performance.getEntriesByType('resource').filter(e=>e.name.includes('/fridge/')||e.name.includes('/fridge.')).map(e=>({path:new URL(e.name).pathname,ms:e.duration,bytes:e.transferSize})))}
+}
+)(page);
+```
+### Page
+- Page URL: http://127.0.0.1:5244/evidence/fridge-editing-integration/preview.html#/fridge
+- Page Title: Fridge editing · Mock integration proof
+### Events
+- New console entries: .playwright-cli/console-2026-11-03T02-53-55-053Z.log#L3-L7

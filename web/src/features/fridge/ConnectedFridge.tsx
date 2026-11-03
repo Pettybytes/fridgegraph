@@ -21,5 +21,5 @@ export function ConnectedFridge(){
  if(!session||!access||!viewer)return <p>Choose a perspective to open the fridge.</p>
  const art=familyArt(access.selectedChildId)
  // Parent/guardian authority is only asserted for the session's own child, never borrowed across children.
- return <FridgePhase2 enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label}}/>
+ return <FridgePhase2 key={JSON.stringify([session.generation,session.persona.personId,access.selectedChildId,viewer.role,access.authorized])} enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label,artPackId:art.id,albumAssets:art.album}}/>
 }
