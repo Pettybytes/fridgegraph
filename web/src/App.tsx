@@ -37,6 +37,7 @@ import { ChildAccessProvider } from '@/features/personas/childContext'
 import { SignatureVillageRoute } from '@/components/signature'
 import { Activity } from '@/features/activity/Activity'
 import { InvitesPanel } from '@/features/invites/InvitesPanel'
+import { createLiveInvite } from '@/features/invites/liveInvite'
 import { ThreePhoneStory } from '@/features/story-replay/ThreePhoneStory'
 const FridgeRoute = lazy(() => import('@/features/fridge/ConnectedFridge').then(module => ({ default: module.ConnectedFridge })))
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
@@ -82,7 +83,9 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
         'ask-rosina': <div id="rosina-route-slot" className="rosina-route-page" />,
         'care-information': <>{authMode !== 'live' && <p className="persona-mock">Sample data</p>}<CareInformation /></>,
         calendar: <MapCalendarBridge>{connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null}</MapCalendarBridge>,
-        invitations: <InvitesPanel />,
+        invitations: session.accessToken && authMode === 'live'
+          ? <InvitesPanel mode="live" createInvite={createLiveInvite(() => getCurrentSession()?.accessToken ?? null)} />
+          : <InvitesPanel />,
         village: authMode === 'live'
           ? <section className="village-route" aria-label="Living Village workspace"><SignatureVillageRoute client={connection?.client ?? null} /></section>
           : <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
