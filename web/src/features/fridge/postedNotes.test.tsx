@@ -34,6 +34,7 @@ it('mounts confirmed posts on the door, preserves failed edits/removes, updates 
  expect(screen.getByRole('button',{name:'Family dinner · Sunday 6 PM'})).toBeInTheDocument()
  // Geometry persists, but private note bodies never enter browser storage.
  fireEvent.click(screen.getByRole('button',{name:'Open collage door'}))
+ fireEvent.click(screen.getByRole('button',{name:'Arrange items'}))
  fireEvent.keyDown(screen.getByRole('button',{name:'The family dog'}),{key:'ArrowRight',altKey:true})
  const stored=localStorage.getItem('fridge-layout:p_mom')!
  expect(stored).not.toContain('library');expect(Object.values(JSON.parse(stored))).toEqual([expect.objectContaining({x:expect.any(Number),y:expect.any(Number),width:expect.any(Number),rotation:expect.any(Number)})])
