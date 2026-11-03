@@ -156,14 +156,17 @@
   --fg-surface: oklch(1 0 0);
   --fg-elevated: oklch(1 0 0);
   --fg-ink: oklch(0.15 0.004 275);          /* ~#0B0B0C */
-  --fg-muted: oklch(0.555 0.017 262);       /* ~#6B7280 */
+  --fg-muted: oklch(0.50 0.016 262);        /* a hair darker than #6B7280 so secondary text clears AA on tinted card surfaces too */
   --fg-border: oklch(0.925 0.005 255);
-  --fg-primary: oklch(0.47 0.15 274);
-  --fg-primary-hover: oklch(0.42 0.15 274);
-  --fg-on-primary: oklch(0.99 0.01 274);
-  --fg-accent: oklch(0.64 0.17 25);
-  --fg-selection: oklch(0.93 0.04 274);
-  --fg-focus: oklch(0.55 0.15 274);
+  /* Interactive accent = landing sky-blue (NO purple anywhere; colour is reserved
+     for card TYPE). Primary buttons are solid near-black pills (see fg.css); this
+     accent carries links, focus, selection and the brand mark. */
+  --fg-primary: oklch(0.58 0.13 237);
+  --fg-primary-hover: oklch(0.52 0.13 237);
+  --fg-on-primary: oklch(0.99 0.006 237);
+  --fg-accent: var(--fg-primary);
+  --fg-selection: oklch(0.95 0.028 237);
+  --fg-focus: oklch(0.58 0.13 237);
   --fg-onway: oklch(0.70 0.12 75);
   --fg-onway-ink: oklch(0.42 0.09 68);
   --fg-withme: oklch(0.58 0.12 158);
@@ -177,8 +180,8 @@
   --fg-safe-ink: oklch(0.40 0.10 158);
   --fg-danger: oklch(0.55 0.19 27);
   --fg-danger-ink: oklch(0.45 0.16 27);
-  --rosina-periwinkle: oklch(0.72 0.08 262);
-  --rosina-violet: oklch(0.60 0.16 300);
+  --rosina-periwinkle: oklch(0.72 0.09 255);
+  --rosina-violet: oklch(0.56 0.16 276);   /* indigo, not violet — Rosina is indigo-accent only */
   --rosina-navy: oklch(0.32 0.07 274);
   --rosina-silver: oklch(0.82 0.01 262);
 
@@ -299,21 +302,25 @@ body,
   }
   body {
     margin: 0;
-    /* Ambient gradient field - a soft, static depth layer behind every surface
-       (picker, Today, village). Palette-tinted so it adapts light/dark; fixed so it
-       reads as a field the content floats over, not a scrolling texture. No motion. */
+    /* App-wide cloud-sky backdrop (self-hosted from the Framer landing), painted by
+       body::before as a fixed layer that fades into the white canvas — content floats
+       over sky and clouds at the top, clean paper below. No motion. */
     background-color: var(--fg-canvas);
-    /* Soft sky field (Framer-landing): airy sky-blue bloom from the top over white. */
-    background-image:
-      radial-gradient(1500px 940px at 50% -20%, color-mix(in oklch, var(--fg-sky) 24%, transparent), transparent 60%),
-      radial-gradient(1000px 680px at 102% 0%, color-mix(in oklch, var(--fg-sky) 12%, transparent), transparent 56%);
-    background-attachment: fixed;
-    background-repeat: no-repeat;
     color: var(--fg-ink);
     font-family: var(--font-sans);
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
   }
+  /* Soft atmospheric wash (not a vivid full-bleed photo): airy enough to read as the
+     landing sky, faint enough that text on surfaces stays AA. Dense/muted text belongs
+     on a card; only large ink hero text sits directly on the backdrop. */
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.5;
+    background: url('/sky-backdrop.png') center top / cover no-repeat;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 40%, transparent 72%);
+            mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 40%, transparent 72%);
+  }
+  @media (prefers-reduced-transparency: reduce) { body::before { opacity: 0.28; } }
   /* Dark mode needs higher-opacity glows to read over the dark canvas. */
   .dark body {
     background-image:
