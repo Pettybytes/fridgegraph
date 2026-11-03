@@ -22,12 +22,46 @@
 -- Catalog guards fail closed. If the table or the expected policy is not what this migration was
 -- written against, it raises instead of granting blind.
 
+--
+-- CATALOG GUARDS — fail closed. 0074 is the only migration that created this table's shape, so every
+-- assertion below is a statement about THAT shape. If any of them is false, the catalog has changed
+-- underneath this migration and granting blind would widen visibility we did not review. Each guard
+-- names the unexpected state; the migration aborts rather than "repairing" it.
+
 begin;
 
 do $$
+declare
+  v_rls boolean;
+  v_forced boolean;
+  v_select_policies int;
+  v_permissive text;
+  v_roles name[];
+  v_qual text;
+  v_qual_norm text;
 begin
   if to_regclass('public.villager_proposals') is null then
     raise exception '0088: public.villager_proposals is missing';
+  end if;
+
+  -- RLS must be ON and FORCED: a SECURITY DEFINER function owner would otherwise bypass the policy.
+  select c.relrowsecurity, c.relforcerowsecurity into v_rls, v_forced
+    from pg_class c
+   where c.oid = 'public.villager_proposals'::regclass;
+  if not v_rls then
+    raise exception '0088: row level security is not enabled on villager_proposals';
+  end if;
+  if not v_forced then
+    raise exception '0088: row level security is not FORCED on villager_proposals';
+  end if;
+
+  -- Exactly one SELECT policy, and it is the one this migration was written against. An extra
+  -- permissive SELECT policy would broaden visibility while looking like a harmless grant.
+  select count(*)::int into v_select_policies
+    from pg_policies
+   where schemaname = 'public' and tablename = 'villager_proposals' and cmd = 'SELECT';
+  if v_select_policies <> 1 then
+    raise exception '0088: expected exactly one SELECT policy on villager_proposals, found %', v_select_policies;
   end if;
 
   if not exists (
@@ -36,6 +70,27 @@ begin
        and policyname = 'villager_proposals_read' and cmd = 'SELECT'
   ) then
     raise exception '0088: expected the proposer-only SELECT policy villager_proposals_read';
+  end if;
+
+  select p.permissive, p.roles, p.qual into v_permissive, v_roles, v_qual
+    from pg_policies p
+   where p.schemaname = 'public' and p.tablename = 'villager_proposals'
+     and p.policyname = 'villager_proposals_read';
+
+  -- The policy must apply to signed-in callers only. `public`/`anon` here would expose proposals to
+  -- unauthenticated traffic the moment the grant lands.
+  if v_permissive <> 'PERMISSIVE' then
+    raise exception '0088: villager_proposals_read is unexpectedly %, not PERMISSIVE', v_permissive;
+  end if;
+  if v_roles <> array['authenticated']::name[] then
+    raise exception '0088: villager_proposals_read applies to %, expected {authenticated}', v_roles;
+  end if;
+
+  -- The predicate must remain the proposer-only decision. Whitespace is normalized only; nothing
+  -- else about it is inferred.
+  v_qual_norm := btrim(regexp_replace(coalesce(v_qual, ''), '\s+', ' ', 'g'));
+  if v_qual_norm <> '(proposer_id = current_person())' then
+    raise exception '0088: villager_proposals_read predicate changed: %', v_qual_norm;
   end if;
 
   -- A write policy would mean the table's write model changed underneath this migration.

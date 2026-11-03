@@ -87,7 +87,17 @@ async function main() {
 
     const files = readdirSync(join(REPO, 'supabase/migrations')).filter(f => f.endsWith('.sql')).sort()
     const target = '0088_villager_proposals_read_grant.sql'
-    const before = files.filter(f => f < target)
+    // The proof runs against the DEPLOYED baseline, not "everything in the tree". 0084-0087 are
+    // staged/unapplied on the project database; including them would prove a schema nobody is
+    // running. 0088 touches only villager_proposals (0074), which the deployed build reads today.
+    const UNAPPLIED = new Set([
+      '0084_demo_history.sql',
+      '0085_invite_budget_ledger.sql',
+      '0086_availability_view_hardening.sql',
+      '0087_outreach_dispatch.sql',
+    ])
+    const before = files.filter(f => f < target && !UNAPPLIED.has(f))
+    const excluded = files.filter(f => f < target && UNAPPLIED.has(f))
     const failures = []
     for (const file of before) {
       if (file.startsWith('0040')) {
@@ -105,7 +115,7 @@ async function main() {
       if (out.status !== 0) failures.push(`${file}: ${(out.stderr || '').split('\n').find(l => /ERROR/i.test(l)) ?? ''}`)
     }
     record('migration chain applies up to 0088', failures.length === 0 ? 'PASS' : 'FAIL',
-      failures.length ? failures.join(' | ').slice(0, 220) : `${before.length} migrations`)
+      failures.length ? failures.join(' | ').slice(0, 220) : `${before.length} migrations; excluded as unapplied: ${excluded.join(', ') || 'none'}`)
 
     // ── seed three people in two families ──
     const seed = psql(`

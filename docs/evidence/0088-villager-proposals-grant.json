@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-03T06:13:10.961Z",
+  "at": "2026-11-03T06:26:17.214Z",
   "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
   "migration": "0088_villager_proposals_read_grant.sql",
   "checks": [
@@ -16,7 +16,7 @@
     {
       "name": "migration chain applies up to 0088",
       "status": "PASS",
-      "detail": "82 migrations"
+      "detail": "79 migrations; excluded as unapplied: 0084_demo_history.sql, 0085_invite_budget_ledger.sql, 0086_availability_view_hardening.sql"
     },
     {
       "name": "three proposals seeded across two families",

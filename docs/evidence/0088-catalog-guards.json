@@ -1,0 +1,67 @@
+{
+  "at": "2026-11-03T06:25:46.158Z",
+  "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
+  "migration": "0088_villager_proposals_read_grant.sql",
+  "checks": [
+    {
+      "name": "disposable database started",
+      "status": "PASS",
+      "detail": "127.0.0.1:55446"
+    },
+    {
+      "name": "supabase-shaped prelude",
+      "status": "PASS",
+      "detail": "roles, auth schema, pgcrypto"
+    },
+    {
+      "name": "baseline chain applies up to 0088",
+      "status": "PASS",
+      "detail": "82 migrations"
+    },
+    {
+      "name": "POSITIVE CONTROL: unmutated catalog applies 0088",
+      "status": "PASS",
+      "detail": "grant applied"
+    },
+    {
+      "name": "ABORT on rls disabled",
+      "status": "PASS",
+      "detail": "0088: row level security is not enabled on villager_proposals"
+    },
+    {
+      "name": "ABORT on rls not forced",
+      "status": "PASS",
+      "detail": "0088: row level security is not FORCED on villager_proposals"
+    },
+    {
+      "name": "ABORT on expected SELECT policy removed",
+      "status": "PASS",
+      "detail": "0088: expected exactly one SELECT policy on villager_proposals, found 0"
+    },
+    {
+      "name": "ABORT on predicate broadened to true",
+      "status": "PASS",
+      "detail": "0088: villager_proposals_read predicate changed: true"
+    },
+    {
+      "name": "ABORT on policy widened to public role",
+      "status": "PASS",
+      "detail": "0088: villager_proposals_read applies to {public}, expected {authenticated}"
+    },
+    {
+      "name": "ABORT on extra permissive SELECT policy",
+      "status": "PASS",
+      "detail": "0088: expected exactly one SELECT policy on villager_proposals, found 2"
+    },
+    {
+      "name": "ABORT on write policy added",
+      "status": "PASS",
+      "detail": "0088: unexpected write policy on villager_proposals"
+    },
+    {
+      "name": "ABORT on table missing",
+      "status": "PASS",
+      "detail": "0088: public.villager_proposals is missing"
+    }
+  ]
+}
