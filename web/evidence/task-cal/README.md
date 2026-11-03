@@ -3,7 +3,7 @@
 Production build served on 127.0.0.1:5181. Playwright CLI session `cal`:
 
 ```sh
-playwright-cli -s=cal run-code --filename=web/evidence/task-cal/browser-proof.js
+browser automation -s=cal run-code --filename=web/evidence/task-cal/browser-proof.js
 ```
 
 Observed five passing flows: Kendra (status, linked records, unresolved facts, inclusive

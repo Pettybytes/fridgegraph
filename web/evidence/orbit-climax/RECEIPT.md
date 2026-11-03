@@ -8,13 +8,13 @@ with controlled adapters and an in-memory fixture channel between the two views.
 backend proof. #69 remains mocked. The supplied Nora photo is unchanged; fixture descriptors are
 red sweater, with the unsupported backpack removed.
 
-## Review and skills applied
+## Review decisions
 
-| Before | After | Why / skill |
+| Before | After | Review rationale |
 | --- | --- | --- |
 | Broad translucent red wash; small name and gray-looking details | Full shared-danger field, separate 1 Hz edge, display name, place/time chips and descriptor tags | Apple design: size, weight and tracking establish hierarchy without adding a palette |
-| Plain response buttons and only history below | 70–84px targets, 140ms press compression, persisted response confirmation | Emil design engineering: immediate physical press feedback; successful state follows the returned record |
-| Parent response changes text without a clear arrival | 480ms eased chip arrival from 8px / 0.94 scale, only for a newly observed ledger key | Emil: motion explains a real state change; no replay on polling or remount |
+| Plain response buttons and only history below | 70–84px targets, 140ms press compression, persisted response confirmation | interaction design design engineering: immediate physical press feedback; successful state follows the returned record |
+| Parent response changes text without a clear arrival | 480ms eased chip arrival from 8px / 0.94 scale, only for a newly observed ledger key | interaction design: motion explains a real state change; no replay on polling or remount |
 | Pale green card and nearly invisible confetti | Whole recipient screen goes green; red overlay fades, check draws, visible confetti and large exact thank-you | Apple: continuous transition and strong optical hierarchy, with no input lockout |
 | Potential motion without an equivalent static outcome | Static edge/ring/check/green under reduced motion; no confetti or vibration | Apple: preserve meaning without travel effects |
 

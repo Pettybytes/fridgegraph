@@ -12,38 +12,9 @@ Scope: `web/` only. Backend, schema, auth and data shape are out of scope here.
 
 ---
 
-## 1. Toolkit
+## 1. Design authority
 
-Installed at user/global scope on 2026-10-31. Skills are plain directories under each agent's
-skill path; copying one in or removing it is the whole install or uninstall. Pins are the commit
-each was taken from, so an update is a deliberate re-pull, never a silent drift.
-
-| Tool | Job | Agents that discover it | Licence | Install / reference |
-| --- | --- | --- | --- | --- |
-| **impeccable** (skill + `impeccable` CLI) | Detects frontend slop in source and in a rendered page; polish/audit/critique commands. | Claude Code, Gemini, Hermes, OpenClaw (file-present for Codex) | Apache-2.0 | Skill dir from `pbakaus/impeccable@4f95649` (`.claude/skills/impeccable`). Engine binary `0.1.18`, pinned by `scripts/engine-checksums.txt`; darwin-arm64 sha256 `543ee2f72036ad185dc9991ac3ba86b74d91f988f3d497776a088b8b65c8a9e1`, cached at `~/.impeccable/bin/0.1.18/`. CLI with no agent: `npx impeccable detect <path|url>`. |
-| **Emil Kowalski skills** (`animate`, `animation-performance`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `remove-animations`, `review-animations`, `apple-design`, `emil-design-eng`, `break-ui`, `ask-sonner`, `pick-ui-library`, `prototype`) | Motion decisions, interaction polish, web-app design-engineering judgement, worst-case stress of a component. | Claude Code, Gemini, Hermes, OpenClaw (file-present for Codex) | MIT | `emilkowalski/skills@a81dbca`. Native-only skills (`write-swift`, `mobile-native`, `animate-expo`) were left out: this product is web. |
-| **ui-skills** (`baseline-ui`, `fixing-accessibility`, `fixing-motion-performance`) | Fast deslop pass, accessibility audit/fix, animation-performance audit/fix. | Claude Code, Gemini, Hermes, OpenClaw (file-present for Codex) | MIT | `ibelick/ui-skills@b88b130`, `skills/` subtree only. The rest of that repo is its website and is not installed. |
-| **humanizer** | Removes AI-writing tells from prose while keeping the meaning. | Claude Code, Gemini, Hermes, OpenClaw (file-present for Codex) | MIT | `blader/humanizer@0ef9fe5`. Chosen over `avoid-ai-writing`: a single markdown skill that preserves meaning, versus a CLI/GitHub-Action/pre-commit detector that rewrites more aggressively and is a worse fit for keeping our exact required wording. |
-| **frontend-design** | General frontend design guidance (already installed, pre-dates this toolkit). | all | no upstream LICENSE | Guidance only. Do not copy its code into the repo. |
-| **playwright-cli** | Drives a real browser for the rendered checks below. | all | — | Already installed. |
-
-Deferred, not installed: Superpowers, drawio, demo-gif. Rejected: UI UX Pro Max, anime.js,
-img2threejs, Backlit, the SwiftUI skills, and any second motion library (`frontend.md` §1 already
-fixes Motion and GSAP as the two systems; a third would break the one-system rule).
-
-Uninstall: remove the matching directory from each agent skill path
-(`~/.claude/skills`, `~/.agents/skills`, `~/.gemini/skills`, `~/.hermes/skills`) and, for
-Impeccable's engine, `rm -rf ~/.impeccable`. See the toolkit PR report for the exact list.
-
-### What the detector writes and reaches
-
-The Impeccable launcher runs a self-contained engine. It reaches the network only to fetch its
-pinned engine binary from the project's GitHub releases, and refuses any download whose sha256 is
-not in `engine-checksums.txt`. It writes only under `~/.impeccable/`. It reads `HOME` and its own
-`IMPECCABLE_*` variables; it does not read `.env` or other secrets. Its plugin ships Claude Code
-hooks (`SessionStart`, `PostToolUse`, `Stop`) that call the detector on edited UI files. Those
-hooks are **not** enabled globally here; the quality gates below run the detector explicitly at
-PR time instead, so no project gets a silent on-every-edit scan. A project may opt into the hook.
+The rules below govern visual quality, interaction, accessibility and review.
 
 ---
 
@@ -51,14 +22,12 @@ PR time instead, so no project gets a silent on-every-edit scan. A project may o
 
 All four, in order. The first three produce evidence; the fourth is a written judgement.
 
-1. **Impeccable source scan.** `npx impeccable detect web/src/<changed paths>` (or `--json`).
-   Resolve or justify every finding. A per-file waiver needs a reason comment; a rule waiver
-   needs `impeccable ignores add-value ... --reason`.
-2. **Impeccable rendered-page check.** Run the dev server, then
-   `npx impeccable detect http://localhost:<port>/<route>`. This is where low contrast and tiny
-   text are caught; the source scan cannot see them.
-3. **Real browser check through `playwright-cli`**, at desktop (1440×900) and mobile (390×844),
-   light and dark. Say what you saw, not just that it ran.
+1. **Source quality review.** Resolve or justify every finding. A per-file or rule waiver
+   needs a written reason.
+2. **Rendered-page review.** Run the dev server and review the actual route for low contrast,
+   tiny text and layout defects that source inspection cannot see.
+3. **Real browser check**, at desktop (1440×900) and mobile (390×844), light and dark.
+   Say what you saw, not just that it ran.
 4. **Human visual review note** in the PR: the three weakest things you found and what you did
    about them.
 
@@ -92,9 +61,8 @@ small coral accents are brand, used for one job each (see §6), not slop.
 
 ## 4. Motion
 
-Follows `frontend.md` §1 and Emil's skills. Build motion with the `animate` skill; audit with
-`review-animations` / `improve-animations`; subtract with `remove-animations`; keep it inside the
-frame budget with `animation-performance` and `fixing-motion-performance`.
+Follows `frontend.md` §1. Review purpose, interaction and performance; remove unnecessary
+motion and keep necessary motion inside the frame budget.
 
 - **One animation system per component.** Motion (`motion/react`) for state, layout, enter/exit
   and gestures; GSAP only for multi-step timed choreography, and only with a written reason in the
@@ -149,9 +117,9 @@ Reference, not a reskin.
 
 ## 7. Copy
 
-Plain, specific language. Say the real thing. Run the `humanizer` skill over UI strings and any
+Plain, specific language. Say the real thing. Review UI strings and any
 README prose, and remove AI tells (not-X-but-Y contrasts, one-line closers, forced triads,
-dash-everywhere rhythm, inflated claims, stock words, filler). Humanizer keeps the meaning; it
+dash-everywhere rhythm, inflated claims, stock words, filler). Copy review keeps the meaning; it
 must never rewrite one of the exact required strings below.
 
 Required wording, carried verbatim (from the HANDOFF and the Rosina/Orbit contracts):

@@ -11,7 +11,7 @@ The self-contained chip was rendered beside Andre Ellison's existing portrait/na
 
 Playwright CLI showed the supplied emoji, text and ETA, plus a separate Sample chip. The 390px view kept the whole status within the person card. The only browser console error was the temporary fixture's missing favicon.
 
-Impeccable's source scan found no issue. Its rendered scan flagged only the app's existing cream canvas token; it remains under the design freeze.
+visual review's source scan found no issue. Its rendered scan flagged only the app's existing cream canvas token; it remains under the design freeze.
 
 Visual review, three weak points:
 
