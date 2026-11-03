@@ -326,3 +326,32 @@ equivalent to real reference-image support.
   already achieves this); the table can be left in place inert, or dropped in a dedicated
   forward-only migration if ever desired. No data from any OTHER table is referenced by anything
   this migration removes.
+
+### 8.7 App-owned card text — host and personal note (web only, no backend change)
+
+The backend response shape above is unchanged: extraction returns `childFirstName`, `occasion`,
+`date`, `startTime`, `endTime`, `timezone`, `placeLabel`, and nothing else. The **card** also shows a
+host line and a short personal note, and those are app-owned text — the same principle already stated
+at the top of this document ("the app owns the text layer; the child's name, date and venue are
+**never** sent to the image model"). They are:
+
+- `hostName` and `message`, added to the web `InviteEvent` type in
+  `web/src/features/invites/invite.ts`. Never extracted, never returned by the endpoint, never sent
+  to any model, never persisted.
+- Filled by `withInviteDefaults(event, defaultHostName)`: a blank host becomes the signed-in parent's
+  name, a blank note becomes `DEFAULT_INVITE_MESSAGE`. A value the family typed is never overwritten.
+  Applied once, in `InviteComposer`'s READY branch, so the fixture and live paths behave identically.
+- Editable in the card's field list ("Hosted by", "Personal message") and dropped from the layout
+  entirely when blank — the remaining type scale does not shift.
+
+**Fixture labelling is explicit in both layers.** The API says it with `provenance.source`
+(`FIXTURE` | `MUSE_IMAGE`) and `provenance.cached`; the UI says it three ways — the panel eyebrow
+("Sample preview"), a plain-words source note under the preview (in live mode it states outright that
+live art generation is switched off and the fixture is being shown), and the credit burned into the
+exported PNG footer, now `Sample art — not generated` for a fixture and `Art generated with Muse
+Image` for real Muse output. A fixture can therefore never be mistaken for newly generated art in a
+download, a screenshot, or the page itself.
+
+The rendered canvas is captioned as the downloaded PNG, and the readable card beside it is generated
+from the same ordered line spec (`lineSpecs`), so the exported image and the on-screen text cannot
+drift apart.
