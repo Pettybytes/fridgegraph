@@ -1,3 +1,4 @@
+import {onEnterSubmit, COMPOSER_HINT_MULTILINE} from '@/lib/composerKeys'
 import {NoticeComposer} from '@/features/notice-plan/NoticeComposer'
 import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
 import {OrbitPhotoChat} from '@/features/orbit/OrbitPreparation'
@@ -157,7 +158,11 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     if (sent.current || needsSignIn) { setDraft(message); return }
     void ask(message)
   }
-  function send(event:FormEvent){event.preventDefault();const message=draft.trim();if(!message||sent.current||needsSignIn)return;setDraft('');void ask(message)}
+  // One guarded submit path for both the form (button / Enter) — empty and whitespace-only do
+  // nothing; a turn already in flight (sent.current) or a pending re-auth blocks another submission
+  // and leaves the draft untouched so it is preserved.
+  function submitDraft(){const message=draft.trim();if(!message||sent.current||needsSignIn)return;setDraft('');void ask(message)}
+  function send(event:FormEvent){event.preventDefault();submitDraft()}
   function explanation(screen: ExplainableScreen): string {
     if (screen === 'calendar') return 'Family Calendar shows scheduled commitments and care in Detroit time. A schedule is not a confirmed location, and a gap in busy time is not confirmed availability.'
     if (screen === 'care-information') return 'This screen shows care information the family has shared with you. The care plan is named beneath the note.'
@@ -210,9 +215,8 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {orbit&&<OrbitPhotoChat controller={orbit}/>}
         {busy && <div className="rosina-progress" role="status"><strong>{adapter.mode==='live'?(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…'):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
       </div>
-      {!dismissed&&<NoticeComposer/>}
       {error && <p className="rosina-error" role="alert">{error}</p>}
-      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} rows={2} placeholder="What can I do here?" /><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply}/>}</div></form>
+      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={2} placeholder="What can I do here?" /><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span><button type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</button>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/>}{!dismissed&&<div className="rosina-notice-attach"><NoticeComposer/></div>}</div></form>
     </section>
   return <>
     {!pageTarget && <button type="button" ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</button>}

@@ -10,7 +10,7 @@ import {FridgeReadContext} from './FridgeReadContext'
 import type {FridgeReader} from './model'
 export function ConnectedFridge(){
  const {session}=useSession(),access=useChildAccess(),evidenceReader=useContext(FridgeReadContext)
- const reader=useMemo<FridgeReader>(()=>evidenceReader??(access?.client?createFridgeReader(access.client,access.runRead):{read:async()=>({status:'failed'})}),[evidenceReader,access?.client,access?.runRead])
+ const reader=useMemo<FridgeReader>(()=>evidenceReader??(access?.client?createFridgeReader(access.client,access.runRead):{read:async()=>({status:'unavailable'})}),[evidenceReader,access?.client,access?.runRead])
  const preview=usePhase2Preview()
  // Off until the migration + compatible backend have been deployed and verified.
  const verified=import.meta.env.VITE_FRIDGE_EDITING_VERIFIED==='true'
@@ -21,5 +21,5 @@ export function ConnectedFridge(){
  if(!session||!access||!viewer)return <p>Choose a perspective to open the fridge.</p>
  const art=familyArt(access.selectedChildId)
  // Parent/guardian authority is only asserted for the session's own child, never borrowed across children.
- return <FridgePhase2 enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label}}/>
+ return <FridgePhase2 key={JSON.stringify([session.generation,session.persona.personId,access.selectedChildId,viewer.role,access.authorized])} enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label,artPackId:art.id,albumAssets:art.album}}/>
 }

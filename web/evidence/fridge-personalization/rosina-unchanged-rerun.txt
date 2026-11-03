@@ -1,0 +1,16 @@
+npm notice run web@0.0.0 test
+npm notice run vitest run src/features/rosina/RosinaPanel.test.tsx
+
+ RUN  v5.0.5 /Users/user/Desktop/bentley/fridgegraph-fridge-personalization/web
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  22:11:25
+   Duration  4.19s (tests 34%, environment 27%, import 22%, transform 14%, setup 3%)
+

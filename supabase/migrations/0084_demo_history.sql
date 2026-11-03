@@ -20,6 +20,16 @@
 -- subject_id (deferred until a second subject type is actually needed). ON DELETE CASCADE through
 -- candidate_evaluations -> coordination_jobs means this table needs no sandbox column and no
 -- reset-code entry of its own: it is cleared automatically whenever its parent job is.
+--
+-- status PENDING/READY — the delivered-asset columns are NULL until Bentley supplies the real
+-- audio, its Muse transcript, its measured duration and its real hashes; proposed_script holds the
+-- authored TTS input text, kept apart from `transcript` (the ASR-verified output) for BOTH states
+-- — a script is never read back as a transcript, and vice versa. voice_note_access refuses
+-- playback for a PENDING note the same way it refuses an unauthorized one — never distinguishable.
+-- Three of this dataset's voice notes are now READY: vn_hist_08_1/09_1/12_1, reconciled from #167's
+-- delivered data/demo-voice/manifest.json after it merged (content_type is the PLAYBACK asset's
+-- MP3 type; muse_storage_path/muse_sha256 are the separate WAV that was fed to Muse, kept only for
+-- provenance — never served, never exposed to any GraphQL client).
 
 begin;
 
@@ -163,17 +173,52 @@ grant execute on function approve_pickup(text, int, int, text, text, boolean) to
 -- voice_notes
 -- ---------------------------------------------------------------------------------------------
 
+-- status: PENDING until Bentley delivers the real audio file, its Muse-generated transcript, its
+-- measured duration and its real sha256 — those columns are NULL, not a fabricated stand-in, until
+-- that happens (never a placeholder hash presented as a completed asset). proposed_script is the
+-- authored TTS input text — kept as its OWN permanent field, separate from `transcript` (the
+-- ASR-verified output), for both PENDING and READY rows: a transcript is never replaced by its
+-- script, and a script is never overwritten by its transcript (data/demo-voice/README.md).
+--
+-- generated_at/transcribed_at are the REAL, present-day instants the audio was synthesized and
+-- transcribed — distinct from the story's own fictional moment (already carried by the linked
+-- candidate_evaluations.responded_at). Never confusing "when this asset was actually produced"
+-- with "when, in the story, the caregiver spoke" is the whole point of keeping them apart.
+--
+-- storage_path/sha256 are the PLAYBACK asset (MP3, what the HTTP endpoint serves) with its own
+-- content_type; muse_storage_path/muse_sha256 are the SEPARATE WAV actually fed to Muse ASR — kept
+-- for provenance/traceability, never served over HTTP, never exposed to any GraphQL client (same
+-- "no provider plumbing to any client" rule as the rest of this table's public shape).
+--
+-- READY is set only once every delivered column below is filled in together, by the row that
+-- fills them.
 create table if not exists voice_notes (
-  id                text primary key,
-  response_id       text not null references candidate_evaluations(id) on delete cascade,
-  speaker_person_id text not null references people(id),
-  transcript        text not null check (char_length(transcript) > 0),
-  duration_seconds  numeric(6,2) not null check (duration_seconds > 0),
-  -- Coarse, turn-level only: [{speaker_person_id, start_sec, end_sec}, ...]. Never word-level.
-  turn_timings      jsonb,
-  storage_path      text not null,
-  sha256            text not null,
-  created_at        timestamptz not null default now()
+  id                 text primary key,
+  response_id        text not null references candidate_evaluations(id) on delete cascade,
+  speaker_person_id  text not null references people(id),
+  status             text not null default 'PENDING' check (status in ('PENDING', 'READY')),
+  proposed_script    text check (proposed_script is null or char_length(proposed_script) > 0),
+  transcript         text check (transcript is null or char_length(transcript) > 0),
+  duration_seconds   numeric(6,2) check (duration_seconds is null or duration_seconds > 0),
+  -- Coarse, turn-level only: [{speaker, startSec, endSec}, ...]. Never word-level.
+  turn_timings       jsonb,
+  storage_path       text,
+  sha256             text,
+  content_type       text check (content_type is null or content_type in ('audio/mpeg', 'audio/wav')),
+  generated_at       timestamptz,
+  transcribed_at     timestamptz,
+  muse_storage_path  text,
+  muse_sha256        text,
+  created_at         timestamptz not null default now(),
+  constraint voice_notes_ready_has_delivered_assets check (
+    status = 'PENDING'
+    or (
+      proposed_script is not null and transcript is not null and duration_seconds is not null
+      and storage_path is not null and sha256 is not null and content_type is not null
+      and generated_at is not null and transcribed_at is not null
+      and muse_storage_path is not null and muse_sha256 is not null
+    )
+  )
 );
 
 alter table voice_notes enable row level security;
@@ -198,20 +243,23 @@ create policy voice_notes_read on voice_notes for select to authenticated
 grant select on voice_notes to authenticated;
 
 -- Decided on EVERY request, by the database itself — same shape as orbit_photo_access (0037).
--- storage_path is returned only when access is granted: an unauthorized caller gets the same
--- empty answer as a nonexistent voice note id — no oracle. No signed URL is ever produced.
+-- storage_path is returned only when access is granted AND the note is READY: a PENDING note (no
+-- delivered audio file yet) is refused the SAME WAY as a forbidden one — a caller must never be
+-- able to tell "not yet delivered" from "not authorized" or "doesn't exist," and must never be
+-- handed a storage_path that doesn't point at a real file. No signed URL is ever produced.
 create or replace function voice_note_access(p_voice_note text)
-returns table (access text, storage_path text)
+returns table (access text, storage_path text, content_type text)
 language sql
 stable
 security definer
 set search_path = public
 as $$
   with vn as (
-    select id, response_id, speaker_person_id, storage_path from voice_notes where id = p_voice_note
+    select id, response_id, speaker_person_id, storage_path, content_type, status from voice_notes where id = p_voice_note
   ),
   lvl as (
     select case
+             when (select status from vn) is distinct from 'READY' then null
              when (select speaker_person_id from vn) = current_person() then 'SPEAKER'
              when exists (
                select 1 from candidate_evaluations ce
@@ -222,7 +270,8 @@ as $$
            end as access
   )
   select lvl.access,
-         case when lvl.access is not null then (select storage_path from vn) else null end
+         case when lvl.access is not null then (select storage_path from vn) else null end,
+         case when lvl.access is not null then (select content_type from vn) else null end
     from lvl
 $$;
 

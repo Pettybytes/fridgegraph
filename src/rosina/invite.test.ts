@@ -1,7 +1,10 @@
 /**
  * Invites slice tests: field extraction/validation, clarification on ambiguous dates, the art prompt
- * carrying no name/date/venue, non-parent refused with ZERO model calls, the process budget surviving
- * a new login, and the key never reaching logs. Express req/res faked; all deps injected; no network.
+ * carrying no name/date/venue, non-parent refused with ZERO model calls, the per-CHILD ledger budget
+ * surviving a new login (and staying independent per child, and untouched by FIXTURE), request
+ * deduplication (concurrent identical requests share one real call; a different request or a retry
+ * after failure is never deduplicated away), and the key never reaching logs. Express req/res faked;
+ * all deps injected; no network.
  * Run: npm run test:rosina
  */
 import assert from 'node:assert/strict';
@@ -9,9 +12,46 @@ import { test } from 'node:test';
 import type { Request, Response } from 'express';
 import { validateInviteFields } from './inviteFields';
 import { buildArtPrompt, assertNoPii, promptHash } from './invitePrompt';
-import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
-import { createGenerationBudget, createInviteRateLimiter } from './inviteBudget';
+import { createFixtureImageGenerator, createLiveImageGenerator, InviteImageConfirmedFailure, InviteImageUncertainFailure, type InviteImageGenerator } from './inviteImage';
+import { createInviteRateLimiter } from './inviteBudget';
 import { createInviteHandler, type InviteEndpointDeps } from './inviteEndpoint';
+import { createInviteDedup } from './inviteDedup';
+import type { InviteLedgerBudget } from './inviteLedgerBudget';
+
+/** A fake per-child ledger mirroring the real RPC pair (0085) exactly: reserve always
+ *  provisionally charges the FIXED per-generation cost (never a caller argument — mirrors the
+ *  SQL constant, which real code never sends either); settle replaces that provisional charge
+ *  with the ACTUAL charge computed from (status, cached) — $0 for FAILED or a cached SUCCEEDED,
+ *  the full reserved amount for an uncached SUCCEEDED or any UNCERTAIN outcome. A reservation can
+ *  only be settled once (mirrors the SQL's PENDING-only update). */
+function fakeLedgerBudget(capUsd = 1.0, costPerGeneration = 0.01): InviteLedgerBudget & { settled: Array<{ status: string; cached: boolean; actualCost: number }> } {
+  const reservations = new Map<string, { childId: string; cost: number }>(); // present = still PENDING
+  const byChild = new Map<string, number>(); // childId -> sum of PENDING+SUCCEEDED+UNCERTAIN cost
+  let seq = 0;
+  const settled: Array<{ status: string; cached: boolean; actualCost: number }> = [];
+  return {
+    settled,
+    async reserve({ childId }) {
+      const used = byChild.get(childId) ?? 0;
+      if (used + costPerGeneration > capUsd) return { allowed: false, generationId: null, remainingUsd: Math.max(0, capUsd - used) };
+      seq += 1;
+      const id = `ig_fake_${seq}`;
+      reservations.set(id, { childId, cost: costPerGeneration });
+      byChild.set(childId, used + costPerGeneration);
+      return { allowed: true, generationId: id, remainingUsd: Math.max(0, capUsd - used - costPerGeneration) };
+    },
+    async settle({ generationId, status, cached }) {
+      const r = reservations.get(generationId);
+      if (!r) return false; // already settled, or never reserved — settle is once-only
+      reservations.delete(generationId);
+      const actualCost = status === 'FAILED' ? 0 : status === 'SUCCEEDED' && cached ? 0 : r.cost;
+      settled.push({ status, cached, actualCost });
+      const used = byChild.get(r.childId) ?? 0;
+      byChild.set(r.childId, Math.max(0, used - r.cost + actualCost));
+      return true;
+    },
+  };
+}
 
 function fakeReq(headers: Record<string, string>, body: unknown): Request {
   return { header: (n: string) => headers[n.toLowerCase()], body } as unknown as Request;
@@ -34,7 +74,8 @@ function deps(over: Partial<InviteEndpointDeps> = {}): InviteEndpointDeps {
     extractor: async () => ({ ...COMPLETE }),
     image: createFixtureImageGenerator(),
     rateLimiter: { take: () => ({ allowed: true }) },
-    budget: createGenerationBudget(100),
+    dedup: createInviteDedup(),
+    ledgerBudget: fakeLedgerBudget(),
     source: 'FIXTURE',
     now: () => new Date('2026-11-02T12:00:00Z'),
     ...over,
@@ -117,7 +158,7 @@ test('a non-parent (and the demo guide) is refused with ZERO Spark or image call
     await createInviteHandler(deps({
       ...over,
       extractor: async () => { extracted = true; return { ...COMPLETE }; },
-      image: { generate: async () => { imaged = true; throw new Error('should not reach'); } },
+      image: { peekCached: () => false, generate: async () => { imaged = true; throw new Error('should not reach'); } },
     }))(fakeReq(auth, body), res);
     assert.equal(res.code, 403);
     assert.deepEqual(res.payload, { error: 'UNAUTHORIZED' });
@@ -126,17 +167,34 @@ test('a non-parent (and the demo guide) is refused with ZERO Spark or image call
   }
 });
 
-test('the generation budget is process-wide — a new login cannot reset it', async () => {
-  const budget = createGenerationBudget(1);
-  const h = createInviteHandler(deps({ budget, verify: async () => ({ ok: true, personId: 'p_mom', demoGuide: false }) }));
-  const r1 = fakeRes(); await h(fakeReq(auth, body), r1);
-  assert.equal(r1.code, 200); // first generation consumes the only budget
+test('the per-child ledger budget: a new login for the SAME child cannot reset it, a DIFFERENT child has an independent budget, and FIXTURE never touches it', async () => {
+  let reserveCalls = 0;
+  const budget = fakeLedgerBudget(0.01); // exactly one generation's worth, at $0.01/generation
+  const spyBudget: typeof budget = { ...budget, reserve: (i) => { reserveCalls++; return budget.reserve(i); } };
 
-  // a DIFFERENT person (fresh login) shares the same process budget and cannot reset it
-  const h2 = createInviteHandler(deps({ budget, verify: async () => ({ ok: true, personId: 'p_other', demoGuide: false }) }));
+  const h = createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: createFixtureImageGenerator(), verify: async () => ({ ok: true, personId: 'p_mom', demoGuide: false }) }));
+  const r1 = fakeRes(); await h(fakeReq(auth, body), r1);
+  assert.equal(r1.code, 200); // first generation consumes p_nora's only budget
+
+  // a DIFFERENT person (fresh login), SAME child — shares the same per-child budget
+  const h2 = createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: createFixtureImageGenerator(), verify: async () => ({ ok: true, personId: 'p_other', demoGuide: false }) }));
   const r2 = fakeRes(); await h2(fakeReq(auth, body), r2);
   assert.equal(r2.code, 429);
   assert.deepEqual(r2.payload, { error: 'BUDGET_EXHAUSTED' });
+
+  // a DIFFERENT child — independent budget, not exhausted by p_nora's spend
+  const h3 = createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: createFixtureImageGenerator() }));
+  const r3 = fakeRes(); await h3(fakeReq(auth, { ...body, childId: 'p_jax' }), r3);
+  assert.equal(r3.code, 200, "a different child's budget must not be exhausted by p_nora's spend");
+
+  assert.equal(reserveCalls, 3, 'MUSE_IMAGE reserves exactly once per actual request');
+
+  // FIXTURE (the default/off path) never calls reserve at all — it spends nothing
+  reserveCalls = 0;
+  const hFixture = createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'FIXTURE' }));
+  const r4 = fakeRes(); await hFixture(fakeReq(auth, body), r4);
+  assert.equal(r4.code, 200);
+  assert.equal(reserveCalls, 0, 'FIXTURE must never reach the paid-budget ledger');
 });
 
 test('the key never reaches logs (live image client + endpoint)', async () => {
@@ -195,18 +253,194 @@ test('a name that is a prefix of a theme word does NOT trip the guard (Star/Fern
   assert.equal((res.payload as any).status, 'READY');
 });
 
-test('if a name is exactly a theme word, the guard refuses cleanly (502) and REFUNDS the budget', async () => {
-  const budget = createGenerationBudget(1);
+test('if a name is exactly a theme word, the guard refuses cleanly (502) BEFORE any budget reservation', async () => {
+  let reserveCalls = 0;
+  const budget = fakeLedgerBudget(1.0);
+  const spyBudget: typeof budget = { ...budget, reserve: (i) => { reserveCalls++; return budget.reserve(i); } };
   // "Confetti" is a word in the birthday theme → the guard matches.
   const r1 = fakeRes();
-  await createInviteHandler(deps({ budget, extractor: async () => ({ childFirstName: 'Confetti', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r1);
+  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', extractor: async () => ({ childFirstName: 'Confetti', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r1);
   assert.equal(r1.code, 502);
   assert.deepEqual(r1.payload, { error: 'IMAGE_FAILED' });
-  assert.equal(budget.remaining(), 1, 'the budget unit was refunded — nothing was generated');
+  assert.equal(reserveCalls, 0, 'the guard runs BEFORE any reservation — nothing was ever reserved to refund');
 
-  // the refunded unit is still usable by the next valid request
+  // a valid request still has the full budget available
   const r2 = fakeRes();
-  await createInviteHandler(deps({ budget, extractor: async () => ({ childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r2);
+  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', extractor: async () => ({ childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r2);
   assert.equal(r2.code, 200);
-  assert.equal(budget.remaining(), 0);
+  assert.equal(reserveCalls, 1);
+});
+
+// ---- deduplication ----
+
+test('two concurrent identical requests (same caller, same child, same text) share ONE real extraction+image call, never two', async () => {
+  let extractCalls = 0, imageCalls = 0;
+  const dedup = createInviteDedup();
+  const h = createInviteHandler(deps({
+    dedup,
+    extractor: async () => { extractCalls++; await new Promise((r) => setTimeout(r, 10)); return { ...COMPLETE }; },
+    image: { peekCached: () => false, generate: async () => { imageCalls++; return createFixtureImageGenerator().generate({ prompt: '', promptHash: 'h' }); } },
+  }));
+  const [r1, r2] = [fakeRes(), fakeRes()];
+  await Promise.all([h(fakeReq(auth, body), r1), h(fakeReq(auth, body), r2)]);
+  assert.equal(r1.code, 200);
+  assert.equal(r2.code, 200);
+  assert.deepEqual(r1.payload, r2.payload, 'both callers get the identical result');
+  assert.equal(extractCalls, 1, 'one real extraction, not two');
+  assert.equal(imageCalls, 1, 'one real image call, not two');
+});
+
+test('a DIFFERENT request text from the same caller is NOT deduplicated — it runs for real', async () => {
+  let extractCalls = 0;
+  const h = createInviteHandler(deps({ extractor: async () => { extractCalls++; return { ...COMPLETE }; } }));
+  await h(fakeReq(auth, body), fakeRes());
+  await h(fakeReq(auth, { ...body, request: body.request + ' with balloons' }), fakeRes());
+  assert.equal(extractCalls, 2);
+});
+
+test('a request retried AFTER a failure is NOT deduplicated — an explicit retry must actually retry', async () => {
+  let extractCalls = 0;
+  const h = createInviteHandler(deps({
+    source: 'MUSE_IMAGE',
+    extractor: async () => { extractCalls++; return { ...COMPLETE }; },
+    image: { peekCached: () => false, generate: async () => { throw new Error('model down'); } },
+  }));
+  const r1 = fakeRes(); await h(fakeReq(auth, body), r1);
+  assert.equal(r1.code, 502);
+  const r2 = fakeRes(); await h(fakeReq(auth, body), r2); // explicit retry, same text
+  assert.equal(r2.code, 502);
+  assert.equal(extractCalls, 2, 'a failure is never cached — retry must run for real');
+});
+
+test('a successful MUSE_IMAGE generation settles the reservation SUCCEEDED with a real output hash', async () => {
+  const settled: Array<{ status: string; outputSha256: string | null }> = [];
+  const budget: InviteLedgerBudget = {
+    reserve: async () => ({ allowed: true, generationId: 'ig_1', remainingUsd: 0.96 }),
+    settle: async (i) => { settled.push({ status: i.status, outputSha256: i.outputSha256 }); return true; },
+  };
+  const res = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: budget, source: 'MUSE_IMAGE' }))(fakeReq(auth, body), res);
+  assert.equal(res.code, 200);
+  assert.equal(settled.length, 1);
+  assert.equal(settled[0].status, 'SUCCEEDED');
+  assert.equal(settled[0].outputSha256?.length, 64, 'a real sha256 of the generated bytes, not null');
+});
+
+// ---- cache hits and uncertain outcomes (corrections to #178) ----
+
+test('a KNOWN cache hit skips reservation entirely — it is never blocked by an exhausted budget and never billed', async () => {
+  const budget = fakeLedgerBudget(0.01); // exactly one generation's worth
+  let reserveCalls = 0;
+  const spyBudget: typeof budget = { ...budget, reserve: (i) => { reserveCalls++; return budget.reserve(i); } };
+  const fetchFn = (async () => ({ ok: true, json: async () => ({ data: [{ b64_json: 'QUJD' }] }) })) as unknown as typeof fetch;
+  const live = createLiveImageGenerator({ apiKey: 'k', baseUrl: 'http://unused/v1', fetchFn });
+
+  // First request: a real, uncached generation — consumes the only $0.01 of budget.
+  const r1 = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: live }))(fakeReq(auth, body), r1);
+  assert.equal(r1.code, 200);
+  assert.equal(reserveCalls, 1);
+  assert.equal(budget.settled.length, 1);
+  assert.equal(budget.settled[0].cached, false);
+  assert.equal(budget.settled[0].actualCost, 0.01, 'the real generation is charged the full price');
+
+  // Second request, SAME prompt (same occasion -> same art-only prompt -> same hash) -> the live
+  // client's own cache already holds it, so the endpoint's peekCached() check sees it BEFORE
+  // reserving. The budget was fully spent by request 1, but this must still succeed, because a
+  // known cache hit is never billed and so must never be gated by the cap at all.
+  const r2 = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: live }))(fakeReq(auth, body), r2);
+  assert.equal(r2.code, 200, 'a known cache hit must succeed even though the reserved budget is fully spent');
+  assert.equal(reserveCalls, 1, 'a known cache hit never calls reserve() at all — nothing to gate');
+  assert.equal(budget.settled.length, 1, 'a known cache hit never calls settle() either — nothing was ever reserved to settle');
+
+  // Third request, a GENUINELY DIFFERENT (not cached) prompt — the real budget is still fully
+  // spent by request 1's real generation, so this is correctly refused. Proves the cache-hit
+  // exemption above is narrow: it does not quietly reopen the budget for real new spend.
+  const r3 = fakeRes();
+  await createInviteHandler(deps({
+    ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: live,
+    extractor: async () => ({ childFirstName: 'Nora', occasion: 'Space party', date: '2026-12-01' }),
+  }))(fakeReq(auth, body), r3);
+  assert.equal(r3.code, 429, 'a genuinely new, uncached request is still correctly refused — the real spend from request 1 is unaffected by the free cache hit');
+});
+
+test('a RACE (peekCached said false, but generate() turns out cached anyway) still settles $0 — settle-time `cached` is the real source of truth', async () => {
+  const budget = fakeLedgerBudget(0.01);
+  // A concurrent request populated the provider-side cache between this request's peekCached()
+  // check and its own generate() call — simulated directly: peekCached lies (always false, so
+  // the endpoint still reserves), but generate() returns cached:true regardless.
+  const raceyImage: InviteImageGenerator = {
+    peekCached: () => false,
+    generate: async ({ promptHash }) => ({
+      art: { mimeType: 'image/png', width: 1024, height: 1024, base64: 'QUJD', quietArea: { x: 0, y: 0, w: 1, h: 1 } },
+      provenance: { source: 'MUSE_IMAGE', model: 'muse-image-1.0', cached: true, promptHash },
+    }),
+  };
+  const res = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: budget, source: 'MUSE_IMAGE', image: raceyImage }))(fakeReq(auth, body), res);
+  assert.equal(res.code, 200);
+  assert.equal(budget.settled.length, 1, 'this path DOES reserve (peekCached said false) and DOES settle — unlike the known-cache-hit path above');
+  assert.equal(budget.settled[0].cached, true);
+  assert.equal(budget.settled[0].actualCost, 0, 'the reservation is still correctly released to $0 by the real settle-time cached fact, even though it was reserved');
+});
+
+test('an UNCERTAIN outcome (network error after send) is charged conservatively, never released', async () => {
+  const budget = fakeLedgerBudget(0.01); // exactly one generation's worth
+  const uncertainImage: InviteImageGenerator = { peekCached: () => false, generate: async () => { throw new InviteImageUncertainFailure('IMAGE_NETWORK_timeout'); } };
+
+  const r1 = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: budget, source: 'MUSE_IMAGE', image: uncertainImage }))(fakeReq(auth, body), r1);
+  assert.equal(r1.code, 502);
+  assert.equal(budget.settled[0].status, 'UNCERTAIN');
+  assert.equal(budget.settled[0].actualCost, 0.01, 'an uncertain outcome keeps the full reserved charge — the provider may have billed for it');
+
+  // Budget is now fully spent by the UNCERTAIN charge — a second request for the same child must
+  // be refused, proving the charge was real, not silently released.
+  const r2 = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: budget, source: 'MUSE_IMAGE', image: uncertainImage }))(fakeReq(auth, body), r2);
+  assert.equal(r2.code, 429);
+  assert.deepEqual(r2.payload, { error: 'BUDGET_EXHAUSTED' });
+});
+
+test('a CONFIRMED provider failure (a clean HTTP error, never generated) is free — distinct from UNCERTAIN', async () => {
+  const budget = fakeLedgerBudget(0.01);
+  const confirmedImage: InviteImageGenerator = { peekCached: () => false, generate: async () => { throw new InviteImageConfirmedFailure('IMAGE_HTTP_400'); } };
+
+  const r1 = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: budget, source: 'MUSE_IMAGE', image: confirmedImage }))(fakeReq(auth, body), r1);
+  assert.equal(r1.code, 502);
+  assert.equal(budget.settled[0].status, 'FAILED');
+  assert.equal(budget.settled[0].actualCost, 0, 'a confirmed, never-generated failure costs nothing');
+
+  // The released budget means a second request succeeds.
+  const r2 = fakeRes();
+  await createInviteHandler(deps({ ledgerBudget: budget, source: 'MUSE_IMAGE', image: createFixtureImageGenerator() }))(fakeReq(auth, body), r2);
+  assert.equal(r2.code, 200, 'the confirmed failure released the budget, unlike an uncertain one');
+});
+
+test('createLiveImageGenerator classifies failures correctly: HTTP error -> CONFIRMED, malformed/oversized 200 body -> UNCERTAIN', async () => {
+  const httpError = createLiveImageGenerator({
+    apiKey: 'k', baseUrl: 'http://unused/v1',
+    fetchFn: (async () => ({ ok: false, status: 400 })) as unknown as typeof fetch,
+  });
+  await assert.rejects(() => httpError.generate({ prompt: 'p', promptHash: 'h1' }), InviteImageConfirmedFailure);
+
+  const networkError = createLiveImageGenerator({
+    apiKey: 'k', baseUrl: 'http://unused/v1',
+    fetchFn: (async () => { throw new Error('ECONNRESET'); }) as unknown as typeof fetch,
+  });
+  await assert.rejects(() => networkError.generate({ prompt: 'p', promptHash: 'h2' }), InviteImageUncertainFailure);
+
+  const emptyBody = createLiveImageGenerator({
+    apiKey: 'k', baseUrl: 'http://unused/v1',
+    fetchFn: (async () => ({ ok: true, json: async () => ({ data: [{}] }) })) as unknown as typeof fetch,
+  });
+  await assert.rejects(() => emptyBody.generate({ prompt: 'p', promptHash: 'h3' }), InviteImageUncertainFailure);
+
+  const oversized = createLiveImageGenerator({
+    apiKey: 'k', baseUrl: 'http://unused/v1',
+    fetchFn: (async () => ({ ok: true, json: async () => ({ data: [{ b64_json: 'A'.repeat(9_000_000) }] }) })) as unknown as typeof fetch,
+  });
+  await assert.rejects(() => oversized.generate({ prompt: 'p', promptHash: 'h4' }), InviteImageUncertainFailure);
 });

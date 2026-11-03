@@ -95,6 +95,41 @@ const typeDefs = parse(`
       acceptOverLimit: Boolean = false
     ): CoordinationJob!
 
+    """
+    Invites (slim), money-adjacent (AGENTS.md §1.6: senior-only, human review required before any
+    apply — this mutation is STAGED, never applied live by this PR). Reserves cost against the
+    CHILD's per-day budget (0085) atomically — concurrent callers for the same child cannot both
+    pass. Parent/guardian of the child only, same generic UNAUTHORIZED as every other money-
+    adjacent read here. Never returns another family's data, a model name, a prompt, or a raw
+    cost figure — only whether this reservation was allowed and what remains today.
+
+    Cost is decided SERVER-SIDE ONLY — there is no costUsd argument. The per-generation price
+    (Muse Image, $0.01/image, Meta's published figure) is a fixed constant inside the 0085 RPC;
+    a caller cannot set or influence it.
+    """
+    reserveInviteBudget(childId: ID!, source: String!, promptHash: String!): InviteBudgetReservation!
+
+    """
+    Settles a reservation after the image call resolves. The caller reports FACTS it observed —
+    which of the three closed outcomes occurred, and whether this was a cache hit — never a
+    price: the actual charged cost is computed server-side from (status, cached), never from an
+    argument (0085). SUCCEEDED + cached charges $0.00 (no new provider call was made); SUCCEEDED
+    + not cached charges the real reserved amount; UNCERTAIN keeps the reserved amount charged
+    (the provider may have billed even though this process got no usable result — never refunded
+    by default); FAILED charges $0.00 (a CONFIRMED pre-generation refusal only). Caller must own
+    the reservation, and a reservation settles exactly once — replaying or overriding a prior
+    outcome is refused.
+
+    SETTLEMENT IS TRUSTED SERVER WORK, not a caller-reported fact: owning the reservation is
+    necessary but NOT sufficient. proof is an hmac-sha256 over the exact settlement facts, keyed
+    with a secret only Rosina's own backend holds (src/rosina/inviteLedgerBudget.ts) — never a
+    browser, never any other authenticated caller, even the reservation's own legitimate owner.
+    0085 verifies the same hmac and fails CLOSED on any mismatch, so a caller cannot simply claim
+    FAILED or cached:true to falsely release a real, billed generation. This check lives inside
+    the SQL function itself — it protects a direct RPC call identically to this mutation.
+    """
+    settleInviteBudget(generationId: ID!, status: InviteGenerationOutcome!, model: String, outputSha256: String, cached: Boolean!, proof: String!): Boolean!
+
     """Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing."""
     orbitDraft(
       childId: ID!
@@ -204,6 +239,12 @@ const typeDefs = parse(`
     """
     lastSeenPlace: RecordedPlace
     lastSeenAt: String
+    """
+    How the last-seen place/time was recorded: PARENT_ENTERED only when a parent supplied both.
+    Null means no provenance was captured, and lastSeenPlace/lastSeenAt are then null too — a
+    timestamp is never derived from an activation or any other synthetic instant.
+    """
+    lastSeenProvenance: String
     audience: [OrbitAudienceMember!]!
     responses: [OrbitResponseEntry!]!
     latestResponses: [OrbitResponseEntry!]!
@@ -288,6 +329,11 @@ const typeDefs = parse(`
     CANDIDATE_JWT
   }
 
+  enum ResponseKind {
+    ACCEPTED
+    DECLINED
+  }
+
   type CoordinationJob {
     id: ID!
     idempotencyKey: String!
@@ -311,7 +357,26 @@ const typeDefs = parse(`
     paidRidePath: Boolean!
   }
 
+  type InviteBudgetReservation {
+    allowed: Boolean!
+    generationId: ID
+    remainingUsd: Float!
+  }
+
+  """A closed set, never a free string — the caller reports which of these occurred; the SERVER
+  (0085) alone decides the resulting charge. UNCERTAIN means the provider may have billed even
+  though this process got no usable result (a network timeout after send, or a local validation
+  failure on an otherwise-200 response) — charged conservatively, never refunded by default."""
+  enum InviteGenerationOutcome {
+    SUCCEEDED
+    FAILED
+    UNCERTAIN
+  }
+
   type CandidateEvaluation {
+    """Null on a response synthesized from a mutation's own return (e.g. acceptPickup's candidate-only
+    outcome), which carries no stored row id. Never null for a row read back from storage."""
+    id: ID
     candidate: Person!
     reasonCode: String
     available: Boolean
@@ -322,6 +387,12 @@ const typeDefs = parse(`
     distanceMiles: Float
     locationProvenance: String
     costCalculatedAt: String
+    """Set only once a real human answered (accept_pickup) — null for a pending/no-reply evaluation."""
+    respondedAt: String
+    responseKind: ResponseKind
+    """The private voice note attached to this response, if any. Same no-oracle null as voiceNote(id)
+    itself: a caller who may not see it gets null, identical to there being none."""
+    voiceNoteId: ID
   }
 
   type Attempt {
@@ -359,13 +430,30 @@ const typeDefs = parse(`
     endSec: Float!
   }
 
+  """PENDING until the real audio, its Muse transcript, its measured duration and its real sha256
+  are all delivered; READY only once they are. A PENDING note is never playable — the HTTP endpoint
+  and voice_note_access (0084) refuse it the same way they refuse an unauthorized caller."""
+  enum VoiceNoteStatus {
+    PENDING
+    READY
+  }
+
   """Transcript/duration/speaker metadata for a private voice note. Audio bytes are a separate,
-  re-checked-every-request HTTP fetch — never bundled here, never a provider/cost/script field."""
+  re-checked-every-request HTTP fetch — never bundled here, never a provider/cost field."""
   type VoiceNote {
     id: ID!
+    """The CandidateEvaluation this note was recorded against — the same link CandidateEvaluation.
+    voiceNoteId exposes from the other side."""
+    responseId: ID!
+    status: VoiceNoteStatus!
     speaker: Person!
-    transcript: String!
-    durationSeconds: Float!
+    """The delivered, ASR-verified transcript. Null while status is PENDING — see proposedScript."""
+    transcript: String
+    """The authored TTS input text — permanently distinct from transcript (the ASR-verified
+    output) for BOTH statuses. Never cleared or superseded once READY: a transcript is never
+    replaced by its script, and a script is never overwritten by its transcript."""
+    proposedScript: String
+    durationSeconds: Float
     turnTimings: [TurnTiming!]
     createdAt: String!
   }
@@ -417,6 +505,9 @@ const jobFromRow = (j: JobRow) => ({
 });
 
 const evalFromRow = (e: Record<string, unknown>) => ({
+  // Absent on the hand-built object acceptPickup returns (no stored row id to give) — null there,
+  // same convention as every other field below.
+  id: e.id == null ? null : String(e.id),
   candidate: { id: String(e.candidate_id) },
   reasonCode: e.reason_code == null ? null : String(e.reason_code),
   available: e.available == null ? null : Boolean(e.available),
@@ -427,6 +518,8 @@ const evalFromRow = (e: Record<string, unknown>) => ({
   distanceMiles: e.distance_miles == null ? null : Number(e.distance_miles),
   locationProvenance: e.location_provenance == null ? null : String(e.location_provenance),
   costCalculatedAt: e.cost_calculated_at == null ? null : String(e.cost_calculated_at),
+  respondedAt: e.responded_at == null ? null : String(e.responded_at),
+  responseKind: e.response_kind == null ? null : String(e.response_kind),
 });
 
 const confFromRow = (c: Record<string, unknown>) => ({
@@ -544,6 +637,10 @@ async function orbitAlertPayload(ctx: Ctx, a: Record<string, unknown>) {
       ? null
       : { id: String(shareRow.last_seen_place_id), kind: String(shareRow.place_kind), label: String(shareRow.place_label) },
     lastSeenAt: shareRow?.last_seen_at ?? null,
+    // How the recorded place/time came to exist. 0089 returns the place/time pair only when this is
+    // present, so a legacy or synthetic timestamp can never be read as an observation. The resolver
+    // passes it through rather than computing a fallback: absence IS the answer.
+    lastSeenProvenance: shareRow?.last_seen_source ?? null,
     audience: audience.map((m) => ({
       person: { id: String(m.person_id) },
       notifyOrder: Number(m.notify_order),
@@ -926,16 +1023,22 @@ const resolvers = {
       const data = await rows(
         dbFor(ctx)
           .from('voice_notes')
-          .select('id,speaker_person_id,transcript,duration_seconds,turn_timings,created_at')
+          .select('id,response_id,speaker_person_id,status,proposed_script,transcript,duration_seconds,turn_timings,created_at')
           .eq('id', id),
       );
       const row = data[0];
       if (!row) return null;
       return {
         id: String(row.id),
+        responseId: String(row.response_id),
+        status: String(row.status),
         speaker: { id: String(row.speaker_person_id) },
-        transcript: String(row.transcript),
-        durationSeconds: Number(row.duration_seconds),
+        // Delivered and proposed never collapse into one field: a PENDING row has transcript
+        // null (only proposedScript filled); a READY row has both — proposedScript is never
+        // cleared by delivery.
+        transcript: row.transcript == null ? null : String(row.transcript),
+        proposedScript: row.proposed_script == null ? null : String(row.proposed_script),
+        durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
         turnTimings: row.turn_timings == null ? null : row.turn_timings,
         createdAt: String(row.created_at),
       };
@@ -1144,6 +1247,53 @@ const resolvers = {
       if (error) rpcError(error);
       return jobById(ctx, args.jobId);
     },
+
+    // No costUsd argument: the per-generation price is a fixed constant inside the 0085 RPC
+    // itself — a caller cannot set or influence it. See the schema doc comment above.
+    reserveInviteBudget: async (
+      _: unknown,
+      args: { childId: string; source: string; promptHash: string },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('invite_budget_reserve', {
+        p_child: args.childId,
+        p_source: args.source,
+        p_prompt_hash: args.promptHash,
+      });
+      if (error) rpcError(error);
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { allowed: boolean; generation_id: string | null; remaining_usd: number }
+        | undefined;
+      if (!row) throw new GraphQLError('RPC_FAILED', { extensions: { code: 'RPC_FAILED' } });
+      return { allowed: row.allowed, generationId: row.generation_id, remainingUsd: Number(row.remaining_usd) };
+    },
+
+    // `status` is the InviteGenerationOutcome enum (closed set), and `cached` is a FACT the
+    // caller observed — the RPC itself computes the actual charged cost_usd from those two
+    // inputs; nothing here or in 0085 accepts a price from the caller. `proof` is forwarded
+    // VERBATIM — this resolver does not compute or validate it; 0085's own hmac check is what
+    // decides whether the settlement is trusted (see the typeDefs doc comment above). This
+    // resolver adds no bypass for a direct RPC call: the check lives entirely in the SQL function.
+    settleInviteBudget: async (
+      _: unknown,
+      args: { generationId: string; status: string; model?: string | null; outputSha256?: string | null; cached: boolean; proof: string },
+      ctx: Ctx,
+    ) => {
+      refuseDemoGuideWrite(ctx);
+      requireCaller(ctx);
+      const { data, error } = await dbFor(ctx).rpc('invite_budget_settle', {
+        p_generation: args.generationId,
+        p_status: args.status,
+        p_model: args.model ?? null,
+        p_output_sha256: args.outputSha256 ?? null,
+        p_cached: args.cached,
+        p_proof: args.proof,
+      });
+      if (error) rpcError(error);
+      return Boolean(data);
+    },
   },
 
   Attempt: {
@@ -1173,7 +1323,7 @@ const resolvers = {
       const data = await rows(
         dbFor(ctx)
           .from('candidate_evaluations')
-          .select('candidate_id,reason_code,available,decline_reason,accepted_via,estimated_ride_cost_usd,cost_basis,distance_miles,location_provenance,cost_calculated_at')
+          .select('id,candidate_id,reason_code,available,decline_reason,accepted_via,estimated_ride_cost_usd,cost_basis,distance_miles,location_provenance,cost_calculated_at,responded_at,response_kind')
           .eq('job_id', j.id),
       );
       return data.map((e) => evalFromRow(e as Record<string, unknown>));
@@ -1197,6 +1347,20 @@ const resolvers = {
 
   Confirmation: {
     job: (c: { job: { id: string } }) => c.job,
+  },
+
+  CandidateEvaluation: {
+    // A lazy field resolver, not a join baked into evalFromRow: most callers never ask for this,
+    // and it needs its own RLS-scoped read (voice_notes_read, 0084) to decide visibility. No stored
+    // row id (acceptPickup's hand-built outcome) means no note to look up — null, not a query.
+    voiceNoteId: async (ce: { id?: string | null }, _a: unknown, ctx: Ctx) => {
+      if (!ce.id) return null;
+      requireCaller(ctx);
+      const data = await rows(
+        dbFor(ctx).from('voice_notes').select('id').eq('response_id', ce.id),
+      );
+      return data.length ? String(data[0].id) : null;
+    },
   },
 };
 

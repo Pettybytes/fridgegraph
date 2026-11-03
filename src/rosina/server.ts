@@ -27,11 +27,14 @@ import { createSparkNoticeExtractor } from './noticeExtractor';
 import { buildScheduleReader, buildPickupRequester, requireGraphqlUrl } from './noticeDeps';
 import { createInviteHandler } from './inviteEndpoint';
 import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
-import { createInviteRateLimiter, createGenerationBudget } from './inviteBudget';
+import { createInviteRateLimiter } from './inviteBudget';
 import { createSparkInviteExtractor, buildInviteParentAuthorizer } from './inviteDeps';
 import { createPinHandlers } from './pinEndpoint';
 import { buildPinDeps } from './pinDeps';
 import { pinIntakeReadiness } from './pinReadiness';
+import { createMuseReferenceStyleExtractor } from './inviteReference';
+import { buildInviteLedgerBudget } from './inviteLedgerBudget';
+import { createInviteDedup } from './inviteDedup';
 
 loadEnv();
 
@@ -58,10 +61,16 @@ const NOTICE_SCENARIO_DATE = process.env.ROSINA_NOTICE_SCENARIO_DATE ?? '2026-10
 
 // Invites (slim). Field extraction uses Muse Spark; image is a FIXTURE by default, live muse-image-1.0
 // only behind INVITE_LIVE=1 (UNVERIFIED — reconfirm Meta's image docs first). Parent authz runs AS
-// THE CALLER against the router (ROSINA_GRAPHQL_URL). Budget is process-wide (a new login can't reset).
+// THE CALLER against the router (ROSINA_GRAPHQL_URL). Budget is per-CHILD and persistent (0085,
+// STAGED) — the daily cap itself lives in the DB (household_policies 'invite_daily_budget_usd',
+// default $1.00/day), not here; a new login sharing the same child shares the same budget.
 const INVITE_LIVE = process.env.INVITE_LIVE === '1';
-const INVITE_BUDGET = Number(process.env.INVITE_GENERATION_BUDGET ?? 50);
 const INVITE_RATE_PER_MIN = Number(process.env.INVITE_RATE_LIMIT_PER_MIN ?? 6);
+// Settlement is trusted server work, not a caller-reported fact (0085) — this secret proves a
+// settleInviteBudget call genuinely came from this process, which alone observed the real
+// provider outcome. Never logged, never sent to any client. Required only when INVITE_LIVE=1
+// (FIXTURE never reserves/settles at all, so the secret is otherwise unused).
+const INVITE_SETTLEMENT_SECRET = process.env.INVITE_SETTLEMENT_HMAC_SECRET ?? '';
 
 const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
 
@@ -155,8 +164,13 @@ export function createRosinaApp() {
   // The notice-plan routes carry an image/PDF, so they parse their own (larger) body; every other
   // route keeps the 64kb cap. Mounting this as a gate keeps the global cap off exactly those paths.
   app.use((req: Request, res: Response, next: (err?: unknown) => void) => {
-    // notice-plan and pin/upload carry an image, so they parse their own (larger) body.
-    if (req.path.startsWith('/api/rosina/notice-plan') || req.path === '/api/rosina/pin/upload') { next(); return; }
+    // notice-plan (PDF/photo), invite (optional reference image) and pin/upload (photo) carry an
+    // image, so they parse their own (larger) body; every other route keeps the 64kb cap.
+    if (
+      req.path.startsWith('/api/rosina/notice-plan') ||
+      req.path === '/api/rosina/invite' ||
+      req.path === '/api/rosina/pin/upload'
+    ) { next(); return; }
     jsonSmall(req, res, next);
   });
   // A malformed JSON body reaches here as a SyntaxError from express.json(); treat it the same
@@ -237,6 +251,9 @@ export function createRosinaApp() {
   try {
     const c = resolveProvider('meta');
     const graphqlUrl = requireGraphqlUrl(); // router, as the caller — same as notice-plan
+    if (INVITE_LIVE && !INVITE_SETTLEMENT_SECRET) {
+      throw new Error('INVITE_SETTLEMENT_HMAC_SECRET is required when INVITE_LIVE=1 — settlement must be provably server-controlled (0085)');
+    }
     const image = INVITE_LIVE
       ? createLiveImageGenerator({ apiKey: c.apiKey, baseUrl: c.baseUrl })
       : createFixtureImageGenerator();
@@ -245,8 +262,17 @@ export function createRosinaApp() {
       authorizeParent: buildInviteParentAuthorizer({ graphqlUrl }),
       extractor: createSparkInviteExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model }),
       image,
+      // Optional reference-image STYLE extractor (Muse vision) — live only; in FIXTURE mode a
+      // reference is validated for safety but never style-applied (and the UI says live is off).
+      referenceExtractor: INVITE_LIVE ? createMuseReferenceStyleExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl }) : undefined,
       rateLimiter: createInviteRateLimiter(INVITE_RATE_PER_MIN),
-      budget: createGenerationBudget(INVITE_BUDGET),
+      dedup: createInviteDedup(),
+      // Per-CHILD persistent budget (0085) — only ever called when source is MUSE_IMAGE;
+      // FIXTURE spends nothing and never reaches it.
+      // No cost is passed in — price is decided server-side only, inside the 0085 RPCs.
+      // settlementSecret proves a settle() call genuinely came from this process (see 0085's
+      // hmac check) — required above whenever INVITE_LIVE=1.
+      ledgerBudget: buildInviteLedgerBudget({ graphqlUrl, settlementSecret: INVITE_SETTLEMENT_SECRET }),
       source: INVITE_LIVE ? 'MUSE_IMAGE' : 'FIXTURE',
     });
     app.post('/api/rosina/invite', (req, res) => {

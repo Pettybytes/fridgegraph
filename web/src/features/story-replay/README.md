@@ -1,0 +1,11 @@
+# Three-phone story replay
+
+This section is an **illustrative public fixture**, separate from authenticated family records. `story.ts` is the adapter boundary and explicit visibility manifest. Its fixed fictional date is Monday, November 2, 2026 in America/Detroit. Nora's seeded parenting schedule assigns Monday to Kendra (`src/fixtures.ts`); the scene is still illustrative and does not claim a stored `jobTimeline` event.
+
+The ordered beats are a teacher early-dismissal notice; Rosina's proposal; Kendra's approval to **request** pickup; Loretta's **offer**; Kendra's separate **confirmation**; caregiver and teacher authorization views; and a parent Today summary. None records physical pickup completion. The teacher projection contains only the notice and prototype authorization fields, not family conversation. There are no authenticated reads or API calls in the replay.
+
+The public demo uses only `voice_three_phone_loretta` from `data/demo-voice/manifest.json`. It is explicitly illustrative, has no linked story, and uses an ElevenLabs stock voice. Its text is the **verbatim Muse Voice Transcribe 1.0 transcript**, including the repeated words and `1.20`. Run `node web/scripts/sync-story-voice.mjs` from the repo root to verify the MP3 SHA-256, copy that one clip into the web assets, and derive 48 waveform RMS peaks and the measured 4,133 ms duration from decoded audio. The three history-linked clips remain outside `web/` and the static export. No word timing is inferred.
+
+Source art: Bryan's `backdrop-parent.png`, `backdrop-caregiver.png`, `backdrop-teacher.png`, and `backdrop-spare-2.png` in `~/Desktop/fridgegraph-refs/patterns/`. The originals are untouched. Responsive 640/1100px WebP derivatives were generated with `cwebp -q 72/74`; `backdrop-spare.png` is unused. No remote images or branded device artwork.
+
+Standalone export: from `web/`, run `npx vite build --config vite.story-replay.config.ts`. The committed `story-replay-export/story-replay-preview.html` and its local `assets/` form an offline static bundle for local hosting, embedding, or capture. They contain only the public fictional fixture and illustrative clip. The normal app build mounts the same component under Mission Control as “One plan, three perspectives.”

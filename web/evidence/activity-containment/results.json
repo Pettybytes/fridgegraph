@@ -1,0 +1,44 @@
+{
+  "base": "http://127.0.0.1:5196",
+  "at": "2026-11-03T06:32:42.291Z",
+  "runs": [
+    {
+      "label": "desktop",
+      "viewport": "1280x800",
+      "text": "Activity\n\nRecorded activity for Nora Ellison. Times shown in Detroit local time.\n\nVillage additions unavailable\n\nVillage additions could not be loaded. Other authorized activity is shown below.\n\nCheck-in not recorded. Open Orbit\n\nFriday, Oct 16\n11:03 AM EDT\nRECORDED\nTasha Ellison\n\nContact attempt ended. The outcome is not recorded here.\n\nOpen in Mission Control\n11:03 AM EDT\nSIMULATED\nTasha Ellison\n\nSMS simulated with a test responder. Notified does not mean delivered.\n\nOpen in Mission Control\n11:02 AM EDT\nRECORDED\nLoretta Brooks\n\nContact attempt ended. The outcome is not recorded here.\n\nOpen in Mission Control\n11:02 AM EDT\nSIMULATED\nLoretta Brooks\n\nCALL simulated with a test responder. Notified does not mean delivered.\n\nOpen in Mission Control\n11:00 AM EDT\nPROPOSED\nCreator not recorded\n\nPickup coordination job created. A plan is not yet a decision.\n\nOpen in Mission Control",
+      "header": "Nora Ellison's village\nExploring as Kendra\nSwitch perspective\nLeave perspective\nReset demo",
+      "banner": "Demo village · outreach is limited to approved test responders.",
+      "consoleErrors": [],
+      "saysPageUnavailable": false,
+      "saysAdditionsUnavailable": true,
+      "saysNotShared": false,
+      "topbarCount": 1,
+      "sessionChipInTopbar": 1,
+      "geometry": {
+        "bannerBottom": 35,
+        "topbarTop": 35,
+        "overlap": false
+      },
+      "headingClipped": false
+    },
+    {
+      "label": "phone",
+      "viewport": "390x844",
+      "text": "Activity\n\nRecorded activity for Nora Ellison. Times shown in Detroit local time.\n\nVillage additions unavailable\n\nVillage additions could not be loaded. Other authorized activity is shown below.\n\nCheck-in not recorded. Open Orbit\n\nFriday, Oct 16\n11:03 AM EDT\nRECORDED\nTasha Ellison\n\nContact attempt ended. The outcome is not recorded here.\n\nOpen in Mission Control\n11:03 AM EDT\nSIMULATED\nTasha Ellison\n\nSMS simulated with a test responder. Notified does not mean delivered.\n\nOpen in Mission Control\n11:02 AM EDT\nRECORDED\nLoretta Brooks\n\nContact attempt ended. The outcome is not recorded here.\n\nOpen in Mission Control\n11:02 AM EDT\nSIMULATED\nLoretta Brooks\n\nCALL simulated with a test responder. Notified does not mean delivered.\n\nOpen in Mission Control\n11:00 AM EDT\nPROPOSED\nCreator not recorded\n\nPickup coordination job created. A plan is not yet a decision.\n\nOpen in Mission Control",
+      "header": "Nora Ellison's village\nExploring as Kendra\nSwitch perspective\nLeave perspective\nReset demo",
+      "banner": "Demo village · outreach is limited to approved test responders.",
+      "consoleErrors": [],
+      "saysPageUnavailable": false,
+      "saysAdditionsUnavailable": true,
+      "saysNotShared": false,
+      "topbarCount": 1,
+      "sessionChipInTopbar": 1,
+      "geometry": {
+        "bannerBottom": 35,
+        "topbarTop": 191,
+        "overlap": false
+      },
+      "headingClipped": false
+    }
+  ]
+}

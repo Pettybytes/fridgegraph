@@ -1,0 +1,79 @@
+### Result
+{"results":[{"width":1440,"tapPanArrange":true,"confirmedNoteAndGoal":true,"intakeDisabled":true,"resizeAndReducedMotion":true},{"width":390,"tapPanArrange":true,"confirmedNoteAndGoal":true,"intakeDisabled":true,"resizeAndReducedMotion":true}],"backendRequests":0}
+### Ran Playwright code
+```js
+await (async page=>{
+ const root='/Users/user/Desktop/bentley/fridgegraph-fridge-zoom-create/web/evidence/fridge-zoom-create/'
+ const check=(v,m)=>{if(!v)throw Error(m)}
+ const requests=[];page.on('request',r=>{if(/\/api\/|\/graphql(?:\?|$)/.test(r.url()))requests.push(r.url())})
+ await page.route(/\/api\/|\/graphql(?:\?|$)/,r=>r.abort())
+ const results=[]
+ for(const width of [1440,390]){
+  await page.evaluate(()=>localStorage.removeItem('fridge-layout:p_mom'))
+  await page.setViewportSize({width,height:width===390?844:900})
+  await page.goto('http://127.0.0.1:5243/evidence/fridge-editing-integration/preview.html#/fridge');await page.reload()
+  await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
+  const viewer=page.getByRole('region',{name:'Fridge viewer'})
+  await page.getByRole('button',{name:'Manage goals'}).waitFor()
+  await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))})
+  check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Horizontal overflow')
+  await page.screenshot({path:root+'overview-'+width+'.png',fullPage:true})
+  await viewer.evaluate(e=>e.scrollIntoView({block:'start'}))
+  const photo=page.getByRole('button',{name:'The family dog',exact:true})
+  await photo.click();await page.waitForTimeout(300)
+  check(Number(await viewer.getAttribute('data-scale'))===2.5,'First tap zooms')
+  check(await page.getByRole('dialog').count()===0,'First tap must not open object')
+  await photo.click();await page.getByRole('dialog').waitFor()
+  await page.getByRole('button',{name:'Close',exact:true}).click()
+  await viewer.focus();const before=await page.locator('.fridge-scene').getAttribute('style')
+  const box=await viewer.boundingBox(),x=box.x+box.width*.6,y=Math.max(100,box.y+200)
+  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x-45,y+30,{steps:8});await page.mouse.up()
+  check(await page.getByRole('dialog').count()===0,'Drag never opens')
+  check(await page.locator('.fridge-scene').getAttribute('style')!==before,'Normal drag pans')
+  await page.getByRole('button',{name:'Reset view',exact:true}).click()
+  await page.getByRole('button',{name:'Open collage door',exact:true}).click()
+  await page.getByRole('button',{name:'Arrange items',exact:true}).click()
+  await photo.focus();await page.keyboard.press('Alt+ArrowRight')
+  check((await page.evaluate(()=>JSON.parse(localStorage.getItem('fridge-layout:p_mom')||'{}'))).pack_dog?.x===.218,'Arrange stores geometry')
+  await page.getByRole('button',{name:'Arrange items',exact:true}).click()
+  await page.getByRole('button',{name:'+ Sticky note',exact:true}).click()
+  const form=page.getByRole('form',{name:'Post a fridge note'})
+  await form.getByRole('textbox',{name:'Note text'}).fill('Bring the library book.')
+  await form.getByRole('combobox',{name:'Paper color'}).selectOption('GREEN')
+  await form.getByRole('button',{name:'Post privately'}).click()
+  await page.getByText('Saved.',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Close editor'}).click()
+  const paper=page.getByRole('button',{name:'Open posted note: Bring the library book.',exact:true})
+  await paper.scrollIntoViewIfNeeded();await page.screenshot({path:root+'posted-'+width+'.png'})
+  await page.evaluate(()=>document.documentElement.classList.add('dark'));await page.screenshot({path:root+'posted-dark-'+width+'.png'});await page.evaluate(()=>document.documentElement.classList.remove('dark'))
+  check((await paper.innerText()).includes('Parents only'),'Post stays private')
+  await page.getByRole('button',{name:'Open goals door'}).click()
+  await page.getByRole('button',{name:'Write on the whiteboard'}).click()
+  const goal=page.getByRole('form',{name:width===390?'Add a goal':'Write a goal on the whiteboard'})
+  await goal.getByRole('textbox',{name:'Goal title'}).fill('Read together')
+  await goal.getByRole('textbox',{name:/Horizon/}).fill('Whenever we can')
+  await goal.getByRole('combobox',{name:/Period/}).selectOption('WEEK')
+  await goal.scrollIntoViewIfNeeded();await page.screenshot({path:root+'goal-entry-'+width+'.png'})
+  await goal.getByRole('button',{name:'Add goal',exact:true}).click()
+  if(width===390)await page.getByRole('button',{name:'Close editor'}).click()
+  await page.getByRole('region',{name:'Recorded goals'}).getByText('Read together',{exact:true}).waitFor()
+  check(await page.getByRole('button',{name:'+ Add photo or paper'}).isDisabled(),'Independent intake gate')
+  await page.emulateMedia({reducedMotion:'reduce'})
+  check(await page.locator('.fridge-scene').evaluate(e=>getComputedStyle(e).transitionDuration==='0s'),'Reduced motion instant')
+  await page.getByRole('button',{name:'Reset view'}).click()
+  await viewer.focus();await page.keyboard.press('+')
+  const scale=await viewer.getAttribute('data-scale')
+  await page.setViewportSize({width:width===390?844:1200,height:900})
+  check(await viewer.getAttribute('data-scale')===scale,'Resize preserves scale')
+  await page.keyboard.press('Escape')
+  check(await viewer.getAttribute('data-scale')==='1','Escape reset')
+  await page.emulateMedia({reducedMotion:'no-preference'})
+  results.push({width,tapPanArrange:true,confirmedNoteAndGoal:true,intakeDisabled:true,resizeAndReducedMotion:true})
+ }
+ check(requests.length===0,'No live requests')
+ return {results,backendRequests:requests.length}
+}
+)(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-03T01-49-54-884Z.log#L17-L19

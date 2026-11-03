@@ -1,0 +1,2 @@
+status 200
+{"sessionId":"voyager/transcribe/23C9678F5B1E44378C4362EB5CC01512","transcript":"Yes, I can be there at 1.20. I'll head out head out now so I'm not rushing.","audioDurationMs":3920,"turns":[]}

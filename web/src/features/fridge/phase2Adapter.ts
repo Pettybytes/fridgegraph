@@ -1,14 +1,16 @@
 import {gql,type ApolloClient,type DocumentNode} from '@apollo/client'
 import type {FridgeEditingAdapter,GoalRecord,FridgeNoteRecord} from './editingContract'
 
-export type Phase2Failure='authentication'|'refused'|'network'|'database'|'failed'
+export type Phase2Failure='authentication'|'refused'|'network'|'database'|'server'|'failed'
 export type Compatibility={kind:'ready'|'absent'}|{kind:Phase2Failure}
-// A validation-only READ: skipped fields are validated but never resolved. __typename
-// is legal with introspection disabled. This checks the read shape, NOT deployment/RLS.
+// A read-only compatibility read. Every field resolves, so the router can plan it: a
+// selection whose fields are ALL skipped produces an empty query plan, which Apollo
+// Router v2.18.0 answers with HTTP 500 `empty query plan` (measured in the CP6 window).
+// Nothing here writes; the resolved shape is the only signal, never the resolver side effect.
 export const FRIDGE_COMPATIBILITY=gql`query FridgePhase2Compatibility($childId:ID!){
  __typename
- goals(childId:$childId) @skip(if:true){period completedAt}
- fridgeNotes(childId:$childId) @skip(if:true){id text paperColor audience revision createdAt updatedAt author{id displayName}}
+ goals(childId:$childId){id period completedAt}
+ fridgeNotes(childId:$childId){id text paperColor audience revision createdAt updatedAt author{id displayName}}
 }`
 const goal='id title horizon status period completedAt'
 const note='id text paperColor audience createdAt updatedAt revision author{id displayName}'
@@ -35,6 +37,8 @@ export function phase2Failure(error:unknown):Phase2Failure{
  if(status===401||codes.includes('UNAUTHENTICATED')||message==='UNAUTHENTICATED')return 'authentication'
  if(status===403||codes.some(c=>['UNAUTHORIZED','FORBIDDEN','DEMO_GUIDE_READ_ONLY','FRIDGE_NOTE_AUDIENCE_LOCKED'].includes(c??''))||/^(UNAUTHORIZED|FORBIDDEN|DEMO_GUIDE_READ_ONLY)$/.test(message))return 'refused'
  if(codes.some(c=>c==='DB_UNAVAILABLE')||message==='DB_UNAVAILABLE')return 'database'
+ // 5xx is a server fault, not a transport loss: keep it out of `network`.
+ if(codes.includes('INTERNAL_SERVER_ERROR')||(typeof status==='number'&&status>=500))return 'server'
  if(e?.networkError||status||error instanceof TypeError||message==='NETWORK_ERROR')return 'network'
  return 'failed'
 }
@@ -45,19 +49,27 @@ export function missingPhase2Schema(error:unknown):boolean{
  return errors.length>0&&errors.every(e=>e.extensions?.code==='GRAPHQL_VALIDATION_FAILED'&&
   (/Cannot query field "(?:period|completedAt)" on type "Goal"/.test(e.message??'')||/Cannot query field "fridgeNotes" on type "Query"/.test(e.message??'')))
 }
-export const phase2Message:Record<Phase2Failure,string>={authentication:'Your perspective needs a fresh session. Choose a perspective again.',refused:'These records aren’t shared with this perspective.',network:'Couldn’t connect just now. Try again.',database:'Couldn’t load these records just now. Try again.',failed:'Couldn’t load these records. Try again.'}
+export const phase2Message:Record<Phase2Failure,string>={authentication:'Your perspective needs a fresh session. Choose a perspective again.',refused:'These records aren’t shared with this perspective.',network:'Couldn’t connect just now. Try again.',database:'Couldn’t load these records just now. Try again.',server:'The fridge service answered with an error. Try again.',failed:'Couldn’t load these records. Try again.'}
 export type Phase2Service={check(childId:string,signal:AbortSignal):Promise<Compatibility>;adapter:FridgeEditingAdapter}
 export function createPhase2Service(client:ApolloClient,runRead:<T>(read:()=>Promise<T>)=>Promise<T>,writesEnabled:()=>boolean):Phase2Service{
  const read=async<T,>(query:DocumentNode,variables:Record<string,unknown>,field:string,signal:AbortSignal):Promise<T>=>{
   try{const result=await runRead(()=>client.query<Record<string,T>>({query,variables,fetchPolicy:'no-cache',errorPolicy:'none',context:{fetchOptions:{signal}}}));if(!result.data||result.data[field]==null)throw Error('NO_DATA');return result.data[field]}
-  catch(error){if(signal.aborted)throw error;throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',failed:'READ_FAILED'} as const)[phase2Failure(error)])}
+  catch(error){if(signal.aborted)throw error;throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',server:'SERVER_ERROR',failed:'READ_FAILED'} as const)[phase2Failure(error)])}
  }
  const write=async<T,>(name:keyof typeof phase2Operations,args:object):Promise<T>=>{
   if(!writesEnabled())throw Error('UNAUTHORIZED')
   try{const result=await client.mutate<Record<string,T>>({mutation:phase2Operations[name],variables:args,errorPolicy:'none',fetchPolicy:'no-cache'});if(!result.data||result.data[name]==null)throw Error('NO_DATA');return result.data[name]}
-  catch(error){throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',failed:'WRITE_FAILED'} as const)[phase2Failure(error)])}
+  catch(error){throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',server:'SERVER_ERROR',failed:'WRITE_FAILED'} as const)[phase2Failure(error)])}
  }
- return {async check(childId,signal){try{const result=await runRead(()=>client.query({query:FRIDGE_COMPATIBILITY,variables:{childId},fetchPolicy:'no-cache',errorPolicy:'none',context:{fetchOptions:{signal}}}));if((result.data as {__typename?:string}|undefined)?.__typename!=='Query')throw Error('NO_DATA');return {kind:'ready'}}catch(error){if(signal.aborted)throw error;return {kind:missingPhase2Schema(error)?'absent':phase2Failure(error)}}},adapter:{
+ return {async check(childId,signal){try{
+  const result=await runRead(()=>client.query({query:FRIDGE_COMPATIBILITY,variables:{childId},fetchPolicy:'no-cache',errorPolicy:'none',context:{fetchOptions:{signal}}}))
+  if(signal.aborted)throw Error('ABORTED')
+  const data=result.data as {__typename?:unknown;goals?:unknown;fridgeNotes?:unknown}|null|undefined
+  // Success needs the whole shape: both collections resolved to arrays (empty is valid).
+  // errorPolicy 'none' means any GraphQL error already threw, so partial data never reaches here.
+  if(!data||data.__typename!=='Query'||!Array.isArray(data.goals)||!Array.isArray(data.fridgeNotes))throw Error('MALFORMED')
+  return {kind:'ready'}
+ }catch(error){if(signal.aborted)throw error;return {kind:missingPhase2Schema(error)?'absent':phase2Failure(error)}}},adapter:{
   readGoals:(id,signal)=>read<GoalRecord[]>(phase2Operations.readGoals,{childId:id},'goals',signal),
   readNotes:(id,signal)=>read<FridgeNoteRecord[]>(phase2Operations.readNotes,{childId:id},'fridgeNotes',signal),
   createGoal:args=>write('createGoal',args),updateGoal:args=>write('updateGoal',args),completeGoal:args=>write('completeGoal',args),uncompleteGoal:args=>write('uncompleteGoal',args),deleteGoal:args=>write('deleteGoal',args),

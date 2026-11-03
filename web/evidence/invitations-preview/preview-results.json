@@ -1,0 +1,22 @@
+{
+  "base": "http://127.0.0.1:5201/invites-preview.html",
+  "at": "2026-11-03T07:09:42.564Z",
+  "runs": [
+    {
+      "label": "desktop",
+      "viewport": "1440x900",
+      "canvas": 1,
+      "readout": "HOSTED BY KENDRA\n\nNora\n\nBirthday party\n\nSunday, November 15, 2026\n\n2:00 PM – 4:00 PM · Detroit time\n\nMaple Hall\n\nPlease join us to celebrate!",
+      "text": "Sample preview\n\nInvitation card\nYour invitation request\nThis is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.\nShow sample invitation\n\nDownloaded PNG · 1024 × 1024\n\nSample art — not generated\n\nA fixed fixture illustration, not a new generation. Edit the words below and the art stays the same.\n\nHOSTED BY KENDRA\n\nNora\n\nBirthday party\n\nSunday, November 15, 2026\n\n2:00 PM – 4:00 PM · Detroit time\n\nMaple Hall\n\nPlease join us to celebrate!\n\nCheck the event text\n\nEdit these words without making new art.\n\nHosted by\nChild’s first name\nOccasio",
+      "errors": []
+    },
+    {
+      "label": "phone",
+      "viewport": "390x844",
+      "canvas": 1,
+      "readout": "HOSTED BY KENDRA\n\nNora\n\nBirthday party\n\nSunday, November 15, 2026\n\n2:00 PM – 4:00 PM · Detroit time\n\nMaple Hall\n\nPlease join us to celebrate!",
+      "text": "Sample preview\n\nInvitation card\nYour invitation request\nThis is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.\nShow sample invitation\n\nDownloaded PNG · 1024 × 1024\n\nSample art — not generated\n\nA fixed fixture illustration, not a new generation. Edit the words below and the art stays the same.\n\nHOSTED BY KENDRA\n\nNora\n\nBirthday party\n\nSunday, November 15, 2026\n\n2:00 PM – 4:00 PM · Detroit time\n\nMaple Hall\n\nPlease join us to celebrate!\n\nCheck the event text\n\nEdit these words without making new art.\n\nHosted by\nChild’s first name\nOccasio",
+      "errors": []
+    }
+  ]
+}

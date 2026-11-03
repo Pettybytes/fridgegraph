@@ -54,13 +54,31 @@ export function memo<T>(ctx: Ctx, key: string, fn: () => Promise<T>): Promise<T>
 }
 
 /**
+ * Postgres `insufficient_privilege`. RLS decides WHICH rows a caller may see (a denial is 200 + zero
+ * rows); 42501 means the object itself is not readable by the role — a deployment/privilege defect,
+ * not an authorization refusal. Reporting it as an outage (or worse, as UNAUTHORIZED) misleads both
+ * the operator and the caller.
+ */
+const PRIVILEGE_CODES = new Set(['42501']);
+
+export type DbErrorCode = 'DB_UNAVAILABLE' | 'DB_PRIVILEGE';
+
+/** Classify a database failure into one opaque code. Never returns UNAUTHORIZED. */
+export function dbErrorCode(error: { code?: string }): DbErrorCode {
+  return error.code && PRIVILEGE_CODES.has(error.code) ? 'DB_PRIVILEGE' : 'DB_UNAVAILABLE';
+}
+
+/**
  * A database error is never a client-visible detail. Log the code, return one opaque code.
  * A 401/403 from PostgREST means the token did not reach the database as a signed-in user,
  * which is a configuration failure, not a denial: denials are 200 + zero rows.
+ *
+ * The message is the code itself, so no table name, SQL text or role name can leak into a response.
  */
 export function dataError(error: { code?: string; message?: string; details?: string }): GraphQLError {
-  console.error('[db]', error.code ?? '-', error.message ?? '-');
-  return new GraphQLError('DB_UNAVAILABLE', { extensions: { code: 'DB_UNAVAILABLE' } });
+  const code = dbErrorCode(error);
+  console.error('[db]', code, error.code ?? '-', error.message ?? '-');
+  return new GraphQLError(code, { extensions: { code } });
 }
 
 export type Row = Record<string, unknown>;

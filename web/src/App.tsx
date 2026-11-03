@@ -1,3 +1,4 @@
+import {loadFridgeRoute} from '@/features/fridge/routeLoader'
 import {MapCalendarBridge} from '@/features/village-map/calendar'
 import {VillageMapProvider,MapRosinaContext} from '@/features/village-map/runtime'
 import {VillageMapMini} from '@/features/village-map/VillageMapMini'
@@ -15,6 +16,7 @@ import {LiveMissionControl} from '@/features/mission-control/LiveMissionControl'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { SessionProvider, useSession } from '@/features/personas/Session'
 import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/PersonaPicker'
+import { VoiceProvider } from '@/features/voice/VoiceProvider'
 import { ApolloSessionCleanup } from '@/features/personas/ApolloSessionCleanup'
 import { createPersonaDataAdapter } from '@/features/personas/personaData'
 import '@/app/village-route.css'
@@ -37,7 +39,9 @@ import { ChildAccessProvider } from '@/features/personas/childContext'
 import { SignatureVillageRoute } from '@/components/signature'
 import { Activity } from '@/features/activity/Activity'
 import { InvitesPanel } from '@/features/invites/InvitesPanel'
-const FridgeRoute = lazy(() => import('@/features/fridge/ConnectedFridge').then(module => ({ default: module.ConnectedFridge })))
+import { createLiveInvite } from '@/features/invites/liveInvite'
+import { ThreePhoneStory } from '@/features/story-replay/ThreePhoneStory'
+const FridgeRoute = lazy(loadFridgeRoute)
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   const { session } = useSession()
@@ -66,22 +70,24 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
   if (switching) return <PersonaPicker key="switching" />
   if (!session || !adapter) return <PersonaPicker key="picker" />
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
-    <SessionChip />
+    <VoiceProvider getAccessToken={() => getCurrentSession()?.accessToken ?? null} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
       <ChildAccessProvider client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
       <VillageMapProvider><ApolloSessionCleanup clearAdapter={adapter.clearStore} />
-      <Shell slots={{
+      <Shell sessionChip={<SessionChip />} slots={{
         map: <VillageMap/>,
         fridge: <Suspense fallback={<p role="status">Opening the fridge…</p>}><FridgeRoute /></Suspense>,
         today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
-        'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>,
+        'mission-control': <>{session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>}<ThreePhoneStory /></>,
         orbit:<Orbit/>,
         activity:<Activity client={connection?.client??null} adapter={adapter}/>,
         'ask-rosina': <div id="rosina-route-slot" className="rosina-route-page" />,
         'care-information': <>{authMode !== 'live' && <p className="persona-mock">Sample data</p>}<CareInformation /></>,
         calendar: <MapCalendarBridge>{connection?.calendar?<LiveFamilyCalendar adapter={connection.calendar}/>:connection?.mockCalendar?<><p className="persona-mock">Sample data</p><FamilyCalendar adapter={connection.mockCalendar}/></>:null}</MapCalendarBridge>,
-        invitations: <InvitesPanel />,
+        invitations: session.accessToken && authMode === 'live'
+          ? <InvitesPanel mode="live" createInvite={createLiveInvite(() => getCurrentSession()?.accessToken ?? null)} />
+          : <InvitesPanel />,
         village: authMode === 'live'
           ? <section className="village-route" aria-label="Living Village workspace"><SignatureVillageRoute client={connection?.client ?? null} /></section>
           : <Suspense fallback={<p className="village-route-loading" role="status">Loading the village…</p>}><section className="village-route" aria-label="Living Village workspace"><p className="persona-mock">Sample data</p><LivingVillage /></section></Suspense>,
@@ -90,6 +96,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
       </VillageMapProvider>
       </ChildAccessProvider>
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
+    </VoiceProvider>
   </div>
 }
 export default function App({authAdapter,orbitNow=Date.now}:{authAdapter?:AuthAdapter;orbitNow?:()=>number}={}) {

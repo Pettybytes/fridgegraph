@@ -26,9 +26,10 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
+import { createVoiceNoteHandler } from './voiceNoteEndpoint';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
 import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
-import { resolveClientIp } from './client-ip';
+import { resolveClientIp, isResolvedClient } from './client-ip';
 import {
   ALLOWED_APP_ORIGINS_ENV,
   OriginConfigError,
@@ -121,6 +122,29 @@ function prune(map: Map<string, Window>, windowMs: number) {
   }
 }
 
+/**
+ * Rate-limit key for anonymous demo login.
+ *
+ * Login used `req.ip ?? req.socket.remoteAddress`, and `trust proxy` is set nowhere, so behind
+ * cloudflared every caller collapsed into ONE bucket (socket peer 127.0.0.1) — 60 requests/min for
+ * the whole audience. Reset already used the trusted-proxy resolver; login did not.
+ *
+ * This reuses that resolver rather than enabling Express `trust proxy` (which would trust the
+ * header broadly, not just the one loopback peer cloudflared presents). A peer that is not trusted
+ * keeps its own address, so a spoofed X-Forwarded-For from an untrusted path cannot choose a bucket.
+ * When every hop is trusted there is no client identity to recover and the peer itself is returned —
+ * that is a single shared bucket, which is the honest answer, not a per-caller one.
+ */
+export type ClientKeyRequest = { socket?: { remoteAddress?: string }; header(name: string): string | undefined }
+
+export function loginClientKey(req: ClientKeyRequest): string {
+  const socketAddress = req.socket?.remoteAddress ?? '';
+  if (!socketAddress) return 'unknown';
+  const resolved = resolveClientIp(socketAddress, req.header('x-forwarded-for'));
+  if (isResolvedClient(resolved)) return resolved;
+  return socketAddress;
+}
+
 export function createDemoLoginApp() {
   const app = express();
   // Explicit runtime configuration. Empty (the default) means "no additional public origins" and
@@ -164,7 +188,7 @@ export function createDemoLoginApp() {
       return;
     }
 
-    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    const ip = loginClientKey(req);
     const ipGate = take(byIp, ip, IP_LIMIT, IP_WINDOW_MS);
     if (!ipGate.allowed) {
       res.setHeader('Retry-After', String(ipGate.retryAfterSeconds));
@@ -274,43 +298,28 @@ export function createDemoLoginApp() {
   });
 
   // ---------------------------------------------------------------- voice note playback (0084)
-  // Same shape as the Orbit photo handler above, deliberately: no-store on every response, a real
-  // bearer, voice_note_access(id) re-checked on EVERY request, 404 for both "no such note" and "no
-  // access" — no oracle, no signed URL, no durable path ever handed to a client.
-  app.get('/api/demo/voice-note/:voiceNoteId', async (req: Request, res: Response) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const token = bearerToken(req.headers.authorization);
-    if (!token) {
-      res.status(401).json({ error: 'UNAUTHENTICATED' });
-      return;
-    }
-    const identity = await verifyBearer(req.headers.authorization);
-    if (!identity.ok) {
-      res.status(401).json({ error: 'UNAUTHENTICATED' });
-      return;
-    }
-    const ctx: Ctx = { today: todayIso(), token };
-    try {
-      const { data, error } = await dbFor(ctx).rpc('voice_note_access', { p_voice_note: req.params.voiceNoteId });
+  // Real dependencies wired into the injectable handler (src/demo/voiceNoteEndpoint.ts) — every
+  // dependency there is fakeable, so src/demo/voiceNoteEndpoint.test.ts can prove the route's own
+  // HTTP behavior over a REAL loopback request, not a mocked req/res object.
+  app.get('/api/demo/voice-note/:voiceNoteId', createVoiceNoteHandler({
+    verify: async (header) => {
+      const identity = await verifyBearer(header);
+      return identity.ok ? { ok: true } : { ok: false };
+    },
+    access: async (voiceNoteId, bearer) => {
+      const ctx: Ctx = { today: todayIso(), token: bearer };
+      const { data, error } = await dbFor(ctx).rpc('voice_note_access', { p_voice_note: voiceNoteId });
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { access?: string | null; storage_path?: string | null }
+        | { access?: string | null; storage_path?: string | null; content_type?: string | null }
         | null;
-      if (error || !row?.access || !row?.storage_path) {
-        res.status(404).json({ error: 'NOT_FOUND' });
-        return;
-      }
-      const file = join(VOICE_NOTE_DIR, basename(row.storage_path));
-      if (!existsSync(file)) {
-        res.status(404).json({ error: 'NOT_FOUND' });
-        return;
-      }
-      res.setHeader('Content-Type', 'audio/wav');
-      res.setHeader('X-Voice-Note-Access', String(row.access));
-      res.send(readFileSync(file));
-    } catch {
-      res.status(404).json({ error: 'NOT_FOUND' });
-    }
-  });
+      if (error || !row?.access || !row?.storage_path || !row?.content_type) return null;
+      return { access: String(row.access), storagePath: String(row.storage_path), contentType: String(row.content_type) };
+    },
+    loadBytes: (storagePath) => {
+      const file = join(VOICE_NOTE_DIR, basename(storagePath));
+      return existsSync(file) ? readFileSync(file) : null;
+    },
+  }));
 
   // Upload: parent/guardian only. Metadata is stripped by re-encoding BEFORE the bytes are stored;
   // the content hash written to the database is the hash of the stored bytes.

@@ -2,7 +2,7 @@ import {createContext,useContext,useEffect,useState,type ComponentProps} from 'r
 import {Dialog} from 'radix-ui'
 import {FgButton} from '@/components/fg/primitives'
 import {Fridge} from './Fridge'
-import {FridgeGoalsEditor,FridgeNotesEditor} from './FridgeEditing'
+import {FridgeGoalsEditor,FridgeNotesEditor,GoalForm} from './FridgeEditing'
 import {useFridgeEditing} from './useFridgeEditing'
 import type {FridgeViewer} from './editingContract'
 import {phase2Message,type Compatibility,type Phase2Service} from './phase2Adapter'
@@ -24,10 +24,17 @@ function Boundary({fridge,viewer,service,enabled}:Props){
 }
 function Ready({fridge,viewer,service}:Omit<Props,'enabled'> & {service:Phase2Service}){
  const editing=useFridgeEditing(service.adapter,fridge.childId,viewer)
+ const [inlineGoal,setInlineGoal]=useState(false)
  const [section,setSection]=useState<'goals'|'notes'|null>(null)
  // Phase 1's whiteboard stays independently readable even if a Phase 2 read fails.
  const goalsOverride:Read<Goal[]>|undefined=editing.goals.kind==='ready'?(editing.goals.items.length?{status:'ready',value:editing.goals.items}:{status:'empty'}):undefined
- return <><Fridge {...fridge} postedNotes={editing.notes.kind==='ready'?editing.notes.items:[]} openPostedNotes={()=>setSection('notes')} goalsOverride={goalsOverride} boardReadOnly={!editing.canWrite} editingControls={<>
+ return <><Fridge {...fridge}
+ noteCreateControl={editing.canWrite&&editing.notes.kind==='ready'?<FgButton disabled={editing.pending!==null} onClick={()=>setSection('notes')}>+ Sticky note</FgButton>:undefined}
+ boardEditor={editing.canWrite&&editing.goals.kind==='ready'?<>
+  <FgButton disabled={editing.pending!==null} onClick={()=>{if(window.matchMedia('(max-width: 700px)').matches)setSection('goals');else setInlineGoal(value=>!value)}}>Write on the whiteboard</FgButton>
+  {inlineGoal&&<><GoalForm label="Write a goal on the whiteboard" pending={editing.pending==='goals'} onSave={async fields=>{const saved=await editing.createGoal(fields);if(saved)setInlineGoal(false);return saved}} onCancel={()=>setInlineGoal(false)}/>{editing.notice?.section==='goals'&&<p role={editing.notice.kind==='failed'?'alert':'status'}>{editing.notice.text}</p>}<FgButton variant="quiet" onClick={()=>{setInlineGoal(false);setSection('goals')}}>Open full-size editor</FgButton></>}
+ </>:undefined}
+ postedNotes={editing.notes.kind==='ready'?editing.notes.items:[]} openPostedNotes={()=>setSection('notes')} goalsOverride={goalsOverride} boardReadOnly={!editing.canWrite} editingControls={<>
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>setSection('goals')}>{editing.canWrite?'Manage goals':'Goal details'}</FgButton>
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>setSection('notes')}>Family notes{editing.notes.kind==='ready'?` (${editing.notes.items.length})`:''}</FgButton>
  </>}/>

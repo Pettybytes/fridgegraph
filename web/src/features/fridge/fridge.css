@@ -19,7 +19,6 @@
 .fridge-overlay{position:fixed;inset:0;background:#15151ac9;z-index:100}.fridge-dialog{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(90vw,760px);max-height:90dvh;overflow:auto;z-index:101;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832);padding:24px;border-radius:16px}.fridge-dialog img{display:block;max-width:100%;max-height:65dvh;margin:auto;object-fit:contain}.fridge-dialog h2{margin-top:0}.fridge-dialog button{margin-top:12px}
 @media(max-width:600px){.fridge-feature{padding:12px}.fridge-toolbar{align-items:flex-start}.fridge-toolbar h1{font-size:23px}.fridge-toolbar p{max-width:190px}.fridge-toolbar>div:last-child{flex-direction:column}.fridge-caption{font-size:12px}.fridge-viewport{border-radius:10px}.fridge-feature nav button{padding:8px 10px;font-size:14px}}
 @media(prefers-reduced-motion:reduce){.fridge-feature *{animation:none!important;transition:none!important}}
-.is-focused .fridge-horizon{font-size:max(14px,1.02cqw)}.is-focused .fridge-goal-status{font-size:max(12px,.9cqw)}.is-focused .fridge-board-foot{font-size:max(12px,.9cqw)}.is-focused .fridge-feedback{font-size:max(14px,1.14cqw)}.is-focused .fridge-note-source{font-size:max(12px,.93cqw)}.is-focused .fridge-read{font-size:max(16px,1.3cqw)}
 /* Decorative paper is separate from caller-authorized records. */
 .fridge-caption{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .fridge-help-trigger,.fridge-help button{min-width:44px;min-height:44px;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832);border:1px solid var(--fg-border,#d0d0d8);border-radius:10px;font:inherit;cursor:pointer}
@@ -27,7 +26,6 @@
 .fridge-object.form{padding:.35cqw .35cqw .5cqw}.fridge-object.form img{height:3.2cqw;object-fit:cover;object-position:center}.fridge-object.form .fridge-note-source{margin:.3cqw 0 .15cqw;font-size:.7cqw}.fridge-object.form .fridge-paper-text{font-size:.9cqw;line-height:1.15}
 .fridge-object.save-date{height:11cqw;background:#fff9f7;overflow:visible}.fridge-object.save-date>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.22}.fridge-save-date-copy{position:relative;display:flex;flex-direction:column;align-items:center;padding:.65cqw 1cqw;color:#443841;text-align:center;font:400 1.03cqw/1.4 FridgeKalam,cursive}.fridge-save-date-copy .save-date-title{font-size:1.8cqw;font-weight:700}.fridge-sample-badge{font:600 .7cqw/1.3 var(--font-sans,Arial,sans-serif);text-transform:uppercase;letter-spacing:.08em}.fridge-reveal-accent{position:absolute;right:1.4cqw;top:1cqw;border-radius:50%;width:2.1cqw;height:2.1cqw;background:linear-gradient(90deg,#f6c9d6 50%,#c6dfef 50%);font:700 1.4cqw/2.1cqw FridgeKalam,cursive;transform:rotate(8deg)}
 .fridge-erased-texture{display:block;height:7cqw;margin-top:3cqw;opacity:.12;pointer-events:none;background:repeating-linear-gradient(174deg,transparent 0 .6cqw,#83948d20 .7cqw,#83948d55 .75cqw,transparent .85cqw 1.4cqw);mask-image:radial-gradient(ellipse at center,black,transparent 70%)}
-.is-focused .fridge-object.form .fridge-note-source{font-size:max(10px,.7cqw)}.is-focused .fridge-object.form .fridge-paper-text{font-size:max(12px,.9cqw)}
 .fridge-editing-controls{display:flex;justify-content:center;gap:10px;margin:-8px 0 18px;flex-wrap:wrap}
 .fridge-phase2-state{max-width:700px;margin:16px auto;padding:12px 20px;font-size:14px;color:var(--fg-ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .fridge-editor-dialog{width:min(92vw,650px);padding:20px}.fridge-editor-dialog .fe-panel{box-shadow:none;padding:12px 0;background:transparent}.fridge-editor-dialog .fe-actions .fg-btn{min-height:44px}.fridge-editor-dialog .fridge-editor-close{position:sticky;top:0;float:right;z-index:2;margin:0 0 8px 8px}
@@ -44,5 +42,68 @@
 .fridge-posted-notes{position:absolute;left:34.2%;top:38.5%;width:11.5%;height:16%;overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column;gap:1.3cqw;padding:1.3cqw .4cqw .5cqw;box-sizing:border-box}
 .fridge-posted-paper{position:relative;flex-shrink:0;width:100%;min-height:8cqw;border:0;border-radius:0 0 3% 1%;padding:.9cqw .65cqw;color:#263a4a;background:#f2e5a7;text-align:left;box-shadow:.1cqw .25cqw .35cqw #20180c40;cursor:pointer;overflow-wrap:anywhere}
 .fridge-posted-paper[data-paper=PINK]{background:#f1cdc0}.fridge-posted-paper[data-paper=BLUE]{background:#cce0e9}.fridge-posted-paper[data-paper=GREEN]{background:#d8e5c7}.fridge-posted-paper[data-paper=WHITE]{background:#fffdf8}
-.fridge-note-author{display:block;margin-top:.5cqw;font:500 .85cqw/1.4 var(--font-sans,Arial,sans-serif)}.fridge-posted-paper .fridge-paper-text{white-space:pre-wrap}.is-focused .fridge-posted-paper .fridge-paper-text{font-size:max(14px,1.35cqw)}.is-focused .fridge-note-author{font-size:max(12px,.85cqw)}
+.fridge-note-author{display:block;margin-top:.5cqw;font:500 .85cqw/1.4 var(--font-sans,Arial,sans-serif)}.fridge-posted-paper .fridge-paper-text{white-space:pre-wrap}
 .fridge-posted-notes:focus-visible{outline:3px solid var(--fg-primary);outline-offset:3px}.fridge-sample-card-tray{grid-template-columns:repeat(auto-fit,minmax(100px,1fr))}
+/* One transformed photograph/DOM plane; viewport geometry is never persisted. */
+.fridge-feature{max-width:none;padding:24px 0;width:100%;box-sizing:border-box}
+.fridge-viewport,.fridge-viewport.is-focused{width:88%;aspect-ratio:2/3;touch-action:pan-y}
+.fridge-viewport.is-focused{touch-action:none;cursor:grab}
+.fridge-viewport[data-arrange=true]{cursor:default}
+.fridge-scene{transition:transform 260ms cubic-bezier(.2,.8,.2,1);will-change:transform}
+.fridge-scene[data-moving=true]{transition:none}
+.fridge-feature nav{flex-wrap:wrap}
+.fridge-toolbar,.fridge-caption,.fridge-intake-state{margin-inline:6%}
+.fridge-intake-state{display:flex;align-items:center;gap:16px;margin-block:16px}
+.fridge-intake-state p{font-size:13px;max-width:60ch;color:var(--fg-muted)}
+.fridge-intake-state button,.fridge-create-note button{font:inherit;min-height:44px;padding:10px 16px;border:1px solid var(--fg-border);border-radius:10px;background:var(--fg-surface);color:var(--fg-ink)}
+.fridge-intake-state button:disabled{cursor:not-allowed;opacity:.7}
+.fridge-create-note{position:absolute;left:21%;top:53%;width:24%}
+.fridge-create-note button{font-size:1.1cqw;min-height:2.7cqw;padding:.5cqw 1cqw}
+.fridge-inline-goal{font:400 .85cqw/1.4 var(--font-sans);margin-block:1cqw}
+.fridge-inline-goal .fe-form{gap:.5cqw}
+.fridge-inline-goal input,.fridge-inline-goal select,.fridge-inline-goal button{font:inherit;min-height:2.2cqw;padding:.4cqw;border-radius:.3cqw;width:100%;box-sizing:border-box}
+.fridge-inline-goal .fe-actions{flex-wrap:wrap}
+.fridge-inline-goal .fe-optional{font-size:.8cqw}
+.fridge-inline-goal p{font-size:.85cqw}
+@media(max-width:700px){
+ .fridge-viewport,.fridge-viewport.is-focused{width:100%}
+ .fridge-toolbar,.fridge-caption,.fridge-intake-state{margin-inline:12px}
+ .fridge-toolbar{flex-wrap:wrap}
+ .fridge-intake-state{align-items:flex-start;flex-direction:column;gap:4px}
+ .fridge-feature nav{gap:6px;margin:12px}
+ .fridge-create-note button{font-size:1.6cqw}
+}
+.fridge-inline-goal .fe-form label{font-size:.85cqw;gap:.3cqw;line-height:1.4}
+.fridge-inline-goal .fe-form label>span{font-size:.75cqw}
+@media(max-width:700px){
+ .fridge-inline-goal>button,.fridge-create-note button{font-size:1.7cqw;min-height:5.5cqw}
+}
+/* Text scales once with the shared scene, not once in layout and again in zoom. */
+.fridge-viewport{overflow:clip}
+.is-focused .fridge-horizon{font-size:1.02cqw}
+.is-focused .fridge-goal-status,.is-focused .fridge-board-foot{font-size:.9cqw}
+.is-focused .fridge-feedback{font-size:1.14cqw}
+.is-focused .fridge-note-source{font-size:.93cqw}
+.is-focused .fridge-read{font-size:1.3cqw}
+.is-focused .fridge-posted-paper .fridge-paper-text{font-size:1.35cqw}
+.is-focused .fridge-note-author{font-size:.85cqw}
+@media(max-width:700px){
+ .is-focused .fridge-feedback,.is-focused .fridge-paper-text,.is-focused .fridge-posted-paper .fridge-paper-text{font-size:1.5cqw}
+ .is-focused .fridge-note-source,.is-focused .fridge-note-author{font-size:1.25cqw}
+}
+
+.is-focused .fridge-object.form .fridge-note-source{font-size:.7cqw}.is-focused .fridge-object.form .fridge-paper-text{font-size:.9cqw}
+.fridge-posted-paper.is-arranged{position:absolute;z-index:4}
+.fridge-viewport[data-arrange=true] .fridge-posted-notes{overflow:visible}
+.fridge-viewport[data-arrange=true] .fridge-posted-paper{touch-action:none}
+.fridge-feature .fridge-view-controls{position:sticky;top:8px;z-index:12;width:fit-content;max-width:100%;box-sizing:border-box;margin:16px auto;padding:8px;border-radius:14px;background:var(--fg-surface,#fff);box-shadow:0 2px 12px #0001}
+body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
+.fridge-album-trigger{display:block;margin:16px auto;min-height:44px;font:inherit;padding:10px 16px;border:1px solid var(--fg-border);background:var(--fg-surface);color:var(--fg-ink);border-radius:10px}
+.fridge-empty-art{text-align:center;margin:20px auto;max-width:45ch;padding-inline:16px;color:var(--fg-muted)}
+.fridge-album-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.fridge-album-grid button{padding:8px;text-align:left}
+.fridge-album-grid button[aria-pressed=true]{outline:3px solid var(--fg-primary)}
+.fridge-album-grid img{width:100%;aspect-ratio:1;object-fit:contain}
+.fridge-album-grid span{display:block;padding:8px 0}
+@media(max-width:600px){.fridge-album-grid{grid-template-columns:1fr}}
+.fridge-read{font:400 1.3cqw/1.5 var(--font-sans,Arial,sans-serif)}

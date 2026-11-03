@@ -1,0 +1,32 @@
+### Result
+{"recorded":"mock zoom, open, pan, zoom controls, Arrange and Reset","ui":"898a1f0e67cbf824d6e93750f456e6ecc29da6e1"}
+### Ran Playwright code
+```js
+await (async page=>{
+ await page.setViewportSize({width:1280,height:720})
+ await page.goto('http://127.0.0.1:5243/evidence/fridge-editing-integration/preview.html#/fridge');await page.reload()
+ await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
+ const viewer=page.getByRole('region',{name:'Fridge viewer'})
+ await page.getByRole('button',{name:'Manage goals'}).waitFor()
+ await viewer.evaluate(e=>e.scrollIntoView({block:'start'}))
+ await page.waitForTimeout(1000)
+ const photo=page.getByRole('button',{name:'The family dog',exact:true})
+ await photo.click();await page.waitForTimeout(1000)
+ await photo.click();await page.getByRole('dialog').waitFor();await page.waitForTimeout(1400)
+ await page.getByRole('button',{name:'Close',exact:true}).click()
+ const box=await viewer.boundingBox(),x=box.x+box.width*.6,y=Math.max(170,box.y+200)
+ await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x-100,y+60,{steps:24});await page.mouse.up()
+ await page.waitForTimeout(1000)
+ await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(1000)
+ await page.getByRole('button',{name:'Zoom out',exact:true}).click();await page.waitForTimeout(1000)
+ await page.getByRole('button',{name:'Reset view',exact:true}).click();await page.waitForTimeout(900)
+ await page.getByRole('button',{name:'Open collage door',exact:true}).click();await page.waitForTimeout(800)
+ await page.getByRole('button',{name:'Arrange items',exact:true}).click()
+ await photo.focus();await page.keyboard.press('Alt+ArrowRight');await page.waitForTimeout(800)
+ await page.getByRole('button',{name:'Reset view',exact:true}).click();await page.waitForTimeout(1000)
+ return {recorded:'mock zoom, open, pan, zoom controls, Arrange and Reset',ui:'898a1f0e67cbf824d6e93750f456e6ecc29da6e1'}
+}
+)(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-03T01-49-54-884Z.log#L23-L24

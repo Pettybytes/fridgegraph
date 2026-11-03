@@ -6,6 +6,7 @@
  * no field can leak. `assertNoPii` is a belt-and-suspenders guard that throws if that ever changes.
  */
 import { createHash } from 'node:crypto';
+import { styleHintToFragment, type ReferenceStyleHint } from './inviteReference';
 
 const STYLE = 'soft, friendly, hand-drawn flat illustration with a gentle pastel palette';
 const CONSTRAINTS = [
@@ -27,14 +28,17 @@ function themeFor(occasion: string): string {
   return 'balloons, confetti, and festive shapes';
 }
 
-export function buildArtPrompt(occasion: string): string {
+export function buildArtPrompt(occasion: string, styleHint?: ReferenceStyleHint | null): string {
   const theme = themeFor(occasion);
   return (
     `An illustrated party-invitation background. Theme: ${theme}. ` +
     `Style: ${STYLE}. ` +
     `Composition: decorative motifs around the edges with a large, calm, empty area in the lower ` +
     `center reserved for text that the app adds separately — keep that area uncluttered. ` +
-    `Constraints: ${CONSTRAINTS}.`
+    `Constraints: ${CONSTRAINTS}.` +
+    // Optional, bounded style inspiration from an uploaded reference (fixed-vocabulary words only —
+    // never user text), so the no-echo / no-PII guarantees above still hold.
+    styleHintToFragment(styleHint)
   );
 }
 

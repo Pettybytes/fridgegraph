@@ -41,3 +41,37 @@ it('degrades to no villager-addition entries when the field is not deployed yet,
  render(<Activity client={graph} adapter={adapter}/>);await screen.findByText('Pickup coordination job created. A plan is not yet a decision.')
  expect(screen.queryByText(/Added .* —/)).toBeNull()
 })
+
+it('names the failing source instead of blanking Activity when one read is a privilege defect',async()=>{
+ const graph=client(async()=>({data:{schoolReports:[]}}),async()=>{throw Error('DB_PRIVILEGE')})
+ render(<Activity client={graph} adapter={adapter}/>)
+ await screen.findByText('Village additions unavailable')
+ expect(screen.getByText(/server permission problem/)).toBeInTheDocument()
+ expect(screen.getByText('Pickup coordination job created. A plan is not yet a decision.')).toBeInTheDocument()
+ expect(screen.queryByText('Activity unavailable')).toBeNull()
+ expect(screen.queryByText('Village additions not shared')).toBeNull()
+})
+
+it('keeps healthy sources visible when the mission-control feed itself fails',async()=>{
+ const failing={...adapter,readMissionControl:async()=>{throw Error('DB_UNAVAILABLE')}}
+ render(<Activity client={client(async()=>({data:{schoolReports:[{id:'one',kind:'health',text:'A real school note',at:'2026-11-01',reportedAt:null}]}}))} adapter={failing}/>)
+ await screen.findByText('Activity feed unavailable')
+ expect(screen.getByText('A real school note')).toBeInTheDocument()
+})
+
+it('distinguishes an empty result from a source that failed to load',async()=>{
+ const empty={candidates:[],events:[],recordedRuns:[]} as unknown as StoredMissionControl
+ const emptyAdapter={...adapter,readMissionControl:async()=>empty}
+ const first=render(<Activity client={client(async()=>({data:{schoolReports:[]}}))} adapter={emptyAdapter}/>)
+ await screen.findByText('No records are available to this view')
+ first.unmount()
+ render(<Activity client={client(async()=>{throw Error('SCHOOL_REPORTS_UNAVAILABLE')})} adapter={emptyAdapter}/>)
+ await screen.findByText(/No records could be loaded for this view/)
+ expect(screen.queryByText('No records are available to this view')).toBeNull()
+})
+it('does not call a parent not shared when Activity simply has no live connection',async()=>{
+ render(<Activity client={null} adapter={adapter}/>)
+ await screen.findByText('Activity isn’t connected in this view.')
+ expect(screen.getByText('Choose a live perspective to see the records shared with it.')).toBeInTheDocument()
+ expect(screen.queryByText('This activity is not shared with you')).toBeNull()
+})

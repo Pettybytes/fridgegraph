@@ -1,0 +1,52 @@
+npm notice run web@0.0.0 test
+npm notice run vitest run --maxWorkers=1 --no-file-parallelism
+
+ RUN  v5.0.5 /Users/user/Desktop/bentley/fridgegraph-fridge-personalization/web
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ src/features/rosina/RosinaPanel.test.tsx (16 tests | 1 failed) 10358ms
+   ❯ scripted Rosina acceptance examples (7)
+     × What can I do here? 5666ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/rosina/RosinaPanel.test.tsx > scripted Rosina acceptance examples > What can I do here?
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/features/rosina/RosinaPanel.test.tsx:36:5
+     34|     ["I'm new to this village.", /Start with your own village/],
+     35|     ["Show me another family's child.", /can't show another family's c…
+     36|   ])('%s', async (prompt, expected) => {
+       |     ^
+     37|     await enter()
+     38|     await send(prompt)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 96 passed (97)
+      Tests  1 failed | 583 passed (584)
+   Start at  22:06:20
+   Duration  268.47s (environment 36%, import 28%, tests 24%, setup 8%, transform 4%)
+
+Environment  jsdom was created 97 times · 90.89s total, 36% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

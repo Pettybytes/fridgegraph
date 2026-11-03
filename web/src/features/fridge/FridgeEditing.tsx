@@ -27,7 +27,7 @@ function Notice({ editing, section }: { editing: Editing; section: 'goals' | 'no
   return null
 }
 
-function GoalForm({ initial, label, pending, onSave, onCancel }: { initial?: GoalRecord; label: string; pending: boolean; onSave: (fields: GoalFields) => Promise<boolean>; onCancel?: () => void }) {
+export function GoalForm({ initial, label, pending, onSave, onCancel }: { initial?: GoalRecord; label: string; pending: boolean; onSave: (fields: GoalFields) => Promise<boolean>; onCancel?: () => void }) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [horizon, setHorizon] = useState(initial?.horizon ?? '')
   const [period, setPeriod] = useState<GoalPeriod | ''>(initial?.period ?? '')
