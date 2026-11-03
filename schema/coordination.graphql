@@ -43,7 +43,7 @@ type Mutation {
   acceptPickup(attemptId: ID!, available: Boolean!, declineReason: DeclineReason): CandidateEvaluation!
   approvePickup(jobId: ID!, version: Int!, decision: ApprovalDecision!, declineReason: String, acceptOverLimit: Boolean = false): CoordinationJob!
   reserveInviteBudget(childId: ID!, source: String!, promptHash: String!): InviteBudgetReservation!
-  settleInviteBudget(generationId: ID!, status: InviteGenerationOutcome!, model: String, outputSha256: String, cached: Boolean!): Boolean!
+  settleInviteBudget(generationId: ID!, status: InviteGenerationOutcome!, model: String, outputSha256: String, cached: Boolean!, proof: String!): Boolean!
 }
 
 type Child @key(fields: "id") {

@@ -60,6 +60,11 @@ const NOTICE_SCENARIO_DATE = process.env.ROSINA_NOTICE_SCENARIO_DATE ?? '2026-10
 // default $1.00/day), not here; a new login sharing the same child shares the same budget.
 const INVITE_LIVE = process.env.INVITE_LIVE === '1';
 const INVITE_RATE_PER_MIN = Number(process.env.INVITE_RATE_LIMIT_PER_MIN ?? 6);
+// Settlement is trusted server work, not a caller-reported fact (0085) — this secret proves a
+// settleInviteBudget call genuinely came from this process, which alone observed the real
+// provider outcome. Never logged, never sent to any client. Required only when INVITE_LIVE=1
+// (FIXTURE never reserves/settles at all, so the secret is otherwise unused).
+const INVITE_SETTLEMENT_SECRET = process.env.INVITE_SETTLEMENT_HMAC_SECRET ?? '';
 
 const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
 
@@ -234,6 +239,9 @@ export function createRosinaApp() {
   try {
     const c = resolveProvider('meta');
     const graphqlUrl = requireGraphqlUrl(); // router, as the caller — same as notice-plan
+    if (INVITE_LIVE && !INVITE_SETTLEMENT_SECRET) {
+      throw new Error('INVITE_SETTLEMENT_HMAC_SECRET is required when INVITE_LIVE=1 — settlement must be provably server-controlled (0085)');
+    }
     const image = INVITE_LIVE
       ? createLiveImageGenerator({ apiKey: c.apiKey, baseUrl: c.baseUrl })
       : createFixtureImageGenerator();
@@ -247,7 +255,9 @@ export function createRosinaApp() {
       // Per-CHILD persistent budget (0085) — only ever called when source is MUSE_IMAGE;
       // FIXTURE spends nothing and never reaches it.
       // No cost is passed in — price is decided server-side only, inside the 0085 RPCs.
-      ledgerBudget: buildInviteLedgerBudget({ graphqlUrl }),
+      // settlementSecret proves a settle() call genuinely came from this process (see 0085's
+      // hmac check) — required above whenever INVITE_LIVE=1.
+      ledgerBudget: buildInviteLedgerBudget({ graphqlUrl, settlementSecret: INVITE_SETTLEMENT_SECRET }),
       source: INVITE_LIVE ? 'MUSE_IMAGE' : 'FIXTURE',
     });
     app.post('/api/rosina/invite', (req, res) => {

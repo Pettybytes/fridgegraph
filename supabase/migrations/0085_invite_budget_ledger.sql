@@ -53,8 +53,29 @@
 -- boolean + a remaining-dollar figure for THIS child — never another family's data, never a
 -- model name, prompt, hash or raw cost figure to any client. Matches "keep credentials and
 -- provider accounting out of client responses" exactly.
+--
+-- SETTLEMENT IS TRUSTED SERVER WORK, NOT A CALLER-REPORTED FACT. Removing `p_cost_usd` and
+-- closing `status` to an enum (done in the prior correction round) stops a caller from naming
+-- its own PRICE, but it does nothing to stop the reservation's own legitimate owner from calling
+-- invite_budget_settle directly (via GraphQL OR this RPC) and simply LYING about the outcome —
+-- claiming FAILED, or SUCCEEDED+cached:true, to falsely release/zero a reservation that was in
+-- fact a real, billed, uncached generation. `status`/`cached` are genuinely knowable ONLY by
+-- whoever made the real provider call — Rosina's own backend process
+-- (src/rosina/inviteLedgerBudget.ts) — which holds a secret no browser, no ordinary authenticated
+-- caller, and no direct RPC caller ever has. `invite_budget_settle` therefore requires a 6th
+-- argument, `p_proof`: hmac-sha256 of the settlement facts, keyed with a secret configured here
+-- as the `app.invite_settlement_hmac_secret` database setting (set OUT OF BAND when 0085 is
+-- applied — e.g. `alter database postgres set app.invite_settlement_hmac_secret = '<secret>'` —
+-- matching Rosina's own `INVITE_SETTLEMENT_HMAC_SECRET` env var; never written into any migration
+-- file). An unset secret or any proof mismatch fails CLOSED (uniform `false`, same as an unowned
+-- or already-settled reservation — no oracle distinguishing why a settle attempt was refused).
+-- This protects BOTH interfaces identically: the check lives inside the SQL function itself, so
+-- it cannot be bypassed by calling the RPC directly instead of going through GraphQL, and it is
+-- not a UI-only restriction — see ops/invite-budget-proof.mjs's forged-proof checks.
 
 begin;
+
+create extension if not exists pgcrypto;
 
 create table if not exists invite_generations (
   id             text primary key default ('ig_' || substr(md5(gen_random_uuid()::text || clock_timestamp()::text), 1, 20)),
@@ -147,14 +168,32 @@ grant execute on function invite_budget_reserve(text, text, text) to authenticat
 -- reservation is refused. A reservation can be settled exactly ONCE (status must still be
 -- PENDING) — settling an already-terminal reservation again is refused, so a caller cannot
 -- replay/override a prior outcome.
+--
+-- p_proof: hmac-sha256(secret, generation|status|cached|model|output_sha256), keyed with the
+-- `app.invite_settlement_hmac_secret` database setting — a secret only Rosina's own backend
+-- process holds (see the top-of-file note). Ownership of the reservation is necessary but NOT
+-- sufficient: even the reservation's own legitimate owner is refused without a valid proof, so a
+-- caller cannot simply claim FAILED or cached:true to falsely release/zero a real charge.
 create or replace function invite_budget_settle(
-  p_generation text, p_status text, p_model text, p_output_sha256 text, p_cached boolean
+  p_generation text, p_status text, p_model text, p_output_sha256 text, p_cached boolean, p_proof text
 ) returns boolean
 language plpgsql security definer set search_path = public as $$
-declare v_updated int; v_actual_cost numeric; v_reserved numeric;
+declare
+  v_updated int; v_actual_cost numeric; v_reserved numeric;
+  v_secret text; v_message text; v_expected text;
 begin
   if current_person() is null then raise exception 'UNAUTHENTICATED'; end if;
   if p_status not in ('SUCCEEDED', 'FAILED', 'UNCERTAIN') then raise exception 'BAD_STATUS'; end if;
+
+  -- Fails CLOSED: an unconfigured secret or any proof mismatch refuses the settle, identically
+  -- to an unowned or already-settled reservation (uniform `false` — no oracle for which check
+  -- failed). This runs BEFORE touching the row at all, so a forged settle attempt never even
+  -- locks a reservation it has no valid claim to.
+  v_secret := current_setting('app.invite_settlement_hmac_secret', true);
+  if v_secret is null or v_secret = '' then return false; end if;
+  v_message := p_generation || '|' || p_status || '|' || p_cached::text || '|' || coalesce(p_model, '') || '|' || coalesce(p_output_sha256, '');
+  v_expected := encode(hmac(v_message, v_secret, 'sha256'), 'hex');
+  if p_proof is distinct from v_expected then return false; end if;
 
   select cost_usd into v_reserved from invite_generations
    where id = p_generation and person_id = current_person() and status = 'PENDING'
@@ -175,7 +214,7 @@ begin
   return v_updated = 1;
 end $$;
 
-revoke all on function invite_budget_settle(text, text, text, text, boolean) from public, anon;
-grant execute on function invite_budget_settle(text, text, text, text, boolean) to authenticated;
+revoke all on function invite_budget_settle(text, text, text, text, boolean, text) from public, anon;
+grant execute on function invite_budget_settle(text, text, text, text, boolean, text) to authenticated;
 
 commit;

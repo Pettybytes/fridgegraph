@@ -119,8 +119,16 @@ const typeDefs = parse(`
     by default); FAILED charges $0.00 (a CONFIRMED pre-generation refusal only). Caller must own
     the reservation, and a reservation settles exactly once — replaying or overriding a prior
     outcome is refused.
+
+    SETTLEMENT IS TRUSTED SERVER WORK, not a caller-reported fact: owning the reservation is
+    necessary but NOT sufficient. proof is an hmac-sha256 over the exact settlement facts, keyed
+    with a secret only Rosina's own backend holds (src/rosina/inviteLedgerBudget.ts) — never a
+    browser, never any other authenticated caller, even the reservation's own legitimate owner.
+    0085 verifies the same hmac and fails CLOSED on any mismatch, so a caller cannot simply claim
+    FAILED or cached:true to falsely release a real, billed generation. This check lives inside
+    the SQL function itself — it protects a direct RPC call identically to this mutation.
     """
-    settleInviteBudget(generationId: ID!, status: InviteGenerationOutcome!, model: String, outputSha256: String, cached: Boolean!): Boolean!
+    settleInviteBudget(generationId: ID!, status: InviteGenerationOutcome!, model: String, outputSha256: String, cached: Boolean!, proof: String!): Boolean!
 
     """Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing."""
     orbitDraft(
@@ -1254,10 +1262,13 @@ const resolvers = {
 
     // `status` is the InviteGenerationOutcome enum (closed set), and `cached` is a FACT the
     // caller observed — the RPC itself computes the actual charged cost_usd from those two
-    // inputs; nothing here or in 0085 accepts a price from the caller.
+    // inputs; nothing here or in 0085 accepts a price from the caller. `proof` is forwarded
+    // VERBATIM — this resolver does not compute or validate it; 0085's own hmac check is what
+    // decides whether the settlement is trusted (see the typeDefs doc comment above). This
+    // resolver adds no bypass for a direct RPC call: the check lives entirely in the SQL function.
     settleInviteBudget: async (
       _: unknown,
-      args: { generationId: string; status: string; model?: string | null; outputSha256?: string | null; cached: boolean },
+      args: { generationId: string; status: string; model?: string | null; outputSha256?: string | null; cached: boolean; proof: string },
       ctx: Ctx,
     ) => {
       refuseDemoGuideWrite(ctx);
@@ -1268,6 +1279,7 @@ const resolvers = {
         p_model: args.model ?? null,
         p_output_sha256: args.outputSha256 ?? null,
         p_cached: args.cached,
+        p_proof: args.proof,
       });
       if (error) rpcError(error);
       return Boolean(data);

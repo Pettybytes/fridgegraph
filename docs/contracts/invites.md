@@ -165,6 +165,23 @@ for authorization.
   conveys a FACT the caller observed (its own image client's cache), not a price — the SQL function
   computes the actual charge itself from `(status, cached)`. No caller-accessible mutation can set
   or influence either the per-generation price or the settled outcome's cost.
+- **Settlement is trusted server work, not a caller-reported fact.** Removing the cost argument
+  and closing `status` to an enum stops a caller from naming its own PRICE, but does nothing to
+  stop the reservation's own legitimate owner from calling `settleInviteBudget` directly (GraphQL
+  or the raw RPC) and simply lying about the outcome — claiming `FAILED` or `cached: true` to
+  falsely release/zero a real, billed generation. `status`/`cached` are genuinely knowable only by
+  whoever made the real provider call — Rosina's own backend (`src/rosina/inviteLedgerBudget.ts`)
+  — which alone holds `INVITE_SETTLEMENT_HMAC_SECRET`. Every `settle()` call now includes `proof`,
+  an hmac-sha256 over the exact settlement facts (`generationId|status|cached|model|outputSha256`)
+  keyed with that secret; `invite_budget_settle` (0085) verifies the SAME hmac against the
+  `app.invite_settlement_hmac_secret` database setting (configured out of band when 0085 is
+  applied, never checked into any migration file) and fails CLOSED — uniform `false`, no oracle —
+  on any mismatch or unconfigured secret. This check lives INSIDE the SQL function, so it protects
+  a direct RPC call identically to the GraphQL mutation; it is not a UI-only restriction. Ownership
+  of the reservation remains necessary (unchanged) but is no longer sufficient on its own — proven
+  directly in `ops/invite-budget-proof.mjs` check 13: the reservation's own owner, with a garbage
+  or missing proof, cannot release it; the same reservation settles normally once a correctly
+  computed proof is supplied.
 - **A cache hit is never a paid generation.** A repeat prompt (many families' requests collapse
   onto the same small set of occasion-based themes) returns `provenance.cached: true` from the
   image client with no real provider call. `InviteImageGenerator.peekCached(promptHash)` lets
@@ -214,7 +231,7 @@ for authorization.
   "keep credentials and provider accounting out of client responses" exactly.
 - **Demo reset never touches it.** `invite_generations` is NOT in `ID_TABLES`/`RESET_SCOPED`/
   `SANDBOX_TABLES` (`src/demo/reset.ts`) — `resetDemo()` never references it, so it survives
-  untouched by construction. Proven directly: `ops/invite-budget-proof.mjs` check 10 inserts,
+  untouched by construction. Proven directly: `ops/invite-budget-proof.mjs` check 14 inserts,
   calls the REAL `resetDemo()`, and confirms the row count is identical before and after.
 - **Evidence recorded per generation**: `model`, `prompt_hash`, `output_sha256` (sha256 of the
   returned art bytes, computed server-side after generation), `cost_usd`, `source`, `status`,
@@ -245,16 +262,18 @@ equivalent to real reference-image support.
   entirely, the settle-time `cached` fact still correctly zeroing the cost on a cache-hit race, an
   UNCERTAIN outcome charging conservatively, a CONFIRMED failure settling free, and direct unit
   coverage of `createLiveImageGenerator`'s CONFIRMED-vs-UNCERTAIN failure classification.
-- **GraphQL-layer forgery tests** (`src/subgraphs/coordination.inviteBudgetAuthz.test.ts`, 7
+- **GraphQL-layer forgery tests** (`src/subgraphs/coordination.inviteBudgetAuthz.test.ts`, 9
   tests, real `buildSubgraphSchema` execution against this subgraph's own typeDefs + resolvers):
   schema introspection proves `reserveInviteBudget`/`settleInviteBudget` have no cost/price
-  argument of any kind and that `status` is the closed `InviteGenerationOutcome` enum, not a free
-  string; execution proves an out-of-enum `status` is a GraphQL validation error before the RPC is
-  ever called, both resolvers forward ONLY their fixed, documented argument set to the RPC (no
-  `p_cost_usd` or other price-shaped field reaches it), the RPC's own allow/deny decision passes
-  through unmodified (never silently upgraded to success), and an unauthenticated caller is
-  refused before either RPC is reached.
-- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 13/13 checks): reservation
+  argument of any kind, that `status` is the closed `InviteGenerationOutcome` enum (not a free
+  string), and that `proof` is a required argument on `settleInviteBudget`; execution proves an
+  out-of-enum `status` or a missing `proof` is a GraphQL validation error before the RPC is ever
+  called, both resolvers forward ONLY their fixed, documented argument set to the RPC (no
+  `p_cost_usd` or other price-shaped field reaches it; `proof` is forwarded verbatim, never
+  computed or validated by the resolver), the RPC's own allow/deny decision passes through
+  unmodified including a refusal of a forged proof (never silently upgraded to success), and an
+  unauthenticated caller is refused before either RPC is reached.
+- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 14/14 checks): reservation
   with no caller-supplied cost, shared per-child budget across logins, independent per-child
   budgets, settle(FAILED) reversal, authorization refusals (stranger + wrong-child parent),
   concurrency at the cap boundary, settle ownership and replay refusal, a cache-hit settle
@@ -262,8 +281,10 @@ equivalent to real reference-image support.
   forged RPC signatures (an extra cost argument) resolving to no function at all (SQLSTATE
   42883), a total stranger refused when settling/releasing a reservation it does not own, the
   `authenticated` role having no direct select/insert/update/delete grant on
-  `invite_generations` at all (SQLSTATE 42501, checked even for the reservation's own owner), and
-  the demo-reset survival proof.
+  `invite_generations` at all (SQLSTATE 42501, checked even for the reservation's own owner), the
+  reservation's own LEGITIMATE OWNER refused when settling with a garbage or missing hmac proof
+  (the core settlement-trust negative test — ownership alone is not sufficient), and the
+  demo-reset survival proof.
 - **Web tests** (`web/src/features/invites/*.test.tsx`): the existing honest-states suite plus new
   coverage for preserve-last-design-while-regenerating, the explicit Retry button actually
   re-running the request, and no Retry offered on a 403 refusal.
@@ -274,13 +295,20 @@ equivalent to real reference-image support.
 ### 8.5 Rollout order
 
 1. Review this PR (money-adjacent + schema; AGENTS.md §1.6 human review).
-2. Bentley applies migration 0085 in an authorized window (content hash recorded in the PR), on
+2. Generate a real `INVITE_SETTLEMENT_HMAC_SECRET` (e.g. 32+ random bytes, base64/hex) and
+   configure it in TWO places that must match exactly: Rosina's own environment, and the database
+   — `alter database <db> set app.invite_settlement_hmac_secret = '<the same secret>';` (run once,
+   out of band; never checked into any migration file or committed anywhere). Settlement cannot
+   succeed until both sides agree — that is the fail-closed design, not a bug.
+3. Bentley applies migration 0085 in an authorized window (content hash recorded in the PR), on
    the real project database — never by this PR, never by an agent.
-3. Deploy the updated `coordination` subgraph (adds `reserveInviteBudget`/`settleInviteBudget`) and
-   the updated Rosina service (adds the ledger-backed budget + dedup) — backend only; the web
-   cutover (which bundle actually serves `InvitesPanel mode="live"`) is a separate, later window,
-   same split every other live-wiring deploy in this project's history has used.
-4. `INVITE_LIVE` stays **off** through this rollout — fixture mode is the default and spends
+4. Deploy the updated `coordination` subgraph (adds `reserveInviteBudget`/`settleInviteBudget`) and
+   the updated Rosina service (adds the ledger-backed budget + dedup + the settlement proof) —
+   backend only; the web cutover (which bundle actually serves `InvitesPanel mode="live"`) is a
+   separate, later window, same split every other live-wiring deploy in this project's history has
+   used. Rosina fails fast at startup if `INVITE_LIVE=1` but `INVITE_SETTLEMENT_HMAC_SECRET` is
+   unset — invites stay OFF (logged), never silently running without settlement trust.
+5. `INVITE_LIVE` stays **off** through this rollout — fixture mode is the default and spends
    nothing; enabling it is an explicit, separate decision requiring Meta's real image-docs
    reconfirmation (§ live Muse Image path) first.
 

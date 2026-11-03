@@ -30,14 +30,21 @@
  *   9. UNCERTAIN: settle(UNCERTAIN, ...) keeps the full reserved charge — never refunded by
  *      default, distinct from settle(FAILED, ...) which charges $0.
  *  10. FORGED SIGNATURES: calling reserve()/settle() with an extra cost argument (the removed
- *      `p_cost_usd` parameter, or a 6th argument on settle) resolves to NO function at all
- *      (SQLSTATE 42883) — there is no overload a caller could use to forge a price.
+ *      `p_cost_usd` parameter, or a 7th argument on settle beyond its real 6, which is
+ *      p_proof) resolves to NO function at all (SQLSTATE 42883) — there is no overload a caller
+ *      could use to forge a price.
  *  11. A total STRANGER (no relationship to the child at all, not even a co-parent) cannot
  *      settle/release a reservation it does not own, even knowing its id outright.
  *  12. GRANTS: the `authenticated` role has no select/insert/update/delete grant on
  *      `invite_generations` at all (SQLSTATE 42501) — the two RPCs are the only path to this
  *      data, for anyone, even the reservation's own legitimate owner.
- *  13. The ledger survives the real resetDemo() untouched — a demo reset must not reset the
+ *  13. SETTLEMENT TRUST: the reservation's own legitimate owner CANNOT falsely release it by
+ *      calling settle() with a garbage or missing hmac proof — refused identically to an
+ *      unowned reservation (uniform `false`), and the row stays PENDING, still counted toward
+ *      the cap. Ownership alone is not sufficient; only a caller holding the real settlement
+ *      secret (Rosina's own backend) can produce a proof that passes. The SAME reservation
+ *      settles normally once a CORRECTLY computed proof is supplied.
+ *  14. The ledger survives the real resetDemo() untouched — a demo reset must not reset the
  *      spending ledger.
  *
  * Usage: node --import tsx ops/invite-budget-proof.mjs
@@ -45,13 +52,23 @@
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, chmodSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHmac } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 
 const CONTAINER = `fg-invite-budget-${randomUUID().slice(0, 8)}`;
 const COST_PER_GENERATION = 0.01; // mirrors the SQL constant in invite_budget_reserve — $1.00 cap / $0.01 = 100
+// A real, random per-run secret — mirrors INVITE_SETTLEMENT_HMAC_SECRET (Rosina's env) paired
+// with the `app.invite_settlement_hmac_secret` database setting 0085's invite_budget_settle
+// reads. Never logged, never reused across runs.
+const TEST_SETTLEMENT_SECRET = `test-settlement-secret-${randomUUID()}`;
+// Canonical settlement message — must stay byte-for-byte identical to
+// src/rosina/inviteLedgerBudget.ts's settlementMessage() and 0085's own hmac computation.
+function computeProof(genId, status, cached, model, outputSha256) {
+  const message = [genId, status, cached ? 'true' : 'false', model ?? '', outputSha256 ?? ''].join('|');
+  return createHmac('sha256', TEST_SETTLEMENT_SECRET).update(message).digest('hex');
+}
 const lines = [];
 const log = (line) => { process.stdout.write(`${line}\n`); lines.push(line); };
 const fail = (msg) => { throw new Error(msg); };
@@ -154,13 +171,23 @@ async function main() {
 
   const client = makeClient();
   await client.connect();
+  // Mirrors how 0085 is actually deployed: the secret is configured as a database-level setting,
+  // never checked into the migration file itself. `false` (session-level, not just-this-transaction)
+  // so it stays in effect across every check on this one connection.
+  await client.query("select set_config('app.invite_settlement_hmac_secret', $1, false)", [TEST_SETTLEMENT_SECRET]);
   async function q(sql, params = []) {
     try { return { rows: (await client.query(sql, params)).rows, error: null }; }
     catch (e) { return { rows: [], error: e }; }
   }
   async function as(personId) { await asPerson(client, uidFor(personId)); }
   const reserve = (child, hash) => q("select * from invite_budget_reserve($1, 'MUSE_IMAGE', $2)", [child, hash]);
-  const settle = (genId, status, model, outputSha256, cached) => q('select invite_budget_settle($1, $2, $3, $4, $5)', [genId, status, model, outputSha256, cached]);
+  // The REAL, correctly-computed proof — every legitimate settle() in this script goes through
+  // this, so a single helper change exercises the hmac check on every existing PASS case.
+  const settle = (genId, status, model, outputSha256, cached) =>
+    q('select invite_budget_settle($1, $2, $3, $4, $5, $6)', [genId, status, model, outputSha256, cached, computeProof(genId, status, cached, model, outputSha256)]);
+  // Raw variant for forgery tests — takes an EXPLICIT (possibly wrong) proof, never computed.
+  const settleRaw = (genId, status, model, outputSha256, cached, proof) =>
+    q('select invite_budget_settle($1, $2, $3, $4, $5, $6)', [genId, status, model, outputSha256, cached, proof]);
 
   // --- Check 1: Kendra reserves for Nora. No cost argument anywhere — the price is server-side. ---
   await as('p_mom');
@@ -296,16 +323,17 @@ async function main() {
   log(`check 9 PASS: settle(UNCERTAIN, ...) keeps the full $${COST_PER_GENERATION} reserved charge — the provider may have billed for it, so it is never silently refunded, distinct from settle(FAILED, ...) which charges $0 (check 4)`);
 
   // --- Check 10: FORGED RPC SIGNATURES are refused outright — no overload accepts a
-  // caller-supplied cost. The removed `p_cost_usd` parameter (reserve) and an extra 6th
-  // argument (settle) are not just unused — they don't resolve to any function at all. ---
+  // caller-supplied cost. The removed `p_cost_usd` parameter (reserve) and an extra 7th
+  // argument (settle; 6 is now its real arity, with p_proof) are not just unused — they don't
+  // resolve to any function at all. ---
   await as('p_mom');
   const forgedReserve = await q("select * from invite_budget_reserve('p_nora', 0.0001::numeric, 'MUSE_IMAGE', 'forged_hash')");
   if (!forgedReserve.error || forgedReserve.error.code !== '42883') {
     fail(`check 10a FAILED: a 4-arg reserve() forging a cost should not resolve to any function (expected 42883), got ${JSON.stringify(forgedReserve)}`);
   }
-  const forgedSettle = await q('select invite_budget_settle($1, $2, $3, $4, $5, $6)', [gen1, 'SUCCEEDED', null, null, false, 0.0001]);
+  const forgedSettle = await q('select invite_budget_settle($1, $2, $3, $4, $5, $6, $7)', [gen1, 'SUCCEEDED', null, null, false, 'irrelevant-proof', 0.0001]);
   if (!forgedSettle.error || forgedSettle.error.code !== '42883') {
-    fail(`check 10b FAILED: a 6-arg settle() forging a cost should not resolve to any function (expected 42883), got ${JSON.stringify(forgedSettle)}`);
+    fail(`check 10b FAILED: a 7-arg settle() forging a cost should not resolve to any function (expected 42883), got ${JSON.stringify(forgedSettle)}`);
   }
   log('check 10 PASS: calling reserve()/settle() with an extra cost argument resolves to NO function (SQLSTATE 42883) — there is no overload a caller could use to forge a price');
 
@@ -343,10 +371,37 @@ async function main() {
   }
   log("check 12 PASS: the `authenticated` role has no select/insert/update/delete grant on invite_generations at all — the two RPCs are the only path to this data, for anyone, even the reservation's own owner");
 
+  // --- Check 13: the reservation's own LEGITIMATE OWNER cannot falsely release it — ownership
+  // is necessary but NOT sufficient. A garbage or missing proof is refused identically to an
+  // unowned reservation, uniformly `false`, even for Kendra settling her OWN real reservation. ---
+  await as('p_dad');
+  const freeUp14 = await settle(fillGenerationIds[2], 'FAILED', null, null, false);
+  if (freeUp14.error || freeUp14.rows[0].invite_budget_settle !== true) fail(`check 13 setup FAILED: could not free headroom: ${JSON.stringify(freeUp14)}`);
+  await as('p_mom');
+  const gen14 = (await reserve('p_nora', 'hash_trust_gap')).rows[0].generation_id;
+  if (!gen14) fail('check 13 setup FAILED: reservation still refused after freeing headroom');
+
+  const forgedProofSettle = await settleRaw(gen14, 'FAILED', null, null, false, 'garbage-not-a-real-hmac');
+  if (forgedProofSettle.error) fail(`check 13a FAILED unexpectedly errored: ${forgedProofSettle.error.message}`);
+  if (forgedProofSettle.rows[0].invite_budget_settle !== false) fail('check 13a FAILED: Kendra falsely released her OWN reservation with a garbage proof — settlement is not actually server-trusted');
+
+  const emptyProofSettle = await settleRaw(gen14, 'SUCCEEDED', 'muse-image-1.0', 'deadbeef', true, '');
+  if (emptyProofSettle.error) fail(`check 13b FAILED unexpectedly errored: ${emptyProofSettle.error.message}`);
+  if (emptyProofSettle.rows[0].invite_budget_settle !== false) fail('check 13b FAILED: an empty proof falsely settled cached:true (a free outcome) on a real, still-pending reservation');
+
+  const stillPending = await q('select status, cost_usd::numeric as n from invite_generations where id = $1', [gen14]);
+  if (stillPending.rows[0].status !== 'PENDING' || Number(stillPending.rows[0].n) !== COST_PER_GENERATION) {
+    fail(`check 13c FAILED: the reservation must remain PENDING at its full reserved cost after both forged attempts, got ${JSON.stringify(stillPending.rows[0])}`);
+  }
+
+  const realSettle = await settle(gen14, 'FAILED', null, null, false);
+  if (realSettle.error || realSettle.rows[0].invite_budget_settle !== true) fail(`check 13d FAILED: a CORRECTLY proven settle on the same reservation should succeed: ${JSON.stringify(realSettle)}`);
+  log("check 13 PASS: the reservation's own legitimate owner cannot falsely release it with a garbage or missing proof (refused identically to an unowned reservation, row stays PENDING at full cost) — only a correctly-proven settle succeeds");
+
   await client.end();
   await superuser.end();
 
-  // --- Check 13: resetDemo() must never touch the ledger ---
+  // --- Check 14: resetDemo() must never touch the ledger ---
   // resetDemo() expects the full Cast v2 fixture set already present (same as every other real-
   // resetDemo() proof this session) — pre-seed it before calling the real transaction.
   const { createCastV2 } = await import('../src/fixtures-cast-v2.ts');
@@ -376,8 +431,8 @@ async function main() {
   const after = makeClient(); await after.connect();
   const countAfter = (await after.query('select count(*)::int as n from invite_generations')).rows[0].n;
   await after.end();
-  if (countAfter !== countBefore) fail(`check 13 FAILED: resetDemo() changed invite_generations row count ${countBefore} -> ${countAfter}`);
-  log(`check 13 PASS: resetDemo() left invite_generations untouched (${countBefore} rows before and after) — a demo reset must not reset the spending ledger`);
+  if (countAfter !== countBefore) fail(`check 14 FAILED: resetDemo() changed invite_generations row count ${countBefore} -> ${countAfter}`);
+  log(`check 14 PASS: resetDemo() left invite_generations untouched (${countBefore} rows before and after) — a demo reset must not reset the spending ledger`);
 
   log('ALL CHECKS PASS — DISPOSABLE-POSTGRES INVITE BUDGET REHEARSAL (not a live application)');
 }
