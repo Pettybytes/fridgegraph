@@ -23,6 +23,15 @@ const events=days.flatMap(day=>[
 export const sampleRide={amountUsd:12.4,capUsd:10,distanceMiles:8.86,basis:'Stored sample road-distance estimate: 8.86 mi × $1.40/mi; estimate, not a provider quote.',paidRidePath:true as const,candidateId:'p_gma',state:'mock' as const}
 const points:Point[]=[[-83.112,42.368],[-83.105,42.365],[-83.099,42.36],[-83.092,42.356],[-83.084,42.352],[-83.076,42.348],[-83.069,42.345]]
 const times:Record<Mode,number>={Drive:1080,Walk:10200,Bike:3000}
+// Non-canonical sample routes derive time/distance from their own geometry; only the
+// stored Loretta->school ride below keeps its recorded road distance and times.
+const speedsMph:Record<Mode,number>={Drive:25,Walk:3,Bike:10}
+const milesBetween=(a:Point,b:Point)=>{
+ const rad=(d:number)=>d*Math.PI/180,lat1=rad(a[1]),lat2=rad(b[1])
+ const h=Math.sin(rad(b[1]-a[1])/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(rad(b[0]-a[0])/2)**2
+ return 3958.8*2*Math.asin(Math.sqrt(h))
+}
+const geometryMiles=(geometry:Point[])=>geometry.slice(1).reduce((total,point,index)=>total+milesBetween(geometry[index],point),0)
 export function createMockMapAdapter(personaId:string):VillageMapAdapter{
  const parent=['kendra','andre'].includes(personaId),limited=['priya','loretta'].includes(personaId)
  function world():MapWorld{
@@ -37,6 +46,7 @@ export function createMockMapAdapter(personaId:string):VillageMapAdapter{
   if(!from||!to||!from.position.point||!to.point)throw Error('UNAUTHORIZED')
   if(!parent)throw Error('UNAUTHORIZED') // Explicit mock route grant; schedule.read is not a home/route grant.
   const geometry:Point[]=fromId==='p_gma'&&toId==='school'?points:[from.position.point,[from.position.point[0],to.point[1]],to.point]
-  return {id:`sample-${fromId}-${toId}-${mode}`,fromId,toId,mode,geometry,distanceMiles:fromId==='p_gma'?8.86:3.2,durationSeconds:times[mode],rideEstimate:from.vehicle==='none'&&fromId==='p_gma'&&toId==='school'?sampleRide:null,state:'mock'} satisfies RouteResult
+  const canonical=fromId==='p_gma'&&toId==='school',distanceMiles=canonical?8.86:geometryMiles(geometry)
+  return {id:`sample-${fromId}-${toId}-${mode}`,fromId,toId,mode,geometry,distanceMiles,durationSeconds:canonical?times[mode]:Math.round(distanceMiles/speedsMph[mode]*3600),rideEstimate:from.vehicle==='none'&&canonical?sampleRide:null,state:'mock'} satisfies RouteResult
  }}
 }
