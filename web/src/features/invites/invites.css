@@ -15,8 +15,8 @@
 .invites-card__caption{font-size:13px;color:var(--fg-muted);margin:0}
 .invites-card__preview canvas{display:block;width:100%;height:auto;border:1px solid var(--fg-border);border-radius:12px;background:var(--fg-canvas)}
 .invites-card__credit{font-size:13px;color:var(--fg-muted);margin:0}
-.invites-card__source{font-size:13px;line-height:1.45;color:var(--fg-ink);margin:0;padding:8px 10px;border-left:3px solid var(--fg-border);background:var(--fg-surface)}
-.invites-card__source[data-source="FIXTURE"]{border-left-color:var(--fg-warning,#b4690e)}
+.invites-card__source{font-size:13px;line-height:1.45;color:var(--fg-ink);margin:0;padding:10px 12px;border:1px solid var(--fg-border);border-radius:10px;background:var(--fg-canvas)}
+.invites-card__source[data-source="FIXTURE"]{border-color:color-mix(in oklab,var(--fg-ink) 20%,var(--fg-border));background:color-mix(in oklab,var(--fg-ink) 4%,var(--fg-canvas))}
 
 /* The same lines the canvas draws, at real reading sizes — so the invitation stays legible on a
    phone without pinching a 1024px square down to 390px. */
