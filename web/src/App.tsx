@@ -71,12 +71,11 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
   if (!session || !adapter) return <PersonaPicker key="picker" />
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <VoiceProvider getAccessToken={() => getCurrentSession()?.accessToken ?? null} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
-    <SessionChip />
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
       <ChildAccessProvider client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
       <VillageMapProvider><ApolloSessionCleanup clearAdapter={adapter.clearStore} />
-      <Shell slots={{
+      <Shell sessionChip={<SessionChip />} slots={{
         map: <VillageMap/>,
         fridge: <Suspense fallback={<p role="status">Opening the fridge…</p>}><FridgeRoute /></Suspense>,
         today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
