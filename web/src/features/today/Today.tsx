@@ -17,7 +17,7 @@ import { recordedSummary } from '@/lib/frontendData/displayCopy'
 import { scopeLabel, type ChildAccess, type MyChildrenState } from '@/features/personas/myChildren'
 import { useChildAccess } from '@/features/personas/childContext'
 import { ConnectedVillagePreview } from '@/components/signature'
-import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon } from '@/components/fg/primitives'
+import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon, IconButton } from '@/components/fg/primitives'
 import { RosinaAvatar } from '@/components/fg/RosinaAvatar'
 import { Mic } from 'lucide-react'
 import { TodayDemoChecklist } from '@/features/demo-checklist/TodayDemoChecklist'
@@ -94,14 +94,14 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
               }))}
               sendLabel="Ask Rosina"
             />
-            <button type="button" className="fg-iconbtn fg-today-mic" aria-label="Open Rosina microphone" title="Open Rosina microphone" onClick={() => {
+            <IconButton className="fg-today-mic" label="Open Rosina microphone" onClick={() => {
               // One gesture: open + focus the panel mic (binds the live thread) AND start capture on
               // the ONE shared controller — no synthetic click, no second recording.
               window.dispatchEvent(new Event('rosina:focus-mic'))
               if (voice) void voice.start()
             }}>
               <Mic size={19} aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
         </Surface>
 
@@ -127,7 +127,6 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
                 <ul className="fg-today-events">
                   {events.map((e) => (
                     <li key={e.id}>
-                      <span className="fg-today-event-dot" data-kind={e.kind} aria-hidden />
                       <span className="fg-today-event-summary">{recordedSummary(e.summary)}</span>
                       <time className="fg-today-event-when" dateTime={e.at}>{shortWhen(e.at)}</time>
                     </li>

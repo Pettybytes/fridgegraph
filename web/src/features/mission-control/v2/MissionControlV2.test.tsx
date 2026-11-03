@@ -46,7 +46,7 @@ it('requires explicit over-limit acceptance in the distinct no-driver night with
 it('makes no-car estimates nullable while preserving zero and the basis',()=>{
  const {rerender}=render(<RideEstimate value={null}/>);expect(screen.queryByText('Estimated travel cost')).not.toBeInTheDocument()
  rerender(<RideEstimate value={0} basis="Recorded mock basis"/>);expect(screen.getByText(/Est. \$0.00/)).toBeVisible();expect(screen.getByText('Recorded basis: Recorded mock basis')).toBeVisible()
- rerender(<RideEstimate value={0} basis="FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"/>);expect(screen.getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+ rerender(<RideEstimate value={0} basis="FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi"/>);expect(screen.getByText('Straight-line approximation, may understate road cost')).toBeVisible()
 })
 it('does not show the paid-ride amount, basis or household cap to the Demo guide',async()=>{
  const mock=createMockAuthAdapter()

@@ -55,6 +55,11 @@
 }
 .fg-pcard:hover { border-color: color-mix(in oklch, var(--fg-primary) 40%, var(--fg-border)); box-shadow: 0 1px 2px oklch(0.2 0.03 270 / 0.04), 0 10px 26px -16px oklch(0.2 0.03 270 / 0.22); }
 .fg-pcard:active { transform: scale(0.99); }
+.fg-pcard:focus-visible {
+  outline: none;
+  border-color: var(--fg-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 32%, transparent);
+}
 .fg-pcard:disabled { opacity: 0.55; cursor: default; }
 .fg-pcard:disabled:hover { border-color: var(--fg-border); box-shadow: none; }
 .fg-pcard-body { flex: 1; min-width: 0; display: grid; gap: 2px; }

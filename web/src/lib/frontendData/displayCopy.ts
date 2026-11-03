@@ -24,14 +24,14 @@ export function recordedSummary(summary: string): string {
   if (name) {
     const declined = body.match(/declined:\s*([A-Za-z_]+)/i)
     if (declined) return `${first} declined (${declined[1].toLowerCase().replace(/_/g, ' ')})` // a recorded decline, with its reason
-    if (/no reply within|never accepted/i.test(body)) return `${first} — no reply in time` // a recorded timeout
-    if (/\bAPPROVAL_PENDING\b|Awaiting parent approval/i.test(body)) return replied ? `${first} can pick up — waiting for your OK` : `${first} — waiting for your OK` // acceptance only when a reply was recorded
-    if (/\bAVAILABLE_NO_TRANSPORT\b|Available, no transport/i.test(body)) return `${first} has free time recorded — no vehicle on record`
-    if (/NO_VERIFIED_CONTACT_METHOD/i.test(body)) return `${first} — no way to reach them on record`
-    if (/\bUNREACHABLE\b/i.test(body)) return `${first} — couldn’t be reached`
-    if (/\bUNAUTHORIZED\b/i.test(body)) return `${first} — not authorized for this`
-    if (/\bPENDING\b|Waiting for reply/i.test(body)) return `${first} — no reply yet` // attempt still open
-    if (/\bUNAVAILABLE\b/i.test(body)) return `${first} — can’t help this time`
+    if (/no reply within|never accepted/i.test(body)) return `${first}: no reply in time` // a recorded timeout
+    if (/\bAPPROVAL_PENDING\b|Awaiting parent approval/i.test(body)) return replied ? `${first} can pick up, waiting for your OK` : `${first}: waiting for your OK` // acceptance only when a reply was recorded
+    if (/\bAVAILABLE_NO_TRANSPORT\b|Available, no transport/i.test(body)) return `${first} has free time recorded, no vehicle on record`
+    if (/NO_VERIFIED_CONTACT_METHOD/i.test(body)) return `${first}: no way to reach them on record`
+    if (/\bUNREACHABLE\b/i.test(body)) return `${first}: couldn’t be reached`
+    if (/\bUNAUTHORIZED\b/i.test(body)) return `${first}: not authorized for this`
+    if (/\bPENDING\b|Waiting for reply/i.test(body)) return `${first}: no reply yet` // attempt still open
+    if (/\bUNAVAILABLE\b/i.test(body)) return `${first}: can’t help this time`
   }
 
   const approved = summary.match(/Confirmed:\s*([A-Za-z]+)[^]*?approved\s+([A-Za-z]+)/i)
@@ -46,7 +46,7 @@ export function recordedSummary(summary: string): string {
   }
   if (/^SIMULATED/i.test(summary)) {
     const who = summary.match(/—\s*([A-Za-z]+)’?'?s proposed route/i)
-    return who ? `Simulated route preview (${who[1]}) — not a live location` : 'Simulated route preview — not a live location'
+    return who ? `Simulated route preview (${who[1]}), not a live location` : 'Simulated route preview, not a live location'
   }
 
   // Conservative fallback for anything not matched above.

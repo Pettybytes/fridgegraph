@@ -55,7 +55,7 @@ export function PersonaPicker() {
         <span className="fg-pcard-body">
           <span className="fg-pcard-name">{p.name}</span>
           <span className="fg-pcard-rel">{relationship(p)}</span>
-          <span className="fg-pcard-see">{unavailableNow ? 'Not set up in this demo yet' : busy(p.id) ? 'Busy — try again in a moment' : p.id === 'kendra' ? 'Try it as Kendra, the parent — follow the checklist' : canSee(p)}</span>
+          <span className="fg-pcard-see">{unavailableNow ? 'Not set up in this demo yet' : busy(p.id) ? 'Busy, try again in a moment' : p.id === 'kendra' ? 'Try it as Kendra, the parent, and follow the checklist' : canSee(p)}</span>
         </span>
         <Icon.chevron className="fg-pcard-go" aria-hidden />
       </button>
@@ -67,7 +67,7 @@ export function PersonaPicker() {
       <header className="fg-picker-head">
         <a className="fg-picker-brand" href="#/"><FridgeMark size={26} aria-hidden="true" />FridgeGraph</a>
         <h1 className="fg-picker-title">The village it takes to raise a child, kept in one shared place.</h1>
-        <p className="fg-picker-sub">Every person sees only what that family has shared with them. Choose a perspective to explore — no sign-in needed.</p>
+        <p className="fg-picker-sub">Every person sees only what that family has shared with them. Choose a perspective to explore. No sign-in needed.</p>
         <div className="fg-picker-rosina">
           <RosinaAvatar state="ready" size={34} />
           <p>Rosina helps each person with exactly what they’re allowed to see, and never acts without a confirmation.</p>
@@ -87,7 +87,7 @@ export function PersonaPicker() {
           <span className="fg-pcard-body">
             <span className="fg-pcard-name">Demo guide <StatusChip tone="simulated" icon={false}>Read-only</StatusChip></span>
             <span className="fg-pcard-rel">Every family in the demo · No real family would have this view.</span>
-            <span className="fg-pcard-see">{soon('demo-guide') ? 'Not set up in this demo yet' : 'Explore (read-only) — browse everything, nothing changes'}</span>
+            <span className="fg-pcard-see">{soon('demo-guide') ? 'Not set up in this demo yet' : 'Explore (read-only). Browse everything, nothing changes.'}</span>
           </span>
           <Icon.chevron className="fg-pcard-go" aria-hidden />
         </button>

@@ -39,7 +39,7 @@ export function activityEntries(data:StoredMissionControl,slips:Slip[],people:Re
  }
  for(const addition of villagerAdditions){
   const who=people[addition.addedBy.id]??'A parent'
-  add({id:`villager:${addition.id}`,at:addition.confirmedAt,kind:'CONFIRMED',who,what:`Added ${addition.person.displayName} — ${villagerScopesLabel(addition.scopes)}.`,href:'#/village',place:'Village'})
+  add({id:`villager:${addition.id}`,at:addition.confirmedAt,kind:'CONFIRMED',who,what:`Added ${addition.person.displayName}: ${villagerScopesLabel(addition.scopes)}.`,href:'#/village',place:'Village'})
  }
  return entries.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))
 }

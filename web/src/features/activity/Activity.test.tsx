@@ -33,13 +33,13 @@ it('refuses Priya and discards late school responses from the previous persona',
 })
 it('shows an Add-a-Villager confirmation with the actor who confirmed it and the exact granted scopes',async()=>{
  const graph=client(async()=>({data:{schoolReports:[]}}),async()=>({data:{villagerAdditions:[{id:'vp_1',person:{id:'p_dana',displayName:'Dana Coleman'},addedBy:{id:'kendra'},relationshipType:'family_friend',scopes:['pickup.request'],confirmedAt:'2026-11-01T15:30:00Z'}]}}))
- render(<Activity client={graph} adapter={adapter}/>);await screen.findByText('Added Dana Coleman — pickup access.')
+ render(<Activity client={graph} adapter={adapter}/>);await screen.findByText('Added Dana Coleman: pickup access.')
  expect(screen.getByText('kendra')).toBeInTheDocument()
 })
 it('degrades to no villager-addition entries when the field is not deployed yet, without breaking the rest of Activity',async()=>{
  const graph=client(async()=>({data:{schoolReports:[]}}),async()=>{throw Error('Cannot query field "villagerAdditions" on type "Query"')})
  render(<Activity client={graph} adapter={adapter}/>);await screen.findByText('Pickup coordination job created. A plan is not yet a decision.')
- expect(screen.queryByText(/Added .* —/)).toBeNull()
+ expect(screen.queryByText(/Added .+:/)).toBeNull()
 })
 
 it('names the failing source instead of blanking Activity when one read is a privilege defect',async()=>{
