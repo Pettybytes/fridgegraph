@@ -31,11 +31,11 @@ These replace the earlier illustrative limits. They are **not derived from the c
 
 | Cap | Value | Window |
 | --- | --- | --- |
-| Per run | **30 outbound SMS segments** | one run |
-| Per recipient | **10 segments** | one run |
-| All runs combined | **100 segments** | per America/Detroit calendar day |
+| Per run | **50 outbound SMS segments** | one run |
+| Per recipient | **15 segments** | one run |
+| All runs combined | **150 segments** | per America/Detroit calendar day |
 
-**Unit is the SMS segment**, because that is the billing unit. A message of 2 parts consumes 2 of the allowance. The copy table in §1 shows each message is currently 1 part, so 30 segments ≈ 30 single-part messages — but the cap is enforced on segments, not messages.
+**Unit is the SMS segment**, because that is the billing unit. A message of 2 parts consumes 2 of the allowance. The copy table in §1 shows each message is currently 1 part, so 50 segments ≈ 50 single-part messages — but the cap is enforced on segments, not messages.
 
 **All outbound messages count**: every pickup request, every identity prompt, every follow-up. There is no uncounted message class.
 
@@ -60,10 +60,10 @@ Assumed unit rate **~$0.0079 per segment** (US destination):
 | Case | Segments | Approx cost |
 | --- | --- | --- |
 | Expected run (3 responders × 3 messages) | 9 | ~$0.071 |
-| Run at the 30-segment cap | 30 | ~$0.24 |
-| Day at the 100-segment cap | 100 | ~$0.79 |
+| Run at the 50-segment cap | 50 | ~$0.40 |
+| Day at the 150-segment cap | 150 | ~$1.19 |
 
-A **$0.50** backstop is retained for a single run so a runaway cannot exceed the day cap in one incident. It does not replace the segment caps, and exhausting it blocks sends exactly like a cap.
+A **$1.00** backstop is retained **per run** so a runaway cannot exceed the day cap in one incident. It does not replace the segment caps, and exhausting it blocks sends exactly like a cap.
 
 **The unit rate is an assumption** and must be confirmed from the GHL/Twilio billing rate before the window. If it is higher, the segment caps still stand and the dollar backstop is recomputed — it is never raised silently to make a run fit.
 

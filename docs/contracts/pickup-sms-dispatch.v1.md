@@ -101,9 +101,9 @@ Enforced **atomically** with the claim (§1.1), in the **segment** unit:
 
 | Cap | Value | Window |
 | --- | --- | --- |
-| Per run | **30 segments** | one run |
-| Per recipient | **10 segments** | one run |
-| All runs combined | **100 segments** | America/Detroit calendar day |
+| Per run | **50 segments** | one run |
+| Per recipient | **15 segments** | one run |
+| All runs combined | **150 segments** | America/Detroit calendar day |
 
 - Every outbound class counts: **pickup requests, identity prompts and follow-ups**.
 - **Reserve before handoff**; `UNKNOWN` outcomes **keep** their reservation.
