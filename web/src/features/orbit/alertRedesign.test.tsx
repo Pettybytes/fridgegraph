@@ -23,6 +23,19 @@ it('only a frozen audience recipient gets the takeover; parent, guide and hidden
  for(const [parent,guide,record] of [[true,false,active],[false,true,active],[false,false,null]] as const){const {controller}=fixture(parent,guide,record);await controller.load();const view=render(<AlertTakeover controller={controller} childName="Shared child"/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();view.unmount()}
  const {controller}=fixture();await controller.load();render(<AlertTakeover controller={controller} childName="Shared child"/>);expect(screen.getByRole('dialog')).toHaveTextContent('Orbit Alert');expect(screen.getByRole('dialog')).toHaveTextContent('Recorded Park')
 })
+it('pending and failed activation never produce an active visual',async()=>{
+ const pending=fixture(false,false,{...active,status:'PENDING_ACTIVATION'});await pending.controller.load();const view=render(<AlertTakeover controller={pending.controller} childName="Shared child"/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();view.unmount()
+ const parent=fixture(true,false,null);await parent.controller.load();await parent.controller.prepare({childId:'child'});expect(parent.controller.confirmable()).toBe(true);vi.mocked(parent.adapter.activate).mockRejectedValueOnce(Error('ORBIT_PREVIEW_MISMATCH'));await parent.controller.activate();expect(parent.controller.getSnapshot().alert).toBeNull();expect(parent.controller.getSnapshot().phase).toBe('editing');expect(parent.controller.getSnapshot().error).toContain('Review it again')
+})
+it('a failed refresh does not present a cached active alert as current',async()=>{
+ const {controller,adapter}=fixture();await controller.load();vi.mocked(adapter.status).mockRejectedValueOnce(Error('READ_UNAVAILABLE'));await controller.refresh();expect(controller.getSnapshot().error).toBeTruthy();render(<AlertTakeover controller={controller} childName="Shared child"/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+it('another recorded close reason has no found-safe release',async()=>{
+ const other=fixture(false,false,{...active,status:'CLOSED',closeOutcome:'CANCELLED',closedAt:'2026-11-01T21:00:00Z'});await other.controller.load();render(<><AlertTakeover controller={other.controller} childName="Shared child"/><FoundSafe controller={other.controller}/></>);expect(screen.queryByText('Found safe')).not.toBeInTheDocument();expect(document.querySelector('.orbit-confetti')).toBeNull()
+})
+it('dismissal leaves the recorded active alert open',async()=>{
+ const before=location.hash;const {controller,adapter}=fixture();await controller.load();render(<AlertTakeover controller={controller} childName="Shared child"/>);fireEvent.click(screen.getByRole('button',{name:'Leave alert view'}));expect(controller.getSnapshot().alert?.status).toBe('ACTIVE');expect(adapter.close).not.toHaveBeenCalled();location.hash=before
+})
 it.each([["I'm on my way",'ON_WAY'],["She's with me",'WITH_ME'],["Can't help",'CANNOT_HELP']] as const)('maps %s only to %s without closing',async(label,value)=>{
  const {controller,adapter}=fixture();await controller.load();render(<AlertTakeover controller={controller} childName="Shared child"/>);fireEvent.click(screen.getByRole('button',{name:label}));await waitFor(()=>expect(adapter.respond).toHaveBeenCalledExactlyOnceWith('alert',value));expect(adapter.close).not.toHaveBeenCalled();expect(controller.getSnapshot().alert?.status).toBe('ACTIVE')
 })
