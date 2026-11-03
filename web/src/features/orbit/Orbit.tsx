@@ -7,7 +7,7 @@ import {useActivePolling} from './useActivePolling'
 import {useEffect} from 'react'
 import {Dialog} from 'radix-ui'
 import {MessageCircle,ArrowRight,Check,RefreshCw} from 'lucide-react'
-import {formatTime,formatInstant} from '@/features/calendar/time'
+import {formatTime,formatInstant,formatInstantSeconds} from '@/features/calendar/time'
 import {useSession} from '@/features/personas/Session'
 import type {ResponseChoice} from './adapter'
 import type {OrbitController} from './controller'
@@ -45,7 +45,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
     <section className="orbit-record"><div className="orbit-record-heading"><div><p>{closed?'Closed':'Active'}</p><h2>{closed?(state.acknowledgedClosure?.alertId===state.alert.id&&state.acknowledgedClosure.personId===session?.persona.personId?`Closed by ${session.scope.parentName}`:'Your village’s responses are recorded.'):'Your village can respond.'}</h2></div><span className={`orbit-status ${closed?'is-closed':''}`}>{closed?'Closed':'Active'}</span></div>
      {state.alert.message?<blockquote>{state.alert.message}</blockquote>:<p>Message not recorded.</p>}
      {active&&image.url&&<img className="orbit-photo" src={image.url} alt="Shared photo" onError={image.onError}/>}{active&&image.failed&&<p>Couldn't display the shared photo.</p>}
-     {state.alert.activatedAt&&<p className="orbit-record-time">Activated {formatInstant(state.alert.activatedAt)}</p>}{closed&&state.alert.closedAt&&<p className="orbit-record-time">Closed {formatInstant(state.alert.closedAt)}</p>}
+     {state.alert.activatedAt&&<p className="orbit-record-time">{closed?'Opened':'Activated'} {closed?formatInstantSeconds(state.alert.activatedAt):formatInstant(state.alert.activatedAt)}</p>}{closed&&state.alert.closedAt&&<p className="orbit-record-time">Closed {formatInstantSeconds(state.alert.closedAt)}</p>}
      {closed&&state.alert.closeOutcome!=='FOUND_SAFE'&&<p className="orbit-record-time">Closure outcome: {state.alert.closeOutcome?state.alert.closeOutcome.toLowerCase().replaceAll('_',' '):'not recorded'}.</p>}
      {controller.mayRespond()&&<div className="orbit-your-response"><h3>Your response</h3><div>{(Object.keys(responses) as ResponseChoice[]).map(value=><button disabled={!!state.busy} key={value} onClick={()=>{void controller.respond(value)}}>{responses[value]}</button>)}</div></div>}
     </section>

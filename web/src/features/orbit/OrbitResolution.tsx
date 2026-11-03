@@ -14,7 +14,10 @@ export function OrbitResolution({recipient=false, childName, thankyou, closedAt,
 }) {
   return <section className="orbit-found" data-celebrating={celebrate || undefined} aria-label="Found safe" aria-live={celebrate ? 'polite' : 'off'}>
     {celebrate && <><div className="orbit-safe-reveal" aria-hidden="true"/><div className="orbit-safe-halo" aria-hidden="true"/><OrbitConfetti/></>}
-    <svg className="orbit-safe-check" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"/><path d="M27 51 43 67 75 34" pathLength="1"/></svg>
+    <span className="orbit-safe-mark">
+      <span className="orbit-safe-ring" aria-hidden="true"/>
+      <svg className="orbit-safe-check" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"/><path d="M27 51 43 67 75 34" pathLength="1"/></svg>
+    </span>
     {recipient && childName && <p className="orbit-found-name">{childName.trim().split(/\s+/)[0]}</p>}
     {recipient ? <Dialog.Description asChild><h2>Found safe</h2></Dialog.Description> : <h2>Found safe</h2>}
     <p className="orbit-thankyou">{thankyou ?? 'Thank-you not recorded.'}</p>

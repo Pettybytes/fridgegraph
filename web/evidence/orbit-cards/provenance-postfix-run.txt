@@ -1,0 +1,20 @@
+=== Orbit last-seen provenance proof (disposable loopback Postgres) ===
+  server: PostgreSQL 16.15 on aarch64-unknown-linux-musl
+  PASS  1a a place recorded without a time stores NO time — null
+  PASS  1b the message names the recorded place and omits a time — Lincoln Elementary School. Reply 1 = With me, 2 = On my way, 3 = Can't help.
+  PASS  2  a time with no recorded place is refused, never turned into an observation — 22023 ORBIT_LAST_SEEN_INCOMPLETE
+  PASS  3a a parent-supplied place and time are stored — rp_d68289d2cfb4 @ 2026-11-02T05:36:00.000Z
+  PASS  3b the message renders the entered wall time (12:36 AM Detroit) — Maple Grove Park at 12:36 AM. Reply 1 = With me, 2 = On my way, 3 = Can't help.
+  PASS  3c the row records the source, who entered it and when — PARENT_ENTERED by p_mom
+  PASS  3d the reader serves a parent-recorded place and time — Mon Nov 02 2026 00:36:00 GMT-0500 (Eastern Standard Time)
+  PASS  4a a last-seen time written without provenance is refused at write time — 42501 ORBIT_LAST_SEEN_UNPROVENANCED
+  PASS  4b the reader withholds a legacy time AND place that carry no provenance — {"at":null,"place":null}
+  PASS  5a a recipient cannot close the alert — 42501
+  PASS  5b WITH_ME is a report and does not close the alert — ACTIVE
+  PASS  6a an ACTIVE recipient gets the recorded place — Lincoln Elementary School
+  PASS  6b a closed recipient loses the share row — no row
+  PASS  6c a closed recipient loses the place row — 0
+  PASS  6d the exact thank-you remains — FridgeGraph Orbit: Nora was found safe and sound. Thank you for being there.
+  PASS  6e the parent record keeps both timestamps (activation and close) — 2026-11-03T06:36:13.142Z → 2026-11-03T06:36:13.157Z
+
+PASSED: 16/16 checks
