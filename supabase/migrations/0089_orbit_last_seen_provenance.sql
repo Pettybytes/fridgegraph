@@ -1,4 +1,4 @@
--- 0087 — Orbit last-seen provenance: a recorded time is either entered by a parent or absent.
+-- 0089 — Orbit last-seen provenance: a recorded time is either entered by a parent or absent.
 --
 -- THE DEFECT. `orbit_alerts.last_seen_at` was a bare timestamp. Nothing in the row, the reader or
 -- the API said where it came from, so any writer that valued it with `now()` — an ops proof, a
@@ -23,7 +23,7 @@
 -- Read gate lives in `orbit_share_for` (recreated below) because that is the single accessor the
 -- resolver uses; a resolver that forgot the rule still cannot receive an unprovenanced time.
 --
--- NOT APPLIED. This file is staged. 0087 is additive and forward-only; nothing in 0032-0062 is
+-- NOT APPLIED. This file is staged. 0089 is additive and forward-only; nothing in 0032-0062 is
 -- edited.
 
 begin;
