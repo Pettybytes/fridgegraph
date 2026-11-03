@@ -41,6 +41,8 @@ export const SCOPE = {
   pickupVerify: 'pickup.verify',
   pickupRequest: 'pickup.request',
   superviseRequest: 'supervise.request',
+  fridgeRead: 'fridge.read',
+  fridgePost: 'fridge.post',
 } as const;
 
 export function deny(): GraphQLError {
