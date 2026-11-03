@@ -1,5 +1,8 @@
 @font-face{font-family:FridgeKalam;src:url('/fridge/fonts/Kalam-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:FridgeKalam;src:url('/fridge/fonts/Kalam-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+/* Second self-hosted handwriting marker (SIL OFL, license at /fridge/fonts/Caveat-OFL.txt). */
+@font-face{font-family:FridgeCaveat;src:url('/fridge/fonts/Caveat-Variable.ttf') format('truetype');font-weight:400 700;font-style:normal;font-display:swap}
+.fridge-marker-caveat{font-family:FridgeCaveat,FridgeKalam,'Segoe Print',cursive}
 .fridge-feature{color:var(--fg-ink,#262832);max-width:1100px;margin:auto;padding:24px;font-family:inherit}
 .fridge-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px}.fridge-toolbar h1{font-size:28px;margin:0}.fridge-toolbar p,.fridge-caption{color:var(--fg-muted,#62626b);font-size:14px}.fridge-toolbar>div:last-child{display:flex;gap:8px}
 .fridge-feature button{cursor:pointer}.fridge-toolbar button,.fridge-feature nav button,.fridge-read button,.fridge-dialog button{font:inherit;min-height:44px;border:1px solid var(--fg-border,#d0d0d8);border-radius:10px;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832);padding:10px 16px}
@@ -152,3 +155,11 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 .fridge-caption-edit{display:flex;flex-direction:column;gap:4px;margin-top:14px;font-size:14px;color:var(--fg-muted)}
 .fridge-caption-edit textarea{font:inherit;min-height:44px;padding:8px 12px;border:1px solid var(--fg-border,#d0d0d8);border-radius:10px;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832);resize:vertical}
 .fridge-caption-edit small{color:var(--fg-muted)}
+/* Task D — per-goal whiteboard marker: colour (black/blue/red/green) + handwriting font. */
+.fridge-marker-picker{display:flex;gap:.4cqw;align-items:center;flex-wrap:wrap;margin:.2cqw 0 .7cqw}
+.fridge-marker-swatch{width:1.7cqw;height:1.7cqw;min-width:16px;min-height:16px;padding:0;border-radius:50%;border:1px solid #00000033;cursor:pointer}
+.fridge-marker-swatch[aria-pressed=true]{outline:.25cqw solid var(--fg-primary,#514b97);outline-offset:1px}
+.fridge-marker-picker button:not(.fridge-marker-swatch){font:600 .9cqw/1.1 var(--font-sans,Arial,sans-serif);min-height:0;min-width:0;padding:.25cqw .55cqw;border:1px solid #c7bfb1;border-radius:.35cqw;background:#ffffffcc;color:#2e3339;cursor:pointer}
+.fridge-marker-picker button.fridge-marker-caveat{font-family:FridgeCaveat,cursive;font-size:1.15cqw}
+.fridge-marker-picker button[aria-pressed=true]{background:var(--fg-primary,#514b97);color:#fff;border-color:var(--fg-primary,#514b97)}
+.is-focused .fridge-marker-picker button:not(.fridge-marker-swatch){font-size:.9cqw}

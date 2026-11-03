@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react'
 import {Dialog,Popover} from 'radix-ui'
-import {authorInk,doors,loadCaptions,loadLayout,notePositions,saveCaptions,saveLayout,samples,type FridgeReader,type Goal,type Position,type Slot,type Read} from './model'
+import {authorInk,doors,loadCaptions,loadLayout,loadMarkers,MARKER_INK,notePositions,saveCaptions,saveLayout,saveMarkers,samples,type FridgeReader,type Goal,type MarkerColor,type MarkerFont,type MarkerStyle,type Position,type Slot,type Read} from './model'
 import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
 import type {FridgeNoteRecord} from './editingContract'
@@ -24,6 +24,8 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
  const [layout,setLayout]=useState(()=>loadLayout(personId)),[selected,setSelected]=useState<Slot|null>(null)
  const [captions,setCaptions]=useState(()=>loadCaptions(personId))
  const storeCaption=(id:string,text:string)=>setCaptions(old=>{const value={...old,[id]:text};saveCaptions(personId,value);return value})
+ const [markers,setMarkers]=useState(()=>loadMarkers(personId))
+ const storeMarker=(id:string,patch:Partial<MarkerStyle>)=>setMarkers(old=>{const cur=old[id]??{color:'black' as MarkerColor,font:'kalam' as MarkerFont};const value={...old,[id]:{...cur,...patch}};saveMarkers(personId,value);return value})
  const care=useFridgeSource(reader,childId,'care'),goals=useFridgeSource(reader,childId,'goals')
  const board=goalsOverride??goals.state
  const scene=useRef<HTMLDivElement>(null),notesControl=useRef<HTMLButtonElement>(null),goalsControl=useRef<HTMLButtonElement>(null)
@@ -145,7 +147,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     </div>
     <section className="fridge-whiteboard" data-fridge-door="goals" inert={door==='notes'} aria-hidden={door==='notes'} aria-label="Recorded goals">
      <h2>Our goals</h2>{boardEditor&&<div className="fridge-inline-goal" data-viewer-control>{boardEditor}</div>}<span className="fridge-board-rule"/>{goalFeedback()}
-     {board.status==='ready'&&(board.value as Goal[]).map(goal=><article key={goal.id}><h3>{goal.title}</h3>{goal.horizon!==null&&<p className="fridge-horizon"><span>Horizon</span> <span>{goal.horizon}</span></p>}<small className="fridge-goal-status">{goal.status}</small>{goal.period&&<p className="fridge-horizon">Period: {goal.period}</p>}{goal.completedAt!==undefined&&<p className="fridge-horizon">{goal.completedAt?<>Completed <time dateTime={goal.completedAt}>{Number.isFinite(Date.parse(goal.completedAt))?new Intl.DateTimeFormat('en-US',{timeZone:'America/Detroit',month:'short',day:'numeric',year:'numeric'}).format(new Date(goal.completedAt)):'Time not recorded'}</time></>:<>Not marked complete</>}</p>}</article>)}
+     {board.status==='ready'&&(board.value as Goal[]).map(goal=>{const m=markers[goal.id]??{color:'black' as MarkerColor,font:'kalam' as MarkerFont};return <article key={goal.id}><h3 className={m.font==='caveat'?'fridge-marker-caveat':undefined} style={{color:MARKER_INK[m.color]}}>{goal.title}</h3>{!readOnly&&<div className="fridge-marker-picker" role="group" aria-label={`Marker for ${goal.title}`}>{(['black','blue','red','green'] as const).map(c=><button key={c} type="button" className="fridge-marker-swatch" aria-pressed={m.color===c} aria-label={`${c} marker`} style={{background:MARKER_INK[c]}} onClick={()=>storeMarker(goal.id,{color:c})}/>)}<button type="button" aria-pressed={m.font==='kalam'} onClick={()=>storeMarker(goal.id,{font:'kalam'})}>Kalam</button><button type="button" className="fridge-marker-caveat" aria-pressed={m.font==='caveat'} onClick={()=>storeMarker(goal.id,{font:'caveat'})}>Caveat</button></div>}{goal.horizon!==null&&<p className="fridge-horizon"><span>Horizon</span> <span>{goal.horizon}</span></p>}<small className="fridge-goal-status">{goal.status}</small>{goal.period&&<p className="fridge-horizon">Period: {goal.period}</p>}{goal.completedAt!==undefined&&<p className="fridge-horizon">{goal.completedAt?<>Completed <time dateTime={goal.completedAt}>{Number.isFinite(Date.parse(goal.completedAt))?new Intl.DateTimeFormat('en-US',{timeZone:'America/Detroit',month:'short',day:'numeric',year:'numeric'}).format(new Date(goal.completedAt)):'Time not recorded'}</time></>:<>Not marked complete</>}</p>}</article>})}
      <p className="fridge-board-foot">Family-chosen commitments{boardReadOnly?' · Read only':''}</p><span className="fridge-marker" aria-hidden="true"/><span className="fridge-erased-texture" aria-hidden="true"/>
     </section>
    </div>
