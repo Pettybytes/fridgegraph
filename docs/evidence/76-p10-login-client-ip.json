@@ -1,0 +1,60 @@
+{
+  "evidence": "P-10 — demo login limiter keyed on the trusted-proxy client address",
+  "at": "2026-11-03T06:40:00Z",
+  "pr": "#190",
+  "branch": "fix/p10-login-client-ip",
+  "branch_head": "484231a13315c25453301f5bb01d7359e8a92954",
+  "deployed_into": {
+    "checkout": "/Users/user/Desktop/bentley/fridgegraph-deploy-bbe11a4",
+    "base_commit": "bbe11a4",
+    "patched_commit": "b65d8c8614000361cf0791d31c83f905542b9e11",
+    "process": "node --env-file=…/fridgegraph/.env --import tsx src/main.ts",
+    "ports": "4001-4007 subgraphs + 4008 demo login, one process",
+    "restart": "DEMO_LOGIN_ENABLED=1; verified listening on 4001, 4007 and 4008"
+  },
+  "static": {
+    "root_typecheck": "clean (tsc --noEmit)",
+    "unit_tests": "6/6 pass — src/demo/login-client-ip.test.ts"
+  },
+  "live_rehearsal": {
+    "endpoint": "POST http://127.0.0.1:4008/api/demo/login",
+    "topology": "socket peer 127.0.0.1 (trusted) + X-Forwarded-For, exactly what cloudflared presents",
+    "checks": [
+      {
+        "name": "60 allowed, 61st refused for one client address",
+        "result": "PASS",
+        "detail": "allowed=60, 61st=429 RATE_LIMITED (X-Forwarded-For: 198.51.100.x)"
+      },
+      {
+        "name": "a second client address is not affected",
+        "result": "PASS",
+        "detail": "status=200 UNAVAILABLE/UNKNOWN_PERSONA — its own bucket, not the exhausted one"
+      },
+      {
+        "name": "a spoofed left-most entry does not choose a bucket (right-most wins)",
+        "result": "PASS",
+        "detail": "60 requests with rotating left-most (10.1.1.i) and fixed right-most 198.51.100.x → 60×200, 61st with a fresh left-most → 429"
+      },
+      {
+        "name": "two simultaneous Kendra contexts both READY on the same persona",
+        "result": "PASS",
+        "detail": "both 200 READY, personId p_mom on both, token present on both; the shared persona session is single-flight, so the tokens are identical by design"
+      },
+      {
+        "name": "one reset runs; the immediate second is refused",
+        "result": "PASS",
+        "detail": "reset1 200 {ok:true, restored:{people:17, routines:34, …}}; reset2 429 RESET_RATE_LIMITED — no duplicate reset"
+      },
+      {
+        "name": "reset without a bearer is refused",
+        "result": "PASS",
+        "detail": "401 UNAUTHENTICATED"
+      }
+    ],
+    "not_proven_online": {
+      "untrusted_peer_spoof": "The loopback socket peer is always trusted in this harness, so the 'untrusted peer ignores X-Forwarded-For' path is proven only by unit test (login-client-ip.test.ts), not by a live request from a non-trusted source address.",
+      "public_tunnel_hostname": "cloudflared is running under the root account with a token file; its ingress config is not readable from this session, so the rehearsal used 127.0.0.1:4008 with the same trusted-peer + X-Forwarded-For shape rather than the public hostname."
+    }
+  },
+  "note": "No schema change. The patch is a narrow two-file change cherry-picked onto the running bbe11a4 deploy checkout; current main was NOT deployed."
+}
