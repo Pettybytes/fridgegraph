@@ -204,6 +204,7 @@ enum CoordinationType {
   PICKUP
   INVITATION
   ONBOARDING
+  ORBIT_ALERT
 }
 
 enum DeclineReason {
