@@ -1,6 +1,9 @@
 import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
+  // The judge-path smoke test targets an external running instance via its own config
+  // (playwright.judge.config.ts) — keep it out of the default local e2e run.
+  testIgnore: /judge-path\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
