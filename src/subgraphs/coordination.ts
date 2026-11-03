@@ -390,10 +390,11 @@ const typeDefs = parse(`
     responseId: ID!
     status: VoiceNoteStatus!
     speaker: Person!
-    """The delivered, final transcript. Null while status is PENDING — see proposedScript."""
+    """The delivered, ASR-verified transcript. Null while status is PENDING — see proposedScript."""
     transcript: String
-    """A DRAFT line describing what the story needs to say, never the delivered transcript. Null
-    once status is READY and the real transcript has replaced it as the thing to read."""
+    """The authored TTS input text — permanently distinct from transcript (the ASR-verified
+    output) for BOTH statuses. Never cleared or superseded once READY: a transcript is never
+    replaced by its script, and a script is never overwritten by its transcript."""
     proposedScript: String
     durationSeconds: Float
     turnTimings: [TurnTiming!]
@@ -971,8 +972,9 @@ const resolvers = {
         responseId: String(row.response_id),
         status: String(row.status),
         speaker: { id: String(row.speaker_person_id) },
-        // Delivered and proposed never collapse into one field: a PENDING row has transcript null
-        // and only proposedScript filled; a READY row is the reverse.
+        // Delivered and proposed never collapse into one field: a PENDING row has transcript
+        // null (only proposedScript filled); a READY row has both — proposedScript is never
+        // cleared by delivery.
         transcript: row.transcript == null ? null : String(row.transcript),
         proposedScript: row.proposed_script == null ? null : String(row.proposed_script),
         durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),

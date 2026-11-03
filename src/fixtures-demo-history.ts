@@ -70,8 +70,30 @@ type CandidateResponse = {
   declineReason?: 'BUSY' | 'NO_TRANSPORT' | 'OTHER';
   /** A DRAFT line this PR wrote to describe what the story needs to say — not a delivered
    * transcript. Stored as voice_notes.proposed_script, status PENDING, until Bentley supplies
-   * the real audio/transcript/duration/hash. */
+   * the real audio/transcript/duration/hash. Mutually exclusive with deliveredVoiceNote: once
+   * the real asset lands, that story moves from proposedVoiceNote to deliveredVoiceNote, never
+   * both. */
   proposedVoiceNote?: { script: string; estimatedDurationSeconds: number };
+  /** The real, delivered asset — reconciled from #167's data/demo-voice/manifest.json after it
+   * merged. `script` is the authored TTS input (kept permanently, never overwritten by the
+   * transcript); `transcript` is Muse's ASR output, stored byte-for-byte VERBATIM including its
+   * own recognition errors (never cleaned up, never regenerated). `generatedAt`/`transcribedAt`
+   * are the REAL present-day instants the audio pipeline ran — distinct from this response's own
+   * fictional `respondedAt` above. `storagePath`/`sha256`/`contentType` describe the MP3 PLAYBACK
+   * asset; `museStoragePath`/`museSha256` are the separate WAV actually fed to Muse ASR, kept only
+   * for provenance (never served, never a GraphQL field). */
+  deliveredVoiceNote?: {
+    script: string;
+    transcript: string;
+    durationSeconds: number;
+    storagePath: string;
+    sha256: string;
+    contentType: 'audio/mpeg' | 'audio/wav';
+    generatedAt: string; // UTC ISO — real TTS synthesis instant, not a story-time
+    transcribedAt: string; // UTC ISO — real Muse ASR instant, not a story-time
+    museStoragePath: string;
+    museSha256: string;
+  };
 };
 
 type StorySpec = {
@@ -134,15 +156,28 @@ const STORY_SPECS: StorySpec[] = [
   // --- D-21: a second, unrelated story the same day — approved and confirmed, completion unknown, WITH a voice note (complete voice-to-resolution story #1) ---
   {
     n: 8, daysBeforeAnchor: 21, requestedAt: detroit(detroitDateOffset(21), '16:00', DETROIT_OFFSET_BEFORE_FALLBACK),
-    status: 'confirmed', confirmedCandidateId: 'p_priya', confirmedAt: detroit(detroitDateOffset(21), '16:40', DETROIT_OFFSET_BEFORE_FALLBACK),
+    status: 'confirmed', confirmedCandidateId: 'p_priya',
+    // 4:15 PM EDT — after her 4:08 response, BEFORE the committed 4:20 pickup her own transcript
+    // states. Parent confirmation must precede any committed pickup time, never follow it.
+    confirmedAt: detroit(detroitDateOffset(21), '16:15', DETROIT_OFFSET_BEFORE_FALLBACK),
     candidates: [
       {
         candidateId: 'p_priya', attemptChannel: 'CALL', attemptAt: detroit(detroitDateOffset(21), '16:02', DETROIT_OFFSET_BEFORE_FALLBACK),
         respondedAt: detroit(detroitDateOffset(21), '16:08', DETROIT_OFFSET_BEFORE_FALLBACK), responseKind: 'ACCEPTED',
-        // 4:20 PM EDT — after her own 4:08 PM response and before the 4:40 PM confirmation; the
-        // original draft's "3:30" was already in the past at the moment she's recorded as
-        // answering. Proposed to Bentley on #167 for the same fix in his script sheet.
-        proposedVoiceNote: { script: "Hi — yes, I can grab Nora at 4:20, I'm already headed that way for my own pickup. See you at the gate.", estimatedDurationSeconds: 11.4 },
+        // Delivered by #167 (merged) — real TTS/ASR, data/demo-voice/manifest.json "vn_hist_08_1".
+        deliveredVoiceNote: {
+          script: "Hi — yes, I can get Nora at 4:20. I'm already heading that way for my own pickup, so it's no trouble. I'll be at the gate a few minutes early.",
+          // Muse ASR output, verbatim — including its own errors ("4.20", duplicated "few few").
+          transcript: "Hi. Yes, I can get Nora at 4.20. I'm already heading that way for my own pickup, so it's no trouble. I'll be at the gate a few few minutes early.",
+          durationSeconds: 9.2,
+          storagePath: 'data/demo-voice/audio/vn_hist_08_1.mp3',
+          sha256: 'aa8833aac0eec66b49d80b5a42ce2bcff678986558cf8e186eeecc2245ccc0fb',
+          contentType: 'audio/mpeg',
+          generatedAt: '2026-11-03T01:46:45Z',
+          transcribedAt: '2026-11-03T01:46:46Z',
+          museStoragePath: 'data/demo-voice/audio/vn_hist_08_1.wav',
+          museSha256: '39af15a6cd3724f4933d98e99a3a73dce2fe7e86ea61e3a3cee258e01037b126',
+        },
       },
     ],
   },
@@ -150,14 +185,28 @@ const STORY_SPECS: StorySpec[] = [
   // --- D-20: complete voice-to-resolution story #2 ---
   {
     n: 9, daysBeforeAnchor: 20, requestedAt: detroit(detroitDateOffset(20), '12:30', DETROIT_OFFSET_BEFORE_FALLBACK),
-    status: 'confirmed', confirmedCandidateId: 'p_gma', confirmedAt: detroit(detroitDateOffset(20), '13:15', DETROIT_OFFSET_BEFORE_FALLBACK),
+    status: 'confirmed', confirmedCandidateId: 'p_gma',
+    // 12:55 PM EDT — after her 12:47 response, BEFORE the "by one" arrival her own transcript
+    // states (1:00 PM). Parent confirmation must precede any committed pickup time.
+    confirmedAt: detroit(detroitDateOffset(20), '12:55', DETROIT_OFFSET_BEFORE_FALLBACK),
     candidates: [
       {
         candidateId: 'p_gma', attemptChannel: 'SMS', attemptAt: detroit(detroitDateOffset(20), '12:32', DETROIT_OFFSET_BEFORE_FALLBACK),
         respondedAt: detroit(detroitDateOffset(20), '12:47', DETROIT_OFFSET_BEFORE_FALLBACK), responseKind: 'ACCEPTED',
-        // No parent named — whoever is on duty that day survives the parenting-schedule fix
-        // without the script going stale (same reasoning Bentley applied on #167).
-        proposedVoiceNote: { script: "Of course, sweetheart. I'll leave a little early and bring her the snack she likes. Tell them not to worry about a thing.", estimatedDurationSeconds: 9.8 },
+        // Delivered by #167 (merged) — real TTS/ASR, data/demo-voice/manifest.json "vn_hist_09_1".
+        deliveredVoiceNote: {
+          script: "Of course. I'll leave a little early and bring her the snack she likes. Tell them not to worry — I'll be there by one.",
+          // Muse ASR output, verbatim — including its own trailing-comma artifact.
+          transcript: "Of course, I'll leave a little early and bring her the snack she likes. Tell them not to worry. I'll be there by one.,",
+          durationSeconds: 6.27,
+          storagePath: 'data/demo-voice/audio/vn_hist_09_1.mp3',
+          sha256: '4f6672bbeac0808b742f27de08952af6996e0bdf8d16d0ac9cb8ceb62ecea81c',
+          contentType: 'audio/mpeg',
+          generatedAt: '2026-11-03T01:46:49Z',
+          transcribedAt: '2026-11-03T01:46:49Z',
+          museStoragePath: 'data/demo-voice/audio/vn_hist_09_1.wav',
+          museSha256: 'a89fe1ccb9f5e5302d03f906f03b948a4ee6521eba748d6cc81871334719a0b3',
+        },
       },
     ],
   },
@@ -183,12 +232,31 @@ const STORY_SPECS: StorySpec[] = [
   // --- D-15: complete voice-to-resolution story #3 ---
   {
     n: 12, daysBeforeAnchor: 15, requestedAt: detroit(detroitDateOffset(15), '14:00', DETROIT_OFFSET_BEFORE_FALLBACK),
-    status: 'confirmed', confirmedCandidateId: 'p_gloria', confirmedAt: detroit(detroitDateOffset(15), '14:50', DETROIT_OFFSET_BEFORE_FALLBACK),
+    status: 'confirmed', confirmedCandidateId: 'p_gloria',
+    // Gloria's delivered line states AVAILABILITY starting 2:30 PM ("free at half past two"), not
+    // a committed pickup clock time — unlike Priya/Loretta, there is no single stated pickup
+    // instant to precede here. 14:50 stays after both her 14:21 response and her own 14:30
+    // availability start; it approves the OFFER, not a claim that pickup itself happens at any
+    // particular minute (this schema has no pickup-completion concept at all — demo-history.md §2).
+    confirmedAt: detroit(detroitDateOffset(15), '14:50', DETROIT_OFFSET_BEFORE_FALLBACK),
     candidates: [
       {
         candidateId: 'p_gloria', attemptChannel: 'CALL', attemptAt: detroit(detroitDateOffset(15), '14:03', DETROIT_OFFSET_BEFORE_FALLBACK),
         respondedAt: detroit(detroitDateOffset(15), '14:21', DETROIT_OFFSET_BEFORE_FALLBACK), responseKind: 'ACCEPTED',
-        proposedVoiceNote: { script: "Hi, this is Gloria. Walter and I can take turns this week, I'm free at three today, just let the front office know I'm coming.", estimatedDurationSeconds: 12.6 },
+        // Delivered by #167 (merged) — real TTS/ASR, data/demo-voice/manifest.json "vn_hist_12_1".
+        deliveredVoiceNote: {
+          script: "Hi, this is Gloria. Walter and I can take turns this week — I'm free at half past two today. Just let the front office know I'm coming.",
+          // Muse ASR output, verbatim — including its own duplicated-word artifacts.
+          transcript: "Hi. This is is Gloria. Walter and I can take turns this week. I'm free at half half past two today. Just Just let the front office know I'm coming.",
+          durationSeconds: 8.68,
+          storagePath: 'data/demo-voice/audio/vn_hist_12_1.mp3',
+          sha256: '2fd15b9bb8507129f584b45b09f4ca764fc7c029efa0dad3b828c986b80f2cc2',
+          contentType: 'audio/mpeg',
+          generatedAt: '2026-11-03T01:46:51Z',
+          transcribedAt: '2026-11-03T01:46:52Z',
+          museStoragePath: 'data/demo-voice/audio/vn_hist_12_1.wav',
+          museSha256: 'dd486c50ad36145c5ab802ea1bce0bfc9203a999a7e4fdaa8455c41e5193ad80',
+        },
       },
     ],
   },
@@ -338,10 +406,33 @@ export function createDemoHistory(): DemoHistory {
         response_kind: c.responseKind ?? null,
       });
 
-      if (c.proposedVoiceNote) {
+      if (c.deliveredVoiceNote) {
+        // READY: the real asset, reconciled from #167's data/demo-voice/manifest.json after it
+        // merged. script/transcript are BOTH kept — a transcript never replaces its script.
+        // generated_at/transcribed_at are the real pipeline instants (Nov 3, 2026); distinct from
+        // this response's own fictional respondedAt above. muse_* is the separate WAV ASR source,
+        // provenance only — never served, never a GraphQL field.
+        voice_notes.push({
+          id: `vn_hist_${String(spec.n).padStart(2, '0')}_${ci + 1}`,
+          response_id: responseId,
+          speaker_person_id: c.candidateId,
+          status: 'READY',
+          proposed_script: c.deliveredVoiceNote.script,
+          transcript: c.deliveredVoiceNote.transcript,
+          duration_seconds: c.deliveredVoiceNote.durationSeconds,
+          turn_timings: null, // Muse returned no turn-level timings; none are invented.
+          storage_path: c.deliveredVoiceNote.storagePath,
+          sha256: c.deliveredVoiceNote.sha256,
+          content_type: c.deliveredVoiceNote.contentType,
+          generated_at: c.deliveredVoiceNote.generatedAt,
+          transcribed_at: c.deliveredVoiceNote.transcribedAt,
+          muse_storage_path: c.deliveredVoiceNote.museStoragePath,
+          muse_sha256: c.deliveredVoiceNote.museSha256,
+        });
+      } else if (c.proposedVoiceNote) {
         // PENDING, not delivered: this is a proposed script this PR drafted to describe what the
         // story needs to say, not a real recording. Bentley has not yet supplied the actual audio,
-        // its Muse transcript, its measured duration or its real sha256 — those four columns stay
+        // its Muse transcript, its measured duration or its real sha256 — those columns stay
         // NULL (never a fabricated stand-in, never a placeholder hash) until he does, and
         // voice_note_access (0084) refuses playback for every PENDING row regardless of who asks.
         voice_notes.push({
@@ -355,6 +446,11 @@ export function createDemoHistory(): DemoHistory {
           turn_timings: null,
           storage_path: null,
           sha256: null,
+          content_type: null,
+          generated_at: null,
+          transcribed_at: null,
+          muse_storage_path: null,
+          muse_sha256: null,
         });
       }
     });

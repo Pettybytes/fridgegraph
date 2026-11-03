@@ -276,7 +276,7 @@ export function createDemoLoginApp() {
 
   // ---------------------------------------------------------------- voice note playback (0084)
   // Real dependencies wired into the injectable handler (src/demo/voiceNoteEndpoint.ts) — every
-  // dependency there is fakeable, so ops/voice-note-endpoint.test.mjs can prove the route's own
+  // dependency there is fakeable, so src/demo/voiceNoteEndpoint.test.ts can prove the route's own
   // HTTP behavior over a REAL loopback request, not a mocked req/res object.
   app.get('/api/demo/voice-note/:voiceNoteId', createVoiceNoteHandler({
     verify: async (header) => {
@@ -287,10 +287,10 @@ export function createDemoLoginApp() {
       const ctx: Ctx = { today: todayIso(), token: bearer };
       const { data, error } = await dbFor(ctx).rpc('voice_note_access', { p_voice_note: voiceNoteId });
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { access?: string | null; storage_path?: string | null }
+        | { access?: string | null; storage_path?: string | null; content_type?: string | null }
         | null;
-      if (error || !row?.access || !row?.storage_path) return null;
-      return { access: String(row.access), storagePath: String(row.storage_path) };
+      if (error || !row?.access || !row?.storage_path || !row?.content_type) return null;
+      return { access: String(row.access), storagePath: String(row.storage_path), contentType: String(row.content_type) };
     },
     loadBytes: (storagePath) => {
       const file = join(VOICE_NOTE_DIR, basename(storagePath));

@@ -114,7 +114,7 @@
         },
         "proposedScript": {
           "oneOf": [{ "type": "string" }, { "type": "null" }],
-          "description": "A draft line describing what the story needs to say — never read as the delivered transcript. Null once status is READY."
+          "description": "The authored TTS input text, permanently distinct from transcript (the ASR-verified output) for BOTH statuses — never cleared or superseded once READY. A transcript is never replaced by its script, and a script is never overwritten by its transcript."
         },
         "durationSeconds": {
           "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "null" }],

@@ -135,8 +135,8 @@ async function seedFixtures(client) {
     -- READY: this row exercises AUTHORIZATION (checks 2-7), which needs a delivered note to test
     -- against — a PENDING one would refuse everyone regardless of who's asking (check 9 below
     -- tests that gate on its own, separately).
-    insert into voice_notes (id, response_id, speaker_person_id, status, transcript, duration_seconds, storage_path, sha256)
-    values ('vn_hist_test', 'ce_hist_test', 'p_gma', 'READY', 'Of course, sweetheart. I will leave a little early.', 9.8, 'demo-history/test.wav', repeat('0', 64));
+    insert into voice_notes (id, response_id, speaker_person_id, status, proposed_script, transcript, duration_seconds, storage_path, sha256, content_type, generated_at, transcribed_at, muse_storage_path, muse_sha256)
+    values ('vn_hist_test', 'ce_hist_test', 'p_gma', 'READY', 'Of course, sweetheart. I will leave a little early.', 'Of course, sweetheart. I will leave a little early.', 9.8, 'demo-history/test.mp3', repeat('0', 64), 'audio/mpeg', now(), now(), 'demo-history/test.wav', repeat('1', 64));
 
     -- PENDING: no delivered audio/transcript/duration/hash yet — only a proposed script, status
     -- defaults to PENDING. check 9 proves this is refused for EVERYONE, parent and speaker alike.

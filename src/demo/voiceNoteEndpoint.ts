@@ -11,7 +11,7 @@
 import type { Request, Response } from 'express';
 
 export type VoiceNoteIdentity = { ok: true } | { ok: false };
-export type VoiceNoteAccessResult = { access: string; storagePath: string } | null;
+export type VoiceNoteAccessResult = { access: string; storagePath: string; contentType: string } | null;
 
 export type VoiceNoteEndpointDeps = {
   verify: (header?: string) => Promise<VoiceNoteIdentity>;
@@ -46,7 +46,9 @@ export function createVoiceNoteHandler(deps: VoiceNoteEndpointDeps) {
         res.status(404).json({ error: 'NOT_FOUND' });
         return;
       }
-      res.setHeader('Content-Type', 'audio/wav');
+      // The database decides the asset's real type (0084: MP3 playback vs. its WAV ASR source) —
+      // never hardcoded, so a future note in a different format is served correctly without a code change.
+      res.setHeader('Content-Type', result.contentType);
       res.setHeader('X-Voice-Note-Access', result.access);
       res.send(bytes);
     } catch {

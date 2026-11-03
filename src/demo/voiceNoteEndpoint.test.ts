@@ -34,7 +34,7 @@ const READY_BYTES = Buffer.from('RIFF....WAVEfmt fake-but-real-bytes-for-this-te
 function deps(over: Partial<VoiceNoteEndpointDeps> = {}): VoiceNoteEndpointDeps {
   return {
     verify: async () => ({ ok: true }),
-    access: async () => ({ access: 'PARENT', storagePath: 'ready.wav' }),
+    access: async () => ({ access: 'PARENT', storagePath: 'ready.mp3', contentType: 'audio/mpeg' }),
     loadBytes: () => READY_BYTES,
     ...over,
   };
@@ -44,7 +44,7 @@ test('a missing bearer is refused with 401, before any access check runs', async
   let accessCalled = false;
   const { baseUrl, close } = await startServer(deps({
     verify: async () => ({ ok: false }),
-    access: async () => { accessCalled = true; return { access: 'PARENT', storagePath: 'x.wav' }; },
+    access: async () => { accessCalled = true; return { access: 'PARENT', storagePath: 'x.mp3', contentType: 'audio/mpeg' }; },
   }));
   try {
     const res = await fetch(`${baseUrl}/api/demo/voice-note/vn_1`);
@@ -67,7 +67,7 @@ test('an authorized caller receives the real bytes, the correct content-type, an
   try {
     const res = await fetch(`${baseUrl}/api/demo/voice-note/vn_1`, { headers: { authorization: 'Bearer T' } });
     assert.equal(res.status, 200);
-    assert.equal(res.headers.get('content-type'), 'audio/wav');
+    assert.equal(res.headers.get('content-type'), 'audio/mpeg', 'content-type must come from the injected access() result, never a hardcoded value');
     assert.equal(res.headers.get('x-voice-note-access'), 'PARENT');
     const body = Buffer.from(await res.arrayBuffer());
     assert.ok(body.equals(READY_BYTES), 'the exact injected bytes must be returned, unaltered');
@@ -120,7 +120,7 @@ test('reauthorization on a subsequent request: access() is re-run every time, no
       callCount += 1;
       // First request: access granted. Second request (same id, same connectionless client):
       // access has since been revoked — the route must ask again, not reuse the first answer.
-      return callCount === 1 ? { access: 'PARENT', storagePath: 'ready.wav' } : null;
+      return callCount === 1 ? { access: 'PARENT', storagePath: 'ready.mp3', contentType: 'audio/mpeg' } : null;
     },
   }));
   try {

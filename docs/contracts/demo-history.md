@@ -123,36 +123,60 @@ local string.
 
 ```sql
 create table voice_notes (
-  id               text primary key,
-  response_id      text not null references candidate_evaluations(id) on delete cascade,
+  id                text primary key,
+  response_id       text not null references candidate_evaluations(id) on delete cascade,
   speaker_person_id text not null references people(id),
-  status           text not null default 'PENDING' check (status in ('PENDING', 'READY')),
-  proposed_script  text,
-  transcript       text,
-  duration_seconds numeric(6,2),
+  status            text not null default 'PENDING' check (status in ('PENDING', 'READY')),
+  proposed_script   text,
+  transcript        text,
+  duration_seconds  numeric(6,2),
   -- Coarse, turn-level only — [{speaker, startSec, endSec}, ...]. NEVER word-level: nothing in
   -- this pipeline measures individual word timing, so nothing is invented to fill that shape.
-  turn_timings     jsonb,
-  storage_path     text,
-  sha256           text,
-  created_at       timestamptz not null default now()
-  -- status = 'READY' requires transcript/duration_seconds/storage_path/sha256 all non-null —
+  turn_timings      jsonb,
+  -- The MP3 PLAYBACK asset (what the HTTP endpoint serves) — content_type travels with it so the
+  -- endpoint never hardcodes a format.
+  storage_path      text,
+  sha256            text,
+  content_type      text,
+  -- Real, present-day pipeline instants — distinct from this response's own FICTIONAL
+  -- responded_at (candidate_evaluations). Never confused with "when the story happened."
+  generated_at      timestamptz,
+  transcribed_at    timestamptz,
+  -- The separate WAV actually fed to Muse ASR — provenance only. Never served over HTTP, never a
+  -- GraphQL field (same "no provider plumbing to any client" rule as the rest of this table).
+  muse_storage_path text,
+  muse_sha256       text,
+  created_at        timestamptz not null default now()
+  -- status = 'READY' requires proposed_script/transcript/duration_seconds/storage_path/sha256/
+  -- content_type/generated_at/transcribed_at/muse_storage_path/muse_sha256 ALL non-null —
   -- enforced by a CHECK constraint, not by convention.
 );
 ```
 
-**PENDING vs. READY — delivered assets are never fabricated.** Every voice note this seed PR inserts
-ships `status = 'PENDING'`: `transcript`, `duration_seconds`, `storage_path`, and `sha256` are all
-`NULL` until Bentley supplies the real audio file, its Muse-generated transcript, its measured
-duration, and its real content hash. `proposed_script` carries the DRAFT line this PR wrote to
-describe what the story needs to say — a separate column, never read back as `transcript`, so a
-proposed script can never be mistaken for a delivered one. `voice_note_access` (below) refuses
-playback for a PENDING note the exact same way it refuses an unauthorized caller — a judge can never
-tell "not yet delivered" from "not authorized" or "doesn't exist." **A placeholder hash
+**PENDING vs. READY — delivered assets are never fabricated.** A voice note starts `status =
+'PENDING'`: every delivered column above is `NULL` until the real audio file, its Muse-generated
+transcript, its measured duration, and its real hashes exist. `proposed_script` carries the
+authored TTS input text — a PERMANENT, separate column from `transcript` (the ASR-verified output)
+for BOTH statuses: a script is never read back as a transcript, and a transcript is never replaced
+by its script (same rule `data/demo-voice/README.md` states). `voice_note_access` (below) refuses
+playback for a PENDING note the exact same way it refuses an unauthorized caller — a judge can
+never tell "not yet delivered" from "not authorized" or "doesn't exist." **A placeholder hash
 (`'0'.repeat(64)`) is never written and never presented as a completed asset** — the column is
-`NULL`, not a fake value, until the real bytes exist. Only this dataset's three
-complete-voice-to-resolution stories (§2) have any `voice_notes` row at all, and today every one of
-them is PENDING.
+`NULL`, not a fake value, until the real bytes exist.
+
+**Reconciled with #167 (merged).** All three of this dataset's complete-voice-to-resolution
+stories — `vn_hist_08_1` (Priya), `vn_hist_09_1` (Loretta), `vn_hist_12_1` (Gloria) — are now
+`READY`, reconciled byte-for-byte from `data/demo-voice/manifest.json` (transcript, measured
+duration, real MP3 path/hash, real WAV path/hash, real `generatedAt`/`transcribedAt`). The Muse
+transcripts are stored **verbatim**, including their own recognition errors (`4.20`, a duplicated
+"few few"/"half half", a trailing-comma artifact) — never cleaned up, never regenerated.
+`confirmations.received_at` for these three stories was re-timed so the parent's approval always
+**precedes** any pickup time/arrival the delivered transcript actually commits to — e.g.
+`job_hist_08`'s confirmation sits at 4:15 PM EDT, between Priya's 4:08 PM response and the 4:20 PM
+pickup she states; a parent cannot be shown approving something after the caregiver has already
+committed to it. Where a transcript states only an AVAILABILITY window rather than a committed
+pickup instant (`job_hist_12`: "free at half past two"), no single clock time is treated as "the
+pickup" — this schema still has no pickup-completion concept (§2).
 
 - **One concrete FK, not a polymorphic `subject_type`/`subject_id`** — every voice note in this
   dataset answers exactly one `candidate_evaluations` response, and `on delete cascade` through

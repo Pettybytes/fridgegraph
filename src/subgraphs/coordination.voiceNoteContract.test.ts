@@ -72,12 +72,12 @@ test('CandidateEvaluation.voiceNoteId links to the real voice note, and VoiceNot
     ],
     voice_notes: [
       {
-        // READY: the delivered case — real transcript/duration/storage/hash all present, proposed
-        // script already cleared. The PENDING case (no delivered transcript, proposedScript only)
-        // is covered by the demo-history fixtures themselves (every note there is PENDING) and by
-        // voice_note_access's own SQL proof, not re-proven here.
+        // READY: the delivered case — real transcript/duration/storage/hash all present.
+        // proposedScript (the authored TTS input) stays populated even once READY — it is never
+        // cleared or replaced by the transcript (data/demo-voice/README.md: "a transcript is
+        // never replaced by its script"), the two are permanently distinct fields.
         id: 'vn_t1', response_id: 'ce_t1', speaker_person_id: 'p_gma', status: 'READY',
-        proposed_script: null,
+        proposed_script: 'Of course, I can grab her at three.',
         transcript: 'Of course — I can grab her at three.', duration_seconds: 9.8,
         // Pre-shaped exactly to the GraphQL contract (docs/contracts/demo-history.schema.json's
         // turnTiming $def) — the resolver passes turn_timings through verbatim, with no transform.
@@ -134,7 +134,7 @@ test('CandidateEvaluation.voiceNoteId links to the real voice note, and VoiceNot
   assert.equal(data.voiceNote.responseId, 'ce_t1', 'VoiceNote.responseId must round-trip to the response it was recorded against');
   assert.equal(data.voiceNote.status, 'READY');
   assert.equal(data.voiceNote.transcript, 'Of course — I can grab her at three.');
-  assert.equal(data.voiceNote.proposedScript, null, 'a delivered (READY) note has no proposed script left to show');
+  assert.equal(data.voiceNote.proposedScript, 'Of course, I can grab her at three.', 'proposedScript is never cleared by delivery — script and transcript stay permanently distinct, even once READY');
   const turns = data.voiceNote.turnTimings as Array<{ speaker: { id: string }; startSec: number; endSec: number }>;
   assert.equal(turns.length, 2, 'non-empty turnTimings must survive real execution, not just a null case');
   assert.equal(turns[0].speaker.id, 'p_mom');
