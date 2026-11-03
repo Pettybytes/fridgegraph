@@ -27,7 +27,7 @@ function Ready({fridge,viewer,service}:Omit<Props,'enabled'> & {service:Phase2Se
  const [section,setSection]=useState<'goals'|'notes'|null>(null)
  // Phase 1's whiteboard stays independently readable even if a Phase 2 read fails.
  const goalsOverride:Read<Goal[]>|undefined=editing.goals.kind==='ready'?(editing.goals.items.length?{status:'ready',value:editing.goals.items}:{status:'empty'}):undefined
- return <><Fridge {...fridge} goalsOverride={goalsOverride} boardReadOnly={!editing.canWrite} editingControls={<>
+ return <><Fridge {...fridge} postedNotes={editing.notes.kind==='ready'?editing.notes.items:[]} openPostedNotes={()=>setSection('notes')} goalsOverride={goalsOverride} boardReadOnly={!editing.canWrite} editingControls={<>
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>setSection('goals')}>{editing.canWrite?'Manage goals':'Goal details'}</FgButton>
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>setSection('notes')}>Family notes{editing.notes.kind==='ready'?` (${editing.notes.items.length})`:''}</FgButton>
  </>}/>
