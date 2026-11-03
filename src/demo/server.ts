@@ -28,7 +28,7 @@ import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
 import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
-import { resolveClientIp } from './client-ip';
+import { resolveClientIp, isResolvedClient } from './client-ip';
 import {
   ALLOWED_APP_ORIGINS_ENV,
   OriginConfigError,
@@ -120,6 +120,29 @@ function prune(map: Map<string, Window>, windowMs: number) {
   }
 }
 
+/**
+ * Rate-limit key for anonymous demo login.
+ *
+ * Login used `req.ip ?? req.socket.remoteAddress`, and `trust proxy` is set nowhere, so behind
+ * cloudflared every caller collapsed into ONE bucket (socket peer 127.0.0.1) — 60 requests/min for
+ * the whole audience. Reset already used the trusted-proxy resolver; login did not.
+ *
+ * This reuses that resolver rather than enabling Express `trust proxy` (which would trust the
+ * header broadly, not just the one loopback peer cloudflared presents). A peer that is not trusted
+ * keeps its own address, so a spoofed X-Forwarded-For from an untrusted path cannot choose a bucket.
+ * When every hop is trusted there is no client identity to recover and the peer itself is returned —
+ * that is a single shared bucket, which is the honest answer, not a per-caller one.
+ */
+export type ClientKeyRequest = { socket?: { remoteAddress?: string }; header(name: string): string | undefined }
+
+export function loginClientKey(req: ClientKeyRequest): string {
+  const socketAddress = req.socket?.remoteAddress ?? '';
+  if (!socketAddress) return 'unknown';
+  const resolved = resolveClientIp(socketAddress, req.header('x-forwarded-for'));
+  if (isResolvedClient(resolved)) return resolved;
+  return socketAddress;
+}
+
 export function createDemoLoginApp() {
   const app = express();
   // Explicit runtime configuration. Empty (the default) means "no additional public origins" and
@@ -163,7 +186,7 @@ export function createDemoLoginApp() {
       return;
     }
 
-    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    const ip = loginClientKey(req);
     const ipGate = take(byIp, ip, IP_LIMIT, IP_WINDOW_MS);
     if (!ipGate.allowed) {
       res.setHeader('Retry-After', String(ipGate.retryAfterSeconds));
