@@ -4,30 +4,54 @@
 `feat/rosina-invites-backend` off `origin/main`. This doc is the exact shape the web timeline builds
 against; any field change is posted as a diff on the PR before it is coded.
 
-A parent asks Rosina to make a party invitation. Rosina extracts the event fields, validates them
-(Detroit-local dates) **before any image call**, and — for a complete request — returns structured,
-**editable** event fields plus **art-only** illustration bytes for an in-memory preview/export. The
-app owns the text layer; the child's name, date and venue are **never** sent to the image model.
-Default is **fixture** mode; the live Muse Image path is behind `INVITE_LIVE=1` (not run tonight).
+A parent asks Rosina to make a party invitation **in their own words**. The art is driven by the
+parent's **creative request** (its subject, transformation, style, composition and any wording they
+ask for) — and, optionally, by an **uploaded reference image** they want remixed, or the **prior
+generated result** on a revision. Rosina **also** makes a best-effort, **editable** extraction of the
+event fields (name/occasion/date/time/place) as a convenience, but those fields are **never required
+to make art, never block it, and never invented** — a missing detail becomes a non-blocking
+`suggestion`, not a gate. The app owns the event-text layer; only the parent's typed `request` and
+their uploaded reference ever reach the provider — **never** any graph-derived private data (the
+child's record, schedule, household). Default is **fixture** mode; the live Muse Image path is behind
+`INVITE_LIVE=1`.
+
+> **Creative-workflow rework (this change).** Supersedes the earlier *art-only / preset-theme /
+> vision-style-extraction / schedule-required* design described in the historical sections below
+> (§"Art-only prompt", §8.3). The parent's request now drives the art; an uploaded reference is used
+> as a **real image-to-image edit** (not just a style hint); revisions re-edit the prior result; and
+> the event schedule no longer gates generation. Where older prose disagrees, this rework wins.
 
 ## Request
 
 ```
 POST /api/rosina/invite        Authorization: Bearer <caller jwt>
-{ "childId": "p_nora", "request": "dinosaur birthday invite for Nora on Nov 15 at Maple Hall, 2–4pm" }
+{
+  "childId": "p_nora",
+  "request": "turn these into warrior unicorns in golden armor and add “Happy Birthday Sam”",
+  "referenceImage": { "mimeType": "image/png", "dataBase64": "<bytes>" },  // optional — remixed as an edit
+  "revise": false            // optional — true re-edits the PRIOR generated result (sent back as referenceImage)
+}
 ```
 
-`childId` (string, required), `request` (string, required, ≤ 2000 chars) — the parent's own words. No
-image/photo/upload field is ever accepted (see error 400 below).
+`childId` (string, required), `request` (string, required) — the parent's own words, bounded by the
+**single** shared limit `MAX_REQUEST_CHARS = 2000` (`invitePrompt.ts`). That one limit is enforced at
+the endpoint (over-length → `400`) AND shown on the web textarea (`maxLength` + a live counter) — the
+full accepted request reaches the brief, with **no separate, smaller silent truncation** (an earlier
+900-char cap is removed). `referenceImage` (optional): the **only** accepted upload field —
+PNG/JPEG/WebP, ≤ 5 MB, dims 16–4096 px, validated by magic bytes and **EXIF/GPS/XMP-stripped**
+server-side before it reaches the provider. Any **other** image/photo/upload key is rejected `400`
+(see below). `revise: true` reuses the edits path with the prior generated art as the reference, so
+the result keeps every existing element the request does not ask to change.
 
 ## Response `200`
 
 ```jsonc
 {
-  "status": "READY",                 // "READY" | "NEEDS_CLARIFICATION"
-  "clarification": null,             // { "question": string } when NEEDS_CLARIFICATION, else null
+  "status": "READY",                 // always "READY" now — art is never gated on the schedule
+  "clarification": null,             // retained for back-compat; always null (no longer a gate)
+  "suggestion": "Add a date below to finish the invitation.",  // string | null — non-blocking nudge
   "event": {
-    "childFirstName": "Nora",
+    "childFirstName": "Sam",
     "occasion": "Birthday party",
     "date": "2026-11-15",            // YYYY-MM-DD | null  (validated real America/Detroit date)
     "startTime": "14:00",           // HH:MM | null
@@ -35,29 +59,35 @@ image/photo/upload field is ever accepted (see error 400 below).
     "timezone": "America/Detroit",
     "placeLabel": "Maple Hall"       // | null
   },
-  "art": {                           // null when NEEDS_CLARIFICATION (no image generated)
-    "mimeType": "image/png",
-    "width": 1024,
-    "height": 1024,
+  "art": {
+    "mimeType": "image/webp",        // the provider's REAL output format, read from the bytes (png|jpeg|webp)
+    "width": 1024,                   // the REAL pixel dimensions, read from the bytes — NOT assumed
+    "height": 1536,
     "base64": "<base64 image bytes>",          // bounded; in-memory preview/export only; no URL
-    "quietArea": { "x": 96, "y": 600, "w": 832, "h": 328 }  // px region reserved for the app's text
+    "quietArea": { "x": 82, "y": 768, "w": 860, "h": 676 }  // fraction-based region for the app's text
   },
   "provenance": {
-    "source": "FIXTURE",             // "MUSE_IMAGE" | "FIXTURE"
-    "model": null,                   // "muse-image-1.0" when source=MUSE_IMAGE, else null
+    "source": "MUSE_IMAGE",          // "MUSE_IMAGE" | "FIXTURE"
+    "model": "muse-image-1.0",       // "muse-image-1.0" when source=MUSE_IMAGE, else null
     "cached": false,                 // served from the process cache vs generated this request
-    "promptHash": "<sha256 of the art-only prompt>"   // "" when NEEDS_CLARIFICATION
-  }
+    "promptHash": "<sha256 of the creative brief (+ reference hash)>",
+    "outputFormat": "webp",          // the actual format the provider returned (verified, never assumed)
+    "edited": true                   // true when a reference image drove the result (an edit / revision)
+  },
+  "reference": { "requested": true, "applied": true }  // present when a reference was sent; applied=false in fixture
 }
 ```
 
 - Every `event` field is editable; rendering the text is the app's job, not the model's. `timezone`
-  is always `America/Detroit`.
-- On `NEEDS_CLARIFICATION`: `clarification` is set, `art` is `null`, and `event` carries whatever was
-  extracted (unknown required fields left null/empty); `provenance` carries the active `source` with
-  `model: null`, `cached: false`, `promptHash: ""`.
+  is always `America/Detroit`. A missing name/occasion/date surfaces as `suggestion` (plain words,
+  never invented) — it **does not** block the art or the download.
+- **Output format/dimensions are verified from the returned bytes, not assumed.** Muse Image defaults
+  to **WebP** and treats `size` as an **aspect ratio**, not an exact pixel size, so `art.mimeType`,
+  `art.width/height`, `provenance.outputFormat` and the `quietArea` all track the real output. The
+  downloaded card is always re-encoded to PNG by the canvas regardless of the source format.
 - `art.base64` is **ephemeral** (in-memory preview/export). **No provider signed URLs** appear in the
-  response or in evidence. Provenance records model id, prompt hash, and generated-vs-cached.
+  response or in evidence. Provenance records model id, prompt hash, generated-vs-cached, the real
+  output format, and whether a reference drove the result.
 
 ## Errors (bounded)
 
@@ -66,31 +96,49 @@ image/photo/upload field is ever accepted (see error 400 below).
 | 401 | `UNAUTHENTICATED` | bad/absent bearer |
 | 403 | `UNAUTHORIZED` | not parent/guardian of the child, OR the demo guide — generic, no oracle; **zero model calls** |
 | 429 | `RATE_LIMITED` | per-caller rate limit; body also carries `{ "retryAfterMs": number }` |
-| 429 | `BUDGET_EXHAUSTED` | process-wide generation budget spent — a new login cannot reset it |
-| 502 | `IMAGE_FAILED` | the model pipeline failed (Muse Spark extraction or Muse Image generation, live mode) |
+| 429 | `BUDGET_EXHAUSTED` | per-child daily generation budget spent — a new login cannot reset it |
+| 502 | `IMAGE_FAILED` | the Muse Image generation/edit call failed (live mode) |
+| 413 | `PAYLOAD_TOO_LARGE` | the `referenceImage` exceeds 5 MB |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | the `referenceImage` is not a PNG/JPEG/WebP (by magic bytes) |
 
 **Additions beyond the handed list (posted as a diff on the PR; non-breaking for the web client):**
-`400 INVALID_REQUEST` for a missing/overlong `childId`/`request` or any image/photo/upload field in
-the body. Extraction failures are folded into the existing `502 IMAGE_FAILED` (one model-pipeline
-error), not a new code.
+`400 INVALID_REQUEST` for a missing/overlong `childId`/`request`, a malformed `referenceImage`
+(bad base64 / out-of-range dimensions), or any image/photo/upload key **other** than `referenceImage`
+in the body. The optional best-effort field extraction (Muse Spark) **never fails the request** — a
+Spark error just yields empty, editable fields and a `suggestion`; only a Muse Image
+generation/edit failure produces `502 IMAGE_FAILED`.
 
-## Live Muse Image path (behind `INVITE_LIVE=1`; UNVERIFIED — reconfirm before enabling)
+## Live Muse Image path (behind `INVITE_LIVE=1`)
 
-- `POST ${META_BASE_URL}/images/generations` (default `https://api.meta.ai/v1`), `Authorization:
-  Bearer ${META_API_KEY}` — **server-side key only, never logged, never returned**.
-- Server-forced body: `{ model: "muse-image-1.0", prompt: <art-only>, n: 1, size: "1024x1024",
-  response_format: "b64_json" }`. `n`, size and a bounded output size are forced server-side.
-- **Shape caveat:** follows the OpenAI-compatible Images convention the repo's Meta provider mirrors
-  for chat (`src/rosina/museVision.ts`). **Meta's own image docs were not fetched tonight** (no
-  network / no live calls). The exact request shape, supported sizes/aspect ratios and usage terms
-  **must be reconfirmed against Meta's docs and cited here before `INVITE_LIVE=1` is enabled.**
+Uses Meta's **documented** Muse Image interfaces (`src/rosina/inviteImage.ts`):
 
-### Art-only prompt (hard guardrail)
-The image model receives **ART ONLY** — theme (from the occasion), illustration style and
-composition, with a quiet area reserved for the app's text (`src/rosina/invitePrompt.ts`). It is
-built from the occasion alone and asserted to contain **no** child name, date, or venue. Fixed in
-every prompt: fictional, illustrated/hand-drawn, **no people or faces, no photoreal people, no
-text/lettering, no logos/brands/known characters**. An uploaded photo is never accepted or sent.
+- **Generation** — `POST ${META_BASE_URL}/images/generations`
+  (<https://dev.meta.ai/docs/image-generation>). Body: `{ model: "muse-image-1.0", prompt: <creative
+  brief>, n: 1, size: "1024x1536", response_format: "b64_json", output_format: "png" }`.
+- **Edit (image-to-image)** — `POST ${META_BASE_URL}/images/edits`
+  (<https://dev.meta.ai/docs/api-reference/images/edit-image>). Same body **plus**
+  `images: [{ image_url: "data:<mime>;base64,<ref bytes>" }]`. Chosen automatically whenever a
+  `referenceImage` is present (an upload remix) **or** on a `revise` (the prior result sent back).
+- `Authorization: Bearer ${META_API_KEY}` — **server-side key only, never logged, never returned**.
+  `n`, `size`, `output_format` and a bounded output size (8 MB) are forced server-side.
+
+**Meta API findings (verified against the docs, reflected in code):**
+- `output_format` **defaults to `webp`**, not PNG — we request `png` but **read the actual format
+  back** from the response's `output_format` field and from the returned bytes (magic-byte sniff).
+- `size` is an **aspect ratio**, not an exact pixel size — so the real pixel dimensions are **read
+  from the returned bytes** (`imageHygiene.readImageDimensions`), never assumed to be 1024×1024. An
+  unreadable image is an **uncertain** failure (budget charged conservatively), never a silent guess.
+
+### Creative brief (replaces the old art-only/preset-theme prompt)
+The image model receives a **creative brief built from the parent's OWN request**
+(`src/rosina/invitePrompt.ts` → `buildCreativeBrief`): it preserves the requested subject,
+transformation, style, composition and **any wording the parent asked for** (e.g. "Happy Birthday
+Sam"). For an edit it instructs the model to transform the provided reference keeping its recognizable
+subject; for a revision, to preserve every existing element the request does not change. A calm
+lower-centre area is reserved for the app's event text. Safety constraints fixed in every brief:
+**illustrated and fictional; no real, identifiable people or private likenesses; no copyrighted
+characters, brand logos or trademarks.** Only the parent's typed request (and their uploaded
+reference) are sent — never graph-derived data; `childId` is used for authorization and budget only.
 
 ## Guardrails & scope
 - Caller's own bearer; **parent/guardian of that child only**; demo guide refused; a refused caller
@@ -238,37 +286,59 @@ for authorization.
   timestamps. Reference proof is byte-for-byte: `output_sha256` is computed from the exact bytes
   returned to the client, not a separate re-fetch.
 
-### 8.3 Reference image upload — BUILT as a labelled style-extraction alternative
+### 8.3 Reference image upload — REAL image-to-image edit (reworked)
 
-**Provider path (checked first, per the brief).** Meta's documented and implemented Muse Image
-request shape is `{ model, prompt, n, size, response_format }` only (OpenAI-images-compatible
-`POST ${META_BASE_URL}/images/generations`, see §live). There is **no reference/input-image
-parameter** anywhere in it — muse-image-1.0 cannot take a reference image directly. So we use the
-**second path the brief specifies**: Muse **vision** (`muse-spark-1.3` via `/chat/completions` with
-an image input — the same call shape as `museVision.ts`) extracts the reference's **style, palette,
-subject and mood**, and those feed the Muse Image prompt. This is an **explicit, separately-labelled
-alternative** (the exact posture §8.3 reserved): the uploaded image is **never placed in the card**
-and the UI never claims it is — it only guides the art *style*.
+> **Reworked.** The earlier version of this section used Muse **vision** (`muse-spark-1.3`) to extract
+> a bounded *style hint* from the reference and feed it to a text-only generation, because an earlier
+> reading concluded muse-image-1.0 "cannot take a reference image." **Meta's documented Muse Image
+> API does expose an edits (image-to-image) endpoint** — `POST ${META_BASE_URL}/images/edits` with
+> `images: [{ image_url }]` (<https://dev.meta.ai/docs/api-reference/images/edit-image>). The rework
+> uses it: the **actual uploaded image** now guides the result, and the vision-extraction path
+> (`inviteReference.ts`) is removed.
+
+**Provider path.** When a `referenceImage` is present (an upload remix) or on a `revise` (the prior
+generated result sent back), the endpoint routes to `/images/edits` and passes the image as a
+`data:` URL in `images[]`; otherwise it calls `/images/generations`. The creative brief tells the
+model to transform the provided image to match the request, keeping its recognizable subject (edit)
+or every element the request doesn't change (revision). The uploaded image is used as the **edit
+input**, not placed verbatim in the card; the exported card is the generated art plus the app's text.
 
 **Safety (`imageHygiene.ts` + `inviteEndpoint.ts`, all in memory, never persisted, never logged):**
 PNG/JPEG/WebP only by **magic-byte sniff** (a lying `mimeType` is rejected), **≤5 MB**, **dimensions
-read server-side** (16–4096 px), **EXIF/GPS/XMP stripped** before the bytes reach the vision model.
-The caller is authenticated and must be the child's parent/guardian (unchanged authz — a refusal
-makes zero model calls). A reference generation **counts as one unit against the per-child ledger
-budget (0085)** and the per-caller rate limit: when a reference is active the budget is **reserved
-before** the vision call, so an exhausted budget makes zero provider calls.
+read server-side** (16–4096 px), **EXIF/GPS/XMP stripped** before the bytes reach the provider. The
+caller is authenticated and must be the child's parent/guardian (unchanged authz — a refusal makes
+zero model calls). A reference/revision generation **counts as one unit against the per-child ledger
+budget (0085)** and the per-caller rate limit: the budget is **reserved before** the edit call (a
+reference always reserves — it is never a silent cache hit), so an exhausted budget makes zero
+provider calls.
 
-**Bounded, PII-safe prompt (`inviteReference.ts`).** Vision returns only values from FIXED allowed
-lists (palette/style/subject/mood); `styleHintToFragment` maps them to a FIXED phrase — **no free
-text, no transcription, no name/face ever enters the prompt**, so invitePrompt.ts's "never echoes
-input" + `assertNoPii` guarantees still hold. The prompt (and its cache key) include the style, so a
-different reference yields different art; the reference content hash is part of the dedup key.
+**What reaches the provider.** Only the parent's typed `request` (as the creative brief) and the
+stripped reference bytes. No graph-derived data; `childId` is used for authz + budget only. The brief
++ the reference content hash form the dedup/cache key, so a different request or a different reference
+yields different art, and `revise` is distinguished in the key so a revision never collides with the
+original.
 
-**Honesty.** The response carries `reference: { requested, applied }`. With `INVITE_LIVE` off
-(FIXTURE), the control still renders and the UI says live generation is off — the reference is
-validated for safety but never style-applied (`applied:false`). If vision fails, the card still
-generates with the default style and the UI says the reference's style wasn't applied — never
-silently approximated. Best-effort: a vision failure never fails the whole generation.
+**Honesty.** The response carries `reference: { requested, applied }` and `provenance.edited`. With
+`INVITE_LIVE` off (FIXTURE), the control still renders, the reference is validated for safety but the
+sample cannot remix it (`applied:false`) and the UI says so. In live mode an applied edit reports
+`applied:true`; if the edit could not be applied the UI says the reference wasn't applied — never
+silently approximated.
+
+**Revision & retry invariants (web, `InvitesPanel.tsx`).**
+- **Edited fields survive a revision.** The editable event is held by the composer, not the card. A
+  successful revision keeps the parent's current (edited) name/date/place/host/message and only fills
+  a still-empty field from the fresh extraction — a revision-only instruction ("add balloons") never
+  replaces an existing value with an empty or default one. A *fresh* "Prepare a new invitation"
+  adopts the new extraction outright (it is a new design).
+- **Retry repeats the exact failed operation.** The last attempt's `{ request, referenceImage,
+  revise }` is captured; **Retry** replays that — same mode, same reference, same revision intent —
+  rather than silently starting a fresh prepare.
+- **Every accepted result is revisable (limit reconciliation + resize path).** The generator bound is
+  8 MB at the provider's aspect ratio; the revision-input (reference) bound is 5 MB / 16–4096 px. A
+  generated result can exceed the reference bound, which would otherwise make it un-revisable. Before
+  a result is sent back as a revision reference, `renderInvite.toRevisionReference` sends it verbatim
+  when it already fits, and otherwise **downscales it to ≤ 4096 px and re-encodes PNG, shrinking until
+  it is also ≤ 5 MB** — an explicit resize path, so any accepted result can be revised.
 
 ### 8.4 Proof
 

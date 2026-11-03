@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Request, Response } from 'express';
 import { validateInviteFields } from './inviteFields';
-import { buildArtPrompt, assertNoPii, promptHash } from './invitePrompt';
+import { buildCreativeBrief, promptHash } from './invitePrompt';
 import { createFixtureImageGenerator, createLiveImageGenerator, InviteImageConfirmedFailure, InviteImageUncertainFailure, type InviteImageGenerator } from './inviteImage';
 import { createInviteRateLimiter } from './inviteBudget';
 import { createInviteHandler, type InviteEndpointDeps } from './inviteEndpoint';
@@ -65,6 +65,7 @@ function fakeRes(): Response & { code: number; payload: unknown } {
   return r as Response & { code: number; payload: unknown };
 }
 const auth = { authorization: 'Bearer T' };
+const PNG_1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const COMPLETE = { childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-11-15', startTime: '14:00', endTime: '16:00', placeLabel: 'Maple Hall' };
 
 function deps(over: Partial<InviteEndpointDeps> = {}): InviteEndpointDeps {
@@ -104,17 +105,21 @@ test('an ambiguous/missing date returns a clarification, never an invented fact'
   assert.equal(past.status, 'NEEDS_CLARIFICATION');
 });
 
-// ---- art-only prompt ----
+// ---- creative brief (parent's request drives the art) ----
 
-test('the art prompt contains no child name, date, venue, or time — even if the occasion hides a name', () => {
-  const prompt = buildArtPrompt("Nora's dinosaur birthday"); // occasion carries the name
-  const low = prompt.toLowerCase();
-  for (const pii of ['nora', '2026-11-15', 'maple hall', '14:00', '16:00']) assert.ok(!low.includes(pii.toLowerCase()), `leaked: ${pii}`);
-  assert.doesNotThrow(() => assertNoPii(prompt, COMPLETE));
-  assert.match(prompt, /no text|no letters/i);
-  assert.match(prompt, /no people|no faces/i);
-  // the guard trips if PII is ever present
-  assert.throws(() => assertNoPii('a party background for Nora', { childFirstName: 'Nora' }), /PII_LEAK/);
+test('the creative brief preserves the parent’s subject/style/wording and keeps safety constraints', () => {
+  const req = 'watercolor warrior unicorns in golden armor with “Happy Birthday Sam” across the top';
+  const prompt = buildCreativeBrief(req);
+  assert.match(prompt, /warrior unicorns/);
+  assert.match(prompt, /Happy Birthday Sam/);        // the parent's wording is honored, not stripped
+  assert.match(prompt, /real, identifiable people/i); // safety constraints remain
+});
+
+test('a reference request becomes an edit brief; a revision preserves existing elements', () => {
+  const edit = buildCreativeBrief('make them warrior unicorns', { hasReference: true });
+  assert.match(edit, /Transform the provided reference image/i);
+  const rev = buildCreativeBrief('add balloons', { revise: true });
+  assert.match(rev, /preserving every existing element/i);
 });
 
 // ---- endpoint ----
@@ -204,7 +209,7 @@ test('the key never reaches logs (live image client + endpoint)', async () => {
   console.log = (...a: unknown[]) => { captured.push(a.join(' ')); };
   console.error = (...a: unknown[]) => { captured.push(a.join(' ')); };
   try {
-    const fetchFn = (async () => ({ ok: true, json: async () => ({ data: [{ b64_json: 'QUJD' }] }) })) as unknown as typeof fetch;
+    const fetchFn = (async () => ({ ok: true, json: async () => ({ data: [{ b64_json: PNG_1x1 }] }) })) as unknown as typeof fetch;
     const live = createLiveImageGenerator({ apiKey: KEY, baseUrl: 'http://unused/v1', fetchFn });
     const res = fakeRes();
     await createInviteHandler(deps({ image: live, source: 'MUSE_IMAGE' }))(fakeReq(auth, body), res);
@@ -219,11 +224,11 @@ test('the key never reaches logs (live image client + endpoint)', async () => {
 
 test('live image generator caches by prompt hash (miss then hit)', async () => {
   let calls = 0;
-  const fetchFn = (async () => { calls++; return { ok: true, json: async () => ({ data: [{ b64_json: 'QUJD' }] }) }; }) as unknown as typeof fetch;
+  const fetchFn = (async () => { calls++; return { ok: true, json: async () => ({ data: [{ b64_json: PNG_1x1 }] }) }; }) as unknown as typeof fetch;
   const live = createLiveImageGenerator({ apiKey: 'k', baseUrl: 'http://unused/v1', fetchFn });
-  const hash = promptHash(buildArtPrompt('Birthday party'));
-  const a = await live.generate({ prompt: buildArtPrompt('Birthday party'), promptHash: hash });
-  const b = await live.generate({ prompt: buildArtPrompt('Birthday party'), promptHash: hash });
+  const hash = promptHash(buildCreativeBrief('Birthday party'));
+  const a = await live.generate({ prompt: buildCreativeBrief('Birthday party'), promptHash: hash });
+  const b = await live.generate({ prompt: buildCreativeBrief('Birthday party'), promptHash: hash });
   assert.equal(a.provenance.cached, false);
   assert.equal(b.provenance.cached, true);
   assert.equal(calls, 1, 'second call served from cache, model hit once');
@@ -239,37 +244,6 @@ test('per-caller rate limiter returns retryAfterMs when over the limit', () => {
   if (!d.allowed) assert.ok(d.retryAfterMs > 0 && d.retryAfterMs <= 60_000);
 });
 
-test('a name that is a prefix of a theme word does NOT trip the guard (Star/Fern)', async () => {
-  // "Star" vs "twinkling stars"; "Fern" vs "ferns" — word boundaries, not substrings.
-  assert.doesNotThrow(() => assertNoPii(buildArtPrompt("Star's space party"), { childFirstName: 'Star' }));
-  assert.doesNotThrow(() => assertNoPii(buildArtPrompt("Fern's dinosaur party"), { childFirstName: 'Fern' }));
-  assert.match(buildArtPrompt("Star's space party"), /stars/); // the theme word is really present
-  assert.match(buildArtPrompt("Fern's dinosaur party"), /ferns/);
-
-  // end to end: a child named Star gets a READY invite, not a 502
-  const res = fakeRes();
-  await createInviteHandler(deps({ extractor: async () => ({ childFirstName: 'Star', occasion: 'Space party', date: '2026-12-01' }) }))(fakeReq(auth, body), res);
-  assert.equal(res.code, 200);
-  assert.equal((res.payload as any).status, 'READY');
-});
-
-test('if a name is exactly a theme word, the guard refuses cleanly (502) BEFORE any budget reservation', async () => {
-  let reserveCalls = 0;
-  const budget = fakeLedgerBudget(1.0);
-  const spyBudget: typeof budget = { ...budget, reserve: (i) => { reserveCalls++; return budget.reserve(i); } };
-  // "Confetti" is a word in the birthday theme → the guard matches.
-  const r1 = fakeRes();
-  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', extractor: async () => ({ childFirstName: 'Confetti', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r1);
-  assert.equal(r1.code, 502);
-  assert.deepEqual(r1.payload, { error: 'IMAGE_FAILED' });
-  assert.equal(reserveCalls, 0, 'the guard runs BEFORE any reservation — nothing was ever reserved to refund');
-
-  // a valid request still has the full budget available
-  const r2 = fakeRes();
-  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', extractor: async () => ({ childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-12-01' }) }))(fakeReq(auth, body), r2);
-  assert.equal(r2.code, 200);
-  assert.equal(reserveCalls, 1);
-});
 
 // ---- deduplication ----
 
@@ -332,7 +306,7 @@ test('a KNOWN cache hit skips reservation entirely — it is never blocked by an
   const budget = fakeLedgerBudget(0.01); // exactly one generation's worth
   let reserveCalls = 0;
   const spyBudget: typeof budget = { ...budget, reserve: (i) => { reserveCalls++; return budget.reserve(i); } };
-  const fetchFn = (async () => ({ ok: true, json: async () => ({ data: [{ b64_json: 'QUJD' }] }) })) as unknown as typeof fetch;
+  const fetchFn = (async () => ({ ok: true, json: async () => ({ data: [{ b64_json: PNG_1x1 }] }) })) as unknown as typeof fetch;
   const live = createLiveImageGenerator({ apiKey: 'k', baseUrl: 'http://unused/v1', fetchFn });
 
   // First request: a real, uncached generation — consumes the only $0.01 of budget.
@@ -344,7 +318,7 @@ test('a KNOWN cache hit skips reservation entirely — it is never blocked by an
   assert.equal(budget.settled[0].cached, false);
   assert.equal(budget.settled[0].actualCost, 0.01, 'the real generation is charged the full price');
 
-  // Second request, SAME prompt (same occasion -> same art-only prompt -> same hash) -> the live
+  // Second request, SAME request text -> same creative brief -> same hash -> the live
   // client's own cache already holds it, so the endpoint's peekCached() check sees it BEFORE
   // reserving. The budget was fully spent by request 1, but this must still succeed, because a
   // known cache hit is never billed and so must never be gated by the cap at all.
@@ -354,14 +328,15 @@ test('a KNOWN cache hit skips reservation entirely — it is never blocked by an
   assert.equal(reserveCalls, 1, 'a known cache hit never calls reserve() at all — nothing to gate');
   assert.equal(budget.settled.length, 1, 'a known cache hit never calls settle() either — nothing was ever reserved to settle');
 
-  // Third request, a GENUINELY DIFFERENT (not cached) prompt — the real budget is still fully
-  // spent by request 1's real generation, so this is correctly refused. Proves the cache-hit
-  // exemption above is narrow: it does not quietly reopen the budget for real new spend.
+  // Third request, a GENUINELY DIFFERENT (not cached) prompt — a different creative REQUEST now
+  // yields a different brief/hash (the art is driven by the parent's own request text, not the
+  // extracted event schedule). The real budget is still fully spent by request 1's real
+  // generation, so this is correctly refused. Proves the cache-hit exemption above is narrow: it
+  // does not quietly reopen the budget for real new spend.
   const r3 = fakeRes();
-  await createInviteHandler(deps({
-    ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: live,
-    extractor: async () => ({ childFirstName: 'Nora', occasion: 'Space party', date: '2026-12-01' }),
-  }))(fakeReq(auth, body), r3);
+  await createInviteHandler(deps({ ledgerBudget: spyBudget, source: 'MUSE_IMAGE', image: live }))(
+    fakeReq(auth, { ...body, request: 'a totally different request — underwater mermaid castle party' }), r3,
+  );
   assert.equal(r3.code, 429, 'a genuinely new, uncached request is still correctly refused — the real spend from request 1 is unaffected by the free cache hit');
 });
 
