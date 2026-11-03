@@ -95,16 +95,24 @@ Dedupe on **(provider identity × dispatch scope)**. Not on message text: two re
 - Changing it takes effect **without a restart**.
 - It blocks **new** handoffs only. **It cannot recall a message already accepted by GHL** — that limit is stated to the operator, not hidden.
 
-### 4.2 Caps
+### 4.2 Caps (operator-set, authoritative)
 
-Enforced **atomically** with the claim (§1.1):
+Enforced **atomically** with the claim (§1.1), in the **segment** unit:
 
-- per run, per day, per recipient, and a spend allowance;
-- counting **identity prompts, follow-ups and multipart SMS** as sends, not just the first message;
-- `UNKNOWN` outcomes **retain** their reserved allowance;
-- exceeding any cap is a recorded refusal (`LIMIT`), never a silent skip.
+| Cap | Value | Window |
+| --- | --- | --- |
+| Per run | **30 segments** | one run |
+| Per recipient | **10 segments** | one run |
+| All runs combined | **100 segments** | America/Detroit calendar day |
 
-Exact numbers come from the message inventory: `pickup-message-inventory.v1.md`.
+- Every outbound class counts: **pickup requests, identity prompts and follow-ups**.
+- **Reserve before handoff**; `UNKNOWN` outcomes **keep** their reservation.
+- **Reset and restart never replenish allowance.** Counters and reservations survive both.
+- **Never automatically resend to use remaining allowance.** Unused allowance stays unused.
+- A cap hit **blocks the send and records the reason** (`LIMIT_RUN`, `LIMIT_RECIPIENT`, `LIMIT_DAY`) with used/remaining at refusal.
+- The **operator receipt shows used/remaining per cap**, plus `UNKNOWN` reservations held.
+
+Copy, parts per message and the derived cost view: `pickup-message-inventory.v1.md`.
 
 ## 5 · Recipients **[v1.1]**
 
