@@ -10,7 +10,7 @@ import './personas.css'
 import './picker.css'
 
 export function SandboxBanner() {
-  return <p className="sandbox-banner">Demo village · calls and texts go to test responders, never real people.</p>
+  return <p className="sandbox-banner">Demo village · outreach is limited to approved test responders.</p>
 }
 
 const GRANT_WORD: Record<string, string> = {

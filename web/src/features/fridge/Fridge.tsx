@@ -14,7 +14,7 @@ const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Sample family collage',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl}:Props){
+function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl}:Props){
  const viewport=useFridgeViewport()
  const [arrange,setArrange]=useState(false)
  const [door,setDoor]=useState<Door>(hashDoor)
@@ -118,8 +118,8 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
        onClick={e=>{if(drag.current?.moved){drag.current=null;return}drag.current=null;activate(e.detail,()=>{if(slot.destination)location.hash=slot.destination;else setSelected(slot)})}}>
        <Magnet kind={slot.magnet??'apple'}/>
        {(slot.asset||slot.image)&&<img draggable={false} src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} srcSet={slot.image?.srcSet??(slot.asset?`/fridge/samples/${slot.asset}-360.webp 360w, /fridge/samples/${slot.asset}-720.webp 720w, /fridge/samples/${slot.asset}-1440.webp 1440w`:undefined)} sizes="500px" alt={slot.image?.alt??''}/>}
-       {(slot.kind==='note'||slot.kind==='form')&&<span className="fridge-note-source">{slot.heading??(slot.source==='sample'?(slot.kind==='form'?'Sample':'Sample note'):'Shared note')}</span>}
-       {slot.variant==='save-date'?<span className="fridge-save-date-copy"><span className="fridge-sample-badge">Sample</span><span className="fridge-reveal-accent" aria-hidden="true">?</span>{slot.lines?.map((line,index)=><span key={line} className={index===0?'save-date-title':''}>{line}</span>)}</span>:slot.kind!=='photo'&&<span className="fridge-paper-text">{slot.text}</span>}
+       {(slot.kind==='note'||slot.kind==='form')&&<span className="fridge-note-source">{slot.heading??(slot.source==='sample'?'':'Shared note')}</span>}
+       {slot.variant==='save-date'?<span className="fridge-save-date-copy"><span className="fridge-reveal-accent" aria-hidden="true">?</span>{slot.lines?.map((line,index)=><span key={line} className={index===0?'save-date-title':''}>{line}</span>)}</span>:slot.kind!=='photo'&&<span className="fridge-paper-text">{slot.text}</span>}
       </button>
      })}
      {noteCreateControl&&<div className="fridge-create-note" data-viewer-control>{noteCreateControl}</div>}
@@ -140,7 +140,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     </section>
    </div>
   </div>
-  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Sample cards">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open sample ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><small>Sample</small><strong>{slot.text}</strong></button>)}</div>}
+  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Decorative papers">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open decorative ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><strong>{slot.text}</strong></button>)}</div>}
   <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{selected?.caption}</Dialog.Description><Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }

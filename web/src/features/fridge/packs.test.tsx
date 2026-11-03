@@ -16,7 +16,7 @@ it('shows DOM sample content and preserves independent caller reads with the pac
  expect(read.mock.calls.map(([source])=>source).sort()).toEqual(['care','goals'])
  expect(screen.getByRole('button',{name:'The family dog'})).toBeInTheDocument()
  expect(screen.getByText('Family dinner · Sunday 6 PM')).toBeInTheDocument()
- expect(screen.getByText('Sample note')).toBeInTheDocument()
+ expect(screen.queryByText('Sample note')).not.toBeInTheDocument()
  expect(screen.getByText('Saturday, December 12, 2026')).toBeInTheDocument()
  fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.click(screen.getByRole('button',{name:'Permission slip'}));expect(screen.getByRole('dialog')).toHaveTextContent('Not submitted; no consent record created.')
  expect(screen.queryByRole('button',{name:/sign|submit|book/i})).not.toBeInTheDocument()
@@ -40,6 +40,6 @@ it('keeps layout instructions in an accessible help popover',()=>{
 it('offers readable overview sample cards and keeps the save-the-date time concise',()=>{
  const art=familyArt('p_nora')
  render(<Fridge personId="p_mom" childId="p_nora" generation={1} reader={{read:async()=>({status:'empty'})}} sampleSlots={art.slots} artLabel={art.label}/>)
- for(const name of ['Retirement','Permission slip','Sitter schedule'])expect(screen.getByRole('button',{name:`Open sample ${name}`})).toHaveTextContent(name)
+ for(const name of ['Retirement','Permission slip','Sitter schedule'])expect(screen.getByRole('button',{name:`Open decorative ${name}`})).toHaveTextContent(name)
  expect(screen.getByText('2 PM')).toBeInTheDocument();expect(screen.queryByText(/America\/Detroit/)).not.toBeInTheDocument()
 })
