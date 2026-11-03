@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map, List, Mail, Refrigerator } from 'lucide-react'
+import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, CalendarDays, Home, Map, List, Mail, Refrigerator } from 'lucide-react'
+import { FridgeMark } from '@/components/fg/FridgeMark'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
 export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map' | 'activity' | 'invitations' | 'fridge'
@@ -30,7 +31,7 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
     <aside className="sidebar">
-      <a href="#/today" className="brand"><Sprout size={26} aria-hidden="true" />FridgeGraph</a>
+      <a href="#/today" className="brand"><FridgeMark size={26} aria-hidden="true" />FridgeGraph</a>
       <p className="village-caption">A little more village.</p>
       <nav aria-label="Main navigation">{routes.map(({ path, label, icon: Icon }) =>
         <a key={path} href={`#/${path}`} className={cn('nav-link', route === path && 'active')} aria-current={route === path ? 'page' : undefined}><Icon size={19} aria-hidden="true" />{label}</a>
