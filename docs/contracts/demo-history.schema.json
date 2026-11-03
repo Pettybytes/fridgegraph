@@ -141,7 +141,7 @@
         "createdOn": {
           "type": "string",
           "format": "date",
-          "description": "America/Detroit calendar date, expressed relative to the documented anchor D = 2026-10-15 in demo-history.md §2 — never a raw offset integer at the data layer."
+          "description": "America/Detroit calendar date, expressed relative to the documented anchor D = 2026-11-02 in demo-history.md §2 — never a raw offset integer at the data layer."
         },
         "timeline": {
           "type": "array",
@@ -179,7 +179,7 @@
   "type": "object",
   "properties": {
     "version": { "type": "string", "const": "v1" },
-    "anchorDate": { "type": "string", "format": "date", "const": "2026-10-15" },
+    "anchorDate": { "type": "string", "format": "date", "const": "2026-11-02" },
     "anchorTimezone": { "type": "string", "const": "America/Detroit" },
     "stories": {
       "type": "array",

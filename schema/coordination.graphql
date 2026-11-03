@@ -12,6 +12,7 @@ type Query {
   attempts(jobId: ID): [Attempt!]!
   informationRequests(childId: ID): [InformationRequest!]!
   confirmations(childId: ID): [Confirmation!]!
+  voiceNote(id: ID!): VoiceNote
 }
 
 type PickupRideEstimate {
@@ -107,6 +108,21 @@ type Confirmation {
   candidate: Person!
   approvedBy: Person!
   overLimitApproved: Boolean!
+}
+
+type TurnTiming {
+  speaker: Person!
+  startSec: Float!
+  endSec: Float!
+}
+
+type VoiceNote {
+  id: ID!
+  speaker: Person!
+  transcript: String!
+  durationSeconds: Float!
+  turnTimings: [TurnTiming!]
+  createdAt: String!
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA

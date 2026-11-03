@@ -26,7 +26,7 @@ reasoning.
   window and units". Caregivers are drawn ONLY from people who already hold a real grant for Nora
   in the existing seed (`src/fixtures.ts`): `p_gma` (Loretta), `p_tasha`, `p_priya`, `p_walter`,
   `p_gloria`. No new person is invented for this dataset.
-- **Documented anchor:** `D = 2026-10-15` (America/Detroit), a FIXED calendar date, not "today" at
+- **Documented anchor:** `D = 2026-11-02` (America/Detroit), a FIXED calendar date, not "today" at
   seed/reset time. A versioned dataset needs a stable anchor — computing offsets from a floating
   "now" would make "the same v1 dataset" render differently depending on when a demo happens to
   run, and would silently drift the DST-boundary case (§4) off the date it is meant to sit on.
@@ -102,11 +102,11 @@ local string.
   duration samples by construction (there is no instant to exclude at the query layer — it is
   simply absent). A genuine `DECLINED` response **is** included — it is a real, timed response.
 - **UTC → Detroit:** elapsed time is computed from the two UTC instants; only the eventual display
-  converts to America/Detroit. One seeded story's attempt/response pair straddles
-  `2026-11-01 02:00` America/Detroit (the fall-back DST boundary — Detroit's clocks repeat
-  01:00–02:00 local that morning) with both instants recorded as unambiguous UTC, so any future
-  elapsed-time computation is exercised across exactly the case that breaks naive local-time
-  subtraction.
+  converts to America/Detroit. `D-1 = 2026-11-01` is deliberately **the fall-back DST boundary
+  itself** (Detroit's clocks repeat 01:00–02:00 local that morning) — not a coincidence of the
+  anchor choice (§2). That story's attempt/response pair straddles the ambiguous local hour, with
+  both instants recorded as unambiguous UTC, so any future elapsed-time computation is exercised
+  across exactly the case that breaks naive local-time subtraction.
 - **Disclosure:** any future aggregate read (a "typical response time" figure) must disclose its
   own sample size (`N` = count of stories with a non-null `responded_at` in the window) alongside
   the figure — this contract does not define that aggregate query, only requires that whoever adds
