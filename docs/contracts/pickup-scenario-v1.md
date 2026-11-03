@@ -1,6 +1,6 @@
-# Pickup demo — scenario binding, window, and file ownership
+# Pickup demo — scenario binding, window, and file ownership (v1.1)
 
-**Status:** proposal. No sends, no stack changes.
+**Status:** proposal. No sends, no stack changes. Corrections marked **[v1.1]**.
 
 ---
 
@@ -11,22 +11,23 @@ authorized pickup request           (existing authenticated app — allowed)
   → SMS to approved test responders (dispatch contract)
   → recorded availability           (caregiver response contract)
   → deterministic recommendation    (existing ranking)
-  → parent approval                 (existing app — allowed)
+  → parent confirms in the app      (existing app — allowed)
   → automatic app updates           (reader freshness contract)
 ```
 
-Request creation and final approval use the **existing authenticated app**. Parent approval **by SMS** is a separate contract and is **not** on this path.
+Request creation and final confirmation use the **existing authenticated app**. Parent approval **by SMS stays OFF** and is not on this path.
 
 ## 2 · Exact mapping
 
 | Role | Person id | Notes |
 | --- | --- | --- |
-| Child | `p_nora` (Nora Ellison) | canonical child key selects the pack/context |
-| Requester | `p_mom` (Kendra) | parent, authenticated in app |
-| Responder (recipient) | `p_gma` (Loretta) | grandmother; **responder only, never approver** |
-| Approver | `p_mom` (Kendra) | in-app approval only, this phase |
+| Child | `p_nora` (Nora Ellison) | canonical child key |
+| Requester | `p_mom` (Kendra) | parent, authenticated app |
+| Responder (recipient) | `p_gma` (Loretta) | **responder only, never approver** |
+| Additional responders | `p_tasha`, `p_bryan` | fan-out phase only |
+| Approver | `p_mom` (Kendra) | in-app confirmation only |
 
-Authority checks: requester and approver are parents of `p_nora` via `_is_approver_for`. The responder is in the village relationship graph as a caregiver-side contact and is contacted **only** through the approved run roster.
+Private person↔phone mapping: `~/.openclaw/private/pickup-responders/2026-11-03.map.json` (outside git; numbers in GHL + gitignored env).
 
 ## 3 · Outcomes to keep distinct
 
@@ -36,39 +37,63 @@ Authority checks: requester and approver are parents of `p_nora` via `_is_approv
 | Willing without transport | willingness recorded, transport absent | "willing, no transport" — never recommended as the ride |
 | No response | timeout/sweeper closes the attempt | "no response" — never "approved", never "declined" |
 
-**Loretta's willingness must come from her actual recorded response.** No pre-seeded "she said yes", no inferred willingness, no fixture dressed as a reply.
+**Loretta's willingness must come from her actual recorded response.** No pre-seeded yes, no inferred willingness, no fixture dressed as a reply.
 
-Ride cost: display the **stored** estimate and its **basis** (`stored road distance` vs labelled haversine fallback). Never present an approval as a booking, and never present an estimate as a promise.
+Ride cost: display the **stored** estimate and its **basis**. An approval is never presented as a booked ride.
 
-## 4 · Boundaries
+## 4 · Boundaries **[v1.1]**
 
-- Only the **approved run roster and channels**. No cross-family outreach.
+- A recipient qualifies only with **both** the GHL `fg-test-responder` tag **and** membership of the approved run roster (`p_gma`, `p_tasha`, `p_bryan`), plus the private mapping. Tag alone or roster alone is not enough.
+- **A new job version never authorizes fresh outreach by itself.** It creates a new dispatch identity; tag, roster, suppression, cap and window gates still apply in full.
+- **Sending window 08:00–20:00 America/Detroit**, evaluated at handoff. Outside it the dispatch waits; it does not send early.
+- Only approved channels. **No cross-family outreach.**
 - **No automatic voice fallback.** Voice AI is not an automatic escalation of a silent SMS.
-- Suppression + kill switch enforced at dispatch (see dispatch contract §6); consent does not replace honoring STOP.
-- Reset must not erase opt-outs, spend limits or send-dedupe records.
+- Suppression + kill switch enforced at the final handoff boundary; consent does not replace honoring STOP.
+- Reset must not erase opt-outs, spend consumption or send-dedupe records.
 
-## 5 · Proposed window
+## 5 · Proposed window **[v1.1]**
 
 | Item | Value |
 | --- | --- |
 | Rehearsal | local/disposable only — no window needed |
-| Live execution | **60 minutes** |
+| Live execution | **60 minutes**, inside 08:00–20:00 Detroit |
 | Rollback reserve | **20 minutes** |
 | Hard stop | **80 minutes** |
 
-Stop rules: any duplicate send, any approval without a matching record, any write outside the named scenario → stop, roll back, report.
+Stop rules: any duplicate send, any approval without a matching record, any write outside the named scenario, any send outside the window → stop, roll back, report.
 
-## 6 · File ownership (proposed)
+## 6 · Proof sequence **[v1.1]**
+
+1. **Single-responder loop first** — Loretta only: request → SMS → her recorded availability → recommendation → parent confirms in the app → all three readers update. Nothing else runs until this passes.
+2. **Three-responder fan-out** — only after (1) passes, with the tag + roster gate enforced.
+
+### Offline rehearsal matrix (disposable only, no provider)
+
+| # | Case |
+| --- | --- |
+| 1 | duplicate workers claim the same dispatch — exactly one sends |
+| 2 | crash after handoff — stays `UNKNOWN`, no resend after restart |
+| 3 | uncertain acceptance (timeout / 5xx) — `UNKNOWN`, allowance retained |
+| 4 | stale reply for a closed attempt — rejected, availability unchanged |
+| 5 | `STOP` — suppressed before any further dispatch |
+| 6 | kill switch on mid-run — new handoffs block, no recall claimed |
+| 7 | concurrent cap exhaustion — atomic refusal, no oversend |
+| 8 | reset — suppression, spend and dedupe survive |
+| 9 | persona isolation — no cross-family reads or sends |
+
+Every case records its outcome; a case that cannot run reports **BLOCKED**, never pass.
+
+## 7 · File ownership
 
 | Area | Files | Owner |
 | --- | --- | --- |
-| Contracts | `docs/contracts/pickup-sms-dispatch.v1.md`, `reader-freshness.v1.md`, `pickup-parent-sms-approval.v1.md` | Bentley |
+| Contracts | `docs/contracts/pickup-*.v1.md`, `reader-freshness.v1.md` | Bentley |
 | Dispatch/suppression/spend schema | new `supabase/migrations/00xx_*.sql` | backend/db |
 | Approval + ranking | `src/subgraphs/coordination.ts` | backend |
-| Caregiver reply | `ops/voice-turn-server.mjs`, `docs/n8n/fridgegraph-voice-turn.workflow.json` | n8n/ops |
+| Caregiver reply | `ops/voice-turn-server.mjs`, `docs/n8n/*` | n8n/ops |
 | SMS transport config | GHL workflow (not in repo) | Bryan |
 | Readers | `web/src/features/{mission-control,activity,rosina}` | web |
 
-## 7 · Gate
+## 8 · Gate
 
-Contracts reviewed by Bryan → local build/rehearsal → **only then** request a window. No live send, no shared-stack change, and no invented authorization before that.
+Contract review → local build and rehearsal → window request. **No live send, no shared-stack change, no invented authorization.**

@@ -1,93 +1,127 @@
-# Contract v1 — Pickup SMS dispatch and caregiver-response binding
+# Contract v1.1 — Pickup SMS dispatch, reply binding, safety
 
-**Status:** proposal. Nothing implemented, nothing sent. Design reference: `webhook_events` (0018/0020/0021) already models provider-event dedupe; this contract reuses that shape rather than inventing a second one.
+**Status:** proposal, corrected after review. Nothing implemented, nothing sent.
+Supersedes v1 (still OPEN in #184 — corrections stack on that branch). Changes are marked **[v1.1]**.
 
-**Scope:** one authorized pickup request → one SMS to one approved test responder → one recorded response. It does **not** define parent approval (separate contract, and not a prerequisite).
+**Scope:** one authorized pickup request → one SMS to an approved test responder → one recorded response.
+Parent approval by SMS is out of scope and stays OFF (`pickup-parent-sms-approval.v1.md`).
 
 ---
 
-## 1 · Event order (corrected, normative)
+## 0 · Event order (normative)
 
 ```
 authorized request
-  → SMS dispatched to the approved responder
-  → responder reply recorded            (CAREGIVER_RESPONDED)
-  → deterministic ranking/recommendation (RANKED)
-  → parent decision                    (APPROVED | DECLINED | NONE)
+  → dispatch claimed + allowance reserved        **[v1.1] atomic, before handoff**
+  → provider handoff
+  → responder reply recorded                     (CAREGIVER_RESPONDED)
+  → deterministic ranking / recommendation       (RANKED)
+  → parent decision (in app)                     (APPROVED | DECLINED | NONE)
   → readers observe the settled state
 ```
 
-**A caregiver `YES` is a recorded availability, never an approval.** No code path may turn `CAREGIVER_RESPONDED(available)` into `APPROVED`. Approval exists only as a parent decision on the recommendation.
+A caregiver `YES` is recorded availability, **never** an approval.
 
-## 2 · Dispatch identity
+## 1 · Send once **[v1.1 rewritten]**
 
-A dispatch is identified by a durable value that survives transport retries:
+### 1.1 Atomic claim
 
-```
-dispatchId = sha256(attemptId, candidateId, jobVersion)
-```
+`dispatchId = sha256(attemptId, candidateId, jobVersion)`.
 
-- The **same** `dispatchId` is reused for every transport retry of that dispatch.
-- A **new job version** is a genuinely revised request: new `dispatchId`, and it is the only thing that authorizes another send.
-- `jobVersion` is therefore part of the identity, not a detail of the payload — a retry must never silently become a resend.
+Before any provider handoff, in **one transaction**:
 
-Stored alongside: `providerMessageId` (nullable until accepted), `sentAt`, `state`.
+1. `UPDATE dispatch SET state='CLAIMED', claimedBy=<workerId>, claimedAt=now() WHERE dispatchId=$1 AND state='PENDING'` — zero rows affected means another worker owns it; **stop, do not send**.
+2. Reserve allowance (run/day/recipient counters and spend) in the same transaction; if any reservation would exceed its limit, the transaction rolls back and the dispatch stays `PENDING` (or `FAILED_FINAL/LIMIT`, per policy) — **no send**.
 
-## 3 · States
+Concurrent workers therefore cannot both send. Claim order is the only authority; there is no "check then send" window.
 
-| State | Meaning | May resend? |
-| --- | --- | --- |
-| `PENDING` | identity created, not yet handed to provider | yes, same dispatchId |
-| `ACCEPTED` | provider returned a message id | **no** |
-| `UNKNOWN` | provider call returned an uncertain outcome (timeout, 5xx, truncated response) | **no — reconcile** |
-| `FAILED_FINAL` | provider refused (invalid number, suppressed, blocked) | no |
-| `SUPPRESSED` | recipient on opt-out / STOP list | **no, ever** |
+### 1.2 Crash and uncertainty
 
-**`UNKNOWN` must not be retried blindly.** Provider acceptance with an uncertain response enters reconciliation: poll/read the provider by `dispatchId` or correlated message id until `ACCEPTED` or `FAILED_FINAL`. Resending on `UNKNOWN` is the duplicate-send bug this contract exists to prevent.
+- A crash **before** handoff leaves `CLAIMED` with no provider message id. That is recoverable by lease expiry back to `PENDING` — nothing was sent, so re-claim is safe.
+- A crash **after** handoff leaves `UNKNOWN`. **`UNKNOWN` never becomes a resend — not on retry, not on restart, not by an operator shortcut.** The allowance it reserved is retained, not returned.
+- Any provider response that does not unambiguously prove acceptance (timeout, 5xx, truncated body, disconnect after write) is `UNKNOWN`.
 
-## 4 · Response binding
+### 1.3 Reconciliation
 
-Inbound replies bind by evidence, in this order:
+Reconciliation is the **only** path out of `UNKNOWN`:
 
-1. `providerMessageId` → `dispatchId` lookup (primary).
-2. If absent, `fromAddress` + `attemptId` + `candidateId` + `jobVersion` must **all** match one open dispatch.
+- **Mechanism must be named and tested, not assumed.** If GHL exposes a reliable lookup (by outbound message id, or by conversation + timestamp window), `UNKNOWN` is reconciled to `ACCEPTED` / `FAILED_FINAL` by reading that record.
+- **If no reliable lookup exists, `UNKNOWN` stays `UNKNOWN` for manual review.** The responder is not messaged again; an operator decides.
+- No reconciliation path may exceed the allowance.
 
-**`contact.fg_attempt_id` alone is not sufficient** and must not be trusted as a correlation key: it is a mutable contact field, it can be stale, it can be overwritten by a later attempt, and it is not a delivery proof. It may be used only as a *hint* that must be confirmed by the checks above.
+### 1.4 Acceptance is not delivery
 
-Outcome vocabulary mirrors `webhook_events`:
+Provider acceptance proves the provider took the message, **not** that a handset received it. Delivery is only claimed if a delivery receipt is observed and recorded. Absent a receipt, the record says "accepted", never "delivered".
 
-| Outcome | When |
+## 2 · Reply binding **[v1.1 rewritten]**
+
+### 2.1 Payload fields (verify before relying)
+
+The inbound GHL payload must be inspected and its actual field names recorded. Three distinct identifiers exist and must not be conflated:
+
+| Identifier | Role |
 | --- | --- |
-| `ACCEPTED` | binding confirmed, response recorded |
-| `REJECTED_STATE` | dispatch exists but is no longer open (closed attempt, superseded version) — record, do not act |
-| `REJECTED_BINDING` | cannot attribute the message to exactly one dispatch — record, do not act |
+| **Inbound message ID** | identity of the reply; dedupe key |
+| **Outbound message ID** | identity of *our* sent message; the primary binding target |
+| **Conversation ID** | thread scope; may span several attempts — never sufficient alone |
 
-A rejected binding is a **recorded fact**, not an error to swallow: it is how we answer "why didn't the app update".
+Binding is: inbound reply → its conversation/message context → **outbound message id** → `dispatchId`.
 
-## 5 · Idempotency
+### 2.2 Ambiguity and staleness
 
-- Primary key: provider event id (same as `webhook_events.id`). Duplicate delivery is a no-op that returns the prior outcome.
-- Payload digest stored; identical payload with a different event id is a provider-side duplicate and is rejected as `REJECTED_STATE`.
-- Exactly one response may move a dispatch out of `PENDING`/`ACCEPTED` into `RESPONDED`. Later responses are recorded as `REJECTED_STATE` with the prior outcome returned.
+- Reuse the existing **one-open-attempt-per-caregiver** rule plus timestamps.
+- A delayed reply must not bind to a **newer** attempt. Requirement: prove this with a test where attempt N is closed and attempt N+1 is open for the same caregiver, and a reply belonging to N is rejected as `REJECTED_STATE`.
+- If attribution is ambiguous between two dispatches, record `REJECTED_BINDING` **without changing availability**.
+- **Mutable contact fields are not correlation inputs.** `contact.fg_attempt_id` (or any contact field) may be logged as a hint and must be confirmed by the checks in §2.1–2.2.
 
-## 6 · Consent, suppression and kill switch
+### 2.3 Dedupe
 
-**None of this exists today.** No opt-out, STOP, suppression or quiet-hours table is present in `supabase/migrations/`. This contract requires them before any live send:
+Dedupe on **(provider identity × dispatch scope)**. Not on message text: two responders can send identical text, and one responder can send the same text twice for different attempts.
 
-- `outreach_suppression` — address-level, append-only, with reason and source (`STOP`, manual, provider-level).
-- **Honoring STOP is not satisfied by consent.** A consenting recipient who later sends STOP must be suppressed; consent is not a durable waiver.
-- **Kill switch** — one flag that stops dispatch at the boundary, evaluated before the provider call, and recorded when it fires.
-- **Provider-level behaviour must be verified**, not assumed: whether the provider itself suppresses, and whether it will re-send after a STOP. That is a test, not a reading of documentation.
+## 3 · Suppression **[v1.1 rewritten]**
 
-## 7 · Spend limits
+- **Normalize to E.164** at ingress and before every dispatch.
+- Store the lookup key as a **server-keyed HMAC of the E.164 number** — never the raw number in the suppression table. The key stays server-side.
+- `STOP` / `UNSUBSCRIBE` / provider-reported opt-out → suppression is written **before any further dispatch**, and the dispatch boundary checks suppression first.
+- `START` restores eligibility **only through verified provider rules**, never by asserting START in our own text parser.
+- **Reset never clears suppression** (see §7).
+- Provider-level behaviour must be **verified in the authorized window**: what GHL itself suppresses, and whether it will send after a STOP. Reading documentation is not verification.
 
-No spending-limit primitive exists in the schema. Dispatch must enforce a per-window cap (count of sends) that is checked and decremented atomically with the dispatch record, or the send does not proceed. Exceeding the cap is `FAILED_FINAL` with reason `LIMIT`, never a silent skip.
+## 4 · Kill switch and caps **[v1.1 rewritten]**
 
-## 8 · Reset boundary
+### 4.1 Kill switch
 
-A demo reset must **not** erase:
-- suppression / opt-out rows,
-- spending-limit consumption,
-- dispatch identity and dedupe records.
+- One **runtime-readable, default-OFF** send-authorization flag, read at the **final handoff boundary** immediately before the provider call.
+- Changing it takes effect **without a restart**.
+- It blocks **new** handoffs only. **It cannot recall a message already accepted by GHL** — that limit is stated to the operator, not hidden.
 
-Those are safety records. `reset` may clear demo content only; anything on the list above must be explicitly excluded and proven excluded.
+### 4.2 Caps
+
+Enforced **atomically** with the claim (§1.1):
+
+- per run, per day, per recipient, and a spend allowance;
+- counting **identity prompts, follow-ups and multipart SMS** as sends, not just the first message;
+- `UNKNOWN` outcomes **retain** their reserved allowance;
+- exceeding any cap is a recorded refusal (`LIMIT`), never a silent skip.
+
+Exact numbers come from the message inventory: `pickup-message-inventory.v1.md`.
+
+## 5 · Recipients **[v1.1]**
+
+A recipient qualifies only if **all** hold:
+
+1. GHL contact carries `fg-test-responder`;
+2. persona is on the approved run roster — `p_gma`, `p_tasha`, `p_bryan`;
+3. the private person↔phone mapping for that run exists (outside git; numbers in GHL + gitignored env).
+
+**A new job version alone never authorizes fresh outreach.** It authorizes a new dispatch *identity*; the roster, tag, suppression and caps gates still apply in full.
+
+**Sending window: 08:00–20:00 America/Detroit**, evaluated at handoff. Outside it, the dispatch waits; it does not send early.
+
+## 6 · Reader freshness
+
+Implemented alongside this workflow, not after it — `reader-freshness.v1.md`. Persisted event → visible state within **5 s** on each mounted, foreground surface, without refresh; bounded foreground polling is acceptable; caller scope preserved; late results discarded after persona/child change; **each surface measured separately**.
+
+## 7 · Reset boundary
+
+A demo reset must **not** erase: suppression rows, spend consumption, dispatch claims and dedupe records, or `UNKNOWN` dispatches. These are safety records. Reset clears demo content only, and the exclusion must be **proven**, not asserted.
