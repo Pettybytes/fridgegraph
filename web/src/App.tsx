@@ -37,6 +37,7 @@ import { ChildAccessProvider } from '@/features/personas/childContext'
 import { SignatureVillageRoute } from '@/components/signature'
 import { Activity } from '@/features/activity/Activity'
 import { InvitesPanel } from '@/features/invites/InvitesPanel'
+import { ThreePhoneStory } from '@/features/story-replay/ThreePhoneStory'
 const FridgeRoute = lazy(() => import('@/features/fridge/ConnectedFridge').then(module => ({ default: module.ConnectedFridge })))
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
@@ -75,7 +76,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
         map: <VillageMap/>,
         fridge: <Suspense fallback={<p role="status">Opening the fridge…</p>}><FridgeRoute /></Suspense>,
         today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
-        'mission-control': session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>,
+        'mission-control': <>{session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>}<ThreePhoneStory /></>,
         orbit:<Orbit/>,
         activity:<Activity client={connection?.client??null} adapter={adapter}/>,
         'ask-rosina': <div id="rosina-route-slot" className="rosina-route-page" />,
