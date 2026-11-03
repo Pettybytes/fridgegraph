@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PhoneReplay } from './PhoneReplay'
 import { ThreePhoneStory } from './ThreePhoneStory'
 import { ILLUSTRATIVE_STORY, projectStory, storyBeat, storyDurationMs, eventAt, STORY_DATE } from './story'
+import { ILLUSTRATIVE_VOICE } from './storyVoice'
 
 beforeEach(() => {
   vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} })
@@ -11,12 +12,13 @@ beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 16))
   vi.stubGlobal('cancelAnimationFrame', clearTimeout)
 })
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('illustrative story adapter', () => {
   it('keeps one fixed Detroit date and one synchronized timeline for all viewers', () => {
-    expect(STORY_DATE).toBe('2026-10-30')
-    expect(new Date(`${STORY_DATE}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'America/Detroit', weekday: 'long' })).toBe('Friday')
+    expect(STORY_DATE).toBe('2026-11-02')
+    expect(new Date(`${STORY_DATE}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'America/Detroit', weekday: 'long' })).toBe('Monday')
+    expect(ILLUSTRATIVE_STORY.every(item => !/Friday|October 30/.test(`${item.body} ${item.detail ?? ''}`))).toBe(true)
     expect(projectStory('teacher', 20000).map(item => item.id)).toEqual(['notice', 'teacher-authorization'])
     expect(projectStory('parent', 20000).at(-1)?.id).toBe('confirm')
     expect(projectStory('caregiver', 20000).at(-1)?.id).toBe('caregiver-confirmed')
@@ -25,10 +27,11 @@ describe('illustrative story adapter', () => {
 
   it('separates the offer, the parent decision and physical pickup', () => {
     const offer = projectStory('caregiver', 13000).find(item => item.kind === 'offer')
-    expect(offer?.detail).toContain('Parent confirmation still needed')
+    expect(offer?.detail).toContain('Loretta offered')
     expect(projectStory('parent', 15000).some(item => item.kind === 'parent-confirmed')).toBe(false)
     expect(projectStory('parent', 16000).some(item => item.kind === 'parent-confirmed')).toBe(true)
     expect(ILLUSTRATIVE_STORY.some(item => /picked up|completed pickup/i.test(item.title))).toBe(false)
+    expect(ILLUSTRATIVE_STORY.some(item => /pickup completion not recorded/i.test(`${item.body} ${item.detail ?? ''}`))).toBe(false)
   })
 
   it('expands the voice beat for actual clip duration without speeding it up', () => {
@@ -48,6 +51,28 @@ describe('illustrative story adapter', () => {
 })
 
 describe('ThreePhoneStory playback', () => {
+  it('restarts after two full holds and plays the clip once per loop after a sound gesture', () => {
+    vi.useFakeTimers()
+    render(<ThreePhoneStory />)
+    const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
+    const audio = section.querySelector('audio')!
+    let paused = true
+    Object.defineProperty(audio, 'paused', { configurable: true, get: () => paused })
+    const play = vi.spyOn(audio, 'play').mockImplementation(() => { paused = false; return Promise.resolve() })
+    vi.spyOn(audio, 'pause').mockImplementation(() => { paused = true })
+    fireEvent.click(screen.getByRole('button', { name: 'Sound off' }))
+    expect(screen.getByRole('button', { name: 'Sound on' })).toHaveAttribute('aria-pressed', 'true')
+    for (let second = 0; second < 54; second++) act(() => { vi.advanceTimersByTime(1000) })
+    expect(section).toHaveAttribute('data-loop-count', '2')
+    expect(play).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Sound on' })).toBeEnabled()
+    expect(ILLUSTRATIVE_VOICE.durationMs).toBe(4133)
+    fireEvent.click(screen.getByRole('button', { name: 'Sound on' }))
+    for (let second = 0; second < 12; second++) act(() => { vi.advanceTimersByTime(1000) })
+    expect(screen.getByRole('button', { name: 'Sound off' })).toHaveAttribute('aria-pressed', 'false')
+    expect(play).toHaveBeenCalledTimes(2)
+  })
+
   it('pauses, resumes and replays from one master progress clock', () => {
     vi.useFakeTimers()
     render(<ThreePhoneStory />)
@@ -85,14 +110,37 @@ describe('ThreePhoneStory playback', () => {
     expect(progress).toHaveAttribute('aria-valuenow', manual)
   })
 
+  it('pauses while the tab is hidden and resumes the previously playing loop', () => {
+    vi.useFakeTimers()
+    let hidden = false
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden)
+    render(<ThreePhoneStory />)
+    const progress = screen.getByRole('progressbar')
+    act(() => { vi.advanceTimersByTime(1000) })
+    const beforeHide = progress.getAttribute('aria-valuenow')
+    hidden = true
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(progress).toHaveAttribute('aria-valuenow', beforeHide)
+    hidden = false
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(Number(progress.getAttribute('aria-valuenow'))).toBeGreaterThan(Number(beforeHide))
+  })
+
   it('shows a final readable static frame under reduced motion, with user-initiated replay', () => {
+    vi.useFakeTimers()
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
     render(<ThreePhoneStory />)
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByRole('region', { name: 'One plan, three perspectives' }).textContent?.match(/pickup completion not recorded/gi)).toHaveLength(1)
     const teacher = screen.getByLabelText('Teacher story events')
     expect(within(teacher).getByText(/Prototype pickup authorization/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    for (let second = 0; second < 28; second++) act(() => { vi.advanceTimersByTime(1000) })
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByRole('region', { name: 'One plan, three perspectives' })).toHaveAttribute('data-loop-count', '0')
   })
 
   it('preserves playback position while changing the phone perspective', () => {
@@ -104,7 +152,7 @@ describe('ThreePhoneStory playback', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Caregiver' }))
     expect(screen.getByRole('button', { name: 'Caregiver' })).toHaveAttribute('aria-pressed', 'true')
     expect(progress).toHaveAttribute('aria-valuenow', '0')
-    expect(screen.getByRole('button', { name: 'Sound unavailable' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Sound off' })).toBeEnabled()
   })
 
   it('uses a supplied verbatim transcript only in the permitted parent and caregiver views', () => {
