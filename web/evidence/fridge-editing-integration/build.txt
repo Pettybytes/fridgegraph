@@ -1,0 +1,69 @@
+npm notice run web@0.0.0 build
+npm notice run tsc -b && vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 4521 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                0.53 kB │ gzip:   0.31 kB
+dist/assets/geist-cyrillic-ext-wght-normal-DjL33-gN.woff2      7.42 kB
+dist/assets/geist-vietnamese-wght-normal-6IgcOCM7.woff2        8.00 kB
+dist/assets/geist-cyrillic-wght-normal-BEAKL7Jp.woff2         15.08 kB
+dist/assets/geist-latin-ext-wght-normal-DC-KSUi6.woff2        16.51 kB
+dist/assets/geist-latin-wght-normal-BgDaEnEv.woff2            29.40 kB
+dist/assets/Taylor-BEWM221E.png                              208.67 kB
+dist/assets/Micah-BNKzpd9C.png                               218.00 kB
+dist/assets/Whitfield-UU-49Mel.png                           220.53 kB
+dist/assets/Daniel-DRYXFZ2q.png                              221.08 kB
+dist/assets/Jax-DLhG1uLK.png                                 223.06 kB
+dist/assets/Denise-CX_sX_cN.png                              223.64 kB
+dist/assets/Marcus-DxH7CCyo.png                              226.16 kB
+dist/assets/Malik-D6I-55O1.png                               226.78 kB
+dist/assets/Angela-C6WHmeLl.png                              227.23 kB
+dist/assets/Carol-D6Y9NXw4.png                               230.84 kB
+dist/assets/Felicia-rybV1PQo.png                             230.85 kB
+dist/assets/Loretta-DYRR4IW9.png                             231.88 kB
+dist/assets/Ray-CjNvIf0-.png                                 232.95 kB
+dist/assets/Andre-0-iVC3EC.png                               232.99 kB
+dist/assets/Dwayne-D5a3jLqS.png                              233.06 kB
+dist/assets/Avery-DGar8Tel.png                               235.16 kB
+dist/assets/Gary-BMV6i_zF.png                                235.39 kB
+dist/assets/Bryan-CoDm0X3D.png                               235.96 kB
+dist/assets/Max-Cf82CWkE.png                                 237.47 kB
+dist/assets/Skye-BVzTGuAX.png                                237.65 kB
+dist/assets/Simone-5KElA6af.png                              237.70 kB
+dist/assets/Monique--X-_LFrE.png                             238.01 kB
+dist/assets/Emma-DlP1F_Os.png                                240.35 kB
+dist/assets/Cassandra-B_tXu3e5.png                           241.08 kB
+dist/assets/Dana-CLioDHFB.png                                242.07 kB
+dist/assets/Leo-D-pLQQN8.png                                 243.02 kB
+dist/assets/Oscar-Cq3-TU0s.png                               245.54 kB
+dist/assets/Tasha-C1Ol1DSE.png                               245.57 kB
+dist/assets/Gloria-DkJvigLd.png                              247.60 kB
+dist/assets/Evelyn-97mgMZFq.png                              247.81 kB
+dist/assets/Chris-DOfrvryi.png                               248.15 kB
+dist/assets/Walter-DIl_jKv0.png                              248.57 kB
+dist/assets/Nora-B9UABcAv.png                                250.32 kB
+dist/assets/Tomas-CpmkkaFB.png                               256.19 kB
+dist/assets/Kendra-CSmq4RTp.png                              259.73 kB
+dist/assets/Priya-DA8wWfZP.png                               267.04 kB
+dist/assets/Rosa-DlzEzWeP.png                                270.65 kB
+dist/assets/maplibre-gl-worker-CMkqA50c.mjs                  519.37 kB
+dist/assets/rosina-board-D3PhPa7M.png                        598.97 kB
+dist/assets/village-BgIk6SNr.css                               4.28 kB │ gzip:   1.23 kB
+dist/assets/ConnectedFridge-BP0Ioe7q.css                      14.43 kB │ gzip:   3.91 kB
+dist/assets/MapCanvas-qvkd0SPb.css                            71.33 kB │ gzip:  10.25 kB
+dist/assets/index-BP9VhWnh.css                               152.98 kB │ gzip:  29.40 kB
+dist/assets/maplibre-gl-DORt5i-V.js                            1.85 kB │ gzip:   0.79 kB
+dist/assets/portraits-C8SrtU-v.js                             14.86 kB │ gzip:   5.64 kB
+dist/assets/ConnectedFridge-DKsW4Em9.js                       69.15 kB │ gzip:  23.36 kB
+dist/assets/village-DAsX2S0S.js                              151.37 kB │ gzip:  50.07 kB
+dist/assets/index-BtcMdUno.js                              1,001.59 kB │ gzip: 312.62 kB
+dist/assets/MapCanvas-DGWcuNGU.js                          1,131.50 kB │ gzip: 307.83 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 867ms

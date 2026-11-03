@@ -1,21 +1,22 @@
-import {useCallback,useEffect,useRef,useState,type CSSProperties} from 'react'
+import {useCallback,useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react'
 import {Dialog,Popover} from 'radix-ui'
-import {authorInk,doors,loadLayout,notePositions,saveLayout,samples,type FridgeReader,type Goal,type Position,type Slot} from './model'
+import {authorInk,doors,loadLayout,notePositions,saveLayout,samples,type FridgeReader,type Goal,type Position,type Slot,type Read} from './model'
 import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
 import './fridge.css'
 
 type Door='notes'|'goals'|null
-type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string}
+type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean}
 const hashDoor=():Door=>location.hash==='#/fridge/notes'?'notes':location.hash==='#/fridge/goals'?'goals':null
 const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*100}%`,width:`${p.width*100}%`,'--turn':`${p.rotation}deg`} as CSSProperties)
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Sample family collage'}:Props){
+function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Sample family collage',editingControls,goalsOverride,boardReadOnly=true}:Props){
  const [door,setDoor]=useState<Door>(hashDoor)
  const [layout,setLayout]=useState(()=>loadLayout(personId)),[selected,setSelected]=useState<Slot|null>(null)
  const care=useFridgeSource(reader,childId,'care'),goals=useFridgeSource(reader,childId,'goals')
+ const board=goalsOverride??goals.state
  const scene=useRef<HTMLDivElement>(null),notesControl=useRef<HTMLButtonElement>(null),goalsControl=useRef<HTMLButtonElement>(null)
  const drag=useRef<{id:string;x:number;y:number;position:Position;moved:boolean;next:Position}|null>(null)
  const navigate=useCallback((next:Door)=>{
@@ -43,11 +44,12 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
  const displayedLive=artLabel==='Sample Ellison family art pack'?live.map(slot=>({...slot,position:{...slot.position,y:.39}})):live
  const slots=[...sampleSlots,...displayedLive],region=door?doors[door]:null
  const storePosition=(id:string,p:Position)=>setLayout(old=>{const value={...old,[id]:p};saveLayout(personId,value);return value})
- const goalFeedback=()=>goals.state.status==='ready'?null:<p className="fridge-read" role={goals.state.status==='failed'?'alert':'status'}>{goals.state.status==='loading'?'Loading shared goals…':goals.state.status==='empty'?'Nothing posted here yet.':goals.state.status==='refused'?"These notes aren't shared with this perspective.":"Couldn't load these notes"}{goals.state.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
+ const goalFeedback=()=>board.status==='ready'?null:<p className="fridge-read" role={board.status==='failed'?'alert':'status'}>{board.status==='loading'?'Loading shared goals…':board.status==='empty'?'Nothing posted here yet.':board.status==='refused'?"These notes aren't shared with this perspective.":"Couldn't load these notes"}{board.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
  return <section className="fridge-feature" aria-label="The Fridge">
   <header className="fridge-toolbar"><div><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div><div>{door&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}<button onClick={()=>{setLayout({});saveLayout(personId,{})}}>Tidy up</button></div></header>
-  <div className="fridge-caption"><span>{artLabel}. {readOnly?'Read-only perspective.':''}</span><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Open a door to take a closer look. Tap paper or a photo to open it. In door view, drag paper or use Alt + arrow keys to move it.</p><p>Moving paper changes this browser’s layout only. Tidy up resets it. Escape returns to the full fridge. Goals are read-only.</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div>
+  <div className="fridge-caption"><span>{artLabel}. {readOnly?'Read-only perspective.':''}</span><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Open a door to take a closer look. Tap paper or a photo to open it. In door view, drag paper or use Alt + arrow keys to move it.</p><p>Moving paper changes this browser’s layout only. Tidy up resets it. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div>
   <nav aria-label="Fridge doors"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
+  {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
   <div className={`fridge-viewport ${door?'is-focused':''}`} data-view={door??'overview'} style={region?{aspectRatio:`${region.width*2336}/${region.height*3504}`}:{}}>
    <div ref={scene} className="fridge-scene" style={region?{width:`${100/region.width}%`,height:`${100/region.height}%`,transform:`translate(${-region.x*100}%, ${-region.y*100}%)`}:undefined}>
     <img className="fridge-background" alt="A stainless steel family refrigerator in a sunlit kitchen" src="/fridge/fridge-front-1400.webp" srcSet="/fridge/fridge-front-780.webp 780w, /fridge/fridge-front-1400.webp 1400w, /fridge/fridge-front-2336.webp 2336w" sizes={door?'2000px':'(max-width: 600px) 100vw, 800px'}/>
@@ -75,11 +77,12 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     </div>
     <section className="fridge-whiteboard" data-fridge-door="goals" inert={door==='notes'} aria-hidden={door==='notes'} aria-label="Recorded goals">
      <h2>Our goals</h2><span className="fridge-board-rule"/>{goalFeedback()}
-     {goals.state.status==='ready'&&(goals.state.value as Goal[]).map(goal=><article key={goal.id}><h3>{goal.title}</h3>{goal.horizon!==null&&<p className="fridge-horizon"><span>Horizon</span> <span>{goal.horizon}</span></p>}<small className="fridge-goal-status">{goal.status}</small></article>)}
-     <p className="fridge-board-foot">Family-chosen commitments · Read only</p><span className="fridge-marker" aria-hidden="true"/><span className="fridge-erased-texture" aria-hidden="true"/>
+     {board.status==='ready'&&(board.value as Goal[]).map(goal=><article key={goal.id}><h3>{goal.title}</h3>{goal.horizon!==null&&<p className="fridge-horizon"><span>Horizon</span> <span>{goal.horizon}</span></p>}<small className="fridge-goal-status">{goal.status}</small>{goal.period&&<p className="fridge-horizon">Period: {goal.period}</p>}{goal.completedAt!==undefined&&<p className="fridge-horizon">{goal.completedAt?<>Completed <time dateTime={goal.completedAt}>{Number.isFinite(Date.parse(goal.completedAt))?new Intl.DateTimeFormat('en-US',{timeZone:'America/Detroit',month:'short',day:'numeric',year:'numeric'}).format(new Date(goal.completedAt)):'Time not recorded'}</time></>:<>Not marked complete</>}</p>}</article>)}
+     <p className="fridge-board-foot">Family-chosen commitments{boardReadOnly?' · Read only':''}</p><span className="fridge-marker" aria-hidden="true"/><span className="fridge-erased-texture" aria-hidden="true"/>
     </section>
    </div>
   </div>
+  {!door&&sampleSlots.some(slot=>slot.kind==='form')&&<div className="fridge-sample-card-tray" aria-label="Sample cards">{sampleSlots.filter(slot=>slot.kind==='form').map(slot=><button key={slot.id} aria-label={`Open sample ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src} alt=""/><small>Sample</small><strong>{slot.text}</strong></button>)}</div>}
   <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{selected?.caption}</Dialog.Description><Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }

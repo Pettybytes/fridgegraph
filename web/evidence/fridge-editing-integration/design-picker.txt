@@ -1,0 +1,18 @@
+npm notice run fridgegraph@0.1.0 npx
+npm notice run 'impeccable' detect http://127.0.0.1:5241/evidence/fridge-editing-integration/preview.html
+
+http://127.0.0.1:5241/evidence/fridge-editing-integration/preview.html
+  [cream-palette] cream/beige page background rgb(253, 250, 244)
+    → A warm cream or beige page background has become the default "tasteful" AI surface, reached for by reflex. Choose a background that comes from a deliberate palette, not the safe warm off-white.
+
+1 anti-pattern found.
+
+── Advisory (not counted as failures) ──
+
+http://127.0.0.1:5241/evidence/fridge-editing-integration/preview.html
+  [low-contrast] 4.3:1 (need 4.5:1) — text #636976 on #e5e4e6
+    → Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast between text and background.
+  [straggler] "village." alone on the last of 2 lines (12% of the measure)
+    → The last line of this paragraph holds one word, which leaves a hole under the block. Set text-wrap: pretty on body copy (Chrome, Safari) to pull a word down beside it. Where a browser ignores it, edit the last sentence or bind the last two words with a no-break space. Keep it if the break is intended.
+
+2 advisory notes. Suppress with --no-advisory.

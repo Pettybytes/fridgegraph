@@ -1,0 +1,15 @@
+npm notice run web@0.0.0 test
+npm notice run vitest run src/features/fridge --maxWorkers=1
+
+ RUN  v5.0.5 /Users/user/Desktop/bentley/fridgegraph-fridge-editing-integration/web
+
+
+ Test Files  8 passed (8)
+      Tests  60 passed (60)
+   Start at  20:03:02
+   Duration  9.64s (environment 35%, tests 29%, import 21%, transform 8%, setup 6%)
+
+Environment  jsdom was created 8 times · 3.07s total, 35% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
