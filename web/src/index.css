@@ -3,10 +3,16 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+/* @ilamy/calendar ships no CSS: it uses Tailwind + shadcn token classes, so
+   Tailwind must scan its dist to generate those utilities (v4 skips node_modules
+   by default). Required by the calendar feature; see web/src/features/calendar.
+   The calendar inherits the FridgeGraph palette through the shadcn tokens above. */
+@source "../node_modules/@ilamy/calendar/dist";
+
 @custom-variant dark (&:is(.dark *));
 
 /* ───────────────────────────────────────────────────────────────────────────
-   FridgeGraph design tokens — the one authoritative definition.
+   FridgeGraph design tokens - the one authoritative definition.
    Bound by docs/contracts/design.md. Runtime palette lives in :root / .dark so
    it can switch with the theme; @theme inline maps Tailwind color utilities
    (bg-canvas, text-ink, border-hairline, …) onto those runtime vars. Static
@@ -59,7 +65,7 @@
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
 
-  /* Motion (design.md §4; Emil's custom curves — explicitly requested here). */
+  /* Motion (design.md §4; Emil's custom curves - explicitly requested here). */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -67,7 +73,7 @@
   --dur-panel: 220ms;
   --dur-scene: 300ms;
 
-  /* z-index scale — no arbitrary z values anywhere. */
+  /* z-index scale - no arbitrary z values anywhere. */
   --z-base: 0;
   --z-raised: 10;
   --z-sticky: 20;
@@ -108,7 +114,7 @@
   --color-rosina-navy: var(--rosina-navy);
   --color-rosina-silver: var(--rosina-silver);
 
-  /* shadcn bridge — its semantic names now resolve to the FridgeGraph palette,
+  /* shadcn bridge - its semantic names now resolve to the FridgeGraph palette,
      so every shadcn/ui component inherits one identity (no divergent palette).
      (--font-sans is defined once in @theme above; never re-declare it here as a
      self-reference, which resolves to nothing and drops the app to a serif.) */
@@ -141,7 +147,7 @@
 }
 
 :root {
-  /* FridgeGraph runtime palette — light (warm paper, dark ink, indigo, coral). */
+  /* FridgeGraph runtime palette - light (warm paper, dark ink, indigo, coral). */
   --fg-canvas: oklch(0.985 0.008 85);
   --fg-surface: oklch(1 0 0);
   --fg-elevated: oklch(1 0 0);
@@ -285,7 +291,7 @@ body,
   }
   body {
     margin: 0;
-    /* Ambient gradient field — a soft, static depth layer behind every surface
+    /* Ambient gradient field - a soft, static depth layer behind every surface
        (picker, Today, village). Palette-tinted so it adapts light/dark; fixed so it
        reads as a field the content floats over, not a scrolling texture. No motion. */
     background-color: var(--fg-canvas);
@@ -340,7 +346,7 @@ body,
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Existing shell layout — kept structurally; colors now read from the unified
+   Existing shell layout - kept structurally; colors now read from the unified
    tokens above via the --fg-* aliases. Deep-detail re-skin of this shell is
    superseded by the new Today surface + primitives (see docs/design/system.md).
    ─────────────────────────────────────────────────────────────────────────── */

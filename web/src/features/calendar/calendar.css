@@ -1,72 +1,165 @@
-.family-calendar { color: #26344c; min-width: 0; }
-.cal-toolbar, .cal-period { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.cal-child { display: flex; align-items: center; gap: .7rem; }
-.cal-child label { font-size: .8rem; color: #62708a; }
-.cal-child select { padding: .65rem 2rem .65rem .8rem; border: 1px solid #c9b9df; border-radius: .65rem; background: white; font-weight: 600; }
-.cal-view { display: flex; border: 1px solid #c9b9df; border-radius: .7rem; padding: .2rem; gap: .2rem; background: white; }
-.cal-view button { padding: .5rem .9rem; border-radius: .5rem; font-size: .85rem; color: #62708a; }
-.cal-view button[aria-pressed=true] { color: #624389; background: #eae3f3; font-weight: 650; }
-.cal-period { margin: 1.7rem 0 .8rem; }
-.cal-period h2 { font-size: clamp(1.35rem, 2vw, 1.8rem); letter-spacing: -.035em; font-weight: 650; line-height: 1.3; margin-top: .3rem; }
-.cal-period p { color: #62708a; font-size: .75rem; }
-.cal-date-controls { display: flex; align-items: center; gap: .2rem; }
-.cal-date-controls > button { display: grid; place-items: center; padding: .6rem .35rem; border-radius: .5rem; }
-.cal-date-controls input { max-width: 10rem; border: 1px solid #d4cadd; background: white; padding: .5rem; border-radius: .5rem; font-size: .8rem; }
-.cal-explainer, .cal-footnote { font-size: .8rem; line-height: 1.6; color: #62708a; max-width: 65ch; }
-.cal-explainer { margin-bottom: 1.3rem; }
-.cal-days { display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; }
-.cal-day { background: #fff; border: 1px solid #dce1ec; border-radius: .85rem; padding: .8rem; min-width: 0; }
-.cal-day-heading { margin-bottom: .8rem; }
-.cal-day-heading button { display: flex; align-items: baseline; gap: .6rem; padding: .25rem 0; text-align: left; width: 100%; }
-.cal-day-heading span { color: #62708a; font-size: .8rem; }
-.cal-day-heading strong { font-weight: 650; }
-.cal-day-heading small { display: block; font-size: .68rem; color: #8b631e; margin-top: .3rem; }
-.cal-care { display: block; width: 100%; background: #f0ebf6; color: #624389; padding: .6rem .65rem; border-radius: .5rem; text-align: left; font-size: .76rem; line-height: 1.5; margin-bottom: .9rem; }
-.cal-care.is-holiday { background: #e1eee7; color: #386c5a; border: 1px solid #b5d3c4; }
-.cal-event { --event-color: #7559a1; display: grid; width: 100%; text-align: left; gap: .4rem; padding: .8rem .65rem; border: 1px solid #dce1ec; border-left: 3px solid var(--event-color); border-radius: .5rem; background: #fbfafd; margin-bottom: .7rem; line-height: 1.45; }
-.cal-event strong { font-size: .88rem; font-weight: 650; overflow-wrap: anywhere; }
-.cal-event-category { font-size: .7rem; font-weight: 550; color: var(--event-color); }
-.cal-time { color: #62708a; font-size: .72rem; }
-.cal-event-status { font-size: .7rem; font-weight: 550; color: #56667e; }
-.cal-event.is-proposed { border: 1px dashed #9777b5; border-left: 3px dashed var(--event-color); background: #fff; }
-.cal-event.is-cancelled strong { text-decoration: line-through; }
-.cal-event.is-cancelled { background: #f4f5f8; }
-.category-game { --event-color: #3a6f97; }
-.category-field_trip { --event-color: #327183; }
-.category-recital { --event-color: #965f80; }
-.category-party { --event-color: #92543a; }
-.category-holiday { --event-color: #386c5a; }
-.category-holiday_camp { --event-color: #7b5f53; }
-.category-school_closure { --event-color: #9a6a20; }
-.category-sleepover { --event-color: #5c6592; }
-.category-parenting_handoff { --event-color: #6d7541; }
-.cal-attention, .cal-detail-attention { color: #80541e; font-size: .72rem; background: #f7efd9; border-radius: .35rem; padding: .25rem .4rem; }
-.cal-no-events { font-size: .75rem; color: #7b8799; padding: .4rem 0 .9rem; }
-.cal-busy-list { border-top: 1px solid #e4e7ef; margin-top: .8rem; padding-top: .7rem; }
-.cal-busy-list h3 { font-size: .7rem; color: #62708a; margin-bottom: .5rem; }
-.cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem; border-radius: .45rem; background: #edf0f5; margin-bottom: .5rem; font-size: .75rem; }
-.cal-busy small { font-size: .68rem; color: #62708a; }
-.cal-arrangement { display: grid; gap: .3rem; padding: .55rem; border: 1px dashed #9777b5; width: 100%; border-radius: .5rem; font-size: .73rem; text-align: left; margin-bottom: .8rem; color: #624389; }
-.cal-arrangement span { color: #62708a; font-size: .68rem; }
+/* Family Calendar - design-v2 dark skin over @ilamy/calendar.
+   The calendar island carries the `dark` class so shadcn tokens (which ilamy's
+   internals use) resolve to the FridgeGraph dark palette; the chrome below reads
+   the same --fg-* tokens. Card TYPE drives color, consistently (docs/design.md
+   §2): pickup/transport = amber, school/activity = blue, care = teal,
+   celebration = violet; live events with no recorded category read neutral. */
+/* The calendar island (and its portalled detail sheet) carry `dark`, but the
+   app's global `.dark` block only overrides --fg-* and a few shadcn tokens; the
+   rest of the shadcn tokens were resolved against :root's light --fg-*, so they
+   stay light here. Re-point them at the now-dark --fg-* so @ilamy/calendar's
+   bg-background / card / border / primary utilities render on the dark palette.
+   When the app goes dark app-wide this scope simply agrees with it. */
+.family-calendar.dark, .cal-sheet.dark {
+  --background: var(--fg-surface);
+  --foreground: var(--fg-ink);
+  --card: var(--fg-elevated);
+  --card-foreground: var(--fg-ink);
+  --popover: var(--fg-elevated);
+  --popover-foreground: var(--fg-ink);
+  --primary: var(--fg-primary);
+  --primary-foreground: var(--fg-on-primary);
+  --secondary-foreground: var(--fg-ink);
+  --muted-foreground: var(--fg-muted);
+  --accent-foreground: var(--fg-ink);
+  --destructive: var(--fg-danger);
+  --border: var(--fg-border);
+  --input: oklch(1 0 0 / 0.15);
+  --ring: var(--fg-focus);
+}
+
+.family-calendar {
+  --cal-amber: oklch(0.80 0.13 79);
+  --cal-blue: oklch(0.72 0.12 233);
+  --cal-teal: oklch(0.76 0.10 192);
+  --cal-violet: oklch(0.74 0.14 300);
+  --cal-neutral: oklch(0.72 0.016 268);
+  color: var(--fg-ink);
+  min-width: 0;
+}
+
+/* ── Top chrome ─────────────────────────────────────────────────────────── */
+.cal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.cal-child { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.cal-child label { font-size: .8rem; color: var(--fg-muted); }
+.cal-child select {
+  padding: .6rem 2rem .6rem .8rem; border: 1px solid var(--fg-border);
+  border-radius: var(--radius-control); background: var(--fg-surface);
+  color: var(--fg-ink); font-weight: 600;
+}
+.cal-authority { font-size: .72rem; color: var(--fg-muted); }
+.cal-lane-toggle { display: inline-flex; border: 1px solid var(--fg-border); border-radius: var(--radius-control); padding: .2rem; gap: .2rem; background: var(--fg-surface); }
+.cal-lane-toggle button { padding: .5rem .9rem; border-radius: calc(var(--radius-control) - 3px); font-size: .85rem; color: var(--fg-muted); font-weight: 550; }
+.cal-lane-toggle button[aria-pressed=true] { color: var(--fg-ink); background: var(--fg-elevated); box-shadow: inset 0 0 0 1px var(--fg-border); }
+.cal-explainer, .cal-footnote { font-size: .8rem; line-height: 1.6; color: var(--fg-muted); max-width: 70ch; }
+.cal-explainer { margin-bottom: 1rem; }
+
+/* Honest "not saved" state: there is no save channel for a move in this view, so
+   a drag is reverted and this amber status explains it. Never a silent fake save. */
+.cal-notsaved {
+  display: flex; align-items: center; gap: .5rem;
+  margin-bottom: 1rem; padding: .7rem .9rem; font-size: .82rem; line-height: 1.5;
+  color: var(--cal-amber);
+  background: color-mix(in oklch, var(--cal-amber) 14%, var(--fg-surface));
+  border: 1px solid color-mix(in oklch, var(--cal-amber) 40%, transparent);
+  border-left: 3px solid var(--cal-amber);
+  border-radius: var(--radius-nested);
+}
+
+/* ── The ilamy grid host ────────────────────────────────────────────────── */
+.cal-grid-host {
+  height: clamp(540px, 74vh, 840px);
+  border: 1px solid var(--fg-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--fg-surface);
+}
+.cal-lanes-host { height: clamp(360px, 52vh, 620px); }
+/* No create path persists in this view, so remove ilamy's "New" affordance
+   (cell-click creation is already disabled). Keeping it would offer a save that
+   cannot happen. Export stays: it only serializes what is already on screen. */
+.cal-grid-host button[aria-label="New"] { display: none; }
+
+/* ── Event pill (renderEvent output) ────────────────────────────────────── */
+.cal-pill {
+  --pill: var(--cal-neutral);
+  display: flex; flex-direction: column; gap: .1rem;
+  height: 100%; min-width: 0; padding: .28rem .45rem;
+  border-radius: var(--radius-chip);
+  border-left: 3px solid var(--pill);
+  background: color-mix(in oklch, var(--pill) 18%, var(--fg-elevated));
+  color: var(--fg-ink);
+  line-height: 1.3; text-align: left; overflow: hidden;
+}
+.cal-pill-title { font-size: .78rem; font-weight: 600; overflow-wrap: anywhere; }
+.cal-pill-time { font-size: .68rem; font-weight: 550; color: color-mix(in oklch, var(--pill) 55%, var(--fg-ink)); font-variant-numeric: tabular-nums; }
+.cal-pill-tag { font-size: .62rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: color-mix(in oklch, var(--pill) 60%, var(--fg-ink)); }
+.cal-type-amber { --pill: var(--cal-amber); }
+.cal-type-blue { --pill: var(--cal-blue); }
+.cal-type-teal { --pill: var(--cal-teal); }
+.cal-type-violet { --pill: var(--cal-violet); }
+.cal-type-neutral { --pill: var(--cal-neutral); }
+/* Proposed = not yet confirmed: dashed edge + muted fill, still legible. */
+.cal-pill.is-proposed { border-left-style: dashed; background: color-mix(in oklch, var(--pill) 9%, var(--fg-elevated)); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--pill) 35%, transparent); }
+.cal-pill.is-cancelled { opacity: .62; }
+.cal-pill.is-cancelled .cal-pill-title { text-decoration: line-through; }
+
+/* ── Schedule notes + availability chrome ───────────────────────────────── */
+.cal-schedule-notes { margin-top: 1.4rem; padding: 1.1rem; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: var(--radius-card); }
+.cal-section-title { font-size: 1rem; font-weight: 650; }
+.cal-section-sub { font-size: .78rem; color: var(--fg-muted); margin: .3rem 0 1rem; line-height: 1.5; }
+.cal-care-list { display: grid; gap: .4rem; margin: 0 0 1.1rem; }
+.cal-care-list li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); align-items: center; gap: .6rem; }
+.cal-care-day { font-size: .74rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.cal-care { display: block; width: 100%; text-align: left; font-size: .8rem; line-height: 1.4; padding: .55rem .7rem; border-radius: var(--radius-nested); border: 1px solid var(--fg-border); border-left: 3px solid var(--cal-teal); background: color-mix(in oklch, var(--cal-teal) 10%, var(--fg-elevated)); color: var(--fg-ink); }
+.cal-care.is-holiday { border-left-color: var(--cal-amber); background: color-mix(in oklch, var(--cal-amber) 10%, var(--fg-elevated)); }
+.cal-busy-list h4 { font-size: .72rem; color: var(--fg-muted); margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .03em; }
+.cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem .7rem; border-radius: var(--radius-nested); background: var(--fg-elevated); border: 1px solid var(--fg-border); margin-bottom: .5rem; font-size: .78rem; }
+.cal-busy small { font-size: .7rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.cal-busy.is-free { border-left: 3px solid var(--fg-safe); }
+.cal-arrangement { display: grid; gap: .25rem; padding: .6rem .7rem; width: 100%; text-align: left; margin-top: .6rem; font-size: .76rem; color: var(--cal-violet); background: color-mix(in oklch, var(--cal-violet) 10%, var(--fg-elevated)); border: 1px dashed color-mix(in oklch, var(--cal-violet) 45%, transparent); border-radius: var(--radius-nested); }
+.cal-arrangement span { color: var(--fg-muted); font-size: .68rem; }
 .cal-footnote { display: flex; align-items: start; gap: .5rem; margin-top: 1rem; }
 .cal-footnote svg { flex-shrink: 0; margin-top: .2rem; }
-.cal-overlay { position: fixed; inset: 0; background: #26344c77; z-index: 80; }
-.cal-sheet { position: fixed; z-index: 81; left: .5rem; right: .5rem; bottom: .5rem; max-height: 88dvh; overflow: auto; background: white; padding: 1.5rem; border-radius: 1rem; color: #26344c; }
-.cal-sheet h2 { font-size: 1.4rem; font-weight: 650; line-height: 1.3; max-width: 90%; margin-bottom: .65rem; }
-.cal-sheet > p { font-size: .85rem; line-height: 1.65; color: #62708a; }
-.cal-sheet dl { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .75rem 1rem; margin: 1.5rem 0; font-size: .85rem; }
-.cal-sheet dt { color: #62708a; }
-.cal-sheet dd { overflow-wrap: anywhere; }
-.cal-sheet h3 { font-size: 1rem; font-weight: 650; margin: 1.5rem 0 .7rem; }
-.cal-close { position: absolute; right: 1rem; top: 1rem; padding: .3rem; }
-.cal-linked { display: block; width: 100%; text-align: left; padding: .8rem; border: 1px solid #c9b9df; border-radius: .6rem; color: #624389; margin: .5rem 0; }
-.cal-back { margin-top: 1.5rem; text-decoration: underline; color: #624389; }
-.cal-empty { padding: 1.5rem; background: white; border: 1px solid #d4cadd; border-radius: .85rem; }
-.cal-empty h2 { font-weight: 650; margin-bottom: .7rem; }
-.cal-empty p { line-height: 1.6; margin-bottom: 1rem; }
-.family-calendar button:focus-visible, .family-calendar input:focus-visible, .family-calendar select:focus-visible, .cal-sheet button:focus-visible { outline: 3px solid #9777b5; outline-offset: 3px; }
-@media(min-width: 1100px) { .cal-board { overflow-x: auto; padding-bottom: .5rem; } .cal-days { grid-template-columns: repeat(7, minmax(110px, 1fr)); min-width: 850px; gap: .4rem; } .cal-day { padding: .65rem .5rem; } .cal-day-heading button { display: grid; gap: .2rem; } .cal-days.is-day { grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 650px; } .cal-sheet { top: 1rem; right: 1rem; left: auto; bottom: 1rem; width: 460px; max-height: none; padding: 2rem; } }
+.cal-no-events { font-size: .78rem; color: var(--fg-muted); padding: .4rem 0; }
+.cal-schedule-source { display: block; font-size: .68rem; color: var(--fg-safe-ink); margin: -.3rem 0 .8rem; }
+.cal-unavailable { font-size: .72rem; line-height: 1.5; color: var(--fg-muted); margin: .7rem 0; }
+.cal-live-key { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; color: var(--fg-muted); font-size: .8rem; line-height: 1.6; }
+.cal-live-key label { display: flex; gap: .5rem; align-items: center; }
+.cal-conflicts { margin: 1.2rem 0; padding: 1rem; border-left: 3px solid var(--fg-attention); background: var(--fg-surface); border-radius: var(--radius-nested); font-size: .8rem; line-height: 1.6; }
+.cal-conflicts h3 { font-weight: 650; }
+.cal-attention, .cal-detail-attention { color: var(--fg-onway-ink); font-size: .74rem; background: color-mix(in oklch, var(--fg-onway) 16%, var(--fg-surface)); border-radius: var(--radius-chip); padding: .3rem .5rem; }
 
-.cal-authority { font-size: .7rem; color: #62708a; }
-@media(max-width: 440px) { .cal-child { flex-wrap: wrap; } }
-.cal-live-key {display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:1rem 0;color:#56667e;font-size:.8rem;line-height:1.6}.cal-live-key label {display:flex;gap:.5rem;align-items:center}.cal-schedule-source {display:block;font-size:.68rem;color:#386c5a;margin:-.4rem 0 .9rem}.cal-unavailable {font-size:.68rem;line-height:1.5;color:#62708a;margin:.7rem 0}.cal-conflicts {margin:1.2rem 0;padding:1rem;border-left:3px solid #9777b5;background:#fff;font-size:.8rem;line-height:1.6}.cal-conflicts h3 {font-weight:650}.cal-busy.is-free {background:#e1eee7;color:#386c5a}
+/* ── Detail sheet (portal - styled explicitly, it is outside .family-calendar) ─ */
+.cal-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.55); backdrop-filter: blur(2px); z-index: var(--z-overlay); }
+.cal-sheet {
+  position: fixed; z-index: var(--z-modal); left: .5rem; right: .5rem; bottom: .5rem;
+  max-height: 88dvh; overflow: auto; padding: 1.5rem;
+  background: var(--fg-elevated); color: var(--fg-ink);
+  border: 1px solid var(--fg-border); border-radius: var(--radius-card-lg);
+  box-shadow: 0 24px 60px oklch(0 0 0 / 0.5);
+}
+.cal-sheet h2 { font-size: 1.4rem; font-weight: 650; line-height: 1.3; max-width: 90%; margin-bottom: .5rem; }
+.cal-sheet > p { font-size: .84rem; line-height: 1.6; color: var(--fg-muted); }
+.cal-sheet dl { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: .7rem 1rem; margin: 1.4rem 0; font-size: .85rem; }
+.cal-sheet dt { color: var(--fg-muted); }
+.cal-sheet dd { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.cal-sheet h3 { font-size: 1rem; font-weight: 650; margin: 1.4rem 0 .6rem; }
+.cal-close { position: absolute; right: 1rem; top: 1rem; padding: .3rem; border-radius: var(--radius-chip); color: var(--fg-muted); }
+.cal-close:hover { color: var(--fg-ink); background: var(--fg-surface); }
+.cal-linked { display: block; width: 100%; text-align: left; padding: .75rem; border: 1px solid var(--fg-border); border-radius: var(--radius-nested); color: var(--fg-ink); margin: .5rem 0; background: var(--fg-surface); }
+.cal-linked-text { font-size: .9rem; line-height: 1.7; }
+.cal-back { margin-top: 1.4rem; text-decoration: underline; color: var(--fg-primary); }
+
+/* ── Empty / error / loading ────────────────────────────────────────────── */
+.cal-empty { padding: 1.5rem; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: var(--radius-card); color: var(--fg-ink); }
+.cal-empty h2 { font-weight: 650; margin-bottom: .6rem; }
+.cal-empty p { line-height: 1.6; margin-bottom: 1rem; color: var(--fg-muted); }
+
+/* ── Focus visibility (design.md: visible keyboard focus everywhere) ─────── */
+.family-calendar :focus-visible, .cal-sheet :focus-visible { outline: 2px solid var(--fg-focus); outline-offset: 2px; }
+
+/* Honor reduced motion: let ilamy's transitions collapse to instant. */
+@media (prefers-reduced-motion: reduce) {
+  .family-calendar *, .cal-sheet * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

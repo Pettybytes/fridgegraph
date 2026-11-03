@@ -1,6 +1,6 @@
 import {ApolloLink,Observable} from '@apollo/client'
 import {GraphQLError,print} from 'graphql'
-import {fireEvent,render,screen,within} from '@testing-library/react'
+import {fireEvent,render,screen,waitFor} from '@testing-library/react'
 import {expect,it} from 'vitest'
 import {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
 import {createMockAuthAdapter} from '@/features/personas/auth'
@@ -27,6 +27,12 @@ async function fixture(options:{empty?:boolean;refused?:boolean;failed?:boolean}
  return {adapter,calls,client,switchGeneration:()=>{generation++}}
 }
 function mount(adapter:LiveCalendarAdapter){window.history.replaceState(null,'','#/calendar?day=2026-11-25&childId=p_nora');return render(<LiveFamilyCalendar adapter={adapter}/>)}
+// The event grid is @ilamy/calendar now: events are CalendarEventPills
+// (`.cal-pill[data-event-title]`), not <button name=title>. Care labels moved
+// from per-day regions into the flat care-schedule list, and the privacy copy,
+// busy/free rows and detail dialogs are unchanged.
+const pill=(title:string)=>document.querySelector(`.cal-pill[data-event-title="${title}"]`) as HTMLElement|null
+const findPill=async(title:string)=>{await waitFor(()=>expect(pill(title)).not.toBeNull());return pill(title)!}
 it('uses the delivered fields only; availability never requests a private reason',()=>{
  expect(print(ADULT_AVAILABILITY)).not.toMatch(/reason/);expect(print(CHILD_EVENTS)).not.toMatch(/category|confirmedBy|dayKind|participants|linkedRecords/)
 })
@@ -37,17 +43,20 @@ it('composes daily WEEKLY/ARRANGEMENT answers without manufacturing weekly rules
 })
 it('renders the approved holiday band, weekly return, proposals, conflict and Busy/Free honestly',async()=>{
  const {adapter,client}=await fixture();mount(adapter)
- const wed=await screen.findByRole('region',{name:'Wednesday, Nov 25 day'});await within(wed).findByText('Approved arrangement: scheduled with Andre')
- expect(within(screen.getByRole('region',{name:'Saturday, Nov 28 day'})).getByText('Scheduled with Kendra')).toBeVisible()
+ // Care labels live in the flat care-schedule list now, not per-day regions.
+ // The arrangement spans Nov 25-27, so its label appears on three care days.
+ expect(await screen.findAllByText('Approved arrangement: scheduled with Andre')).toHaveLength(3)
+ // Weekly care with Kendra returns on the days outside the arrangement.
+ expect(screen.getAllByText('Scheduled with Kendra').length).toBeGreaterThan(0)
  expect(screen.getAllByText('Approved arrangement')).toHaveLength(3);expect(screen.getAllByText('Proposed')).toHaveLength(1)
- expect(screen.getByRole('button',{name:/Proposed commitment/})).toHaveClass('is-proposed');expect(screen.getByText(/overlapping arrangements/)).toBeVisible()
+ expect(await findPill('Proposed commitment')).toHaveClass('is-proposed');expect(screen.getByText(/overlapping arrangements/)).toBeVisible()
  expect(screen.getByText('Andre Ellison · free time recorded')).toBeVisible();expect(screen.getByText('Kendra Ellison · Busy')).toBeVisible();expect(screen.queryByText(/PRIVATE employer|available to watch|late shift/)).not.toBeInTheDocument()
  expect(screen.getByText(/School-closure information isn’t available/)).toBeVisible();client.stop()
 })
 it('cancelled stays hidden until the toggle requests includeCancelled; missing source fields stay missing',async()=>{
- const {adapter,calls,client}=await fixture();mount(adapter);await screen.findByRole('button',{name:/Confirmed commitment/});expect(screen.queryByRole('button',{name:/Cancelled commitment/})).not.toBeInTheDocument()
- fireEvent.click(screen.getByLabelText('Show cancelled events'));expect(await screen.findByRole('button',{name:/Cancelled commitment/})).toHaveClass('is-cancelled');expect(calls.filter(c=>c.name==='WebChildEvents').at(-1)?.variables.includeCancelled).toBe(true)
- fireEvent.click(screen.getByRole('button',{name:/Proposed commitment/}));const detail=screen.getByRole('dialog');expect(detail).toHaveTextContent('Not confirmed yet');expect(detail).toHaveTextContent('Category not recorded');expect(detail).toHaveTextContent('Linked records are not available');client.stop()
+ const {adapter,calls,client}=await fixture();mount(adapter);await findPill('Confirmed commitment');expect(pill('Cancelled commitment')).toBeNull()
+ fireEvent.click(screen.getByLabelText('Show cancelled events'));expect(await findPill('Cancelled commitment')).toHaveClass('is-cancelled');expect(calls.filter(c=>c.name==='WebChildEvents').at(-1)?.variables.includeCancelled).toBe(true)
+ fireEvent.click(pill('Proposed commitment')!);const detail=screen.getByRole('dialog');expect(detail).toHaveTextContent('Not confirmed yet');expect(detail).toHaveTextContent('Category not recorded');expect(detail).toHaveTextContent('Linked records are not available');client.stop()
 })
 it('authorized empty, authorization refusal and upstream failure have distinct exact wordings',async()=>{
  for(const state of ['empty','refused','failed'] as const){
