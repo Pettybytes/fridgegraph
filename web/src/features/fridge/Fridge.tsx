@@ -80,16 +80,20 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
  }
  const goalFeedback=()=>board.status==='ready'?null:<p className="fridge-read" role={board.status==='failed'?'alert':'status'}>{board.status==='loading'?'Loading shared goals…':board.status==='empty'?'Nothing posted here yet.':board.status==='refused'?"These notes aren't shared with this perspective.":board.status==='unavailable'?'These notes aren’t connected in this view.':"Couldn't load these notes"}{board.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
  return <section className="fridge-feature" aria-label="The Fridge">
-  <header className="fridge-toolbar"><div><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div><div>{viewport.view.scale>1&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}<button onClick={()=>{setLayout({});saveLayout(personId,{})}}>Tidy up</button></div></header>
+  <header className="fridge-toolbar"><div><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div></header>
   <div className="fridge-caption"><span>{artLabel}. {readOnly?'Read-only perspective.':''}</span><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Tap anywhere to zoom into that point; tap again to open an item. Drag to pan, pinch to zoom, or focus the viewer to use the wheel and + / − keys. Arrow keys pan. Turn on Arrange items to drag paper or move it with Alt + arrow keys.</p><p>Moving paper changes this browser’s layout only. Tidy up resets it. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div>
-  <nav aria-label="Fridge doors"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
-  <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
+  <div className="fridge-actions">
+   <nav aria-label="Fridge doors" className="fridge-action-group"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
+   <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
+  </div>
   {!sampleSlots.length&&<p className="fridge-empty-art">Make room for your family’s moments. There’s no artwork in this family album yet.</p>}
   {intake??<div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>}
   {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
   <nav className="fridge-view-controls" aria-label="Fridge view controls">
+   {viewport.view.scale>1&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}
    <button onClick={()=>viewport.zoom(1.25)}>Zoom in</button><button disabled={viewport.view.scale===1} onClick={()=>viewport.zoom(.8)}>Zoom out</button><button onClick={()=>navigate(null)}>Reset view</button>
    <button aria-pressed={arrange} disabled={viewport.view.scale===1} onClick={()=>setArrange(value=>!value)}>Arrange items</button>
+   <button onClick={()=>{setLayout({});saveLayout(personId,{})}}>Tidy up</button>
   </nav>
   <div ref={viewport.ref} className={`fridge-viewport ${viewport.view.scale>1?'is-focused':''}`} data-view={door??'overview'} data-scale={viewport.view.scale} data-arrange={arrange} tabIndex={0} role="region" aria-label="Fridge viewer"
    onFocusCapture={e=>{
