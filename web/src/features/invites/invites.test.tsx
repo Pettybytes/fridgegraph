@@ -13,21 +13,28 @@ const smallArt = { mimeType: 'image/png' as const, width: 1024, height: 1024, ba
 
 const event: InviteEvent = { childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-11-15', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Maple Hall', hostName: '', message: '' }
 const provenance = { source: 'FIXTURE' as const, model: null, cached: false, promptHash: 'fixture:test' }
+const pngFile = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'party.png', { type: 'image/png' })
+/** The reference image is mandatory: choose one so Prepare is enabled, as a parent must. */
+async function addReference(container: HTMLElement) {
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [pngFile()] } })
+  await screen.findByAltText(/Reference: party\.png/)
+}
+
 
 describe('invitation contract and honest states', () => {
   it('keeps Detroit event date and time as source fields, and credits art by provenance', () => {
     expect(invitationText(event)).toEqual(['Nora', 'Birthday party', 'Sunday, November 15, 2026', '2:00 PM – 4:00 PM · Detroit time', 'Maple Hall'])
-    expect(inviteCredit(provenance)).toBe('Sample art — not generated')
+    expect(inviteCredit(provenance)).toBe('Sample art, not generated')
     expect(inviteCredit({ source: 'MUSE_IMAGE', model: 'muse-image-1.0', cached: true, promptHash: 'x' })).toBe('Art generated with Muse Image')
     expect(inviteCredit({ source: 'MUSE_IMAGE', model: 'muse-image-1.0', cached: false, promptHash: 'x' })).toBe('Art generated with Muse Image')
   })
   it.each([
-    [provenance, 'Sample art — not generated'],
+    [provenance, 'Sample art, not generated'],
     [{ source: 'MUSE_IMAGE' as const, model: 'muse-image-1.0' as const, cached: true, promptHash: 'model:test' }, 'Art generated with Muse Image'],
   ])('draws the %s provenance credit into the invitation pixels', (source, expected) => {
     const fillText = vi.fn()
     const ctx = {
-      drawImage: vi.fn(), getImageData: () => ({ data: [251, 250, 246, 255] }),
+      drawImage: vi.fn(), fillRect: vi.fn(), getImageData: () => ({ data: [251, 250, 246, 255] }),
       measureText: (text: string) => ({ width: text.length * 10 }), fillText,
       save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(),
       font: '', fillStyle: '', strokeStyle: '', lineWidth: 1, textAlign: '', textBaseline: '',
@@ -57,7 +64,8 @@ describe('invitation contract and honest states', () => {
   it('shows the invitation as readable text beside the art, including host and message', async () => {
     const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
     const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', clarification: null, event, art, provenance })
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     const readout = await screen.findByLabelText('Invitation text')
     expect(readout).toHaveTextContent('Hosted by Kendra')
@@ -70,7 +78,8 @@ describe('invitation contract and honest states', () => {
   it('says plainly that a FIXTURE card in live mode is not a new generation', async () => {
     const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
     const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', clarification: null, event, art, provenance })
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     expect(await screen.findByText(/Live art generation is switched off here/)).toBeVisible()
     expect(screen.queryByText(/Art generated with Muse Image for this request/)).not.toBeInTheDocument()
@@ -83,7 +92,9 @@ describe('invitation contract and honest states', () => {
         provenance: { source: 'MUSE_IMAGE' as const, model: 'muse-image-1.0' as const, cached, promptHash: 'muse:test' },
       })
       const view = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
-      fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
+      const container = view.container
+      await addReference(container)
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
       expect(await screen.findByText(cached ? /served from the prompt cache/ : /Art generated with Muse Image for this request/)).toBeVisible()
       view.unmount()
     }
@@ -98,7 +109,8 @@ describe('invitation contract and honest states', () => {
   it('shows a non-blocking suggestion on a ready card, and never blocks the download on missing details', async () => {
     const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
     const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', suggestion: 'Add a date below to finish the invitation.', event: { ...event, date: null }, art, provenance })
-    render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     // The art is ready even though the schedule is incomplete; the suggestion is advisory, not a gate.
     expect(await screen.findByRole('region', { name: 'Invitation card ready' })).toBeVisible()
@@ -107,7 +119,8 @@ describe('invitation contract and honest states', () => {
   })
   it('keeps a 403 refusal distinct from a failed image request', async () => {
     const createInvite: InviteCreator = async () => { throw { status: 403, code: 'UNAUTHORIZED' } }
-    render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     expect(await screen.findByText(/Only a parent or guardian of this child/)).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Download PNG' })).not.toBeInTheDocument()
@@ -117,6 +130,8 @@ describe('invitation contract and honest states', () => {
     let resolve!: (value: Awaited<ReturnType<InviteCreator>>) => void
     const createInvite: InviteCreator = vi.fn(() => new Promise<Awaited<ReturnType<InviteCreator>>>(done => { resolve = done }))
     const view = render(<InviteComposer key="persona-a:child-a" childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    const container = view.container
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     expect(screen.getByText(/Preparing invitation art/)).toBeVisible()
     view.rerender(<InviteComposer key="persona-b:child-b" childId="child-b" childFirstName="Leo" mode="live" createInvite={createInvite} />)
@@ -130,7 +145,8 @@ describe('invitation contract and honest states', () => {
     const createInvite: InviteCreator = vi.fn()
       .mockResolvedValueOnce({ status: 'READY', clarification: null, event, art, provenance })
       .mockImplementationOnce(() => new Promise(done => { resolveSecond = done }))
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     expect(await screen.findByRole('region', { name: 'Invitation card ready' })).toBeVisible()
 
@@ -151,13 +167,14 @@ describe('invitation contract and honest states', () => {
       calls.push(req)
       return { status: 'READY' as const, event, art, provenance: { source: 'MUSE_IMAGE' as const, model: 'muse-image-1.0' as const, cached: false, promptHash: 'muse:test', edited: !!req.referenceImage } }
     })
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     await screen.findByRole('region', { name: 'Invitation card ready' })
     fireEvent.click(screen.getByRole('button', { name: 'Revise this design' }))
     await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(2))
     expect(calls[0].revise).toBe(false) // the first prepare is a fresh generation, not a revision
-    expect(calls[0].referenceImage).toBeUndefined()
+    expect(calls[0].referenceImage?.mimeType).toBe('image/png') // the first prepare carries the mandatory uploaded reference
     expect(calls[1].revise).toBe(true) // the revision sends the current art back to preserve it
     expect(calls[1].referenceImage?.dataBase64).toBe('YWJj')
     expect(calls[1].referenceImage?.mimeType).toBe('image/png')
@@ -168,7 +185,8 @@ describe('invitation contract and honest states', () => {
       .mockResolvedValueOnce({ status: 'READY', event, art: smallArt, provenance: MUSE })
       // the revision re-extracts an EMPTY schedule — the instruction was "add balloons", not a date
       .mockResolvedValueOnce({ status: 'READY', event: { childFirstName: '', occasion: '', date: null, startTime: null, endTime: null, timezone: 'America/Detroit', placeLabel: null, hostName: '', message: '' }, art: art2, provenance: { ...MUSE, promptHash: 'muse:test2' } })
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     await screen.findByRole('region', { name: 'Invitation card ready' })
     // the parent edits the place and the child's name
@@ -188,7 +206,8 @@ describe('invitation contract and honest states', () => {
       if (req.revise) throw { status: 502, code: 'IMAGE_FAILED' } // the revision fails
       return { status: 'READY' as const, event, art: smallArt, provenance: MUSE }
     })
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     await screen.findByRole('region', { name: 'Invitation card ready' })
     fireEvent.click(screen.getByRole('button', { name: 'Revise this design' }))
@@ -217,7 +236,8 @@ describe('invitation contract and honest states', () => {
   })
   it('offers an explicit Retry after a failure, which actually re-runs the request — never automatically', async () => {
     const createInvite: InviteCreator = vi.fn().mockRejectedValue({ status: 502, code: 'IMAGE_FAILED' })
-    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     await screen.findByRole('button', { name: 'Retry' })
     expect(createInvite).toHaveBeenCalledTimes(1) // no automatic retry loop
@@ -227,9 +247,24 @@ describe('invitation contract and honest states', () => {
   })
   it('never offers Retry for a 403 refusal — that boundary will not change on its own', async () => {
     const createInvite: InviteCreator = async () => { throw { status: 403, code: 'UNAUTHORIZED' } }
-    render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    const { container } = render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    await addReference(container)
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     await screen.findByText(/Only a parent or guardian of this child/)
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
   })
 })
+
+  it('composites the event text on an opaque plate over the quiet area, never over model art', () => {
+    const fillRect = vi.fn()
+    const ctx = {
+      drawImage: vi.fn(), fillRect, getImageData: () => ({ data: [251, 250, 246, 255] }),
+      measureText: (text: string) => ({ width: text.length * 10 }), fillText: vi.fn(),
+      save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(),
+      font: '', fillStyle: '', strokeStyle: '', lineWidth: 1, textAlign: '', textBaseline: '',
+    } as unknown as CanvasRenderingContext2D
+    const canvas = { width: 1024, height: 1024, getContext: () => ctx } as unknown as HTMLCanvasElement
+    const image = { naturalWidth: 1024, naturalHeight: 1024 } as HTMLImageElement
+    drawInvitation(canvas, image, smallArt, event, provenance)
+    expect(fillRect).toHaveBeenCalledWith(96, 600, 832, 328)
+  })

@@ -160,6 +160,12 @@ export function drawInvitation(canvas: HTMLCanvasElement, image: HTMLImageElemen
   canvas.height = art.height
   ctx.drawImage(image, 0, 0, art.width, art.height)
   const ink = textColor(ctx, art)
+  // Composite the event block on an opaque plate over the reserved band: model-painted lettering
+  // or busy art inside the band can never show through or collide with the app's event text.
+  ctx.save()
+  ctx.fillStyle = ink === DARK_INK ? LIGHT_INK : DARK_INK
+  ctx.fillRect(art.quietArea.x, art.quietArea.y, art.quietArea.w, art.quietArea.h)
+  ctx.restore()
   const footerHeight = Math.min(64, Math.max(32, art.quietArea.h * 0.12))
   const layout = layoutInvitation(ctx, art, event, footerHeight)
   const centreX = art.quietArea.x + art.quietArea.w / 2

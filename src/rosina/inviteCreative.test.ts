@@ -16,7 +16,7 @@ import { sniffImageMime, stripImageMetadata, readImageDimensions } from './image
 import { buildCreativeBrief, MAX_REQUEST_CHARS } from './invitePrompt';
 import { createInviteHandler, type InviteEndpointDeps } from './inviteEndpoint';
 import { createInviteDedup } from './inviteDedup';
-import { createLiveImageGenerator, InviteImageUncertainFailure, type InviteImageGenerator, type InviteImageRef, type InviteImageResult } from './inviteImage';
+import { createLiveImageGenerator, quietAreaFor, InviteImageUncertainFailure, type InviteImageGenerator, type InviteImageRef, type InviteImageResult } from './inviteImage';
 import type { InviteLedgerBudget } from './inviteLedgerBudget';
 
 // ---- minimal real images ----
@@ -98,11 +98,11 @@ test('1. generate an invitation from a creative text request (no schedule requir
   const image = spyImage();
   const h = createInviteHandler(deps({ image, extractor: async () => ({}) /* nothing extracted — still generates */ }));
   const res = fakeRes();
-  await h(fakeReq(auth, { childId: 'p_nora', request: 'a cosmic watercolor rocket party, dreamy and bright' }), res);
+  await h(fakeReq(auth, { childId: 'p_nora', request: 'a cosmic watercolor rocket party, dreamy and bright', referenceImage: refField(png()) }), res);
   assert.equal(res.code, 200);
   assert.equal(res.payload.status, 'READY');
   assert.match(image.calls[0].prompt, /cosmic watercolor rocket party/); // the request drives the art
-  assert.equal(image.calls[0].images, undefined); // fresh generation
+  assert.equal(image.calls[0].images?.length, 1); // the mandatory reference drives the edit
   assert.ok(res.payload.suggestion); // missing details are suggested, not invented
   assert.equal(res.payload.event.date, null);
 });
@@ -141,7 +141,7 @@ test('5. a second authorized parent family can use the same workflow', async () 
   const image = spyImage();
   const h = createInviteHandler(deps({ image, verify: async () => ({ ok: true, personId: 'p_otherdad', demoGuide: false }), authorizeParent: async ({ personId, childId }) => personId === 'p_otherdad' && childId === 'p_malik', extractor: async () => ({ childFirstName: 'Malik', occasion: 'Birthday', date: '2026-12-10' }) }));
   const res = fakeRes();
-  await h(fakeReq(auth, { childId: 'p_malik', request: 'a jungle safari invitation with cartoon animals' }), res);
+  await h(fakeReq(auth, { childId: 'p_malik', request: 'a jungle safari invitation with cartoon animals', referenceImage: refField(png()) }), res);
   assert.equal(res.code, 200);
   assert.equal(res.payload.event.childFirstName, 'Malik');
   assert.match(image.calls[0].prompt, /jungle safari/);
@@ -173,13 +173,37 @@ test('a generation (edit) charges the per-child budget exactly once; a provider 
   const l2 = fakeLedger();
   const failing: InviteImageGenerator = { peekCached: () => false, async generate() { throw new InviteImageUncertainFailure('IMAGE_EMPTY'); } };
   const failRes = fakeRes();
-  await createInviteHandler(deps({ ledgerBudget: l2, image: failing }))(fakeReq(auth, { childId: 'p_nora', request: 'warrior unicorns' }), failRes);
+  await createInviteHandler(deps({ ledgerBudget: l2, image: failing }))(fakeReq(auth, { childId: 'p_nora', request: 'warrior unicorns', referenceImage: refField(png()) }), failRes);
   assert.equal(failRes.code, 502); assert.deepEqual(l2.settled, [{ status: 'UNCERTAIN' }]);
 });
 
 test('privacy: the provider never receives graph data — only the parent request + reference', async () => {
   const image = spyImage();
-  await createInviteHandler(deps({ image }))(fakeReq(auth, { childId: 'p_secret_child_id', request: 'a starry night party' }), fakeRes());
+  await createInviteHandler(deps({ image }))(fakeReq(auth, { childId: 'p_secret_child_id', request: 'a starry night party', referenceImage: refField(png()) }), fakeRes());
   assert.equal(image.calls[0].prompt.includes('p_secret_child_id'), false); // childId never reaches the provider
   assert.match(image.calls[0].prompt, /starry night party/);
+});
+
+// ---- invitations polish: no model lettering, bottom-third band, mandatory reference ----
+test('the brief forbids rendered lettering and reserves an empty lower third for app text', () => {
+  const brief = buildCreativeBrief('warrior unicorns with the words Happy Birthday Sam in big letters');
+  assert.match(brief, /do not render any text/i);
+  assert.match(brief, /lower third/i);
+  assert.match(brief, /empty/i);
+});
+
+test('the quiet area is the bottom third of the actual image', () => {
+  const q = quietAreaFor(1000, 1500);
+  assert.ok(q.y >= 1000, `quiet area starts at ${q.y}, expected the bottom third (>=1000)`);
+  assert.ok(q.y + q.h <= 1500);
+});
+
+test('a fresh prepare without a reference image is refused before any provider call', async () => {
+  const image = spyImage();
+  const h = createInviteHandler(deps({ image }));
+  const res = fakeRes();
+  await h(fakeReq(auth, { childId: 'p_nora', request: 'warrior unicorns' }), res);
+  assert.equal(res.code, 400);
+  assert.equal((res.payload as { error?: string }).error, 'REFERENCE_REQUIRED');
+  assert.equal(image.calls.length, 0);
 });

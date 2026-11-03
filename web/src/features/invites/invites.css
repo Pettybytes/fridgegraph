@@ -13,11 +13,11 @@
 .invites-panel__counter{font-size:12px;font-weight:400;color:var(--fg-muted);justify-self:end}
 
 /* The card: artwork + its readable text on the left, the editable fields on the right. */
+.invites-card__preview,.invites-card__editor{min-width:0}
 .invites-card{display:grid;grid-template-columns:minmax(260px,440px) minmax(280px,1fr);gap:22px;align-items:start;border-top:1px solid var(--fg-border);padding-top:18px}
 .invites-card__preview{display:grid;gap:10px;justify-items:stretch}
 .invites-card__caption{font-size:13px;color:var(--fg-muted);margin:0}
 .invites-card__preview canvas{display:block;width:100%;height:auto;border:1px solid var(--fg-border);border-radius:12px;background:var(--fg-canvas)}
-.invites-card__credit{font-size:13px;color:var(--fg-muted);margin:0}
 .invites-card__source{font-size:13px;line-height:1.45;color:var(--fg-ink);margin:0;padding:10px 12px;border:1px solid var(--fg-border);border-radius:10px;background:var(--fg-canvas)}
 .invites-card__source[data-source="FIXTURE"]{border-color:color-mix(in oklab,var(--fg-ink) 20%,var(--fg-border));background:color-mix(in oklab,var(--fg-ink) 4%,var(--fg-canvas))}
 
@@ -40,7 +40,7 @@
 .invites-card__timezone{font-size:13px}
 .invites-card__editor>.fg-btn{justify-self:start}
 
-@media(max-width:700px){
+@media(max-width:1024px){
   .invites-card{grid-template-columns:1fr}
   .invites-card__fields{grid-template-columns:1fr}
   .invites-card__line--name{font-size:26px}
@@ -48,11 +48,11 @@
 }
 .dark .invites-card input[type="date"],.dark .invites-card input[type="time"]{color-scheme:dark}
 
-/* Reference image (optional) — style inspiration control. Tokens only, matches the panel. */
+/* Reference image (required): style inspiration control. Tokens only, matches the panel. */
 .invites-panel__reference{display:grid;gap:8px;margin-top:2px}
 .invites-panel__reference-head{display:grid;gap:2px}
 .invites-panel__reference-title{font-size:14px;font-weight:600}
-.invites-panel__optional{margin-left:6px;font-size:11px;font-weight:500;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.04em}
+.invites-panel__required{margin-left:6px;font-size:11px;font-weight:500;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.04em}
 .invites-panel__reference-hint{font-size:12.5px;line-height:1.45;color:var(--fg-muted)}
 .invites-dropzone{display:grid;justify-items:center;gap:8px;padding:18px;border:1.5px dashed var(--fg-border);border-radius:var(--radius-md,12px);background:color-mix(in oklch,var(--fg-primary) 3%,transparent);text-align:center}
 .invites-dropzone.is-dragging{border-color:var(--fg-primary);background:color-mix(in oklch,var(--fg-primary) 9%,transparent)}

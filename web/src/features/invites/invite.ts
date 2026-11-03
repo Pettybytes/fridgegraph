@@ -120,7 +120,7 @@ export type InviteCreator = (request: { childId: string; request: string; refere
  * Burned into the exported PNG footer AND shown in the UI, so the distinction survives a
  * download, a screenshot, or someone reading only the image. */
 export function inviteCredit(provenance: InviteProvenance): string {
-  return provenance.source === 'MUSE_IMAGE' ? 'Art generated with Muse Image' : 'Sample art — not generated'
+  return provenance.source === 'MUSE_IMAGE' ? 'Art generated with Muse Image' : 'Sample art, not generated'
 }
 
 export function inviteError(error: unknown): { state: 'refused' | 'failed'; message: string } {
@@ -129,6 +129,7 @@ export function inviteError(error: unknown): { state: 'refused' | 'failed'; mess
   const status = value?.status
   if (status === 413 || code === 'PAYLOAD_TOO_LARGE') return { state: 'failed', message: 'That reference image is too large (5 MB max). Choose a smaller one and try again.' }
   if (status === 415 || code === 'UNSUPPORTED_MEDIA_TYPE') return { state: 'failed', message: 'That reference image type is not supported. Use a PNG, JPEG, or WebP.' }
+  if (code === 'REFERENCE_REQUIRED') return { state: 'failed', message: 'Add a reference image to prepare an invitation.' }
   if (status === 400 || code === 'INVALID_REQUEST') return { state: 'failed', message: 'The invitation request is invalid. Check your request and try again.' }
   if (status === 401 || code === 'UNAUTHENTICATED') return { state: 'refused', message: 'Your session ended. Choose a perspective again.' }
   if (status === 403 || code === 'UNAUTHORIZED') return { state: 'refused', message: 'Only a parent or guardian of this child can prepare an invitation. No art was generated.' }

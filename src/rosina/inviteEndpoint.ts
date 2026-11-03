@@ -1,9 +1,9 @@
 /**
  * Authenticated endpoint for the Invites slice. Contract: docs/contracts/invites.md.
- *   POST /api/rosina/invite  { childId, request, referenceImage?, revise? }
+ *   POST /api/rosina/invite  { childId, request, referenceImage, revise? }
  *     → editable event fields + generated art bytes (+ provenance, reference, suggestion)
  *
- * The art is driven by the PARENT'S OWN creative request (Muse Image generations), and an optional
+ * The art is driven by the PARENT'S OWN creative request (Muse Image generations), and a required
  * reference image — a parent upload OR the prior generated result for a revision — routes to Muse
  * Image /images/edits so the actual image guides the result. Event fields are a best-effort, editable
  * convenience: they are NEVER required to make art, never block it, and never invented.
@@ -41,7 +41,7 @@ const REFERENCE_MAX_DIM = 4096;
 
 type ParsedReference = { image: { bytes: Buffer; mimeType: ImageMime } } | { error: { status: number; code: string } } | null;
 
-/** Validate an OPTIONAL reference image entirely in memory: sniff the real type (a lying mimeType is
+/** Validate the REQUIRED reference image entirely in memory: sniff the real type (a lying mimeType is
  *  rejected), enforce ≤5MB and server-read dimensions, then STRIP EXIF/GPS/XMP. Returns null when no
  *  reference was supplied, the stripped image when valid, or a typed error otherwise. Never persists,
  *  never logs the bytes. */
@@ -144,6 +144,11 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
       log(403); res.status(403).json({ error: 'UNAUTHORIZED' }); return;
     }
 
+    // The reference image is mandatory (Bryan, 2026-11-03): a fresh prepare remixes the parent's
+    // upload and a revision sends the prior result back, so every accepted request carries one.
+    // Checked after authorization so a refused caller still gets 403 and triggers zero model calls.
+    if (!reference) { log(400, ' REFERENCE_REQUIRED'); res.status(400).json({ error: 'REFERENCE_REQUIRED' }); return; }
+
     const today = detroitToday(now());
     const revise = body.revise === true; // a follow-up revision of a prior generated result (sent as the reference)
     const refSha = reference ? createHash('sha256').update(reference.bytes).digest('hex') : '';
@@ -167,10 +172,10 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
       const prompt = buildCreativeBrief(request, { hasReference: reference != null, revise });
       const hash = promptHash(refSha ? `${prompt}:${refSha}` : prompt);
 
-      // Budget (live only). Reserve BEFORE the provider call; a known cache hit (no reference) is never
-      // billed and skips reservation.
+      // Budget (live only). Reserve BEFORE the provider call; a known cache hit (the generator cache
+      // is keyed by this same hash, reference bytes included) is never billed and skips reservation.
       let generationId: string | null = null;
-      if (deps.source === 'MUSE_IMAGE' && (reference != null || !deps.image.peekCached(hash))) {
+      if (deps.source === 'MUSE_IMAGE' && !deps.image.peekCached(hash)) {
         const reservation = await deps.ledgerBudget.reserve({ childId, source: 'MUSE_IMAGE', promptHash: hash, bearer });
         if (!reservation.allowed) return { kind: 'ERROR', status: 429, body: { error: 'BUDGET_EXHAUSTED' } };
         generationId = reservation.generationId;
