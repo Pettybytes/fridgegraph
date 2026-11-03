@@ -14,7 +14,7 @@ export function FamilyAlbum({assets,readOnly}:{assets:AlbumAsset[];readOnly:bool
    {readOnly&&<p>Read-only perspective.</p>}
    {!assets.length?<p>Your family album has room to grow. No pictures have been provided yet.</p>:<>
     <div className="fridge-album-grid" role="group" aria-label="Choose artwork to preview">{assets.map(item=><button key={item.id} aria-pressed={selected===item.id} onClick={()=>setSelected(item.id)}><img src={item.src} srcSet={item.srcSet} sizes="(max-width:600px) 80vw, 320px" loading="lazy" alt=""/><span>{item.title}</span></button>)}</div>
-    {asset&&<section aria-label="Artwork preview"><h3>{asset.title}</h3><img src={asset.src} srcSet={asset.srcSet} sizes="700px" alt={asset.title}/><p>This preview hasn’t changed your fridge.</p></section>}
+    {asset&&<section aria-label="Artwork preview"><h3>{asset.title}</h3><img src={asset.src} srcSet={asset.srcSet} sizes="700px" alt={asset.title}/>{asset.body&&<p>{asset.body}</p>}<p>This preview hasn’t changed your fridge.</p></section>}
     {!readOnly&&<button disabled>Pin to fridge unavailable</button>}
    </>}
    <Dialog.Close>Close album</Dialog.Close>

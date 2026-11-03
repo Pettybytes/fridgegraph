@@ -8,9 +8,9 @@ it('resolves siblings/co-parent and caregiver-selected context by canonical chil
  const nora=familyArt('p_nora')
  for(const child of ['p_max','p_leo']){expect(familyArt(child).id).toBe(nora.id);expect(familyArt(child).album).toEqual(nora.album)}
  for(const unrelated of ['p_jax','p_emma','new-child','Nora Ellison','p_mom','p_dad'])expect(familyArt(unrelated)).toMatchObject({id:null,slots:[],album:[]})
- expect(ellisonAlbum).toHaveLength(12)
- expect(new Set(ellisonAlbum.map(a=>a.id)).size).toBe(12)
- expect(ellisonAlbum.every(a=>a.src.startsWith('/fridge/packs/ellison/')&&!a.src.includes('://'))).toBe(true)
+ expect(ellisonAlbum).toHaveLength(13)
+ expect(new Set(ellisonAlbum.map(a=>a.id)).size).toBe(13)
+ expect(ellisonAlbum.every(a=>(a.src.startsWith('/fridge/packs/ellison/')||a.src.startsWith('/fridge/samples/'))&&!a.src.includes('://'))).toBe(true)
 })
 it('browses large family-only previews with no persistence when attachment validation/read capability is absent',()=>{
  const art=familyArt('p_nora')
