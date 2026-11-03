@@ -39,3 +39,10 @@
 .fridge-editor-dialog .fridge-editor-close{position:absolute;top:16px;right:16px;float:none;margin:0}.fridge-editor-dialog>h2{padding-right:80px;font-size:21px}.fridge-editor-dialog>.fe-panel{border:0}.fridge-editor-dialog>p{margin:0 0 16px;padding-right:80px;font-size:14px;line-height:1.5}
 
 .fridge-editor-heading{position:sticky;top:-20px;z-index:3;background:var(--fg-surface);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:12px 0;margin-bottom:12px}.fridge-editor-heading h2{font-size:21px;margin:0 0 5px}.fridge-editor-heading p{font-size:14px;line-height:1.5;margin:0;color:var(--fg-muted)}.fridge-editor-dialog .fridge-editor-heading .fridge-editor-close{position:static;float:none;flex-shrink:0;margin:0}.fridge-editor-dialog .fe-goal>p{white-space:pre-wrap}
+/* Authorized records occupy their own paper rail on the collage door. Scrolling
+   keeps every returned note reachable without shrinking text or covering faces. */
+.fridge-posted-notes{position:absolute;left:34.2%;top:38.5%;width:11.5%;height:16%;overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column;gap:1.3cqw;padding:1.3cqw .4cqw .5cqw;box-sizing:border-box}
+.fridge-posted-paper{position:relative;flex-shrink:0;width:100%;min-height:8cqw;border:0;border-radius:0 0 3% 1%;padding:.9cqw .65cqw;color:#263a4a;background:#f2e5a7;text-align:left;box-shadow:.1cqw .25cqw .35cqw #20180c40;cursor:pointer;overflow-wrap:anywhere}
+.fridge-posted-paper[data-paper=PINK]{background:#f1cdc0}.fridge-posted-paper[data-paper=BLUE]{background:#cce0e9}.fridge-posted-paper[data-paper=GREEN]{background:#d8e5c7}.fridge-posted-paper[data-paper=WHITE]{background:#fffdf8}
+.fridge-note-author{display:block;margin-top:.5cqw;font:500 .85cqw/1.4 var(--font-sans,Arial,sans-serif)}.fridge-posted-paper .fridge-paper-text{white-space:pre-wrap}.is-focused .fridge-posted-paper .fridge-paper-text{font-size:max(14px,1.35cqw)}.is-focused .fridge-note-author{font-size:max(12px,.85cqw)}
+.fridge-posted-notes:focus-visible{outline:3px solid var(--fg-primary);outline-offset:3px}.fridge-sample-card-tray{grid-template-columns:repeat(auto-fit,minmax(100px,1fr))}
