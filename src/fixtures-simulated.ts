@@ -111,11 +111,62 @@ const PRISTINE_ATTEMPTS: SimulatedAttempt[] = PRISTINE_JOBS.flatMap((job, i) => 
   return attempts;
 });
 
+/**
+ * Recorded family history v1. Fixed Detroit window: 2026-10-05 through 2026-11-03.
+ * These are ended coordination requests, not evidence of completed or failed physical pickups.
+ * No parent approval is invented for families without a recorded approval/schedule decision.
+ * Profiles retain different dates, contact patterns and local times. Closed test attempts and
+ * terminal jobs cannot be picked up by the dispatch sweeper. No RPC or provider is called here.
+ */
+const FAMILY_HISTORY_PROFILES = [
+  { child: 'p_nora', hour: 13, minute: 5, count: 20, stride: 7, candidates: ['p_gma', 'p_tasha', 'p_priya'], channel: 'CALL' as const },
+  { child: 'p_leo', hour: 14, minute: 10, count: 18, stride: 11, candidates: ['p_mom'], channel: 'SMS' as const },
+  { child: 'p_max', hour: 13, minute: 35, count: 19, stride: 13, candidates: ['p_mom'], channel: 'CALL' as const },
+  { child: 'p_jax', hour: 12, minute: 50, count: 21, stride: 17, candidates: ['p_ray', 'p_evelyn'], channel: 'SMS' as const },
+  { child: 'p_emma', hour: 14, minute: 0, count: 22, stride: 19, candidates: ['p_rosa', 'p_tomas'], channel: 'CALL' as const },
+  { child: 'p_taylor', hour: 13, minute: 20, count: 20, stride: 23, candidates: ['p_felicia'], channel: 'SMS' as const },
+  { child: 'p_skye', hour: 10, minute: 45, count: 18, stride: 5, candidates: ['p_felicia'], channel: 'CALL' as const },
+  { child: 'p_micah', hour: 13, minute: 45, count: 23, stride: 3, candidates: ['p_simone', 'p_denise'], channel: 'SMS' as const },
+  { child: 'p_avery', hour: 11, minute: 15, count: 19, stride: 9, candidates: ['p_denise', 'p_simone'], channel: 'CALL' as const },
+  { child: 'p_malik', hour: 14, minute: 15, count: 24, stride: 1, candidates: ['p_dwayne'], channel: 'SMS' as const },
+];
+
+function familyHistory() {
+  const jobs: SimulatedJob[] = [], attempts: SimulatedAttempt[] = [];
+  for (const [profileIndex, profile] of FAMILY_HISTORY_PROFILES.entries()) {
+    // Fixed endpoints plus a profile-specific permutation, with no randomness or wall clock.
+    const offsets = new Set([29, 0]);
+    for (let index = 0; offsets.size < profile.count; index++) {
+      offsets.add((index * profile.stride + profileIndex * 3) % 28 + 1);
+      // Strides need not be coprime with 28. Fill the remaining days deterministically.
+      if (index >= 28) offsets.add(index % 28 + 1);
+    }
+    for (const [index, offset] of [...offsets].sort((a, b) => b - a).entries()) {
+      const date = new Date('2026-11-03T12:00:00Z');
+      date.setUTCDate(date.getUTCDate() - offset);
+      const day = date.toISOString().slice(0, 10);
+      const clock = `${String(profile.hour).padStart(2, '0')}:${String(profile.minute).padStart(2, '0')}`;
+      // All requests are after 10 AM local. The repeated DST hour never needs guessing.
+      const utc = new Date(`${day}T${clock}:00${day < '2026-11-01' ? '-04:00' : '-05:00'}`).getTime();
+      const id = `fx_job_history_v1_${profile.child}_${day}`;
+      jobs.push({ id, idempotency_key: `fictional-history:v1:${profile.child}:${day}`, type: 'PICKUP', child_id: profile.child, status: 'failed', version: 1, as_of: day, created_at: new Date(utc).toISOString(), fixture: true });
+      // A recorded request may end without an attempt. Silence never becomes a response.
+      const contacts = (index + profileIndex) % 5 === 0 ? 0 : Math.min(profile.candidates.length, (index + profileIndex) % 4 === 0 ? 2 : 1);
+      for (let contact = 0; contact < contacts; contact++) {
+        attempts.push({ id: `fx_att_history_v1_${profile.child}_${day}_${contact}`, job_id: id, channel: contact === 0 ? profile.channel : 'SMS', at: new Date(utc + (2 + contact * 12) * 60000).toISOString(), candidate_id: profile.candidates[(index + contact) % profile.candidates.length], destination_mode: 'TEST_RESPONDER', closed_at: new Date(utc + (10 + contact * 12) * 60000).toISOString(), closed_reason: (index + profileIndex) % 3 === 0 ? 'NO_ANSWER' : 'TIMEOUT', fixture: true });
+      }
+    }
+  }
+  return { jobs, attempts };
+}
+
 export function createSimulatedCoordination(): SimulatedCoordination {
+  const history = familyHistory();
   return {
     label: SIMULATED_LABEL,
     coordination_jobs: [
       ...PRISTINE_JOBS,
+      ...history.jobs,
       {
         id: 'job_emma_nov05',
         idempotency_key: 'pickup:p_emma:2026-11-05:afternoon',
@@ -141,6 +192,7 @@ export function createSimulatedCoordination(): SimulatedCoordination {
     ],
     attempts: [
       ...PRISTINE_ATTEMPTS,
+      ...history.attempts,
       {
         id: 'att_emma_nov05_rosa',
         job_id: 'job_emma_nov05',
@@ -262,7 +314,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
       ...PRISTINE_CAL_CHILDREN.map((child) => ({
         id: `fx_hol_${child}_veterans`,
         child_id: child,
-        name: 'Veterans Day — no school',
+        name: 'Veterans Day, no school',
         start_date: '2026-11-11',
         end_date: '2026-11-11',
         fixture: true,
@@ -455,7 +507,7 @@ export function createSimulatedCareFacts(): SimulatedCareFacts {
     label: SIMULATED_LABEL,
     care_facts: [
       { id: 'fx_cf_nora_snack', child_id: 'p_nora', key: 'snack',
-        value: 'Peanut-free snack only — no nuts, no shared utensils', ...source, ...verified,
+        value: 'Peanut-free snack only, no nuts, no shared utensils', ...source, ...verified,
         sandbox: true, fixture: true },
       { id: 'fx_cf_nora_tv', child_id: 'p_nora', key: 'tv',
         value: '30 minutes after homework; screens off by 8pm', ...source, ...verified,

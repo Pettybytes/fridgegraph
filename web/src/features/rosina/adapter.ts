@@ -59,7 +59,7 @@ export function createMockRosinaAdapter(session: AuthSession | null, data?: Fron
       const namedCare = ['nora', 'jax', 'emma', 'malik'].find(name => new RegExp(`\\b${name}\\b`).test(text))
       const targetId = namedCare ? `p_${namedCare}` : (((currentRoute.startsWith('#/calendar') || currentRoute.startsWith('#/village')) && calendarChildId) || session.scope.childId)
       const first = session.scope.childName.split(' ')[0]
-      if (targetId !== session.scope.childId) return reply(`That child's care information hasn't been shared with you. You can ask about ${first}.`)
+      if (targetId !== session.scope.childId) return reply("I can't confirm that yet. This child's care information needs its own authorized view.")
       if (!session.persona.parent && !session.persona.guardian && !session.persona.grants.includes('careplan.read')) return reply(`${first}'s care information hasn't been shared with your role. Their parents choose who can read it.`)
       const care = sampleCareInformation[targetId]
       if (!care) return reply(`${first}'s care plan isn't in this sample view. Open Care information for the recorded details.`)

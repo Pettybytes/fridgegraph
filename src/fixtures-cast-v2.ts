@@ -217,7 +217,7 @@ export function createCastV2(): CastV2 {
   const care_facts = [
     {
       id: 'fx_cf_malik_snack', child_id: 'p_malik', key: 'snack',
-      value: 'No peanut butter — peanut-free snacks only, no shared utensils',
+      value: 'No peanut butter. Peanut-free snacks only, no shared utensils',
       source_kind: 'PARENT_CONVERSATION', source_ref: 'Dwayne, care conversation 2026-10-20',
       verified_by: 'p_dwayne', verified_at: '2026-10-20T17:00:00Z', confidence: 'CONFIRMED',
       sandbox: true, fixture: true,
@@ -325,7 +325,7 @@ export function createCastV2(): CastV2 {
   const SCHOOL_REPORTS: CastV2['school_reports'] = [];
   const reportSpec: [string, string, string][] = [
     ['note', 'Settled well into the new reading groups this week.', '2026-10-09'],
-    ['achievement', 'Finished the fall math challenge — great persistence.', '2026-10-21'],
+    ['achievement', 'Finished the fall math challenge. Great persistence.', '2026-10-21'],
     ['health', 'Rested in the quiet corner after lunch; back to normal by home time.', '2026-10-30'],
   ];
   for (const child of PRISTINE_CHILDREN) {
@@ -343,11 +343,11 @@ export function createCastV2(): CastV2 {
   }
   // Care plans only for children with NO baseline plan (p_nora and p_jax keep theirs).
   const CARE_PLANS: CastV2['care_plans'] = [
-    { child_id: 'p_emma', text: 'No known allergies. Glasses for reading — spare pair in the front pouch.' },
+    { child_id: 'p_emma', text: 'No known allergies. Glasses for reading. Spare pair in the front pouch.' },
     { child_id: 'p_taylor', text: 'Dairy sensitivity. Oat milk in the lunch bag; no ice cream at parties.' },
     { child_id: 'p_skye', text: 'Nap after lunch on preschool days. Comfort rabbit lives in the cubby.' },
     { child_id: 'p_micah', text: 'Seasonal pollen allergy. Antihistamine with breakfast when the count is high.' },
-    { child_id: 'p_avery', text: 'Ear tubes placed spring 2026 — earplugs for swimming, in the swim bag.' },
+    { child_id: 'p_avery', text: 'Ear tubes placed spring 2026. Earplugs for swimming, in the swim bag.' },
     { child_id: 'p_malik', text: 'Peanut allergy. Epi-pen in the left backpack pocket; school office has a second.' },
     { child_id: 'p_leo', text: 'Wears contacts for sport. Spare glasses in the robotics locker.' },
     { child_id: 'p_max', text: 'Mild eczema. Fragrance-free soap only; cream in the wash bag.' },

@@ -1,4 +1,26 @@
-# QA matrix — pristine pass (owner: qa-pristine, started 2026-11-03)
+# QA matrix, pristine pass (fix owner: Codex; acceptance: Claude)
+
+## Current fix checklist, November 3
+
+Claude marks PASS after checking Bentley's served build. Local implementation checks do not
+change the historical results below.
+
+| Slice | Implementation | Served acceptance |
+| --- | --- | --- |
+| #220 fixture copy | Em dashes removed from generated care plans, reports, achievements and closure labels; regression guard added | Pending Bentley deploy and Claude |
+| #220 all-family history | Fixed October 5 through November 3 Detroit window, all ten authorized children; 216 simulated jobs and 200 closed test attempts in the source | Pending Bentley seed and Claude |
+| Mission Control copy | Remove approval-unavailable sentence after #220 | Pending fix |
+| Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
+| Calendar | Light cards and dense calendar fixtures in #220 | Pending Bentley deploy and Claude |
+| Orbit | Retained by Codex | Pending fix and Claude |
+| Map sample label | Retained by Codex; must follow actual provenance | Pending investigation |
+| Rosina live proof | Retained by Codex; requires served runtime | Pending Bentley runtime and Claude |
+| Today, Care information, Living Village | Owned by fix/pages-today-care-village | Separate PR and Claude |
+
+The new requests are recorded, ended coordination attempts. They do not assert a physical pickup
+outcome, delivery or parent approval. The pre-existing Nora/Jax fixtures retain their separate
+recorded statuses. The new history uses stable IDs and no dispatchable state. Bentley must seed
+both the baseline cast and simulated layer; `db:seed` alone does not insert simulated jobs.
 
 Served build under test: `http://127.0.0.1:5189` (Bentley deploy `bbe11a4`, web asset `index-BrdDul22.js`, backend branch `fix/orbit-alert-job-type` @ `eda19e3`).
 
