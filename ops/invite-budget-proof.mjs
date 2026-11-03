@@ -29,7 +29,15 @@
  *      spendable again. settle(SUCCEEDED, cached=false) charges the full reserved amount.
  *   9. UNCERTAIN: settle(UNCERTAIN, ...) keeps the full reserved charge — never refunded by
  *      default, distinct from settle(FAILED, ...) which charges $0.
- *  10. The ledger survives the real resetDemo() untouched — a demo reset must not reset the
+ *  10. FORGED SIGNATURES: calling reserve()/settle() with an extra cost argument (the removed
+ *      `p_cost_usd` parameter, or a 6th argument on settle) resolves to NO function at all
+ *      (SQLSTATE 42883) — there is no overload a caller could use to forge a price.
+ *  11. A total STRANGER (no relationship to the child at all, not even a co-parent) cannot
+ *      settle/release a reservation it does not own, even knowing its id outright.
+ *  12. GRANTS: the `authenticated` role has no select/insert/update/delete grant on
+ *      `invite_generations` at all (SQLSTATE 42501) — the two RPCs are the only path to this
+ *      data, for anyone, even the reservation's own legitimate owner.
+ *  13. The ledger survives the real resetDemo() untouched — a demo reset must not reset the
  *      spending ledger.
  *
  * Usage: node --import tsx ops/invite-budget-proof.mjs
@@ -287,10 +295,58 @@ async function main() {
   }
   log(`check 9 PASS: settle(UNCERTAIN, ...) keeps the full $${COST_PER_GENERATION} reserved charge — the provider may have billed for it, so it is never silently refunded, distinct from settle(FAILED, ...) which charges $0 (check 4)`);
 
+  // --- Check 10: FORGED RPC SIGNATURES are refused outright — no overload accepts a
+  // caller-supplied cost. The removed `p_cost_usd` parameter (reserve) and an extra 6th
+  // argument (settle) are not just unused — they don't resolve to any function at all. ---
+  await as('p_mom');
+  const forgedReserve = await q("select * from invite_budget_reserve('p_nora', 0.0001::numeric, 'MUSE_IMAGE', 'forged_hash')");
+  if (!forgedReserve.error || forgedReserve.error.code !== '42883') {
+    fail(`check 10a FAILED: a 4-arg reserve() forging a cost should not resolve to any function (expected 42883), got ${JSON.stringify(forgedReserve)}`);
+  }
+  const forgedSettle = await q('select invite_budget_settle($1, $2, $3, $4, $5, $6)', [gen1, 'SUCCEEDED', null, null, false, 0.0001]);
+  if (!forgedSettle.error || forgedSettle.error.code !== '42883') {
+    fail(`check 10b FAILED: a 6-arg settle() forging a cost should not resolve to any function (expected 42883), got ${JSON.stringify(forgedSettle)}`);
+  }
+  log('check 10 PASS: calling reserve()/settle() with an extra cost argument resolves to NO function (SQLSTATE 42883) — there is no overload a caller could use to forge a price');
+
+  // --- Check 11: a total stranger (unrelated to any household) cannot settle/release a
+  // reservation it does not own, even knowing its id outright — not just a co-parent sharing
+  // the budget (check 7), but someone with NO relationship to the child at all. ---
+  await as('p_dana');
+  const freeUp11 = await settle(jaxFillGenerationIds[1], 'FAILED', null, null, false);
+  if (freeUp11.error || freeUp11.rows[0].invite_budget_settle !== true) fail(`check 11 setup FAILED: could not free headroom: ${JSON.stringify(freeUp11)}`);
+  const gen11 = (await reserve('p_jax', 'hash_stranger_target')).rows[0].generation_id;
+  if (!gen11) fail('check 11 setup FAILED: reservation still refused after freeing headroom');
+  await as('p_stranger');
+  const strangerSteal = await settle(gen11, 'SUCCEEDED', 'muse-image-1.0', 'stolen', true);
+  if (strangerSteal.error) fail(`check 11 FAILED unexpectedly errored: ${strangerSteal.error.message}`);
+  if (strangerSteal.rows[0].invite_budget_settle !== false) fail('check 11 FAILED: a total stranger was able to settle/release a reservation it does not own');
+  log("check 11 PASS: a total stranger with no relationship to the child cannot settle/release its reservation by id — invite_budget_settle's ownership check refuses anyone but the reservation's own creator");
+
+  // --- Check 12: direct table access to invite_generations is denied to the `authenticated`
+  // role entirely — no select/insert/update/delete grant exists, even for the legitimate owner
+  // of a real row. The two RPCs are the ONLY path to this data (0085's own grants). ---
+  const sessionUser = (await superuser.query('select session_user as u')).rows[0].u;
+  await superuser.query(`grant authenticated to "${sessionUser}"`);
+  await client.query('set role authenticated');
+  try {
+    const forgedUpdate = await q(`update invite_generations set cost_usd = 0, status = 'SUCCEEDED' where id = $1`, [gen11]);
+    if (!forgedUpdate.error || forgedUpdate.error.code !== '42501') {
+      fail(`check 12a FAILED: a direct UPDATE as 'authenticated' should be refused for lack of a grant (expected 42501), got ${JSON.stringify(forgedUpdate)}`);
+    }
+    const forgedSelect = await q('select cost_usd from invite_generations limit 1');
+    if (!forgedSelect.error || forgedSelect.error.code !== '42501') {
+      fail(`check 12b FAILED: a direct SELECT as 'authenticated' should be refused for lack of a grant (expected 42501), got ${JSON.stringify(forgedSelect)}`);
+    }
+  } finally {
+    await client.query('reset role');
+  }
+  log("check 12 PASS: the `authenticated` role has no select/insert/update/delete grant on invite_generations at all — the two RPCs are the only path to this data, for anyone, even the reservation's own owner");
+
   await client.end();
   await superuser.end();
 
-  // --- Check 10: resetDemo() must never touch the ledger ---
+  // --- Check 13: resetDemo() must never touch the ledger ---
   // resetDemo() expects the full Cast v2 fixture set already present (same as every other real-
   // resetDemo() proof this session) — pre-seed it before calling the real transaction.
   const { createCastV2 } = await import('../src/fixtures-cast-v2.ts');
@@ -320,8 +376,8 @@ async function main() {
   const after = makeClient(); await after.connect();
   const countAfter = (await after.query('select count(*)::int as n from invite_generations')).rows[0].n;
   await after.end();
-  if (countAfter !== countBefore) fail(`check 10 FAILED: resetDemo() changed invite_generations row count ${countBefore} -> ${countAfter}`);
-  log(`check 10 PASS: resetDemo() left invite_generations untouched (${countBefore} rows before and after) — a demo reset must not reset the spending ledger`);
+  if (countAfter !== countBefore) fail(`check 13 FAILED: resetDemo() changed invite_generations row count ${countBefore} -> ${countAfter}`);
+  log(`check 13 PASS: resetDemo() left invite_generations untouched (${countBefore} rows before and after) — a demo reset must not reset the spending ledger`);
 
   log('ALL CHECKS PASS — DISPOSABLE-POSTGRES INVITE BUDGET REHEARSAL (not a live application)');
 }

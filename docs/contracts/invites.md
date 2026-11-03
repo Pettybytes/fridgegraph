@@ -245,11 +245,24 @@ equivalent to real reference-image support.
   entirely, the settle-time `cached` fact still correctly zeroing the cost on a cache-hit race, an
   UNCERTAIN outcome charging conservatively, a CONFIRMED failure settling free, and direct unit
   coverage of `createLiveImageGenerator`'s CONFIRMED-vs-UNCERTAIN failure classification.
-- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 10/10 checks): reservation
+- **GraphQL-layer forgery tests** (`src/subgraphs/coordination.inviteBudgetAuthz.test.ts`, 7
+  tests, real `buildSubgraphSchema` execution against this subgraph's own typeDefs + resolvers):
+  schema introspection proves `reserveInviteBudget`/`settleInviteBudget` have no cost/price
+  argument of any kind and that `status` is the closed `InviteGenerationOutcome` enum, not a free
+  string; execution proves an out-of-enum `status` is a GraphQL validation error before the RPC is
+  ever called, both resolvers forward ONLY their fixed, documented argument set to the RPC (no
+  `p_cost_usd` or other price-shaped field reaches it), the RPC's own allow/deny decision passes
+  through unmodified (never silently upgraded to success), and an unauthenticated caller is
+  refused before either RPC is reached.
+- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 13/13 checks): reservation
   with no caller-supplied cost, shared per-child budget across logins, independent per-child
   budgets, settle(FAILED) reversal, authorization refusals (stranger + wrong-child parent),
   concurrency at the cap boundary, settle ownership and replay refusal, a cache-hit settle
-  charging $0 and releasing its budget, an UNCERTAIN settle keeping the full reserved charge, and
+  charging $0 and releasing its budget, an UNCERTAIN settle keeping the full reserved charge,
+  forged RPC signatures (an extra cost argument) resolving to no function at all (SQLSTATE
+  42883), a total stranger refused when settling/releasing a reservation it does not own, the
+  `authenticated` role having no direct select/insert/update/delete grant on
+  `invite_generations` at all (SQLSTATE 42501, checked even for the reservation's own owner), and
   the demo-reset survival proof.
 - **Web tests** (`web/src/features/invites/*.test.tsx`): the existing honest-states suite plus new
   coverage for preserve-last-design-while-regenerating, the explicit Retry button actually
