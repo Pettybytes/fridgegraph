@@ -1,23 +1,26 @@
 #!/usr/bin/env node
 /**
- * ops/serve-web.mjs — stack-owned static server for the pinned web build (P-3).
+ * ops/serve-web.mjs — stack-owned static server + local API proxy (P-3).
  *
- * Replaces `vite preview` on the public path. Deliberately does NOT proxy /graphql or /api/*:
- * behind the tunnel those are separate edge routes to 4010 / 4008 / 4200 (plan §4). Locally,
- * `/graphql` on 5189 therefore 404s by design.
+ * Serves the pinned build on 127.0.0.1 and proxies the SAME ordered path rules the public edge
+ * applies, so the local origin Bryan tests (127.0.0.1:5189) is a working app, not a static shell:
  *
- * Spec (docs/handoff/hosting-execution-plan.md §3):
- *  - binds 127.0.0.1 only;
- *  - root = WEB_ROOT, must exist, be a directory and contain index.html;
- *  - GET/HEAD only, anything else 405 + Allow;
- *  - normalise before filesystem access: decode, collapse, reject `..`, NUL, escapes;
- *  - fixed content-type map, unknown -> application/octet-stream;
- *  - /assets/* immutable; index.html and SPA fallback no-store;
- *  - SPA fallback only for extensionless paths; a missing file with an extension is 404;
- *  - no directory listing, no dotfiles;
- *  - SIGTERM closes the listener and exits 0.
+ *   /graphql                     -> 127.0.0.1:4010
+ *   /api/rosina, /api/rosina/*   -> 127.0.0.1:4200
+ *   /api/demo,  /api/demo/*      -> 127.0.0.1:4008
+ *   /api/village, /api/village/* -> 127.0.0.1:4008
+ *   /api/orbit, /api/orbit/*     -> 127.0.0.1:4008
+ *   everything else              -> static (SPA fallback for extensionless paths)
+ *
+ * Why a proxy here is safe: the server binds 127.0.0.1 only, every target is loopback, and the
+ * browser talks to one origin (so no CORS surface). The public edge still owns these paths and
+ * never reaches this proxy for them. `/voice/*` is refused locally (voice stays off).
+ *
+ * Static rules (plan §3): GET/HEAD only; decode/collapse/reject `..`, NUL, dotfiles, escapes;
+ * fixed content types; /assets immutable; shell + SPA fallback no-store; extension-only missing
+ * files are real 404s; no listings; SIGTERM closes cleanly.
  */
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
 
@@ -64,9 +67,53 @@ const TYPES = new Map(Object.entries({
   '.webm': 'video/webm',
 }));
 
-/** Map a request URL to an on-disk path, or null when it must be refused. */
+/** Ordered local API routes — most specific first, exactly as the edge table. */
+const PROXY = [
+  { match: (p) => p === '/graphql', port: 4010, name: 'graphql' },
+  { match: (p) => p === '/api/rosina' || p.startsWith('/api/rosina/'), port: 4200, name: 'rosina' },
+  { match: (p) => p === '/api/demo' || p.startsWith('/api/demo/'), port: 4008, name: 'demo' },
+  { match: (p) => p === '/api/village' || p.startsWith('/api/village/'), port: 4008, name: 'village' },
+  { match: (p) => p === '/api/orbit' || p.startsWith('/api/orbit/'), port: 4008, name: 'orbit' },
+];
+
+function pathOnly(url) {
+  return String(url ?? '').split('?')[0].split('#')[0];
+}
+
+function proxyTarget(path) {
+  if (path === '/voice' || path.startsWith('/voice/')) return { deny: true };
+  for (const rule of PROXY) if (rule.match(path)) return rule;
+  return null;
+}
+
+function proxy(req, res, rule) {
+  const headers = { ...req.headers, host: `127.0.0.1:${rule.port}` };
+  // Hop-by-hop headers must not be forwarded.
+  if (headers.connection) delete headers.connection;
+  const upstream = httpRequest(
+    { host: '127.0.0.1', port: rule.port, path: req.url, method: req.method, headers },
+    (up) => {
+      res.writeHead(up.statusCode ?? 502, up.headers);
+      up.pipe(res);
+    },
+  );
+  upstream.setTimeout(120_000, () => {
+    upstream.destroy(new Error('upstream timeout'));
+  });
+  upstream.on('error', (err) => {
+    process.stderr.write(`[serve-web] proxy ${rule.name} -> ${rule.port} failed: ${err.message}\n`);
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE' }));
+    } else {
+      res.destroy();
+    }
+  });
+  req.pipe(upstream);
+}
+
 function resolvePath(url) {
-  const raw = String(url ?? '').split('?')[0].split('#')[0];
+  const raw = pathOnly(url);
   let decoded;
   try {
     decoded = decodeURIComponent(raw);
@@ -95,7 +142,6 @@ function headersFor(abs, isFallback = false) {
 }
 
 function sendFile(req, res, abs, status = 200, isFallback = false) {
-  const headers = headersFor(abs, isFallback);
   let size = 0;
   try {
     size = statSync(abs).size;
@@ -104,7 +150,7 @@ function sendFile(req, res, abs, status = 200, isFallback = false) {
     res.end('Not found\n');
     return;
   }
-  res.writeHead(status, { ...headers, 'Content-Length': String(size) });
+  res.writeHead(status, { ...headersFor(abs, isFallback), 'Content-Length': String(size) });
   if (req.method === 'HEAD') {
     res.end();
     return;
@@ -115,6 +161,21 @@ function sendFile(req, res, abs, status = 200, isFallback = false) {
 }
 
 const server = createServer((req, res) => {
+  const path = pathOnly(req.url);
+  const target = proxyTarget(path);
+
+  if (target?.deny) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end('Not found\n');
+    return;
+  }
+
+  if (target) {
+    // API routes accept the methods the services do; the proxy forwards the method unchanged.
+    proxy(req, res, target);
+    return;
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
     res.end('Method not allowed\n');
@@ -140,7 +201,6 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Directory or missing: only extensionless paths fall back to the SPA shell.
   if (stat?.isDirectory() || extname(abs) === '') {
     sendFile(req, res, resolve(root, 'index.html'), 200, true);
     return;
@@ -156,7 +216,7 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  process.stdout.write(`[serve-web] listening on 127.0.0.1:${PORT} root=${root}\n`);
+  process.stdout.write(`[serve-web] listening on 127.0.0.1:${PORT} root=${root} (local API proxy on)\n`);
 });
 
 function shutdown(signal) {
