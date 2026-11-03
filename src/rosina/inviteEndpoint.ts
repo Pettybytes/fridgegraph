@@ -33,6 +33,41 @@ import type { InviteRateLimiter } from './inviteBudget';
 import type { InviteLedgerBudget } from './inviteLedgerBudget';
 import type { InviteDedup } from './inviteDedup';
 import { dedupKey } from './inviteDedup';
+import { sniffImageMime, stripImageMetadata, readImageDimensions, type ImageMime } from './imageHygiene';
+import type { ReferenceStyleExtractor, ReferenceStyleHint } from './inviteReference';
+
+// Reference-image safety bounds (checked server-side, in memory).
+const REFERENCE_MAX_BYTES = 5 * 1024 * 1024;
+const REFERENCE_MIN_DIM = 16;
+const REFERENCE_MAX_DIM = 4096;
+
+type ParsedReference = { image: { bytes: Buffer; mimeType: ImageMime } } | { error: { status: number; code: string } } | null;
+
+/** Validate an OPTIONAL reference image entirely in memory: sniff the real type (a lying mimeType is
+ *  rejected), enforce ≤5MB and server-read dimensions, then STRIP EXIF/GPS/XMP. Returns null when no
+ *  reference was supplied, the stripped image when valid, or a typed error otherwise. Never persists,
+ *  never logs the bytes. */
+function parseReference(body: Record<string, unknown>): ParsedReference {
+  const raw = body.referenceImage;
+  if (raw == null) return null;
+  if (typeof raw !== 'object') return { error: { status: 400, code: 'INVALID_REQUEST' } };
+  const dataBase64 = (raw as { dataBase64?: unknown }).dataBase64;
+  if (typeof dataBase64 !== 'string' || dataBase64 === '') return { error: { status: 400, code: 'INVALID_REQUEST' } };
+  let bytes: Buffer;
+  try { bytes = Buffer.from(dataBase64, 'base64'); } catch { return { error: { status: 400, code: 'INVALID_REQUEST' } }; }
+  if (bytes.length === 0) return { error: { status: 400, code: 'INVALID_REQUEST' } };
+  if (bytes.length > REFERENCE_MAX_BYTES) return { error: { status: 413, code: 'PAYLOAD_TOO_LARGE' } };
+  const mime = sniffImageMime(bytes);
+  if (!mime) return { error: { status: 415, code: 'UNSUPPORTED_MEDIA_TYPE' } }; // PNG/JPEG/WebP only, by magic bytes
+  const dims = readImageDimensions(bytes, mime);
+  if (!dims || dims.width < REFERENCE_MIN_DIM || dims.height < REFERENCE_MIN_DIM || dims.width > REFERENCE_MAX_DIM || dims.height > REFERENCE_MAX_DIM) {
+    return { error: { status: 400, code: 'INVALID_REQUEST' } };
+  }
+  let stripped: Buffer;
+  try { stripped = stripImageMetadata(bytes, mime); } catch { return { error: { status: 400, code: 'INVALID_REQUEST' } }; }
+  if (stripped.length > REFERENCE_MAX_BYTES) return { error: { status: 413, code: 'PAYLOAD_TOO_LARGE' } };
+  return { image: { bytes: stripped, mimeType: mime } };
+}
 
 export type InviteIdentity = { ok: true; personId: string; demoGuide: boolean } | { ok: false };
 
@@ -54,6 +89,9 @@ export type InviteEndpointDeps = {
   authorizeParent: ParentAuthorizer;
   extractor: InviteExtractor;
   image: InviteImageGenerator;
+  /** Optional reference-image STYLE extractor (Muse vision). Used only when a valid reference image
+   *  is supplied AND source === 'MUSE_IMAGE'. Absent → references validate but are never style-applied. */
+  referenceExtractor?: ReferenceStyleExtractor;
   rateLimiter: InviteRateLimiter;
   dedup: InviteDedup;
   /** Unused (never called) when source === 'FIXTURE'. No cost is ever passed to it — price is
@@ -67,7 +105,7 @@ export type InviteEndpointDeps = {
 
 type PipelineResult =
   | { kind: 'NEEDS_CLARIFICATION'; clarification: { question: string }; event: InviteEvent }
-  | { kind: 'READY'; event: InviteEvent; art: InviteArt; provenance: InviteProvenance }
+  | { kind: 'READY'; event: InviteEvent; art: InviteArt; provenance: InviteProvenance; reference: { requested: boolean; applied: boolean } }
   | { kind: 'ERROR'; status: number; body: Record<string, unknown> };
 
 const IMAGE_KEYS = ['image', 'photo', 'imageBase64', 'photoBase64', 'dataBase64', 'upload', 'file', 'attachment'];
@@ -93,9 +131,15 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const childId = typeof body.childId === 'string' ? body.childId : '';
     const request = typeof body.request === 'string' ? body.request : '';
-    // No uploaded photo is ever accepted or sent.
+    // The only supported upload field is `referenceImage`; any other loose image/photo/file key is
+    // still rejected outright.
     if (IMAGE_KEYS.some((k) => k in body)) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     if (!childId || !request || request.length > maxRequestChars) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    // Validate the optional reference in memory (type/size/dimensions, EXIF stripped) before any
+    // rate limit, authorization or model call — a bad reference fails fast with a specific status.
+    const parsedRef = parseReference(body);
+    if (parsedRef && 'error' in parsedRef) { res.status(parsedRef.error.status).json({ error: parsedRef.error.code }); return; }
+    const reference = parsedRef && 'image' in parsedRef ? parsedRef.image : null;
 
     const log = (status: number, extra = '') =>
       console.log(`[rosina:invite] person=${identity.personId} child=${childId} status=${status}${extra}`);
@@ -112,7 +156,10 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
     }
 
     const today = detroitToday(now());
-    const key = dedupKey(identity.personId, childId, request);
+    // A different reference image must NOT be deduplicated into a prior reference-less (or different-
+    // reference) pipeline, so its content hash is part of the key. Bytes are never logged.
+    const refSha = reference ? createHash('sha256').update(reference.bytes).digest('hex') : '';
+    const key = dedupKey(identity.personId, childId, refSha ? `${request} ref:${refSha}` : request);
 
     const pipeline: PipelineResult = await deps.dedup.run(key, async (): Promise<PipelineResult> => {
       // Muse Spark: extract fields. A failure folds into the single model-pipeline error (502).
@@ -128,28 +175,43 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
         return { kind: 'NEEDS_CLARIFICATION', clarification: validation.clarification, event: validation.event };
       }
 
-      const prompt = buildArtPrompt(validation.event.occasion);
+      // Optional reference image → extract bounded STYLE via Muse vision and let it nudge the art
+      // (explicitly an alternative to real reference-image generation; the upload never appears in
+      // the card — contract §8.3). Live source only; best-effort. Because the prompt (and its cache
+      // key) depend on the extracted style, we CANNOT peek the cache first, so when a reference is
+      // active we reserve BEFORE the vision call — an exhausted budget then makes ZERO provider calls.
+      const referenceActive = deps.source === 'MUSE_IMAGE' && reference != null && deps.referenceExtractor != null;
+      let generationId: string | null = null;
+      let hint: ReferenceStyleHint | null = null;
+      let referenceApplied = false;
+      if (referenceActive) {
+        const reservation = await deps.ledgerBudget.reserve({ childId, source: 'MUSE_IMAGE', promptHash: '', bearer });
+        if (!reservation.allowed) return { kind: 'ERROR', status: 429, body: { error: 'BUDGET_EXHAUSTED' } };
+        generationId = reservation.generationId;
+        try {
+          hint = await deps.referenceExtractor!({ image: reference!, signal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS) });
+          referenceApplied = Boolean(hint && (hint.palette || hint.style || hint.subject || hint.mood));
+        } catch {
+          hint = null; referenceApplied = false; // best-effort: fall back to plain art, reported honestly below
+        }
+      }
+
+      const prompt = buildArtPrompt(validation.event.occasion, hint);
       const hash = promptHash(prompt);
 
-      // Belt-and-suspenders: the prompt is built from fixed theme strings and never echoes input,
-      // so a name/date/venue is impossible — but if the guard ever matches (a name that is
-      // exactly a theme word), refuse cleanly before any reservation or model call.
+      // Belt-and-suspenders: the prompt is built from fixed theme strings + fixed-vocabulary style
+      // words and never echoes input, so a name/date/venue is impossible — but if the guard ever
+      // matches, refuse cleanly (settling any reservation already made for a reference) before any
+      // image call.
       try {
         assertNoPii(prompt, validation.event);
       } catch {
+        if (generationId) await deps.ledgerBudget.settle({ generationId, status: 'FAILED', model: null, outputSha256: null, cached: false, bearer });
         return { kind: 'ERROR', status: 502, body: { error: 'IMAGE_FAILED' } };
       }
 
-      // READY, live source → the per-CHILD ledger gates the image step (a new login cannot reset
-      // it; a different parent of the SAME child shares the SAME budget). FIXTURE spends nothing
-      // and never reaches this branch at all. A request already known to be a cache hit (many
-      // families' prompts collapse to the same small set of occasion-based themes) skips
-      // reservation entirely — it is never billed, so it must never be blocked by an exhausted
-      // budget either. If the cache state changes before the real generate() call (a race with a
-      // concurrent request), the settle-time `cached` FACT below is still the authoritative
-      // charge — a reservation made here is still correctly released to $0 if it turns out cached.
-      let generationId: string | null = null;
-      if (deps.source === 'MUSE_IMAGE' && !deps.image.peekCached(hash)) {
+      // No reference: keep the existing cache-aware reservation (a known cache hit is never billed).
+      if (!referenceActive && deps.source === 'MUSE_IMAGE' && !deps.image.peekCached(hash)) {
         // No costUsd argument — the server charges its own fixed per-generation price.
         const reservation = await deps.ledgerBudget.reserve({ childId, source: 'MUSE_IMAGE', promptHash: hash, bearer });
         if (!reservation.allowed) return { kind: 'ERROR', status: 429, body: { error: 'BUDGET_EXHAUSTED' } };
@@ -181,7 +243,7 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
         });
       }
 
-      return { kind: 'READY', event: validation.event, art: result.art, provenance: result.provenance };
+      return { kind: 'READY', event: validation.event, art: result.art, provenance: result.provenance, reference: { requested: reference != null, applied: referenceApplied } };
     }, (result) => result.kind !== 'ERROR'); // an 'ERROR' result is a HANDLED failure (caught, never rejected)
     // — never cached for a later retry, or an explicit retry after failure would be served the
     // same stale failure instead of actually retrying.
@@ -209,6 +271,7 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
       event: pipeline.event,
       art: pipeline.art,
       provenance: pipeline.provenance,
+      reference: pipeline.reference,
     });
   };
 }

@@ -4,8 +4,8 @@ import { useChildAccess } from '@/features/personas/childContext'
 import { useSession } from '@/features/personas/Session'
 import { createMockInvite } from './fixture'
 import {
-  inviteCredit, inviteError, withInviteDefaults,
-  type InviteCreator, type InviteEvent, type InviteResponse,
+  inviteCredit, inviteError, withInviteDefaults, readReferenceFile, REFERENCE_ACCEPT,
+  type InviteCreator, type InviteEvent, type InviteResponse, type InviteReferenceImage,
 } from './invite'
 import { canvasPng, decodeInviteArt, drawInvitation, invitationText, lineSpecs, waitForInviteFont } from './renderInvite'
 import './invites.css'
@@ -44,9 +44,27 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   const [phase, setPhase] = useState<Phase>('idle')
   const [detail, setDetail] = useState('')
   const [result, setResult] = useState<InviteResponse | null>(null)
+  // Optional reference image (style inspiration only — never placed in the card). Held in memory;
+  // sent with the request and discarded server-side after generation.
+  const [reference, setReference] = useState<{ image: InviteReferenceImage; previewUrl: string; name: string } | null>(null)
+  const [referenceBusy, setReferenceBusy] = useState(false)
+  const [referenceError, setReferenceError] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const pending = useRef<AbortController | null>(null)
   const active = useRef(true)
   useEffect(() => { active.current = true; return () => { active.current = false; pending.current?.abort() } }, [])
+
+  async function acceptFile(file: File | undefined | null) {
+    setReferenceError('')
+    if (!file) return
+    setReferenceBusy(true)
+    const read = await readReferenceFile(file)
+    if (!active.current) return
+    setReferenceBusy(false)
+    if (!read.ok) { setReferenceError(read.error); return }
+    setReference({ image: read.image, previewUrl: read.previewUrl, name: file.name })
+  }
 
   async function prepare() {
     if (!createInvite || !request.trim() || phase === 'generating') return
@@ -59,7 +77,7 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     setDetail('')
     setPhase('generating')
     try {
-      const next = await createInvite({ childId, request: request.trim() }, controller.signal)
+      const next = await createInvite({ childId, request: request.trim(), referenceImage: reference?.image }, controller.signal)
       if (!active.current || controller.signal.aborted) return
       if (next.status === 'NEEDS_CLARIFICATION') {
         const question = next.clarification?.question.trim()
@@ -89,6 +107,48 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     <label className="invites-panel__request">Your invitation request
       <textarea value={request} onChange={event => setRequest(event.target.value)} rows={3} disabled={phase === 'generating'} />
     </label>
+
+    {/* Optional reference image — style inspiration only; never placed in the card. */}
+    <div className="invites-panel__reference" role="group" aria-label="Reference image (optional)">
+      <div className="invites-panel__reference-head">
+        <span className="invites-panel__reference-title">Add a reference image <span className="invites-panel__optional">optional</span></span>
+        <span className="invites-panel__reference-hint">Guides the art style (palette, look, mood) — your image is never shown in the card.</span>
+      </div>
+      {!reference ? (
+        <div
+          className={`invites-dropzone${dragging ? ' is-dragging' : ''}`}
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => { e.preventDefault(); setDragging(false); void acceptFile(e.dataTransfer.files?.[0]) }}
+        >
+          <input
+            ref={fileInput} type="file" className="invites-dropzone__input" accept={REFERENCE_ACCEPT.join(',')}
+            disabled={phase === 'generating' || referenceBusy}
+            onChange={e => { void acceptFile(e.target.files?.[0]); e.target.value = '' }}
+          />
+          <p className="invites-dropzone__label">{referenceBusy ? 'Reading image…' : 'Drag an image here, or'}</p>
+          <FgButton type="button" variant="secondary" disabled={phase === 'generating' || referenceBusy} onClick={() => fileInput.current?.click()}>Choose image</FgButton>
+          <p className="invites-dropzone__meta">PNG, JPEG, or WebP · up to 5 MB</p>
+        </div>
+      ) : (
+        <div className="invites-reference-preview">
+          <img src={reference.previewUrl} alt={`Reference: ${reference.name}`} className="invites-reference-preview__img" />
+          <div className="invites-reference-preview__body">
+            <p className="invites-reference-preview__name" title={reference.name}>{reference.name}</p>
+            <div className="invites-reference-preview__actions">
+              <FgButton type="button" variant="secondary" disabled={phase === 'generating' || referenceBusy} onClick={() => fileInput.current?.click()}>Replace</FgButton>
+              <FgButton type="button" variant="quiet" disabled={phase === 'generating'} onClick={() => { setReference(null); setReferenceError('') }}>Remove</FgButton>
+            </div>
+          </div>
+          <input ref={fileInput} type="file" className="invites-dropzone__input" accept={REFERENCE_ACCEPT.join(',')} onChange={e => { void acceptFile(e.target.files?.[0]); e.target.value = '' }} />
+        </div>
+      )}
+      {referenceError && <InlineFeedback tone="error">{referenceError}</InlineFeedback>}
+      {mode === 'mock' && reference && <InlineFeedback>Reference images guide the art style only when live generation is on. This sample ignores it.</InlineFeedback>}
+      {result?.reference?.requested && result.reference.applied === false && phase === 'ready' &&
+        <InlineFeedback tone="warning">Your reference was received, but its style wasn’t applied to this card{mode === 'live' ? ' — live style generation is off or the style could not be read' : ''}. The default art style was used.</InlineFeedback>}
+    </div>
+
     {mode === 'mock' && <InlineFeedback>This is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.</InlineFeedback>}
     {mode === 'live' && !createInvite && <InlineFeedback tone="warning">The invitation service is not available in this view.</InlineFeedback>}
     <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={() => { void prepare() }}>
