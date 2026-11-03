@@ -31,7 +31,7 @@ it('makes the opposite door inert, including failed read Retry controls',async()
 it('Retry refreshes only the failed source and cannot hide a separate refusal',async()=>{
  const read=vi.fn<FridgeReader['read']>(async source=>({status:source==='care'?'failed':'refused'}))
  render(<Fridge {...props} reader={{read}}/>);await screen.findByRole('button',{name:'Retry care notes'})
- fireEvent.click(screen.getByRole('button',{name:'Retry care notes'}));await waitFor(()=>expect(read).toHaveBeenCalledTimes(3))
+ fireEvent.click(screen.getByRole('button',{name:'Zoom in'}));fireEvent.click(screen.getByRole('button',{name:'Retry care notes'}));await waitFor(()=>expect(read).toHaveBeenCalledTimes(3))
  expect(read.mock.calls.filter(([source])=>source==='care')).toHaveLength(2)
  expect(screen.getByText("These notes aren't shared with this perspective.")).toBeInTheDocument()
 })
