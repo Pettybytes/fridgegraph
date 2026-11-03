@@ -5,9 +5,12 @@
  *
  * Covers the SQL authorization half only — real disposable Postgres, same methodology as every
  * other proof this session. The HTTP/media-service half (the /api/demo/voice-note/:id endpoint
- * itself: bearer requirement, no-store header, 404-for-both, the RPC genuinely gating the file
- * read) is a SEPARATE, offline, mocked-media-service test (ops/voice-note-endpoint.test.ts) — per
- * the contract's own §6: "a disposable-Postgres SQL proof alone does not and cannot prove HTTP/
+ * itself: bearer requirement, no-store header, 404-for-both, reauthorization on a subsequent
+ * request, the RPC genuinely gating the file read) is a SEPARATE, real loopback-HTTP test
+ * (src/demo/voiceNoteEndpoint.test.ts); the GraphQL read contract (CandidateEvaluation.voiceNoteId,
+ * VoiceNote.responseId/status/proposedScript, non-empty turnTimings) is a third, separate, real
+ * graphql()-execution test (src/subgraphs/coordination.voiceNoteContract.test.ts) — per the
+ * contract's own §6: "a disposable-Postgres SQL proof alone does not and cannot prove HTTP/
  * signed-URL behavior."
  *
  * Checks:
@@ -25,6 +28,9 @@
  *      — the no-oracle guarantee the HTTP endpoint depends on, proven directly at the RPC level.
  *   8. No authenticated caller — not even the parent — can INSERT/UPDATE/DELETE a voice_notes row:
  *      this table is reset/seed-written only, never a live write path.
+ *   9. A PENDING voice note (no delivered audio yet) is refused by voice_note_access for EVERYONE,
+ *      including the parent and the speaker — identical to a refused or nonexistent note. Proves
+ *      the delivered-vs-proposed separation is enforced at the database, not just by convention.
  *
  * Usage: node ops/demo-history-proof.mjs
  * Requires: docker.
@@ -126,8 +132,16 @@ async function seedFixtures(client) {
     values ('att_hist_test', 'job_hist_test', 'CALL', now() - interval '5 days', 'p_gma', 'TEST_RESPONDER');
     insert into candidate_evaluations (id, job_id, request_version, candidate_id, available, response_kind, responded_at, accepted_via)
     values ('ce_hist_test', 'job_hist_test', 1, 'p_gma', true, 'ACCEPTED', now() - interval '5 days' + interval '8 minutes', 'CANDIDATE_JWT');
-    insert into voice_notes (id, response_id, speaker_person_id, transcript, duration_seconds, storage_path, sha256)
-    values ('vn_hist_test', 'ce_hist_test', 'p_gma', 'Of course, sweetheart. I will leave a little early.', 9.8, 'demo-history/test.wav', repeat('0', 64));
+    -- READY: this row exercises AUTHORIZATION (checks 2-7), which needs a delivered note to test
+    -- against — a PENDING one would refuse everyone regardless of who's asking (check 9 below
+    -- tests that gate on its own, separately).
+    insert into voice_notes (id, response_id, speaker_person_id, status, transcript, duration_seconds, storage_path, sha256)
+    values ('vn_hist_test', 'ce_hist_test', 'p_gma', 'READY', 'Of course, sweetheart. I will leave a little early.', 9.8, 'demo-history/test.wav', repeat('0', 64));
+
+    -- PENDING: no delivered audio/transcript/duration/hash yet — only a proposed script, status
+    -- defaults to PENDING. check 9 proves this is refused for EVERYONE, parent and speaker alike.
+    insert into voice_notes (id, response_id, speaker_person_id, proposed_script)
+    values ('vn_hist_pending', 'ce_hist_test', 'p_gma', 'Draft line, not yet recorded.');
 
     -- A second story, explicitly declined by the parent — proves JOB_DECLINED has a real instant.
     insert into coordination_jobs (id, idempotency_key, type, child_id, status, version, request_version, created_at, decided_at, failure_reason)
@@ -234,6 +248,20 @@ async function main() {
   );
   if (!parentInsert.error) fail('check 8 FAILED: an authenticated parent was able to insert a voice_notes row directly — this table must be reset/seed-written only');
   log(`check 8 PASS: no authenticated caller can write voice_notes directly — reset/seed-written only (${parentInsert.error.message})`);
+
+  // --- Check 9: a PENDING note is refused by voice_note_access for EVERYONE, including the
+  // parent and the speaker — identical to a refused or nonexistent note, never distinguishable. ---
+  await as('p_mom');
+  const pendingAsParent = await q("select * from voice_note_access('vn_hist_pending')");
+  if (pendingAsParent.error || pendingAsParent.rows[0].access !== null || pendingAsParent.rows[0].storage_path !== null) {
+    fail(`check 9a FAILED: a PENDING note leaked access to its parent: ${JSON.stringify(pendingAsParent)}`);
+  }
+  await as('p_gma');
+  const pendingAsSpeaker = await q("select * from voice_note_access('vn_hist_pending')");
+  if (pendingAsSpeaker.error || pendingAsSpeaker.rows[0].access !== null || pendingAsSpeaker.rows[0].storage_path !== null) {
+    fail(`check 9b FAILED: a PENDING note leaked access to its own speaker: ${JSON.stringify(pendingAsSpeaker)}`);
+  }
+  log('check 9 PASS: a PENDING voice note (no delivered audio yet) is refused by voice_note_access for both the parent and the speaker — the delivered-vs-proposed separation is enforced at the database');
 
   await client.end();
   await superuser.end();

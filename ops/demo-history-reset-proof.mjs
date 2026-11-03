@@ -13,9 +13,10 @@
  * Checks:
  *   1. First resetDemo() call creates all 20 history stories, the 3 voice notes, and the one
  *      explicitly-declined story's decided_at.
- *   2. After corrupting a voice note's transcript, nulling a declined story's decided_at, and
+ *   2. After corrupting a voice note's proposed_script (PENDING — no delivered transcript to
+ *      corrupt), nulling a declined story's decided_at, and
  *      inserting a demo-created extra job (sandbox=true, simulating a judge's live
- *      requestPickup), a SECOND resetDemo() call: restores the voice note transcript exactly;
+ *      requestPickup), a SECOND resetDemo() call: restores the voice note's proposed_script exactly;
  *      restores decided_at exactly; removes the demo-created extra job entirely.
  *   3. A genuinely unrelated coordination_jobs row (sandbox=false, inserted only by this proof,
  *      never by application code) survives BOTH resetDemo() calls completely untouched.
@@ -165,7 +166,9 @@ async function main() {
   const voiceNoteId = (await corrupt.query(
     "select vn.id from voice_notes vn join candidate_evaluations ce on ce.id = vn.response_id where ce.job_id = 'job_hist_08'",
   )).rows[0].id;
-  await corrupt.query('update voice_notes set transcript = $1 where id = $2', ['EDITED LIVE', voiceNoteId]);
+  // PENDING, so the content lives in proposed_script, not transcript (NULL until Bentley delivers
+  // the real one) — correcting the field this proof edits/restores to match.
+  await corrupt.query('update voice_notes set proposed_script = $1 where id = $2', ['EDITED LIVE', voiceNoteId]);
   await corrupt.query("update coordination_jobs set decided_at = null, failure_reason = null where id = 'job_hist_15'");
   // A demo-created extra job, sandbox=true — exactly what a judge's live requestPickup produces.
   await corrupt.query(`
@@ -173,7 +176,7 @@ async function main() {
     values ('job_live_judge', 'pickup:p_nora:live:judge', 'PICKUP', 'p_nora', 'pending', 1, 1, now(), true)
   `);
   await corrupt.end();
-  log('corrupted: voice note transcript edited, job_hist_15.decided_at cleared, a demo-created extra job inserted (sandbox=true)');
+  log('corrupted: voice note proposed_script edited, job_hist_15.decided_at cleared, a demo-created extra job inserted (sandbox=true)');
 
   const report2 = await resetDemo('demo-history-reset-proof-2');
   log(`resetDemo() call #2 completed: restored.coordination_jobs=${report2.restored.coordination_jobs} cleared.coordination_jobs=${report2.cleared.coordination_jobs ?? 0}`);
@@ -182,15 +185,15 @@ async function main() {
   await verify2.connect();
 
   // --- Check 2: the second call restores the corrupted content exactly ---
-  const restoredNote = (await verify2.query('select transcript from voice_notes where id = $1', [voiceNoteId])).rows[0];
-  if (!restoredNote || restoredNote.transcript === 'EDITED LIVE' || !restoredNote.transcript.includes('grab Nora')) {
-    fail(`check 2a FAILED: voice note transcript not restored to canonical: ${JSON.stringify(restoredNote)}`);
+  const restoredNote = (await verify2.query('select status, proposed_script from voice_notes where id = $1', [voiceNoteId])).rows[0];
+  if (!restoredNote || restoredNote.proposed_script === 'EDITED LIVE' || !restoredNote.proposed_script.includes('grab Nora') || restoredNote.status !== 'PENDING') {
+    fail(`check 2a FAILED: voice note proposed_script not restored to canonical: ${JSON.stringify(restoredNote)}`);
   }
   const restoredDeclined = (await verify2.query("select decided_at, failure_reason from coordination_jobs where id = 'job_hist_15'")).rows[0];
   if (!restoredDeclined?.decided_at || restoredDeclined.failure_reason !== 'approver_declined') {
     fail(`check 2b FAILED: job_hist_15's decline was not restored: ${JSON.stringify(restoredDeclined)}`);
   }
-  log('check 2 PASS: the second resetDemo() call restores the live-edited voice note transcript and the cleared decided_at/failure_reason to their exact canonical shape');
+  log('check 2 PASS: the second resetDemo() call restores the live-edited voice note proposed_script and the cleared decided_at/failure_reason to their exact canonical shape');
 
   // --- Check 3: the demo-created extra job is gone ---
   const liveJudgeJob = await verify2.query("select id from coordination_jobs where id = 'job_live_judge'");

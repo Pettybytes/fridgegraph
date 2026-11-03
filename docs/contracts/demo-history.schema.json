@@ -102,13 +102,24 @@
     },
     "voiceNote": {
       "type": "object",
-      "description": "Metadata read (GraphQL). Audio bytes are a separate HTTP fetch (demo-history.md §6) — never bundled here.",
+      "description": "Metadata read (GraphQL). Audio bytes are a separate HTTP fetch (demo-history.md §6) — never bundled here. PENDING until the real audio/Muse transcript/measured duration/hash are delivered; a PENDING note is never playable and carries no fabricated stand-in for any delivered field.",
       "properties": {
         "id": { "type": "string" },
         "responseId": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "READY"] },
         "speaker": { "$ref": "#/$defs/personRef" },
-        "transcript": { "type": "string" },
-        "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "transcript": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }],
+          "description": "The delivered, final transcript. Null while status is PENDING."
+        },
+        "proposedScript": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }],
+          "description": "A draft line describing what the story needs to say — never read as the delivered transcript. Null once status is READY."
+        },
+        "durationSeconds": {
+          "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "null" }],
+          "description": "Measured, real duration. Null while status is PENDING — never an estimate presented as measured."
+        },
         "turnTimings": {
           "oneOf": [
             { "type": "array", "items": { "$ref": "#/$defs/turnTiming" } },
@@ -117,7 +128,7 @@
         },
         "createdAt": { "$ref": "#/$defs/instant" }
       },
-      "required": ["id", "responseId", "speaker", "transcript", "durationSeconds", "createdAt"],
+      "required": ["id", "responseId", "status", "speaker", "createdAt"],
       "additionalProperties": false,
       "not": {
         "anyOf": [

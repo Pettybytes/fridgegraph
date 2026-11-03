@@ -62,6 +62,11 @@ enum AcceptanceEntryPoint {
   CANDIDATE_JWT
 }
 
+enum ResponseKind {
+  ACCEPTED
+  DECLINED
+}
+
 type CoordinationJob {
   id: ID!
   idempotencyKey: String!
@@ -75,6 +80,7 @@ type CoordinationJob {
 }
 
 type CandidateEvaluation {
+  id: ID
   candidate: Person!
   reasonCode: String
   available: Boolean
@@ -85,6 +91,9 @@ type CandidateEvaluation {
   distanceMiles: Float
   locationProvenance: String
   costCalculatedAt: String
+  respondedAt: String
+  responseKind: ResponseKind
+  voiceNoteId: ID
 }
 
 type Attempt {
@@ -116,11 +125,19 @@ type TurnTiming {
   endSec: Float!
 }
 
+enum VoiceNoteStatus {
+  PENDING
+  READY
+}
+
 type VoiceNote {
   id: ID!
+  responseId: ID!
+  status: VoiceNoteStatus!
   speaker: Person!
-  transcript: String!
-  durationSeconds: Float!
+  transcript: String
+  proposedScript: String
+  durationSeconds: Float
   turnTimings: [TurnTiming!]
   createdAt: String!
 }

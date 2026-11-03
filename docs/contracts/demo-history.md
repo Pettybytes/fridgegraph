@@ -82,7 +82,7 @@ existing kind's meaning changed.
 | Parent decision (approve) | `confirmations.id` / `received_at` | Existing, unchanged — already a real, distinct instant. |
 | Parent decision (decline/cancel) | **`coordination_jobs.decided_at`** (new) | Set only by `approve_pickup`'s `DECLINED` branch. `failure_reason` (existing) carries the reason text. |
 | Explicitly recorded completion | — | Not represented. See §2. |
-| Voice note | `voice_notes.id` | New table, §5. |
+| Voice note | `voice_notes.id` | New table, §5. `response_id` (FK to `candidate_evaluations.id`) is the same link `CandidateEvaluation.voiceNoteId` exposes from the other side (`VoiceNote.responseId`, GraphQL). `status` is `PENDING` until the real audio/transcript/duration/hash are delivered — see §6. |
 
 All instants are `timestamptz` (UTC canonical in storage); display conversion to America/Detroit is
 the reading client's job, same as every other time field in this schema (`local_today()`,
@@ -126,16 +126,33 @@ create table voice_notes (
   id               text primary key,
   response_id      text not null references candidate_evaluations(id) on delete cascade,
   speaker_person_id text not null references people(id),
-  transcript       text not null,
-  duration_seconds numeric(6,2) not null,
+  status           text not null default 'PENDING' check (status in ('PENDING', 'READY')),
+  proposed_script  text,
+  transcript       text,
+  duration_seconds numeric(6,2),
   -- Coarse, turn-level only — [{speaker, startSec, endSec}, ...]. NEVER word-level: nothing in
   -- this pipeline measures individual word timing, so nothing is invented to fill that shape.
   turn_timings     jsonb,
-  storage_path     text not null,
-  sha256           text not null,
+  storage_path     text,
+  sha256           text,
   created_at       timestamptz not null default now()
+  -- status = 'READY' requires transcript/duration_seconds/storage_path/sha256 all non-null —
+  -- enforced by a CHECK constraint, not by convention.
 );
 ```
+
+**PENDING vs. READY — delivered assets are never fabricated.** Every voice note this seed PR inserts
+ships `status = 'PENDING'`: `transcript`, `duration_seconds`, `storage_path`, and `sha256` are all
+`NULL` until Bentley supplies the real audio file, its Muse-generated transcript, its measured
+duration, and its real content hash. `proposed_script` carries the DRAFT line this PR wrote to
+describe what the story needs to say — a separate column, never read back as `transcript`, so a
+proposed script can never be mistaken for a delivered one. `voice_note_access` (below) refuses
+playback for a PENDING note the exact same way it refuses an unauthorized caller — a judge can never
+tell "not yet delivered" from "not authorized" or "doesn't exist." **A placeholder hash
+(`'0'.repeat(64)`) is never written and never presented as a completed asset** — the column is
+`NULL`, not a fake value, until the real bytes exist. Only this dataset's three
+complete-voice-to-resolution stories (§2) have any `voice_notes` row at all, and today every one of
+them is PENDING.
 
 - **One concrete FK, not a polymorphic `subject_type`/`subject_id`** — every voice note in this
   dataset answers exactly one `candidate_evaluations` response, and `on delete cascade` through
@@ -161,7 +178,9 @@ create table voice_notes (
   - A real bearer, verified, required.
   - **`voice_note_access(voiceNoteId)`** (new `SECURITY DEFINER` RPC, mirrors `orbit_photo_access`
     exactly) re-checks live authority on **every single request** — nothing is cached, nothing
-    trusted from a prior check.
+    trusted from a prior check. **PENDING is refused the same way an unauthorized caller is** — a
+    note with no delivered audio yet is never played, and that refusal is indistinguishable from
+    "not authorized" or "doesn't exist."
   - **No signed URL at all, by design** — the endpoint itself re-checking authority per request
     already satisfies "no permanent public URL" without the added complexity of minting,
     expiring, and validating a separate token; this is the same choice Orbit's photo endpoint
@@ -174,16 +193,24 @@ create table voice_notes (
 - **Never returned to any client:** a synthesis script, prompt, or provider-accounting field (cost,
   job id, model name). None of that exists on this table's public shape; none of it is a field any
   resolver this PR adds will ever select.
-- **Two kinds of proof, kept separate, neither standing in for the other:**
+- **Three kinds of proof, kept separate, none standing in for another:**
   1. **SQL authorization** — real disposable Postgres, same methodology as every other proof this
      session: parent reads, the speaker hears their own note, an unrelated caregiver/other family/
-     stranger is refused, a forged `response_id`/`speaker_person_id` is refused on insert.
+     stranger is refused, a forged `response_id`/`speaker_person_id` is refused on insert, and a
+     PENDING note is refused regardless of who asks.
   2. **HTTP playback** — the endpoint's own request/response behavior (bearer required, `no-store`
-     header present, 404-for-both, the RPC genuinely gating the file read) proven with a mocked
-     media-service test (DI, no real network/storage — same shape as the existing
-     `src/rosina/photoEndpoint.test.ts`), explicitly labeled as the SEPARATE check it is. **A
+     header present, 404-for-both, reauthorization on a subsequent request, the RPC genuinely
+     gating the file read) proven over a **real loopback HTTP server** (real `express()` +
+     `http.createServer()`, real `fetch()`, injected auth/RPC/file dependencies —
+     `src/demo/voiceNoteEndpoint.test.ts`), explicitly labeled as the SEPARATE check it is. **A
      disposable-Postgres SQL proof alone does not and cannot prove HTTP/signed-URL behavior** —
      stated here so the seed PR's proof section cannot quietly substitute one for the other.
+  3. **GraphQL read contract** — real `graphql` execution (`buildSubgraphSchema` + `graphql()`,
+     the same construction `src/server.ts` uses to serve this subgraph, not a direct resolver call
+     and not a check against raw SQL columns) against this document's own JSON Schema shape,
+     including a non-empty `turnTimings` case
+     (`src/subgraphs/coordination.voiceNoteContract.test.ts`). This is a resolver/schema proof, not
+     an RLS proof — it stands in front of (1), never in place of it.
 
 ## 7. Reset + outreach
 
