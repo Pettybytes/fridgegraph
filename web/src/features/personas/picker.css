@@ -30,8 +30,10 @@
 .fg-picker-brand { display: inline-flex; align-items: center; gap: 9px; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; text-decoration: none; color: var(--fg-ink); }
 .fg-picker-brand svg { color: var(--fg-primary); }
 .fg-picker-title { margin: 0; font-size: clamp(28px, 5vw, 42px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance; }
-.fg-picker-sub { margin: 0; font-size: clamp(15px, 2vw, 17px); color: var(--fg-muted); line-height: 1.55; max-width: 52ch; text-wrap: pretty; }
-.fg-picker-rosina { display: flex; align-items: center; gap: 11px; margin-top: 4px; padding: 12px 14px; border-radius: var(--radius-card); background: color-mix(in oklch, var(--rosina-periwinkle) 12%, var(--fg-surface)); border: 1px solid color-mix(in oklch, var(--rosina-periwinkle) 24%, var(--fg-border)); }
+/* Hero text sits on the sky backdrop, so it stays dark for AA (muted body text
+   belongs on a surface, not on the backdrop). */
+.fg-picker-sub { margin: 0; font-size: clamp(15px, 2vw, 17px); color: color-mix(in oklch, var(--fg-ink) 86%, var(--fg-muted)); line-height: 1.55; max-width: 52ch; text-wrap: pretty; }
+.fg-picker-rosina { display: flex; align-items: center; gap: 11px; margin-top: 4px; padding: 12px 14px; border-radius: var(--radius-card); background: var(--fg-surface); border: 1px solid var(--fg-border); box-shadow: var(--card-elev-1); }
 .fg-picker-rosina p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--fg-ink); text-wrap: pretty; }
 
 .fg-picker-alert { margin: 0; padding: 10px 14px; border-radius: var(--radius-nested); font-size: 13px; color: var(--fg-attention); background: color-mix(in oklch, var(--fg-attention) 9%, var(--fg-surface)); border: 1px solid color-mix(in oklch, var(--fg-attention) 28%, var(--fg-border)); }
@@ -39,7 +41,7 @@
 
 .fg-picker-groups { display: grid; gap: 26px; }
 .fg-picker-group { display: grid; gap: 12px; }
-.fg-picker-group-label { margin: 0; font-size: 12px; font-weight: 650; letter-spacing: 0.02em; text-transform: uppercase; color: var(--fg-muted); }
+.fg-picker-group-label { margin: 0; font-size: 12px; font-weight: 650; letter-spacing: 0.02em; text-transform: uppercase; color: color-mix(in oklch, var(--fg-ink) 70%, var(--fg-muted)); }
 .fg-picker-grid { display: grid; gap: 10px; }
 @media (min-width: 640px) { .fg-picker-grid { grid-template-columns: 1fr 1fr; } }
 

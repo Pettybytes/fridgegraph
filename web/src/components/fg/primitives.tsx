@@ -128,11 +128,11 @@ export function IconButton({ label, variant, className, children, ...p }: Omit<R
 }
 
 /* ── Plain pressable (when a full shadcn Button isn't warranted) ───────── */
-export function FgButton({ variant = 'primary', loading, disabledReason, disabled, children, className, ...p }: React.ComponentProps<'button'> & { variant?: 'primary' | 'secondary' | 'quiet'; loading?: boolean; disabledReason?: string }) {
+export function FgButton({ variant = 'primary', size = 'md', loading, disabledReason, disabled, children, className, ...p }: React.ComponentProps<'button'> & { variant?: 'primary' | 'secondary' | 'ghost' | 'destructive' | 'quiet'; size?: 'sm' | 'md' | 'lg'; loading?: boolean; disabledReason?: string }) {
   const isDisabled = disabled || loading
   return (
     <button
-      type="button" className={cn('fg-btn', className)} data-variant={variant} data-loading={loading || undefined}
+      type="button" className={cn('fg-btn', className)} data-variant={variant} data-size={size === 'md' ? undefined : size} data-loading={loading || undefined}
       disabled={isDisabled} aria-disabled={isDisabled || undefined} aria-busy={loading || undefined}
       title={disabled && disabledReason ? disabledReason : undefined}
       {...p}

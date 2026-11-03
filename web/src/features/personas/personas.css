@@ -8,7 +8,7 @@
 .persona-mock { color: #7559a1; font-size: .8rem; }
 .persona-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .persona-card { display: flex; text-align: left; align-items: center; gap: 1rem; padding: 1.4rem 1.1rem; border: 1px solid #d4cadd; border-radius: 1.1rem; background: white; min-height: 140px; color: #26344c; cursor: pointer; }
-.persona-card:hover { border-color: #7559a1; background: #f8f5fc; }
+.persona-card:hover { border-color: var(--fg-primary); background: var(--fg-selection); }
 .persona-card > svg { margin-left: auto; flex-shrink: 0; color: #7559a1; }
 .persona-card strong, .persona-card small { display: block; }
 .persona-card strong { font-size: 1.15rem; margin-bottom: .45rem; }
@@ -45,7 +45,7 @@
 .care-information p, .persona-access-state p { line-height: 1.65; }
 .care-information p:last-child, .persona-access-note { color: #62708a; font-size: .8rem; margin-top: .6rem; }
 .persona-access-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.2rem; }
-.persona-access-card { padding: .8rem 1rem; border: 1px solid #c9b9df; border-radius: .6rem; color: #624389; background: #fbf9fd; text-decoration: none; font-size: .85rem; }
+.persona-access-card { padding: .8rem 1rem; border: 1px solid var(--fg-border); border-radius: .6rem; color: var(--fg-primary); background: color-mix(in oklch, var(--fg-primary) 6%, var(--fg-surface)); text-decoration: none; font-size: .85rem; }
 .persona-group .persona-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media(max-width: 440px) { .persona-group .persona-grid { grid-template-columns: minmax(0, 1fr); } }
 
