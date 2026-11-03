@@ -82,7 +82,8 @@ function deps(over: Partial<InviteEndpointDeps> = {}): InviteEndpointDeps {
     ...over,
   };
 }
-const body = { childId: 'p_nora', request: 'dinosaur birthday invite for Nora on Nov 15 at Maple Hall, 2-4pm' };
+const PNG_16x16 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAF0lEQVR4nGP4z8BAEiJN9aiGUQ1DSgMAkPn/Afnh+ngAAAAASUVORK5CYII=';
+const body = { childId: 'p_nora', request: 'dinosaur birthday invite for Nora on Nov 15 at Maple Hall, 2-4pm', referenceImage: { mimeType: 'image/png', dataBase64: PNG_16x16 } };
 
 // ---- field validation / extraction ----
 

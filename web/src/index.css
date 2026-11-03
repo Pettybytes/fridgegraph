@@ -324,7 +324,7 @@ body,
 .sidebar-footer strong { font-size: 13px; }
 .sidebar-footer small { display: block; margin-top: 3px; color: var(--fg-muted); font-size: 11px; }
 .workspace { display: flex; flex-direction: column; min-width: 0; }
-.topbar { min-height: 79px; border-bottom: 1px solid var(--fg-line); padding: 0 44px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; font-size: 13px; background: color-mix(in oklch, var(--fg-surface) 55%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); position: sticky; top: 0; z-index: var(--z-sticky); }
+.topbar { min-height: 79px; border-bottom: 1px solid var(--fg-line); padding: 0 44px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; font-size: 13px; background: var(--fg-surface); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); position: sticky; top: 0; z-index: var(--z-sticky); }
 .topbar-context { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar-tools { margin-left: auto; min-width: 0; }
 /* The chip's own reset lives in personas.css, unlayered next to .session-chip. */

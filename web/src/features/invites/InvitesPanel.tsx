@@ -4,7 +4,7 @@ import { useChildAccess } from '@/features/personas/childContext'
 import { useSession } from '@/features/personas/Session'
 import { createMockInvite } from './fixture'
 import {
-  inviteCredit, inviteError, withInviteDefaults, readReferenceFile, REFERENCE_ACCEPT, REQUEST_MAX_CHARS,
+  inviteError, withInviteDefaults, readReferenceFile, REFERENCE_ACCEPT, REQUEST_MAX_CHARS,
   type InviteCreator, type InviteEvent, type InviteResponse, type InviteReferenceImage,
 } from './invite'
 import { canvasPng, decodeInviteArt, drawInvitation, invitationText, lineSpecs, toRevisionReference, waitForInviteFont } from './renderInvite'
@@ -154,11 +154,11 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     </label>
     <span className="invites-panel__counter" aria-live="polite">{request.length} / {REQUEST_MAX_CHARS}</span>
 
-    {/* Optional reference image — the actual image is remixed to match the request (image-to-image). */}
-    <div className="invites-panel__reference" role="group" aria-label="Reference image (optional)">
+    {/* Required reference image: the actual image is remixed to match the request (image-to-image). */}
+    <div className="invites-panel__reference" role="group" aria-label="Reference image (required)">
       <div className="invites-panel__reference-head">
-        <span className="invites-panel__reference-title">Add a reference image <span className="invites-panel__optional">optional</span></span>
-        <span className="invites-panel__reference-hint">Your image guides the generated art — it is remixed to match your request (for example, “turn these into warrior unicorns”).</span>
+        <span className="invites-panel__reference-title">Add a reference image <span className="invites-panel__required">required</span></span>
+        <span className="invites-panel__reference-hint">Your image is required. It guides the generated art and is remixed to match your request.</span>
       </div>
       {!reference ? (
         <div
@@ -190,7 +190,7 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
         </div>
       )}
       {referenceError && <InlineFeedback tone="error">{referenceError}</InlineFeedback>}
-      {mode === 'mock' && reference && <InlineFeedback>This sample preview doesn’t transform your reference — turn on live generation to remix your image.</InlineFeedback>}
+      {mode === 'mock' && reference && <InlineFeedback>This sample preview does not transform your reference. Turn on live generation to remix your image.</InlineFeedback>}
       {result?.reference?.requested && result.reference.applied === false && phase === 'ready' && mode === 'live' &&
         <InlineFeedback tone="warning">Your reference was received, but it couldn’t be applied to this card. The default art was used.</InlineFeedback>}
     </div>
@@ -198,12 +198,12 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     {mode === 'mock' && <InlineFeedback>This is a fixed fictional sample. Your words are not interpreted, and no image model or invitation record is called.</InlineFeedback>}
     {mode === 'live' && !createInvite && <InlineFeedback tone="warning">The invitation service is not available in this view.</InlineFeedback>}
     <div className="invites-panel__actions">
-      <FgButton type="button" disabled={!createInvite || !request.trim() || phase === 'generating'} loading={phase === 'generating'} onClick={prepareNew}>
+      <FgButton type="button" disabled={!createInvite || !request.trim() || !reference || phase === 'generating'} loading={phase === 'generating'} onClick={prepareNew}>
         {phase === 'generating' ? (mode === 'mock' ? 'Loading sample art…' : 'Generating art…') : mode === 'mock' ? 'Show sample invitation' : result ? 'Prepare a new invitation' : 'Prepare invitation'}
       </FgButton>
       {result?.art && <FgButton type="button" variant="secondary" disabled={!createInvite || !request.trim() || phase === 'generating'} onClick={() => { void reviseDesign() }}>Revise this design</FgButton>}
     </div>
-    {result?.art && phase !== 'generating' && <p className="invites-panel__revise-hint">To revise, edit your request above (for example, “add floating balloons but keep the unicorns”) and choose <strong>Revise this design</strong> — it changes the current art, keeping everything you don’t ask to change, and keeps your edited event text.</p>}
+    {result?.art && phase !== 'generating' && <p className="invites-panel__revise-hint">To revise, edit your request above (for example, “add floating balloons but keep the unicorns”) and choose <strong>Revise this design</strong>. It changes the current art, keeping everything you don’t ask to change, and keeps your edited event text.</p>}
     {phase === 'generating' && <p role="status">{mode === 'mock' ? 'Loading the sample art. No model call is being made.' : result ? 'Preparing a new design. Your current card stays ready below until this finishes.' : 'Preparing invitation art. Wait for a result before editing or downloading.'}</p>}
     {phase === 'ready' && result?.suggestion && <InlineFeedback>{result.suggestion}</InlineFeedback>}
     {(phase === 'refused' || phase === 'failed') && <>
@@ -222,12 +222,12 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
 function sourceNote(result: InviteResponse & { art: NonNullable<InviteResponse['art']> }, mode: 'mock' | 'live'): string {
   if (result.provenance.source === 'MUSE_IMAGE') {
     return result.provenance.cached
-      ? 'Art generated with Muse Image, served from the prompt cache — no new image was generated for this request.'
+      ? 'Art generated with Muse Image, served from the prompt cache. No new image was generated for this request.'
       : 'Art generated with Muse Image for this request.'
   }
   return mode === 'mock'
     ? 'A fixed fixture illustration, not a new generation. Edit the words below and the art stays the same.'
-    : 'Live art generation is switched off here, so this is the labelled fixture illustration — not a newly generated image.'
+    : 'Live art generation is switched off here, so this is the labelled fixture illustration, not a newly generated image.'
 }
 
 export function InvitationCard({ result, event, onEventChange, mode = 'mock' }: {
@@ -298,7 +298,6 @@ export function InvitationCard({ result, event, onEventChange, mode = 'mock' }: 
       <p className="invites-card__caption">Downloaded PNG · {result.art.width} × {result.art.height}</p>
       <canvas ref={canvas} width={result.art.width} height={result.art.height} role="img" aria-label={`${text.join('. ')}.`} />
       {!previewReady && !previewError && <p role="status">Preparing the card preview…</p>}
-      <p className="invites-card__credit">{inviteCredit(result.provenance)}</p>
       <p className="invites-card__source" data-source={result.provenance.source}>{sourceNote(result, mode)}</p>
       {text.length > 0 && <div className="invites-card__readout" aria-label="Invitation text">
         {readout.map(line => <p key={line.role} className={`invites-card__line invites-card__line--${line.role}`}>{line.text}</p>)}

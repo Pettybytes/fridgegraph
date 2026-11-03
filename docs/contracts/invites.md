@@ -6,8 +6,9 @@ against; any field change is posted as a diff on the PR before it is coded.
 
 A parent asks Rosina to make a party invitation **in their own words**. The art is driven by the
 parent's **creative request** (its subject, transformation, style, composition and any wording they
-ask for) — and, optionally, by an **uploaded reference image** they want remixed, or the **prior
-generated result** on a revision. Rosina **also** makes a best-effort, **editable** extraction of the
+ask for) — and, mandatorily (Bryan, 2026-11-03), by an **uploaded reference image** they want
+remixed, or the **prior generated result** on a revision. A request with no reference image is
+refused `400 REFERENCE_REQUIRED` after authorization, before any provider call. Rosina **also** makes a best-effort, **editable** extraction of the
 event fields (name/occasion/date/time/place) as a convenience, but those fields are **never required
 to make art, never block it, and never invented** — a missing detail becomes a non-blocking
 `suggestion`, not a gate. The app owns the event-text layer; only the parent's typed `request` and
@@ -28,7 +29,7 @@ POST /api/rosina/invite        Authorization: Bearer <caller jwt>
 {
   "childId": "p_nora",
   "request": "turn these into warrior unicorns in golden armor and add “Happy Birthday Sam”",
-  "referenceImage": { "mimeType": "image/png", "dataBase64": "<bytes>" },  // optional — remixed as an edit
+  "referenceImage": { "mimeType": "image/png", "dataBase64": "<bytes>" },  // REQUIRED — remixed as an edit
   "revise": false            // optional — true re-edits the PRIOR generated result (sent back as referenceImage)
 }
 ```
@@ -37,7 +38,7 @@ POST /api/rosina/invite        Authorization: Bearer <caller jwt>
 **single** shared limit `MAX_REQUEST_CHARS = 2000` (`invitePrompt.ts`). That one limit is enforced at
 the endpoint (over-length → `400`) AND shown on the web textarea (`maxLength` + a live counter) — the
 full accepted request reaches the brief, with **no separate, smaller silent truncation** (an earlier
-900-char cap is removed). `referenceImage` (optional): the **only** accepted upload field —
+900-char cap is removed). `referenceImage` (required): the **only** accepted upload field —
 PNG/JPEG/WebP, ≤ 5 MB, dims 16–4096 px, validated by magic bytes and **EXIF/GPS/XMP-stripped**
 server-side before it reaches the provider. Any **other** image/photo/upload key is rejected `400`
 (see below). `revise: true` reuses the edits path with the prior generated art as the reference, so
@@ -64,7 +65,7 @@ the result keeps every existing element the request does not ask to change.
     "width": 1024,                   // the REAL pixel dimensions, read from the bytes — NOT assumed
     "height": 1536,
     "base64": "<base64 image bytes>",          // bounded; in-memory preview/export only; no URL
-    "quietArea": { "x": 82, "y": 768, "w": 860, "h": 676 }  // fraction-based region for the app's text
+    "quietArea": { "x": 82, "y": 1027, "w": 860, "h": 445 }  // the bottom-third band for the app's text
   },
   "provenance": {
     "source": "MUSE_IMAGE",          // "MUSE_IMAGE" | "FIXTURE"
@@ -78,6 +79,9 @@ the result keeps every existing element the request does not ask to change.
 }
 ```
 
+- Every `event` field is editable; rendering the text is the app's job, not the model's. The brief
+  forbids any lettering in the generated image and keeps its lower third empty; the app composites
+  the event text on an opaque plate over that band, so model art can never collide with the text.
 - Every `event` field is editable; rendering the text is the app's job, not the model's. `timezone`
   is always `America/Detroit`. A missing name/occasion/date surfaces as `suggestion` (plain words,
   never invented) — it **does not** block the art or the download.
@@ -102,7 +106,8 @@ the result keeps every existing element the request does not ask to change.
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | the `referenceImage` is not a PNG/JPEG/WebP (by magic bytes) |
 
 **Additions beyond the handed list (posted as a diff on the PR; non-breaking for the web client):**
-`400 INVALID_REQUEST` for a missing/overlong `childId`/`request`, a malformed `referenceImage`
+`400 REFERENCE_REQUIRED` for a missing `referenceImage` (checked after authorization, before any
+provider call), and `400 INVALID_REQUEST` for a missing/overlong `childId`/`request`, a malformed `referenceImage`
 (bad base64 / out-of-range dimensions), or any image/photo/upload key **other** than `referenceImage`
 in the body. The optional best-effort field extraction (Muse Spark) **never fails the request** — a
 Spark error just yields empty, editable fields and a `suggestion`; only a Muse Image
@@ -117,8 +122,8 @@ Uses Meta's **documented** Muse Image interfaces (`src/rosina/inviteImage.ts`):
   brief>, n: 1, size: "1024x1536", response_format: "b64_json", output_format: "png" }`.
 - **Edit (image-to-image)** — `POST ${META_BASE_URL}/images/edits`
   (<https://dev.meta.ai/docs/api-reference/images/edit-image>). Same body **plus**
-  `images: [{ image_url: "data:<mime>;base64,<ref bytes>" }]`. Chosen automatically whenever a
-  `referenceImage` is present (an upload remix) **or** on a `revise` (the prior result sent back).
+  `images: [{ image_url: "data:<mime>;base64,<ref bytes>" }]`. A `referenceImage` is always present
+  (an upload remix, **or** the prior result sent back on a `revise`), so this is the route taken.
 - `Authorization: Bearer ${META_API_KEY}` — **server-side key only, never logged, never returned**.
   `n`, `size`, `output_format` and a bounded output size (8 MB) are forced server-side.
 
@@ -296,9 +301,9 @@ for authorization.
 > uses it: the **actual uploaded image** now guides the result, and the vision-extraction path
 > (`inviteReference.ts`) is removed.
 
-**Provider path.** When a `referenceImage` is present (an upload remix) or on a `revise` (the prior
-generated result sent back), the endpoint routes to `/images/edits` and passes the image as a
-`data:` URL in `images[]`; otherwise it calls `/images/generations`. The creative brief tells the
+**Provider path.** Every accepted request carries a `referenceImage` (an upload remix, or the prior
+generated result sent back on a `revise`), so the endpoint routes to `/images/edits` and passes the
+image as a `data:` URL in `images[]`. The creative brief tells the
 model to transform the provided image to match the request, keeping its recognizable subject (edit)
 or every element the request doesn't change (revision). The uploaded image is used as the **edit
 input**, not placed verbatim in the card; the exported card is the generated art plus the app's text.

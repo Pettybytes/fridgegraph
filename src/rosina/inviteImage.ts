@@ -51,9 +51,10 @@ export class InviteImageUncertainFailure extends Error {}
 export const INVITE_IMAGE_MODEL = 'muse-image-1.0';
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-/** A calm lower-centre text area as a fraction of the ACTUAL image, so it tracks any aspect/size. */
+/** The bottom-third text band as a fraction of the ACTUAL image, so it tracks any aspect/size. The
+ *  brief keeps this band empty of model lettering and the renderer plates over it regardless. */
 export function quietAreaFor(width: number, height: number): { x: number; y: number; w: number; h: number } {
-  return { x: Math.round(width * 0.08), y: Math.round(height * 0.5), w: Math.round(width * 0.84), h: Math.round(height * 0.44) };
+  return { x: Math.round(width * 0.08), y: Math.round(height * 0.67), w: Math.round(width * 0.84), h: Math.round(height * 0.29) };
 }
 
 /** The default: a labelled fixture. Never calls the model; always a cache miss. */
