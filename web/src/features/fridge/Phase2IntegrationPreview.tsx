@@ -16,8 +16,7 @@ function Preview(){
  const factory=useMemo<Phase2PreviewFactory>(()=>(viewer)=>{
   const parent=viewer.role==='PARENT'||viewer.role==='GUARDIAN'
   const notes=sampleNotes.map(note=>({...note,author:{...note.author,id:note.id==='note_kendra'?viewer.personId:'other-author'}}))
-  const adapter=mockFridgeEditingAdapter(parent?sampleGoals:sampleGoals.filter(goal=>goal.status==='APPROVED'),parent?notes:[])
-  const post=adapter.postFridgeNote;adapter.postFridgeNote=async args=>({...await post(args),author:{id:viewer.personId,displayName:'Mock author'}})
+  const adapter=mockFridgeEditingAdapter(parent?sampleGoals:sampleGoals.filter(goal=>goal.status==='APPROVED'),parent?notes:[],{id:viewer.personId,displayName:'Mock author'})
   if(!parent)adapter.readNotes=async()=>{throw Error('UNAUTHORIZED')}
   if(mode==='read-database')adapter.readGoals=async()=>{throw Error('DB_UNAVAILABLE')}
   if(mode==='save-failed')adapter.createGoal=async()=>{throw Error('NETWORK_ERROR')}
