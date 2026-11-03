@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
+import { createVoiceNoteHandler } from './voiceNoteEndpoint';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
 import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
 import { resolveClientIp } from './client-ip';
@@ -274,43 +275,28 @@ export function createDemoLoginApp() {
   });
 
   // ---------------------------------------------------------------- voice note playback (0084)
-  // Same shape as the Orbit photo handler above, deliberately: no-store on every response, a real
-  // bearer, voice_note_access(id) re-checked on EVERY request, 404 for both "no such note" and "no
-  // access" — no oracle, no signed URL, no durable path ever handed to a client.
-  app.get('/api/demo/voice-note/:voiceNoteId', async (req: Request, res: Response) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const token = bearerToken(req.headers.authorization);
-    if (!token) {
-      res.status(401).json({ error: 'UNAUTHENTICATED' });
-      return;
-    }
-    const identity = await verifyBearer(req.headers.authorization);
-    if (!identity.ok) {
-      res.status(401).json({ error: 'UNAUTHENTICATED' });
-      return;
-    }
-    const ctx: Ctx = { today: todayIso(), token };
-    try {
-      const { data, error } = await dbFor(ctx).rpc('voice_note_access', { p_voice_note: req.params.voiceNoteId });
+  // Real dependencies wired into the injectable handler (src/demo/voiceNoteEndpoint.ts) — every
+  // dependency there is fakeable, so src/demo/voiceNoteEndpoint.test.ts can prove the route's own
+  // HTTP behavior over a REAL loopback request, not a mocked req/res object.
+  app.get('/api/demo/voice-note/:voiceNoteId', createVoiceNoteHandler({
+    verify: async (header) => {
+      const identity = await verifyBearer(header);
+      return identity.ok ? { ok: true } : { ok: false };
+    },
+    access: async (voiceNoteId, bearer) => {
+      const ctx: Ctx = { today: todayIso(), token: bearer };
+      const { data, error } = await dbFor(ctx).rpc('voice_note_access', { p_voice_note: voiceNoteId });
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { access?: string | null; storage_path?: string | null }
+        | { access?: string | null; storage_path?: string | null; content_type?: string | null }
         | null;
-      if (error || !row?.access || !row?.storage_path) {
-        res.status(404).json({ error: 'NOT_FOUND' });
-        return;
-      }
-      const file = join(VOICE_NOTE_DIR, basename(row.storage_path));
-      if (!existsSync(file)) {
-        res.status(404).json({ error: 'NOT_FOUND' });
-        return;
-      }
-      res.setHeader('Content-Type', 'audio/wav');
-      res.setHeader('X-Voice-Note-Access', String(row.access));
-      res.send(readFileSync(file));
-    } catch {
-      res.status(404).json({ error: 'NOT_FOUND' });
-    }
-  });
+      if (error || !row?.access || !row?.storage_path || !row?.content_type) return null;
+      return { access: String(row.access), storagePath: String(row.storage_path), contentType: String(row.content_type) };
+    },
+    loadBytes: (storagePath) => {
+      const file = join(VOICE_NOTE_DIR, basename(storagePath));
+      return existsSync(file) ? readFileSync(file) : null;
+    },
+  }));
 
   // Upload: parent/guardian only. Metadata is stripped by re-encoding BEFORE the bytes are stored;
   // the content hash written to the database is the hash of the stored bytes.

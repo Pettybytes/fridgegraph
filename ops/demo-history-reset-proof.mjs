@@ -13,9 +13,10 @@
  * Checks:
  *   1. First resetDemo() call creates all 20 history stories, the 3 voice notes, and the one
  *      explicitly-declined story's decided_at.
- *   2. After corrupting a voice note's transcript, nulling a declined story's decided_at, and
+ *   2. After corrupting a voice note's delivered transcript (job_hist_08's is READY — real audio
+ *      reconciled from #167), nulling a declined story's decided_at, and
  *      inserting a demo-created extra job (sandbox=true, simulating a judge's live
- *      requestPickup), a SECOND resetDemo() call: restores the voice note transcript exactly;
+ *      requestPickup), a SECOND resetDemo() call: restores the voice note's transcript exactly;
  *      restores decided_at exactly; removes the demo-created extra job entirely.
  *   3. A genuinely unrelated coordination_jobs row (sandbox=false, inserted only by this proof,
  *      never by application code) survives BOTH resetDemo() calls completely untouched.
@@ -165,6 +166,8 @@ async function main() {
   const voiceNoteId = (await corrupt.query(
     "select vn.id from voice_notes vn join candidate_evaluations ce on ce.id = vn.response_id where ce.job_id = 'job_hist_08'",
   )).rows[0].id;
+  // job_hist_08's voice note is READY (real transcript reconciled from #167) — corrupt the
+  // delivered field itself, the thing most worth proving restores exactly.
   await corrupt.query('update voice_notes set transcript = $1 where id = $2', ['EDITED LIVE', voiceNoteId]);
   await corrupt.query("update coordination_jobs set decided_at = null, failure_reason = null where id = 'job_hist_15'");
   // A demo-created extra job, sandbox=true — exactly what a judge's live requestPickup produces.
@@ -182,8 +185,8 @@ async function main() {
   await verify2.connect();
 
   // --- Check 2: the second call restores the corrupted content exactly ---
-  const restoredNote = (await verify2.query('select transcript from voice_notes where id = $1', [voiceNoteId])).rows[0];
-  if (!restoredNote || restoredNote.transcript === 'EDITED LIVE' || !restoredNote.transcript.includes('grab Nora')) {
+  const restoredNote = (await verify2.query('select status, transcript from voice_notes where id = $1', [voiceNoteId])).rows[0];
+  if (!restoredNote || restoredNote.transcript === 'EDITED LIVE' || !restoredNote.transcript.includes('get Nora at 4.20') || restoredNote.status !== 'READY') {
     fail(`check 2a FAILED: voice note transcript not restored to canonical: ${JSON.stringify(restoredNote)}`);
   }
   const restoredDeclined = (await verify2.query("select decided_at, failure_reason from coordination_jobs where id = 'job_hist_15'")).rows[0];

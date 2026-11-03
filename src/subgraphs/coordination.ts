@@ -288,6 +288,11 @@ const typeDefs = parse(`
     CANDIDATE_JWT
   }
 
+  enum ResponseKind {
+    ACCEPTED
+    DECLINED
+  }
+
   type CoordinationJob {
     id: ID!
     idempotencyKey: String!
@@ -312,6 +317,9 @@ const typeDefs = parse(`
   }
 
   type CandidateEvaluation {
+    """Null on a response synthesized from a mutation's own return (e.g. acceptPickup's candidate-only
+    outcome), which carries no stored row id. Never null for a row read back from storage."""
+    id: ID
     candidate: Person!
     reasonCode: String
     available: Boolean
@@ -322,6 +330,12 @@ const typeDefs = parse(`
     distanceMiles: Float
     locationProvenance: String
     costCalculatedAt: String
+    """Set only once a real human answered (accept_pickup) — null for a pending/no-reply evaluation."""
+    respondedAt: String
+    responseKind: ResponseKind
+    """The private voice note attached to this response, if any. Same no-oracle null as voiceNote(id)
+    itself: a caller who may not see it gets null, identical to there being none."""
+    voiceNoteId: ID
   }
 
   type Attempt {
@@ -359,13 +373,30 @@ const typeDefs = parse(`
     endSec: Float!
   }
 
+  """PENDING until the real audio, its Muse transcript, its measured duration and its real sha256
+  are all delivered; READY only once they are. A PENDING note is never playable — the HTTP endpoint
+  and voice_note_access (0084) refuse it the same way they refuse an unauthorized caller."""
+  enum VoiceNoteStatus {
+    PENDING
+    READY
+  }
+
   """Transcript/duration/speaker metadata for a private voice note. Audio bytes are a separate,
-  re-checked-every-request HTTP fetch — never bundled here, never a provider/cost/script field."""
+  re-checked-every-request HTTP fetch — never bundled here, never a provider/cost field."""
   type VoiceNote {
     id: ID!
+    """The CandidateEvaluation this note was recorded against — the same link CandidateEvaluation.
+    voiceNoteId exposes from the other side."""
+    responseId: ID!
+    status: VoiceNoteStatus!
     speaker: Person!
-    transcript: String!
-    durationSeconds: Float!
+    """The delivered, ASR-verified transcript. Null while status is PENDING — see proposedScript."""
+    transcript: String
+    """The authored TTS input text — permanently distinct from transcript (the ASR-verified
+    output) for BOTH statuses. Never cleared or superseded once READY: a transcript is never
+    replaced by its script, and a script is never overwritten by its transcript."""
+    proposedScript: String
+    durationSeconds: Float
     turnTimings: [TurnTiming!]
     createdAt: String!
   }
@@ -417,6 +448,9 @@ const jobFromRow = (j: JobRow) => ({
 });
 
 const evalFromRow = (e: Record<string, unknown>) => ({
+  // Absent on the hand-built object acceptPickup returns (no stored row id to give) — null there,
+  // same convention as every other field below.
+  id: e.id == null ? null : String(e.id),
   candidate: { id: String(e.candidate_id) },
   reasonCode: e.reason_code == null ? null : String(e.reason_code),
   available: e.available == null ? null : Boolean(e.available),
@@ -427,6 +461,8 @@ const evalFromRow = (e: Record<string, unknown>) => ({
   distanceMiles: e.distance_miles == null ? null : Number(e.distance_miles),
   locationProvenance: e.location_provenance == null ? null : String(e.location_provenance),
   costCalculatedAt: e.cost_calculated_at == null ? null : String(e.cost_calculated_at),
+  respondedAt: e.responded_at == null ? null : String(e.responded_at),
+  responseKind: e.response_kind == null ? null : String(e.response_kind),
 });
 
 const confFromRow = (c: Record<string, unknown>) => ({
@@ -926,16 +962,22 @@ const resolvers = {
       const data = await rows(
         dbFor(ctx)
           .from('voice_notes')
-          .select('id,speaker_person_id,transcript,duration_seconds,turn_timings,created_at')
+          .select('id,response_id,speaker_person_id,status,proposed_script,transcript,duration_seconds,turn_timings,created_at')
           .eq('id', id),
       );
       const row = data[0];
       if (!row) return null;
       return {
         id: String(row.id),
+        responseId: String(row.response_id),
+        status: String(row.status),
         speaker: { id: String(row.speaker_person_id) },
-        transcript: String(row.transcript),
-        durationSeconds: Number(row.duration_seconds),
+        // Delivered and proposed never collapse into one field: a PENDING row has transcript
+        // null (only proposedScript filled); a READY row has both — proposedScript is never
+        // cleared by delivery.
+        transcript: row.transcript == null ? null : String(row.transcript),
+        proposedScript: row.proposed_script == null ? null : String(row.proposed_script),
+        durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
         turnTimings: row.turn_timings == null ? null : row.turn_timings,
         createdAt: String(row.created_at),
       };
@@ -1173,7 +1215,7 @@ const resolvers = {
       const data = await rows(
         dbFor(ctx)
           .from('candidate_evaluations')
-          .select('candidate_id,reason_code,available,decline_reason,accepted_via,estimated_ride_cost_usd,cost_basis,distance_miles,location_provenance,cost_calculated_at')
+          .select('id,candidate_id,reason_code,available,decline_reason,accepted_via,estimated_ride_cost_usd,cost_basis,distance_miles,location_provenance,cost_calculated_at,responded_at,response_kind')
           .eq('job_id', j.id),
       );
       return data.map((e) => evalFromRow(e as Record<string, unknown>));
@@ -1197,6 +1239,20 @@ const resolvers = {
 
   Confirmation: {
     job: (c: { job: { id: string } }) => c.job,
+  },
+
+  CandidateEvaluation: {
+    // A lazy field resolver, not a join baked into evalFromRow: most callers never ask for this,
+    // and it needs its own RLS-scoped read (voice_notes_read, 0084) to decide visibility. No stored
+    // row id (acceptPickup's hand-built outcome) means no note to look up — null, not a query.
+    voiceNoteId: async (ce: { id?: string | null }, _a: unknown, ctx: Ctx) => {
+      if (!ce.id) return null;
+      requireCaller(ctx);
+      const data = await rows(
+        dbFor(ctx).from('voice_notes').select('id').eq('response_id', ce.id),
+      );
+      return data.length ? String(data[0].id) : null;
+    },
   },
 };
 
