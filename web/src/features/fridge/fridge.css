@@ -106,3 +106,4 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 .fridge-album-grid img{width:100%;aspect-ratio:1;object-fit:contain}
 .fridge-album-grid span{display:block;padding:8px 0}
 @media(max-width:600px){.fridge-album-grid{grid-template-columns:1fr}}
+.fridge-read{font:400 1.3cqw/1.5 var(--font-sans,Arial,sans-serif)}
