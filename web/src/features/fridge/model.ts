@@ -24,4 +24,15 @@ export function saveLayout(person:string,layout:Record<string,Position>){try{loc
 export function loadCaptions(person:string):Record<string,string>{try{const raw=JSON.parse(localStorage.getItem(`fridge-captions:${person}`)??'{}');return Object.fromEntries(Object.entries(raw).filter(([,v])=>typeof v==='string'&&(v as string).length<=300)) as Record<string,string>}catch{return {}}}
 export function saveCaptions(person:string,captions:Record<string,string>){try{localStorage.setItem(`fridge-captions:${person}`,JSON.stringify(captions))}catch{/* Browser caption is optional, never family data. */}}
 
+// Per-goal whiteboard marker style (colour + handwriting font) a parent chooses for how they see the
+// board. Browser-local only; never changes the recorded goal. Values are validated against the fixed
+// allow-lists so a tampered store cannot inject an arbitrary colour or font.
+export type MarkerColor='black'|'blue'|'red'|'green'
+export type MarkerFont='kalam'|'caveat'
+export type MarkerStyle={color:MarkerColor;font:MarkerFont}
+export const MARKER_INK:Record<MarkerColor,string>={black:'#1b1b22',blue:'#1f4fb0',red:'#b4231f',green:'#1f7a3d'}
+const MARKER_COLORS=new Set<MarkerColor>(['black','blue','red','green']),MARKER_FONTS=new Set<MarkerFont>(['kalam','caveat'])
+export function loadMarkers(person:string):Record<string,MarkerStyle>{try{const raw=JSON.parse(localStorage.getItem(`fridge-markers:${person}`)??'{}');return Object.fromEntries(Object.entries(raw).filter(([,v])=>{const m=v as MarkerStyle;return m&&MARKER_COLORS.has(m.color)&&MARKER_FONTS.has(m.font)})) as Record<string,MarkerStyle>}catch{return {}}}
+export function saveMarkers(person:string,markers:Record<string,MarkerStyle>){try{localStorage.setItem(`fridge-markers:${person}`,JSON.stringify(markers))}catch{/* Browser marker style is optional, never family data. */}}
+
 export function authorInk(owner:string|null){if(!owner)return '#263a4a';let hash=0;for(const c of owner)hash=(hash*31+c.charCodeAt(0))>>>0;return ['#263a4a','#4d365c','#315241','#763e31'][hash%4]}

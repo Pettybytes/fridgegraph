@@ -34,4 +34,22 @@ it('lets a parent edit a per-item caption that persists across a remount, and hi
  expect(within(ro).queryByRole('textbox',{name:/Edit caption/})).not.toBeInTheDocument()
  localStorage.clear()
 })
+it('lets a parent pick a per-goal marker colour + font that persists, and hides the picker for read-only',async()=>{
+ const goalsReader:FridgeReader={read:async source=>source==='goals'?{status:'ready',value:[{id:'g1',title:'Practice together',horizon:null,status:'PROPOSED'}]}:{status:'empty'}}
+ render(<Fridge {...props} reader={goalsReader}/>)
+ await screen.findByText('Practice together')
+ // The whiteboard lives inside the zoomable scene; open (zoom into) the goals door so in-scene
+ // controls receive clicks instead of the viewport's zoom handler.
+ fireEvent.click(screen.getByRole('button',{name:'Open goals door'}))
+ const marker=()=>JSON.parse(localStorage.getItem('fridge-markers:parent') as string)['g1']
+ fireEvent.click(screen.getByRole('button',{name:'blue marker'}))
+ await waitFor(()=>expect(marker().color).toBe('blue'))
+ fireEvent.click(screen.getByRole('button',{name:'Caveat'}))
+ await waitFor(()=>expect(marker()).toEqual({color:'blue',font:'caveat'}))
+ cleanup()
+ render(<Fridge {...props} readOnly reader={goalsReader}/>)
+ await screen.findByText('Practice together')
+ expect(screen.queryByRole('button',{name:'blue marker'})).not.toBeInTheDocument()
+ localStorage.clear()
+})
 it('shows a not-connected state, not a load failure, when a source is unavailable offline',async()=>{render(<Fridge {...props} reader={{read:async()=>({status:'unavailable'})}}/>);expect(await screen.findByText('Not connected in this view.')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Open goals door'}));expect(screen.getByText('These notes aren’t connected in this view.')).toBeInTheDocument();expect(screen.queryByRole('button',{name:/Retry/})).not.toBeInTheDocument();expect(screen.queryByRole('alert')).not.toBeInTheDocument()})
