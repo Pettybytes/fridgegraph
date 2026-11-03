@@ -157,6 +157,8 @@ in the static server or the edge. Rollback is one line each. Record both PIDs an
 
 ## 4. Phase 2/3 — one public origin, explicit route allowlist
 
+**PINNED 2026-11-03: public origin `https://fridgegraph.loomz.stream`.** Invitations and Fridge pin intake are now admitted as exact bearer-checked paths (below); `serve-web.mjs` serves only static files and the edge owns `/graphql` and `/api/*`.
+
 **One origin.** `https://<app-host>` serves the app *and* fronts the API paths. One origin means no
 CORS surface between app and API, and the router is never independently reachable.
 
@@ -177,10 +179,16 @@ CORS surface between app and API, and the router is never independently reachabl
 | `/api/village/day` (exact) | `127.0.0.1:4008` | bearer-checked day reads for the map |
 | `/api/village/route` (exact) | `127.0.0.1:4008` | bearer-checked road route / ride calculation — **calls a paid provider (ORS)** |
 | `/api/orbit/photo/:photoId` (exact pattern) | `127.0.0.1:4008` | bearer-checked Orbit photo read |
+| `/api/rosina/invite` (exact) | `127.0.0.1:4200` | invitation generation; bearer-checked; **20 / hour per person** |
+| `/api/rosina/pin/readiness` (exact) | `127.0.0.1:4200` | unauthenticated readiness probe; 120 / hour per IP |
+| `/api/rosina/pin/upload` (exact) | `127.0.0.1:4200` | bearer-checked private upload; **20 / hour per person**, 12 MB body cap |
+| `/api/rosina/pin` (exact) | `127.0.0.1:4200` | bearer-checked classification proposal; 40 / hour per person |
+| `/api/rosina/pin/confirm` (exact) | `127.0.0.1:4200` | bearer-checked, bound confirmation; 20 / hour per person |
+| `/api/rosina/pin/media/:id` (exact pattern) | `127.0.0.1:4200` | bearer-checked media read; 120 / hour per person |
 
 **Explicitly 404 at the edge — not "unrouted", actively refused:**
 
-`/voice/*` · `/api/rosina/invite` · `/api/rosina/photo-descriptors` · `/api/rosina/notice-plan*` ·
+`/voice/*` · `/api/rosina/photo-descriptors` · `/api/rosina/notice-plan*` · `/api/rosina/pin/*` other than the exact paths above ·
 `/api/village/*` · `/api/orbit/photo/*` · `/api/demo/family` · `/api/demo/voice-note/*` ·
 everything on `4001–4007`, `4101–4107`, `5051`, `8090`, `8092`, `4118`.
 
@@ -260,7 +268,7 @@ A bare status code is not a pass. Gate 1 and 4 must be judged from the **respons
 
 ## 5. Phase 4 — demo exposure on the public origin
 
-**`DEMO_ALLOWED_APP_ORIGINS=https://<app-host>`** on the 4008 process. The parser (`src/demo/origins.ts`)
+**`DEMO_ALLOWED_APP_ORIGINS=https://fridgegraph.loomz.stream`** on the 4008 process. The parser (`src/demo/origins.ts`)
 accepts only bare `https://` origins, rejects wildcards/`null`/credentials/paths, and compares parsed
 origins exactly. Localhost stays allowed by design.
 
