@@ -20,7 +20,8 @@ deployable, not because they are unwanted.
 
 | Artifact | Pin | Verification |
 | --- | --- | --- |
-| Serving code | `00dbc1d173ad4e78f7492c86c0f62b6ee92fd85b` | `git rev-parse HEAD` in each worktree |
+| Serving code (Phase 1) | `bbe11a4c4da51fd47b5c37fc64c510753193775b` | `git rev-parse HEAD` in each worktree |
+| Web source | `00dbc1d173ad4e78f7492c86c0f62b6ee92fd85b` | the web build below is built from this commit |
 | Web build | `/Users/user/fridgegraph-web/00dbc1d/web/dist` | index `1b20467c66e0d901d46b3ec21f1b0b9432a468a8766be47ebf79ecfce048a8fa` |
 | Web entry JS | `assets/index-DzmuUm4e.js` | `e67bc917454c1883604dae20c917ecef6974776ec12799e67d3d33d8e00774af` |
 | Web entry CSS | `assets/index-BRbs-wFN.css` | `c3558ad7ef91d53089700c9c206c3a38896951f3e38d931bdaa22349ee02f175` |
@@ -31,8 +32,18 @@ deployable, not because they are unwanted.
 | Migration 0086 | `supabase/migrations/0086_availability_view_hardening.sql` | `c709405813a7de47e99277160174da5099820f1df049172be2b76e21b4c77b6e` |
 | Demo cast checksum | `f022ccf8311e7561` | `node ops/stack-health.mjs` |
 
-Backend pins for this window are **`00dbc1d`**, not the currently running `bbe11a4`. The swap is part
-of the window, and both are recorded separately from the web build.
+**Why the backend is older than the web build.** `00dbc1d`'s `src/demo/reset.ts` and
+`src/subgraphs/coordination.ts` call `invite_budget_reserve` / `invite_budget_settle` from **0085**
+and reference **0084** staged tables. Neither is applied live, and `bbe11a4` does not contain them, so
+serving `00dbc1d` as the backend would fail at those call sites. Phase 1 therefore runs **backend
+`bbe11a4`** with **web `00dbc1d`**, and `router.prod.yaml` must be proven against the **`bbe11a4`**
+subgraphs — recomposed in-window, never reused from this analysis. Moving the backend to `00dbc1d` is
+a later window, after 0084/0085.
+
+**Re-pin before the window.** The web pin above cannot contain P-1 (voice flag), P-3 (static server) or
+P-10 (login limiter). Once those land, rebuild from the new commit, record the new index and whole-dist
+hashes, and replace `00dbc1d` everywhere in this document. A plan that pins a commit without its own
+prerequisites is a plan for a build that cannot exist.
 
 ---
 
@@ -41,17 +52,19 @@ of the window, and both are recorded separately from the web build.
 These are small, separately reviewed and separately proven. **If any is not merged, do not open the
 window** — do not "work around" them in a deploy script.
 
-**P-1 — voice controls must be off by configuration.** `RosinaVoiceButton` is rendered unconditionally
-and its failure mode when `/voice/*` is absent is an error after the user taps. Required: a build-time
-`VITE_VOICE_LIVE` (default off) that removes the mic and hands-free controls, leaving the text
-composer as the stated alternative. Without it, excluding `/voice/*` leaves a broken control, not an
-unavailable one.
+**P-1 — voice controls must be off by configuration — merge first.** `RosinaVoiceButton` is rendered
+unconditionally and its failure mode when `/voice/*` is absent is an error after the user taps.
+Required: a build-time `VITE_VOICE_LIVE` (default off) that removes the mic and hands-free controls,
+leaving the text composer as the stated alternative. Without it, excluding `/voice/*` leaves a broken
+control, not an unavailable one.
 
-**P-2 — decide the login-limiter identity question.** `POST /api/demo/login` keys its per-IP window on
-`req.ip ?? req.socket.remoteAddress` (`src/demo/server.ts`, verified at this pin) and `trust proxy` is
-set nowhere, so behind cloudflared **every judge shares one 60/min bucket**. Reset uses
-`resolveClientIp()` and is unaffected. Either accept "one global 60/min login budget" in writing, or
-fix the resolver for login first. This is a capacity decision, not a security hole — it fails closed.
+**P-2 — P-10: fix the login limiter to the trusted proxy IP.** `POST /api/demo/login` currently keys
+its per-IP window on `req.ip ?? req.socket.remoteAddress`, and `trust proxy` is set nowhere, so behind
+cloudflared every judge shares one 60/min bucket. Required change: reuse the existing
+`resolveClientIp()` (as reset already does) for login. It is safe to trust `X-Forwarded-For` here for
+one reason only — **4008 binds `127.0.0.1`, so the only peer that can reach it is the tunnel**. If 4008
+were ever bound broadly, the header would become attacker-controlled and the per-IP limit would become
+meaningless. Verify with L6/L7 in §5 and record the effective numbers.
 
 **P-3 — the static server exists and is reviewed.** `ops/` has no static server today; `vite preview`
 is serving. Spec in §3. It must be a reviewed file before the window, not written inline into a shell
@@ -59,6 +72,15 @@ history.
 
 **P-4 — the guide/exposure surface is unchanged.** No removal of the UI guide guard, no widening of
 RLS, no grants added to `anon`/`authenticated` to make a screen render.
+
+**P-5 — rotate three secrets before exposure, in this order.** Each goes in through
+`ops/set-env-secret.sh NAME` (hidden prompt, value never in argv, logs or an agent's context):
+`GHL_API_KEY` (rotated in GHL, then re-exported into the n8n credential), the **Supabase database
+password** (rotated in the project, then `SUPABASE_DB_URL` updated), and `FG_GHL_ACTION_TOKEN`.
+Then: restart **only the services that read each value** (4118/4200/4001–4008 as applicable — not the
+whole stack), re-run `node ops/stack-health.mjs` plus the consumer reads, and record **the names and
+the rotation time, never the values**. A rotation that is not followed by a health pass is untested;
+a rotation recorded with a value is a leak.
 
 ---
 
@@ -122,6 +144,12 @@ their own services (§4). Locally after the swap, `/graphql` and `/api/*` on 518
 — the public origin is the only place they exist. State this in the receipt so a later reader does not
 report it as a regression.
 
+**Keep a working local app: 5189 is the artifact, 5190 is the workbench.** Alongside the static server,
+keep one `vite preview` instance on **`127.0.0.1:5190`** serving the *same pinned build* with its API
+proxy intact. It preserves local click-through with live data when the edge is not involved, and it is
+the fastest way to separate an app bug from a routing bug: if 5190 works and 5189 does not, the fault is
+in the static server or the edge. Rollback is one line each. Record both PIDs and both commands.
+
 ---
 
 ## 4. Phase 2/3 — one public origin, explicit route allowlist
@@ -143,6 +171,9 @@ CORS surface between app and API, and the router is never independently reachabl
 | `/api/demo/health` | `127.0.0.1:4008` | picker readiness |
 | `/api/demo/reset` | `127.0.0.1:4008` | reset semantics (#149) |
 | `/api/rosina` (exact) | `127.0.0.1:4200` | Ask Rosina **text** turns |
+| `/api/village/day` (exact) | `127.0.0.1:4008` | bearer-checked day reads for the map |
+| `/api/village/route` (exact) | `127.0.0.1:4008` | bearer-checked road route / ride calculation — **calls a paid provider (ORS)** |
+| `/api/orbit/photo/:photoId` (exact pattern) | `127.0.0.1:4008` | bearer-checked Orbit photo read |
 
 **Explicitly 404 at the edge — not "unrouted", actively refused:**
 
@@ -150,15 +181,21 @@ CORS surface between app and API, and the router is never independently reachabl
 `/api/village/*` · `/api/orbit/photo/*` · `/api/demo/family` · `/api/demo/voice-note/*` ·
 everything on `4001–4007`, `4101–4107`, `5051`, `8090`, `8092`, `4118`.
 
-**Two features therefore go dark, and this must be said out loud:**
+**The map stays ON.** The map, recorded locations, route/ride calculations and Orbit photos are part
+of the demo, so each is admitted as an **exact path with its own bearer check** — never a prefix.
+`/api/village/route` also calls a paid routing provider, so it carries its own limit:
 
-- **Orbit photos** (`/api/orbit/photo/*`) and **Village map** (`/api/village/day|route`) are not in the
-  allowlist. Orbit renders its text records; the photo preview and the map's live geometry will not.
-  If judges need either, add **only** `/api/orbit/photo/*` (GET, bearer-checked) or `/api/village/day`
-  as a deliberate, separately-argued line — never a prefix that also opens `/api/village/route`.
-- **Invitations** will show the service as unavailable because `/api/rosina/invite` is refused. That is
-  the intended state (live invitation generation is out of scope), and the panel already renders a
-  refusal honestly.
+| Route limit | Value |
+| --- | --- |
+| `/api/village/route` per demo session | **20 / hour**, **60 / hour** per person as the backstop |
+| `/api/village/day` per demo session | **120 / hour** |
+| `/api/orbit/photo/:photoId` per demo session | **120 / hour** |
+
+These counts feed **V5** ("no stray spend") alongside the voice and Spark numbers: a route call is a
+provider call even though it is not an LLM call.
+
+**Invitations** still show the service as unavailable because `/api/rosina/invite` is refused — the
+intended state, and the panel already renders that refusal honestly.
 
 **Tunnel mechanics.** cloudflared runs in **token mode**; ingress lives in the Cloudflare dashboard,
 not on disk. There is nothing to diff, so the table above is the source of truth and is applied by
@@ -376,11 +413,23 @@ Voice and SMS are **deferred to Phase 2 (§13)**, not cancelled.
 
 ## 12. Decisions this plan needs from Bryan before the go
 
-1. **P-1** (voice-off build flag) — merge first, or accept a visible-but-failing mic (not recommended).
-2. **P-2** — accept one global 60/min login budget behind the tunnel, or fix the login resolver first.
-3. **Village map / Orbit photos** — leave dark, or admit exactly one read-only route each.
-4. **The public hostname** — the literal origin, so `DEMO_ALLOWED_APP_ORIGINS` and `cors.origins` can
-   be pinned rather than placeholdered.
+Settled on 2026-11-03, recorded here so the plan is not re-litigated:
+
+1. **P-1** — merge the voice-off flag **first** (decided).
+2. **P-2 / P-10** — **fix** the login limiter to the trusted proxy IP; do not accept a shared bucket
+   (decided).
+3. **Map / recorded places / route / Orbit photos** — **stay ON**, each as an exact bearer-checked
+   route with its own session limit (decided).
+4. **Outbound calls** — deferred in both phases; rideshare is the fallback (decided).
+5. **Judge-triggered SMS** (Phase 2) — authorised to the three `fg-test-responder` contacts only
+   (decided).
+
+Still needed from Bryan:
+
+6. **The literal public hostname**, so `DEMO_ALLOWED_APP_ORIGINS` and `cors.origins` are pinned rather
+   than placeholdered.
+7. **The rotation window for P-5** — a quiet 15 minutes, since rotating the Supabase DB password and
+   the GHL token restarts only the affected services but does interrupt them briefly.
 
 ---
 
@@ -414,20 +463,25 @@ already render the typing alternative and no mic (P-1 in §1).
 ### 13.3 Rate limits and per-session caps
 
 Existing and verified today: Rosina text `20/min` per person (`ROSINA_RATE_LIMIT_PER_MIN`, keyed by
-`identity.personId`), invites `6/min`. These key on **person**, not IP, so the tunnel's single-bucket
-login problem does not apply to them.
+`identity.personId`), invites `6/min`.
+
+**Every judge signs in as the same Kendra persona**, so a per-person limit is one shared bucket for the
+whole audience — the same mistake the login limiter made. In Phase 2 the demo **session** (`jti`) is the
+primary key and the person is only a backstop, so one caller minting sessions in a loop cannot make the
+budget disappear for everyone else.
 
 Phase 2 must add and then **verify on the public URL**:
 
-| Limit | Value | Scope |
+| Limit | Value | Key |
 | --- | --- | --- |
-| voice turns (turn + transcribe) | **6 / min** per person | per JWT `sub` |
-| voice turns per session | **120** | one browser session |
+| voice turns (turn + transcribe) | **6 / min per session**, **30 / min per person** | `jti` → `sub` |
+| voice turns per session | **120** | `jti` |
 | audio per request | **≤ 20 s** and **≤ 1 MB** | rejected before ASR |
-| concurrent captures | **3** per person | ends one, never queues forever |
-| speech synthesis | **10 / min** per person, text ≤ 4 000 chars | per JWT `sub` |
-| Spark model calls | **20 / min** (existing) and **300 / day** per person | per JWT `sub` |
-| per-turn wall clock budget | **8 s**, then a bounded honest failure | not a silent retry |
+| concurrent captures | **3 per session** | `jti` |
+| speech synthesis | **10 / min per session**, **40 / min per person**, text ≤ 4 000 chars | `jti` → `sub` |
+| Spark model calls | **20 / min per session**, **60 / min per person**, **300 / day per person** | `jti` → `sub` |
+| `/api/village/route` | **20 / hour per session**, **60 / hour per person** | `jti` → `sub` |
+| per-turn wall clock budget | **8 s**, then a bounded honest failure | — |
 
 Refusals are `429` with `Retry-After`; a capped turn must say so in the UI rather than hang.
 
@@ -460,6 +514,11 @@ for fails at the database, identically to a manual attempt.
 
 ### 13.6 The judge flow that triggers SMS, and whose numbers
 
+**Authorised by Bryan (2026-11-03):** judge-triggered SMS is approved **only** to the three
+`fg-test-responder` contacts (`p_gma`, `p_tasha`, `p_bryan`), **only** within 50/15/150 segments, the
+$1.00 run backstop and the kill switch, and **only** through the triple recipient rule below. Any
+wider audience is a new authorization, not a configuration change.
+
 1. A judge signs in as a demo persona and opens Mission Control → **request pickup** for Nora. No
    phone number is ever typed into the public app.
 2. `requestPickup` creates the job. Dispatch resolves recipients only from the triple: the
@@ -470,8 +529,10 @@ for fails at the database, identically to a manual attempt.
 4. One permitted SMS goes out. The reply arrives at `/webhooks/coordination/reply`, binds to the
    dispatch by provider message id (or the exact attempt/candidate/version set), and appears in
    **Activity**.
-5. **Phone calls stay out of both phases**: GHL's one-call-per-day limit and judging risk make them a
-   bad demo. If a judge asks, the story is the **rideshare fallback**, not a voice call.
+5. **Outbound phone calls are deferred, in both phases.** GHL's one-call-per-day limit and the
+   judging risk make them a bad demo, and no proof of them is planned. The no-reply / no-car path is
+   the **rideshare fallback**: the app shows the alternative instead of promising a call. This is a
+   documented deferral, not an oversight — do not add a call path to "complete the story".
 
 ### 13.7 Validation on the public URL (Phase 2)
 
@@ -496,8 +557,17 @@ have run against the public URL.
 - Any directive that lands without a person's click.
 - Any need to widen a grant, add a wildcard route, or set `DEMO_CLOCK` to make a check pass.
 
-### 13.9 Phase 2 rollback
+### 13.9 Phase 2 rollback — order matters
 
-Remove the three `/voice` routes and the reply webhook from the dashboard **first** — the app falls
-back to text with the typing alternative, and no new dispatch can start. Then stop 4118/4110 if
-needed. Never roll back by reverting an applied migration, and never by widening a permission.
+1. **Kill switch ON.** Stops new handoffs at the boundary immediately. Nothing new leaves the machine.
+2. **Drain and reconcile what is in flight.** For every `HANDOFF_STARTED` dispatch, read the provider
+   and settle it to `ACCEPTED` / `FAILED_FINAL` / `UNKNOWN`. Do **not** delete or "reset" them; their
+   reservations are retained by design.
+3. **Keep `/webhooks/coordination/reply` UP** until those callbacks settle. Removing it first turns a
+   late reply into a lost binding and an Activity item that never appears — the exact failure a judge
+   would see.
+4. **Then** remove the three `/voice` routes. The app falls back to text with the typing alternative.
+5. Stop 4118/4110 only after 3 and 4.
+
+Never roll back by reverting an applied migration, and never by widening a permission. Removing routes
+before draining is not a rollback — it is a data-loss window.
