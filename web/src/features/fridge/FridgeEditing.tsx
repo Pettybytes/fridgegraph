@@ -14,6 +14,9 @@ const completionTime = (value: string) => Number.isFinite(Date.parse(value)) ? n
 function ReadBoundary<T>({ state, subject, retry }: { state: ReadState<T>; subject: string; retry: () => void }) {
   if (state.kind === 'loading') return <p role="status">Loading {subject}…</p>
   if (state.kind === 'refused') return <p role="alert">{subject} are not shared with this perspective.</p>
+  if (state.kind === 'authentication') return <p role="alert">Your perspective needs a fresh session. Choose a perspective again.</p>
+  if (state.kind === 'network') return <div role="alert">Couldn’t connect just now. <FgButton variant="secondary" onClick={retry}>Retry</FgButton></div>
+  if (state.kind === 'database') return <div role="alert">Couldn’t load these records just now. <FgButton variant="secondary" onClick={retry}>Retry</FgButton></div>
   if (state.kind === 'failed') return <div role="alert">Couldn’t load {subject}. <FgButton variant="secondary" onClick={retry}>Retry</FgButton></div>
   return null
 }
@@ -31,7 +34,7 @@ function GoalForm({ initial, label, pending, onSave, onCancel }: { initial?: Goa
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim()) return
-    const saved = await onSave({ title: title.trim(), horizon: horizon.trim() || null, period: period || null })
+    const saved = await onSave({ title: title.trim(), horizon: horizon === '' ? null : horizon, period: period || null })
     if (saved && !initial) { setTitle(''); setHorizon(''); setPeriod('') }
   }
   return <form className="fe-form" onSubmit={submit} aria-label={label}>
@@ -99,7 +102,7 @@ function NoteItem({ note, editing, viewer }: { note: FridgeNoteRecord; editing: 
   return <article className="fe-note" data-paper={note.paperColor}>
     {mode === 'edit' ? <NoteForm key={note.id} initial={note} pending={pending} onSave={async fields => { const saved = await editing.updateNote(note.id, fields); if (saved) setMode('view'); return saved }} onCancel={() => setMode('view')} /> : <>
       <p className="fe-note-text">{note.text}</p>
-      <p className="fe-note-meta">By {note.author.displayName} · {note.audience === 'SHARED' ? 'Shared with granted readers' : 'Parents only'}</p>
+      <p className="fe-note-meta">By {note.author.displayName??'Author not shared'} · {note.audience === 'SHARED' ? 'Shared with granted readers' : 'Parents only'}</p>
       {editing.canWrite && <div className="fe-actions">
         {own && <FgButton variant="quiet" disabled={pending} onClick={() => setMode('edit')}>Edit note</FgButton>}
         <FgButton variant="secondary" disabled={pending} onClick={() => void editing.setAudience(note.id, note.audience === 'SHARED' ? 'PARENTS_ONLY' : 'SHARED')}>{note.audience === 'SHARED' ? 'Unshare' : 'Share'}</FgButton>

@@ -2,10 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { FridgeEditingAdapter, FridgeNoteRecord, FridgeViewer, GoalFields, GoalRecord, NoteAudience, NoteFields } from './editingContract'
 import { isParent, writeError } from './editingContract'
 
-export type ReadState<T> = { kind: 'loading' | 'failed' | 'refused' } | { kind: 'ready'; items: T[] }
+export type ReadState<T> = { kind: 'loading' | 'failed' | 'refused' | 'authentication' | 'network' | 'database' } | { kind: 'ready'; items: T[] }
 type Section = 'goals' | 'notes'
 type Notice = { section: Section; kind: 'saved' | 'failed'; text: string } | null
-const refused = (error: unknown) => /UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|NOT_SHARED/.test(error instanceof Error ? error.message : String(error))
+const readFailure = (error: unknown): 'refused'|'authentication'|'network'|'database'|'failed' => {
+ const message=error instanceof Error?error.message:String(error)
+ if(message==='UNAUTHENTICATED')return 'authentication'
+ if(message==='NETWORK_ERROR')return 'network'
+ if(message==='DB_UNAVAILABLE')return 'database'
+ return /UNAUTHORIZED|FORBIDDEN|NOT_SHARED/.test(message)?'refused':'failed'
+}
 
 export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string, viewer: FridgeViewer) {
   const scopeKey = `${viewer.sessionKey}:${viewer.personId}:${viewer.role}:${childId}`
@@ -24,8 +30,8 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
     currentScope.current = scopeKey
     alive.current = true
     const owns = () => alive.current && !abort.signal.aborted && currentScope.current === scopeKey
-    void adapter.readGoals(childId, abort.signal).then(items => { if (owns()) setGoals({ kind: 'ready', items }) }, error => { if (owns()) setGoals({ kind: refused(error) ? 'refused' : 'failed' }) })
-    if (viewer.role !== 'GUIDE') void adapter.readNotes(childId, abort.signal).then(items => { if (owns()) setNotes({ kind: 'ready', items }) }, error => { if (owns()) setNotes({ kind: refused(error) ? 'refused' : 'failed' }) })
+    void adapter.readGoals(childId, abort.signal).then(items => { if (owns()) setGoals({ kind: 'ready', items }) }, error => { if (owns()) setGoals({ kind: readFailure(error) }) })
+    if (viewer.role !== 'GUIDE') void adapter.readNotes(childId, abort.signal).then(items => { if (owns()) setNotes({ kind: 'ready', items }) }, error => { if (owns()) setNotes({ kind: readFailure(error) }) })
     return () => { alive.current = false; abort.abort() }
   }, [adapter, childId, viewer.personId, viewer.role, viewer.sessionKey, scopeKey, reloadKey])
 
