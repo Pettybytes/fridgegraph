@@ -9,7 +9,7 @@ change the historical results below.
 | --- | --- | --- |
 | #220 fixture copy | Em dashes removed from generated care plans, reports, achievements and closure labels; regression guard added | Pending Bentley deploy and Claude |
 | #220 all-family history | Fixed October 5 through November 3 Detroit window, all ten authorized children; 216 simulated jobs and 200 closed test attempts in the source | Pending Bentley seed and Claude |
-| Mission Control copy | Remove approval-unavailable sentence after #220 | Pending fix |
+| Mission Control copy and evidence | Removed approval-unavailable sentence; status-only confirmed rows do not claim parent approval; chart colors use shared tokens | Pending Bentley deploy and Claude |
 | Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
 | Calendar | Light cards and dense calendar fixtures in #220 | Pending Bentley deploy and Claude |
 | Orbit | Retained by Codex | Pending fix and Claude |

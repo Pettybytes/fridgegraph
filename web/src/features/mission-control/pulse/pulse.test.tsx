@@ -34,7 +34,17 @@ describe('Village pulse: caller-visible recorded measures', () => {
     expect(dailyCurrentStatuses(jobs, range).find(day => day.day === '2026-10-04')).toMatchObject({ total: 3, counts: { 'Parent approval recorded': 1, 'Waiting for parent approval': 1, 'Coordination ended': 1 } })
     expect(requestsByWeekday(jobs)).toEqual([0, 0, 0, 0, 0, 0, 3])
     expect(approvalBreakdown(jobs)).toEqual({ approved: 1, pending: 1 })
-    expect(recordedJobStatus('confirmed')).toBe('Parent approval recorded')
+    expect(recordedJobStatus('confirmed', true)).toBe('Parent approval recorded')
+  })
+
+  it('does not turn a confirmed status without its confirmation into evidence of parent approval', () => {
+    const range = pulseWindow(now)
+    const jobs = [run('status-only', 'PICKUP', 'confirmed', '2026-11-01T13:00:00Z', 0)]
+    expect(dailyCurrentStatuses(jobs, range).find(day => day.day === '2026-11-01')?.counts).toEqual({ 'Approval evidence missing': 1 })
+    expect(approvalBreakdown(jobs)).toEqual({ approved: 0, pending: 0 })
+    render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: jobs }} orbit={orbit} />)
+    expect(screen.getAllByLabelText('Approval evidence missing').length).toBeGreaterThan(0)
+    expect(screen.queryByLabelText('Parent approval recorded')).not.toBeInTheDocument()
   })
 
   it('renders the six supported source-shaped visuals with an actual read time and no LIVE badge', () => {

@@ -11,6 +11,7 @@ const shortStatus: Record<string, string> = {
   'Waiting for parent approval': 'Awaiting approval',
   'Parent approval recorded': 'Parent approval',
   'Coordination ended': 'Ended',
+  'Approval evidence missing': 'Approval evidence missing',
   'Recorded status not recognized': 'Other recorded',
 }
 
@@ -68,7 +69,7 @@ export function ContactGauge({ contacted, total }: { contacted: number; total: n
   const shape = arc().innerRadius(24).outerRadius(31).cornerRadius(3)
   const track = shape({ innerRadius: 24, outerRadius: 31, startAngle: -Math.PI / 2, endAngle: Math.PI / 2 }) ?? ''
   const fill = shape({ innerRadius: 24, outerRadius: 31, startAngle: -Math.PI / 2, endAngle: -Math.PI / 2 + ratio * Math.PI }) ?? ''
-  return <div className="vp-gauge-wrap"><svg viewBox="0 0 80 54" role="img" aria-label={`${contacted} of ${total} jobs have a contact attempt recorded`}><defs><linearGradient id="vp-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#8b5cf6"/><stop offset="100%" stopColor="#a78bfa"/></linearGradient></defs><g transform="translate(40 39)"><path d={track} className="vp-gauge-track"/><motion.path d={fill} fill="url(#vp-gauge-gradient)" className="vp-gauge-fill" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: .8, ease: [0.23, 1, 0.32, 1] }}/></g></svg><div className="vp-gauge-value"><CountUp value={contacted}/><span> of {total}</span></div></div>
+  return <div className="vp-gauge-wrap"><svg viewBox="0 0 80 54" role="img" aria-label={`${contacted} of ${total} jobs have a contact attempt recorded`}><defs><linearGradient id="vp-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="var(--type-pickup)"/><stop offset="100%" stopColor="var(--type-pickup)"/></linearGradient></defs><g transform="translate(40 39)"><path d={track} className="vp-gauge-track"/><motion.path d={fill} fill="url(#vp-gauge-gradient)" className="vp-gauge-fill" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: .8, ease: [0.23, 1, 0.32, 1] }}/></g></svg><div className="vp-gauge-value"><CountUp value={contacted}/><span> of {total}</span></div></div>
 }
 
 export function StatusDonut({ counts }: { counts: Record<string, number> }) {
@@ -76,7 +77,7 @@ export function StatusDonut({ counts }: { counts: Record<string, number> }) {
 }
 
 export function ApprovalDonut({ approved, pending }: { approved: number; pending: number }) {
-  return <SegmentDonut segments={[{ label: 'Parent approval recorded', index: 0, value: approved }, { label: 'Waiting for parent approval', index: 3, value: pending }].filter(item => item.value)} />
+  return <SegmentDonut segments={[{ label: 'Parent approval recorded', index: 3, value: approved }, { label: 'Waiting for parent approval', index: 2, value: pending }].filter(item => item.value)} />
 }
 
 function SegmentDonut({ segments }: { segments: { label: string; index: number; value: number }[] }) {
@@ -93,5 +94,5 @@ export function WeekdayBars({ values }: { values: number[] }) {
   const x = scaleBand<number>().domain(values.map((_, index) => index)).range([16, 186]).padding(.28)
   const y = scaleLinear().domain([0, maximum]).range([54, 16])
   const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  return <svg className="vp-weekday-chart" viewBox="0 0 200 72" role="img" aria-label={`Requests by Detroit creation weekday: ${labels.map((label, index) => `${label} ${values[index]}`).join(', ')}`}><defs><linearGradient id="vp-weekday-gradient" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fbbf24"/><stop offset="35%" stopColor="#f97316"/><stop offset="100%" stopColor="#ea580c"/></linearGradient></defs>{values.map((value, index) => { const left = x(index) ?? 0, barWidth = x.bandwidth(); return <g key={index}><rect x={left + 2} y="16" width={barWidth - 4} height="38" rx="3" className="vp-weekday-ghost"/><motion.rect x={left} y={y(value)} width={barWidth} height={54 - y(value)} rx="4" fill="url(#vp-weekday-gradient)" className="vp-weekday-lit" initial={reduced ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: .6, delay: index * .06 }} style={{ transformBox: 'fill-box', transformOrigin: 'bottom' }}/><text x={left + barWidth / 2} y="68" textAnchor="middle" className="vp-chart-axis">{labels[index]}</text></g> })}</svg>
+  return <svg className="vp-weekday-chart" viewBox="0 0 200 72" role="img" aria-label={`Requests by Detroit creation weekday: ${labels.map((label, index) => `${label} ${values[index]}`).join(', ')}`}><defs><linearGradient id="vp-weekday-gradient" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="var(--type-pickup)"/><stop offset="35%" stopColor="var(--type-pickup)"/><stop offset="100%" stopColor="var(--type-pickup)"/></linearGradient></defs>{values.map((value, index) => { const left = x(index) ?? 0, barWidth = x.bandwidth(); return <g key={index}><rect x={left + 2} y="16" width={barWidth - 4} height="38" rx="3" className="vp-weekday-ghost"/><motion.rect x={left} y={y(value)} width={barWidth} height={54 - y(value)} rx="4" fill="url(#vp-weekday-gradient)" className="vp-weekday-lit" initial={reduced ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: .6, delay: index * .06 }} style={{ transformBox: 'fill-box', transformOrigin: 'bottom' }}/><text x={left + barWidth / 2} y="68" textAnchor="middle" className="vp-chart-axis">{labels[index]}</text></g> })}</svg>
 }
