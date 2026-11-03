@@ -1,0 +1,20 @@
+{
+  "implementation": "bde2cea35a4ee548c13669435b43f2d92546a833",
+  "webTests": {
+    "passed": 662,
+    "total": 662,
+    "files": 104
+  },
+  "rootTypecheck": "PASS",
+  "webTypecheckBuild": "PASS",
+  "liveReadOnly": {
+    "pass": true,
+    "perspectives": 10,
+    "parentsGuardians": 7
+  },
+  "liveWrites": "PENDING reserved window",
+  "captureSourceIdenticalToImplementation": true,
+  "buildAssets": {
+    "ConnectedFridge-BJm57J5d.js": "c9fb05236f544b352762eb38309ec859b43d97f755167e239555425b54036539"
+  }
+}

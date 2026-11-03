@@ -1,0 +1,177 @@
+{
+  "ready": true,
+  "report": {
+    "requests": [
+      {
+        "operationName": "FridgePhase2Compatibility",
+        "url": "/graphql",
+        "query": "query FridgePhase2Compatibility($childId: ID!) {\n  __typename\n  goals(childId: $childId) {\n    id\n    period\n    completedAt\n    __typename\n  }\n  fridgeNotes(childId: $childId) {\n    id\n    text\n    paperColor\n    audience\n    revision\n    createdAt\n    updatedAt\n    author {\n      id\n      displayName\n      __typename\n    }\n    __typename\n  }\n}",
+        "variables": {
+          "childId": "p_nora"
+        },
+        "started": 1148.5,
+        "sessionAtStart": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        },
+        "authorizationPresent": true,
+        "abortAt": 2408.2,
+        "finished": 2410.2,
+        "failure": {
+          "name": "AbortError",
+          "message": "signal is aborted without reason"
+        }
+      },
+      {
+        "operationName": "FridgePhase2Compatibility",
+        "url": "/graphql",
+        "query": "query FridgePhase2Compatibility($childId: ID!) {\n  __typename\n  goals(childId: $childId) {\n    id\n    period\n    completedAt\n    __typename\n  }\n  fridgeNotes(childId: $childId) {\n    id\n    text\n    paperColor\n    audience\n    revision\n    createdAt\n    updatedAt\n    author {\n      id\n      displayName\n      __typename\n    }\n    __typename\n  }\n}",
+        "variables": {
+          "childId": "p_nora"
+        },
+        "started": 2410.8,
+        "sessionAtStart": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        },
+        "authorizationPresent": true,
+        "abortAt": null,
+        "httpStatus": 200,
+        "response": {
+          "data": {
+            "keys": [
+              "__typename",
+              "goals",
+              "fridgeNotes"
+            ],
+            "__typename": "Query",
+            "goals": {
+              "kind": "array",
+              "length": 2,
+              "rowKeys": [
+                "id",
+                "period",
+                "completedAt",
+                "__typename"
+              ]
+            },
+            "fridgeNotes": {
+              "kind": "array",
+              "length": 1,
+              "rowKeys": [
+                "id",
+                "text",
+                "paperColor",
+                "audience",
+                "revision",
+                "createdAt",
+                "updatedAt",
+                "author",
+                "__typename"
+              ]
+            }
+          }
+        },
+        "finished": 2671.6,
+        "sessionAtFinish": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      }
+    ],
+    "timing": [
+      {
+        "kind": "login-or-renewal",
+        "at": 821.4,
+        "persona": "kendra",
+        "session": null
+      },
+      {
+        "kind": "session-ui-mounted",
+        "at": 850.3,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      },
+      {
+        "kind": "authorized-children-start",
+        "at": 851.2,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      },
+      {
+        "kind": "fridge-boundary-context",
+        "at": 1147.4,
+        "generation": 1,
+        "personId": "p_mom",
+        "childId": "p_nora",
+        "role": "PARENT",
+        "authorizedState": "loading"
+      },
+      {
+        "kind": "authorized-children-response",
+        "at": 2404.1,
+        "status": 200,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      },
+      {
+        "kind": "compatibility-abort",
+        "at": 2408.2,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      },
+      {
+        "kind": "fridge-boundary-context",
+        "at": 2410,
+        "generation": 1,
+        "personId": "p_mom",
+        "childId": "p_nora",
+        "role": "PARENT",
+        "authorizedState": "ready"
+      }
+    ],
+    "replay": null,
+    "lastIdentity": "{\"generation\":1,\"personId\":\"p_mom\",\"childId\":\"p_nora\",\"role\":\"PARENT\",\"authorizedState\":\"ready\"}",
+    "apollo": [
+      {
+        "id": 1,
+        "started": 2409.600000023842,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "authorizedState": "loading"
+        },
+        "ownSignalAborted": false,
+        "result": {
+          "keys": [
+            "data"
+          ],
+          "dataKeys": [
+            "__typename",
+            "goals",
+            "fridgeNotes"
+          ],
+          "typename": "Query",
+          "goalsIsArray": true,
+          "notesIsArray": true
+        },
+        "finished": 2671.800000011921
+      }
+    ]
+  }
+}

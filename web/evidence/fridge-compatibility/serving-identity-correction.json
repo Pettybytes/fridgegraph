@@ -1,0 +1,12 @@
+{
+  "servingDirectory": "/Users/user/fridgegraph-web/6a62898/web",
+  "directoryLabel": "6a62898",
+  "verifiedFullGitSha": null,
+  "reason": "deployment directory contains no .git metadata; label is not independent revision proof",
+  "proxyConfigOverride": null,
+  "previewCommandObserved": true,
+  "assetsSha256": {
+    "index-BM1VTN1f.js": "ec7d914dd23d7ba42011e3f5333422f97c113e98ba2961370bd3b53ab4bb59d7",
+    "ConnectedFridge-Di3pV6km.js": "d30b57ea943ad67df7a5e98064be55e040cfdd95bc482dd6a74d606357a6cf41"
+  }
+}

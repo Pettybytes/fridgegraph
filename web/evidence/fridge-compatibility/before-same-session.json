@@ -1,0 +1,157 @@
+{
+  "feedback": [
+    "Couldn\u2019t load these records. Try again.Retry editing check"
+  ],
+  "report": {
+    "requests": [
+      {
+        "operationName": "FridgePhase2Compatibility",
+        "url": "/graphql",
+        "query": "query FridgePhase2Compatibility($childId: ID!) {\n  __typename\n  goals(childId: $childId) {\n    id\n    period\n    completedAt\n    __typename\n  }\n  fridgeNotes(childId: $childId) {\n    id\n    text\n    paperColor\n    audience\n    revision\n    createdAt\n    updatedAt\n    author {\n      id\n      displayName\n      __typename\n    }\n    __typename\n  }\n}",
+        "variables": {
+          "childId": "p_nora"
+        },
+        "started": 1150.7,
+        "sessionAtStart": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        },
+        "authorizationPresent": true,
+        "abortAt": 1529.5,
+        "finished": 1532,
+        "failure": {
+          "name": "AbortError",
+          "message": "signal is aborted without reason"
+        }
+      }
+    ],
+    "timing": [
+      {
+        "kind": "login-or-renewal",
+        "at": 825.4,
+        "persona": "kendra",
+        "session": null
+      },
+      {
+        "kind": "session-ui-mounted",
+        "at": 856.7,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      },
+      {
+        "kind": "compatibility-abort",
+        "at": 1529.5,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "expiresAt": 1793730845
+        }
+      }
+    ],
+    "replay": {
+      "started": 31433,
+      "httpStatus": 200,
+      "finished": 31782.1,
+      "session": {
+        "generation": 1,
+        "persona": "kendra",
+        "expiresAt": 1793730845
+      },
+      "sameOperation": true,
+      "sameVariables": true,
+      "sameAuthorization": true,
+      "sameProxy": true,
+      "response": {
+        "data": {
+          "keys": [
+            "__typename",
+            "goals",
+            "fridgeNotes"
+          ],
+          "__typename": "Query",
+          "goals": {
+            "kind": "array",
+            "length": 2,
+            "rowKeys": [
+              "id",
+              "period",
+              "completedAt",
+              "__typename"
+            ]
+          },
+          "fridgeNotes": {
+            "kind": "array",
+            "length": 1,
+            "rowKeys": [
+              "id",
+              "text",
+              "paperColor",
+              "audience",
+              "revision",
+              "createdAt",
+              "updatedAt",
+              "author",
+              "__typename"
+            ]
+          }
+        }
+      }
+    },
+    "apollo": [
+      {
+        "id": 1,
+        "started": 1531.1000000238419,
+        "session": {
+          "generation": 1,
+          "persona": "kendra",
+          "authorizedState": "loading"
+        },
+        "ownSignalAborted": false,
+        "rejection": {
+          "name": "AbortError",
+          "constructor": "DOMException",
+          "message": "signal is aborted without reason",
+          "code": 20,
+          "networkError": null,
+          "graphQLErrors": []
+        },
+        "finished": 1533.199999988079,
+        "sessionAtFinish": {
+          "generation": 1,
+          "persona": "kendra",
+          "authorizedState": "loading"
+        }
+      }
+    ]
+  },
+  "uiBase": "6a6289823e42a7916365a7447732d78c855816b8",
+  "uiOrigin": "http://127.0.0.1:5189",
+  "uiAssets": [
+    "index-BM1VTN1f.js",
+    "ConnectedFridge-Di3pV6km.js"
+  ],
+  "proxy": {
+    "browser": "http://127.0.0.1:5189/graphql",
+    "upstream": "http://127.0.0.1:4010/",
+    "source": "serving checkout web/vite.config.ts; preview inherits server proxy"
+  },
+  "classification": {
+    "transport": "cancelled fetch; no HTTP response delivered for original request",
+    "authentication": "no authentication or authorization error observed; same-session replay succeeded",
+    "apollo": "replacement query rejected with DOMException AbortError code20 despite own signal not aborted",
+    "compatibility": "result never reached shape validation",
+    "malformedRequiredField": null
+  },
+  "captureSafety": {
+    "realPickerSession": true,
+    "tokensInArtifacts": false,
+    "trace": false,
+    "har": false,
+    "video": false,
+    "requestHeadersPersisted": false
+  }
+}

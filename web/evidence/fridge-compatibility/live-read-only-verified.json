@@ -1,0 +1,242 @@
+{
+  "uiOrigin": "http://127.0.0.1:5273",
+  "mode": "real picker sessions; live read-only; NO domain mutations",
+  "rows": [
+    {
+      "persona": "kendra",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_nora"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "andre",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_nora"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "dana",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_jax"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "rosa",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_emma"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "felicia",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_taylor"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "simone",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_micah"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "dwayne",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_malik"
+      },
+      "readStatus": "ready",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 2,
+      "expectedParentOrGuardian": true,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "priya",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_nora"
+      },
+      "readStatus": "These records aren’t shared with this perspective.Retry editing check",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [
+            "UNAUTHORIZED"
+          ],
+          "goalsArray": false,
+          "notesArray": false
+        }
+      ],
+      "writeControls": 0,
+      "expectedParentOrGuardian": false,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "loretta",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_nora"
+      },
+      "readStatus": "",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [],
+          "root": "Query",
+          "goalsArray": true,
+          "notesArray": true
+        }
+      ],
+      "writeControls": 0,
+      "expectedParentOrGuardian": false,
+      "pass": true,
+      "pageErrors": []
+    },
+    {
+      "persona": "demo-guide",
+      "login": {
+        "status": 200,
+        "state": "READY",
+        "childId": "p_nora"
+      },
+      "readStatus": "These records aren’t shared with this perspective.Retry editing check",
+      "compatibilityReads": [
+        {
+          "status": 200,
+          "codes": [
+            "UNAUTHORIZED"
+          ],
+          "goalsArray": false,
+          "notesArray": false
+        }
+      ],
+      "writeControls": 0,
+      "expectedParentOrGuardian": false,
+      "pass": true,
+      "pageErrors": []
+    }
+  ],
+  "leakScan": {
+    "checked": 2836,
+    "tokenLeaks": [],
+    "prefixMatches": [
+      "/Users/user/orca/workspaces/fridgegraph/fridge-compatibility/ops/voice-browser.test.mjs"
+    ],
+    "baselinePrefixMatches": [
+      "/Users/user/orca/workspaces/fridgegraph/fridge-compatibility/ops/voice-browser.test.mjs"
+    ],
+    "newPrefixMatches": [],
+    "rawPrefixGate": false,
+    "pass": true
+  },
+  "pass": true
+}
