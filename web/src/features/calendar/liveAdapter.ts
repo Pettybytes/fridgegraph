@@ -49,5 +49,8 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
   publish()
   return {childId,days,events:eventResult,care,conflicts,availability}
  }
- return {mode:'live' as const,scope:session.scope,readWindow,knownEvent:(id:string)=>events.get(id),knownChild:(id:string)=>eventChildren.get(id),getActionScope:()=>actionScope,subscribe:(notify:()=>void)=>{listeners.add(notify);return()=>{listeners.delete(notify)}},clear(){events.clear();eventChildren.clear();actionScope.calendarChildIds.clear();publish()}}
+ // A parent may drag to move/resize; caregivers and read-only personas may not.
+ // There is no move/resize mutation here (reads only), so a parent's drag is still
+ // reverted and shown as "not saved" by the view - never a silent fake save.
+ return {mode:'live' as const,scope:session.scope,parent:session.persona.parent===true,readWindow,knownEvent:(id:string)=>events.get(id),knownChild:(id:string)=>eventChildren.get(id),getActionScope:()=>actionScope,subscribe:(notify:()=>void)=>{listeners.add(notify);return()=>{listeners.delete(notify)}},clear(){events.clear();eventChildren.clear();actionScope.calendarChildIds.clear();publish()}}
 }
