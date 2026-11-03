@@ -1,7 +1,7 @@
 import { ResetDemoControl } from './ResetDemoControl'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Sprout } from 'lucide-react'
+import { FridgeMark } from '@/components/fg/FridgeMark'
 import { personas, personaGroups, type Persona } from './auth'
 import { useSession } from './Session'
 import { Avatar, Icon, Surface, StatusChip, FgButton, Field } from '@/components/fg/primitives'
@@ -10,7 +10,7 @@ import './personas.css'
 import './picker.css'
 
 export function SandboxBanner() {
-  return <p className="sandbox-banner">Demo village · calls and texts go to test responders, never real people.</p>
+  return <p className="sandbox-banner">Demo village · outreach is limited to approved test responders.</p>
 }
 
 const GRANT_WORD: Record<string, string> = {
@@ -65,7 +65,7 @@ export function PersonaPicker() {
   return (
     <main className="fg-picker">
       <header className="fg-picker-head">
-        <a className="fg-picker-brand" href="#/"><Sprout size={26} aria-hidden="true" />FridgeGraph</a>
+        <a className="fg-picker-brand" href="#/"><FridgeMark size={26} aria-hidden="true" />FridgeGraph</a>
         <h1 className="fg-picker-title">The village it takes to raise a child, kept in one shared place.</h1>
         <p className="fg-picker-sub">Every person sees only what that family has shared with them. Choose a perspective to explore — no sign-in needed.</p>
         <div className="fg-picker-rosina">

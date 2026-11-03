@@ -266,3 +266,20 @@ green, draws the check and releases visible one-shot confetti. The thank-you sta
 large. Historical closed reads remain static; the existing closure ledger and recipient
 sanitizer are unchanged. Parent ring chips enter once for newly observed persisted responses.
 The new direction permits these specific effects; no extra background motion or siren audio.
+
+---
+
+## 11. Brand mark
+
+The brand mark beside the "FridgeGraph" wordmark (sidebar/header, persona picker, browser-tab
+favicon) is an original French-door fridge silhouette — rounded body, a vertical center seam, two
+handles, and (at 24–40px only) one small heart magnet for personality. It is NOT lucide's stock
+`Refrigerator` icon, which stays as-is for the unrelated "The Fridge" nav link — the two must stay
+visually distinct from each other.
+
+- **Component**: `web/src/components/fg/FridgeMark.tsx` — `FridgeMark` (24–40px, with heart) and
+  `FridgeMarkSimple` (16px, silhouette/seam/handles only — the favicon). Two drawings, not one
+  drawing scaled: see the component's own doc comment for why.
+- **Color**: the existing indigo brand primary only (`currentColor`, inherited from `--fg-primary`
+  via the same `.brand svg` / `.fg-picker-brand svg` rule the old icon used) — no new color.
+- **Full rationale, exports and regeneration**: `docs/brand/README.md`.

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import { VoicePanel } from './RosinaVoiceButton'
 
@@ -20,4 +20,23 @@ it('renders a labelled, keyboard-operable mic button and the provider credit, wi
   expect(screen.getByRole('button', { name: /Voice replies/ })).toBeTruthy()
   // No transcript or reply is shown before any real voice state.
   expect(screen.queryByText(/^You /)).toBeNull()
+})
+
+it('a single TAP starts capture; a touch gesture never starts a (clippable) recording on its own', async () => {
+  const getUserMedia = vi.fn(() => Promise.resolve({ getTracks: () => [] } as unknown as MediaStream))
+  const tapDeps = { getUserMedia, createRecorder: () => ({ start: vi.fn(), stop: vi.fn(), state: 'recording' }), createMeter: () => ({ level: () => 0, stop: vi.fn() }) }
+  render(<VoicePanel getAccessToken={() => 'TOKEN'} deps={tapDeps} />)
+  const mic = screen.getByRole('button', { name: 'Start talking to Rosina' })
+  // A touch-start/-end gesture must NOT begin capture (the old behavior could clip a short tap).
+  fireEvent.touchStart(mic); fireEvent.touchEnd(mic)
+  expect(getUserMedia).not.toHaveBeenCalled()
+  // A tap (click) starts listening; the label flips to the stop-and-send affordance.
+  fireEvent.click(mic)
+  await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1))
+  await screen.findByRole('button', { name: 'Stop and send' })
+})
+
+it('offers a persistent conversation control', () => {
+  render(<VoicePanel getAccessToken={() => 'TOKEN'} deps={deps} />)
+  expect(screen.getByRole('button', { name: /Start conversation/ })).toBeTruthy()
 })

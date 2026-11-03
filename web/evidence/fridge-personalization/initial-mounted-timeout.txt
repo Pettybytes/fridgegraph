@@ -1,0 +1,367 @@
+npm notice run web@0.0.0 test
+npm notice run vitest run src/features/fridge src/app/Shell.test.tsx --maxWorkers=1
+
+ RUN  v5.0.5 /Users/user/Desktop/bentley/fridgegraph-fridge-personalization/web
+
+ ❯ src/features/fridge/postedNotes.test.tsx (1 test | 1 failed) 3139ms
+   × mounts confirmed posts on the door, preserves failed edits/removes, updates edits/removes, and clears on refusal/persona switch 3133ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/fridge/postedNotes.test.tsx > mounts confirmed posts on the door, preserves failed edits/removes, updates edits/removes, and clears on refusal/persona switch
+TestingLibraryElementError: Unable to find role="button" and name "Family notes (0)"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"sandbox-banner"[39m
+    [36m>[39m
+      [0mDemo village · outreach is limited to approved test responders.[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mdata-mode[39m=[32m"mock"[39m
+      [33mdata-state[39m=[32m"unavailable"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"session-chip"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0mSigned in as[0m
+          [0m [0m
+          [0mKendra[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mSwitch [0m
+          [0mperson[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mReset demo[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [0m [0m
+      [36m<div[39m
+        [33mclass[39m=[32m"app-shell"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"skip-link"[39m
+          [33mhref[39m=[32m"#main"[39m
+        [36m>[39m
+          [0mSkip to content[0m
+        [36m</a>[39m
+        [36m<aside[39m
+          [33mclass[39m=[32m"sidebar"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"brand"[39m
+            [33mhref[39m=[32m"#/today"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-sprout"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"26"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"26"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 21h14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mFridgeGraph[0m
+          [36m</a>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"village-caption"[39m
+          [36m>[39m
+            [0mA little more village.[0m
+          [36m</p>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"Main navigation"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"nav-link"[39m
+              [33mhref[39m=[32m"#/map"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-map"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"19"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"19"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M15 5.764v15"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M9 3.236v15"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mVillage map[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"nav-link"[39m
+              [33mhref[39m=[32m"#/today"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"19"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"19"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mToday[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33mclass[39m=[32m"nav-link active"[39m
+              [33mhref[39m=[32m"#/fridge"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-refrigerator"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"19"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"19"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 6a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 10h14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M15 7v6"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mThe Fridge[0m
+            [36m</a>[39m
+  ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"sandbox-banner"[39m
+    [36m>[39m
+      [0mDemo village · outreach is limited to approved test responders.[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mdata-mode[39m=[32m"mock"[39m
+      [33mdata-state[39m=[32m"unavailable"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"session-chip"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0mSigned in as[0m
+          [0m [0m
+          [0mKendra[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mSwitch [0m
+          [0mperson[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mReset demo[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [0m [0m
+      [36m<div[39m
+        [33mclass[39m=[32m"app-shell"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"skip-link"[39m
+          [33mhref[39m=[32m"#main"[39m
+        [36m>[39m
+          [0mSkip to content[0m
+        [36m</a>[39m
+        [36m<aside[39m
+          [33mclass[39m=[32m"sidebar"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"brand"[39m
+            [33mhref[39m=[32m"#/today"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-sprout"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"26"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"26"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 21h14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mFridgeGraph[0m
+          [36m</a>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"village-caption"[39m
+          [36m>[39m
+            [0mA little more village.[0m
+          [36m</p>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"Main navigation"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"nav-link"[39m
+              [33mhref[39m=[32m"#/map"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-map"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"19"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"19"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M15 5.764v15"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M9 3.236v15"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mVillage map[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"nav-link"[39m
+              [33mhref[39m=[32m"#/today"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"19"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"19"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mToday[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33mclass[39m=[32m"nav-link active"[39m
+              [33mhref[39m=[32m"#/fridge"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-refrigerator"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"19"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"19"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 6a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 10h14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M15 7v6"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mThe Fridge[0m
+            [36m</a>[39m
+  ...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/fridge/postedNotes.test.tsx:21:31
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 11 passed (12)
+      Tests  1 failed | 76 passed (77)
+   Start at  21:56:21
+   Duration  56.59s (tests 38%, environment 34%, import 17%, transform 6%, setup 6%)
+
+Environment  jsdom was created 12 times · 17.83s total, 34% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

@@ -5,16 +5,18 @@ import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
 import type {FridgeNoteRecord} from './editingContract'
 import {useFridgeViewport} from './useFridgeViewport'
+import {FamilyAlbum} from './FamilyAlbum'
+import type {AlbumAsset} from './packs'
 import './fridge.css'
 
 type Door='notes'|'goals'|null
-type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void;boardEditor?:ReactNode;noteCreateControl?:ReactNode}
+type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void;boardEditor?:ReactNode;noteCreateControl?:ReactNode;artPackId?:string|null;albumAssets?:AlbumAsset[]}
 const hashDoor=():Door=>location.hash==='#/fridge/notes'?'notes':location.hash==='#/fridge/goals'?'goals':null
 const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*100}%`,width:`${p.width*100}%`,'--turn':`${p.rotation}deg`} as CSSProperties)
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Sample family collage',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl}:Props){
+function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[]}:Props){
  const viewport=useFridgeViewport()
  const [arrange,setArrange]=useState(false)
  const [door,setDoor]=useState<Door>(hashDoor)
@@ -58,7 +60,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
  useEffect(()=>{if(viewport.view.scale===1&&previousScale.current>1)navigate(null);previousScale.current=viewport.view.scale},[viewport.view.scale,navigate])
  useEffect(()=>{if(viewport.moving&&door){setDoor(null);appliedHash.current='#/fridge';history.replaceState(null,'','#/fridge')}},[viewport.moving,door])
  const live=[care].flatMap(({state})=>state.status==='ready'?state.value as Slot[]:[])
- const displayedLive=artLabel==='Sample Ellison family art pack'?live.map(slot=>({...slot,position:{...slot.position,y:.39}})):live
+ const displayedLive=artPackId==='ellison-fridge-v1'?live.map(slot=>({...slot,position:{...slot.position,y:.39}})):live
  // Stored papers take priority over decorative samples; the invitation remains
  // reachable in the separate sample tray. Never merge stored text into that manifest.
  const doorSamples=postedNotes.length?sampleSlots.filter(slot=>slot.variant!=='save-date').map(slot=>slot.id==='sample-family-dinner'?{...slot,position:{x:.211,y:.478,width:.115,rotation:3}}:slot):sampleSlots
@@ -81,6 +83,8 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
   <header className="fridge-toolbar"><div><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div><div>{viewport.view.scale>1&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}<button onClick={()=>{setLayout({});saveLayout(personId,{})}}>Tidy up</button></div></header>
   <div className="fridge-caption"><span>{artLabel}. {readOnly?'Read-only perspective.':''}</span><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Tap anywhere to zoom into that point; tap again to open an item. Drag to pan, pinch to zoom, or focus the viewer to use the wheel and + / − keys. Arrow keys pan. Turn on Arrange items to drag paper or move it with Alt + arrow keys.</p><p>Moving paper changes this browser’s layout only. Tidy up resets it. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div>
   <nav aria-label="Fridge doors"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
+  <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
+  {!sampleSlots.length&&<p className="fridge-empty-art">Make room for your family’s moments. There’s no artwork in this family album yet.</p>}
   <div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>
   {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
   <nav className="fridge-view-controls" aria-label="Fridge view controls">
@@ -117,9 +121,9 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
        onPointerUp={()=>{if(drag.current?.moved)storePosition(slot.id,drag.current.next)}} onPointerCancel={()=>{drag.current=null}}
        onClick={e=>{if(drag.current?.moved){drag.current=null;return}drag.current=null;activate(e.detail,()=>{if(slot.destination)location.hash=slot.destination;else setSelected(slot)})}}>
        <Magnet kind={slot.magnet??'apple'}/>
-       {(slot.asset||slot.image)&&<img draggable={false} src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} srcSet={slot.image?.srcSet??(slot.asset?`/fridge/samples/${slot.asset}-360.webp 360w, /fridge/samples/${slot.asset}-720.webp 720w, /fridge/samples/${slot.asset}-1440.webp 1440w`:undefined)} sizes="500px" alt={slot.image?.alt??''}/>}
-       {(slot.kind==='note'||slot.kind==='form')&&<span className="fridge-note-source">{slot.heading??(slot.source==='sample'?(slot.kind==='form'?'Sample':'Sample note'):'Shared note')}</span>}
-       {slot.variant==='save-date'?<span className="fridge-save-date-copy"><span className="fridge-sample-badge">Sample</span><span className="fridge-reveal-accent" aria-hidden="true">?</span>{slot.lines?.map((line,index)=><span key={line} className={index===0?'save-date-title':''}>{line}</span>)}</span>:slot.kind!=='photo'&&<span className="fridge-paper-text">{slot.text}</span>}
+       {(slot.asset||slot.image)&&<img draggable={false} src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} srcSet={slot.image?.srcSet??(slot.asset?`/fridge/samples/${slot.asset}-360.webp 360w, /fridge/samples/${slot.asset}-720.webp 720w, /fridge/samples/${slot.asset}-1440.webp 1440w`:undefined)} sizes={viewport.view.scale>1?'(max-width:600px) 45vw, 500px':'(max-width:600px) 18vw, 220px'} alt={slot.image?.alt??''}/>}
+       {(slot.kind==='note'||slot.kind==='form')&&<span className="fridge-note-source">{slot.heading??(slot.source==='sample'?'':'Shared note')}</span>}
+       {slot.variant==='save-date'?<span className="fridge-save-date-copy"><span className="fridge-reveal-accent" aria-hidden="true">?</span>{slot.lines?.map((line,index)=><span key={line} className={index===0?'save-date-title':''}>{line}</span>)}</span>:slot.kind!=='photo'&&<span className="fridge-paper-text">{slot.text}</span>}
       </button>
      })}
      {noteCreateControl&&<div className="fridge-create-note" data-viewer-control>{noteCreateControl}</div>}
@@ -127,7 +131,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
       {postedNotes.filter(note=>!layout[note.id]).map(note=>postedPaper(note))}
      </section>}
      {postedNotes.filter(note=>layout[note.id]).map(note=>postedPaper(note,layout[note.id]))}
-     {([['care',care]] as const).map(([source,{state,refresh}])=>state.status==='ready'?null:<article key={source} className={`fridge-feedback paper-0`} style={positionStyle(artLabel==='Sample Ellison family art pack'?{...notePositions.care,y:.39}:notePositions.care)} aria-label={'Care notes'}>
+     {([['care',care]] as const).map(([source,{state,refresh}])=>state.status==='ready'?null:<article key={source} className={`fridge-feedback paper-0`} style={positionStyle(artPackId==='ellison-fridge-v1'?{...notePositions.care,y:.39}:notePositions.care)} aria-label={'Care notes'}>
       <Magnet kind={'apple'}/>
       <p role={state.status==='failed'?'alert':'status'}><span className="fridge-note-source">Care notes · </span><span>{state.status==='loading'?'Loading…':state.status==='empty'?'Nothing posted yet.':state.status==='refused'?'Not shared with this perspective.':"Couldn't load"}</span></p>
       {state.status==='failed'&&<button aria-label={'Retry care notes'} onClick={refresh}>Retry</button>}
@@ -140,7 +144,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     </section>
    </div>
   </div>
-  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Sample cards">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open sample ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><small>Sample</small><strong>{slot.text}</strong></button>)}</div>}
+  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Decorative papers">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open decorative ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><strong>{slot.text}</strong></button>)}</div>}
   <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{selected?.caption}</Dialog.Description><Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }

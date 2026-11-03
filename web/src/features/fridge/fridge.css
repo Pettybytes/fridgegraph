@@ -98,3 +98,12 @@
 .fridge-viewport[data-arrange=true] .fridge-posted-paper{touch-action:none}
 .fridge-feature .fridge-view-controls{position:sticky;top:8px;z-index:12;width:fit-content;max-width:100%;box-sizing:border-box;margin:16px auto;padding:8px;border-radius:14px;background:var(--fg-surface,#fff);box-shadow:0 2px 12px #0001}
 body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
+.fridge-album-trigger{display:block;margin:16px auto;min-height:44px;font:inherit;padding:10px 16px;border:1px solid var(--fg-border);background:var(--fg-surface);color:var(--fg-ink);border-radius:10px}
+.fridge-empty-art{text-align:center;margin:20px auto;max-width:45ch;padding-inline:16px;color:var(--fg-muted)}
+.fridge-album-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.fridge-album-grid button{padding:8px;text-align:left}
+.fridge-album-grid button[aria-pressed=true]{outline:3px solid var(--fg-primary)}
+.fridge-album-grid img{width:100%;aspect-ratio:1;object-fit:contain}
+.fridge-album-grid span{display:block;padding:8px 0}
+@media(max-width:600px){.fridge-album-grid{grid-template-columns:1fr}}
+.fridge-read{font:400 1.3cqw/1.5 var(--font-sans,Arial,sans-serif)}

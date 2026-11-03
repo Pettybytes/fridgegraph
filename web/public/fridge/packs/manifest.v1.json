@@ -1,0 +1,359 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "ellison-fridge-v1",
+      "familyKey": "v_nora",
+      "childKeys": [
+        "p_nora",
+        "p_max",
+        "p_leo"
+      ],
+      "assets": [
+        {
+          "id": "pack_dog",
+          "kind": "photo",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_dog-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_dog-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_dog-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "The family dog",
+          "placement": {
+            "x": 0.213,
+            "y": 0.113,
+            "width": 0.139,
+            "rotation": -4,
+            "magnet": "heart"
+          }
+        },
+        {
+          "id": "pack_walter_navy",
+          "kind": "keepsake",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_walter_navy-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_walter_navy-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_walter_navy-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Navy keepsake",
+          "placement": {
+            "x": 0.356,
+            "y": 0.131,
+            "width": 0.099,
+            "rotation": 5,
+            "magnet": "star"
+          }
+        },
+        {
+          "id": "pack_loretta_card",
+          "kind": "form",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_loretta_card-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_loretta_card-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_loretta_card-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Retirement",
+          "placement": {
+            "x": 0.21,
+            "y": 0.315,
+            "width": 0.078,
+            "rotation": -3,
+            "magnet": "heart"
+          },
+          "domCopy": {
+            "title": "Retirement",
+            "body": "Retirement card artwork. No booking or RSVP."
+          }
+        },
+        {
+          "id": "pack_crayon_family",
+          "kind": "drawing",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_crayon_family-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_crayon_family-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_crayon_family-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Crayon family drawing",
+          "placement": {
+            "x": 0.213,
+            "y": 0.222,
+            "width": 0.112,
+            "rotation": 3,
+            "magnet": "grade"
+          }
+        },
+        {
+          "id": "pack_candid_kitchen",
+          "kind": "photo",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_candid_kitchen-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_candid_kitchen-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_candid_kitchen-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "A morning in the kitchen",
+          "placement": {
+            "x": 0.342,
+            "y": 0.223,
+            "width": 0.113,
+            "rotation": -3,
+            "magnet": "flower"
+          }
+        },
+        {
+          "id": "pack_candid_porch",
+          "kind": "photo",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_candid_porch-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_candid_porch-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_candid_porch-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "On the porch"
+        },
+        {
+          "id": "pack_candid_soccer",
+          "kind": "photo",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_candid_soccer-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_candid_soccer-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_candid_soccer-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "After soccer"
+        },
+        {
+          "id": "pack_permission_slip",
+          "kind": "form",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_permission_slip-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_permission_slip-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_permission_slip-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Permission slip",
+          "placement": {
+            "x": 0.294,
+            "y": 0.32,
+            "width": 0.078,
+            "rotation": 2,
+            "magnet": "bus"
+          },
+          "domCopy": {
+            "title": "Permission slip",
+            "body": "Unsigned permission slip. Not submitted; no consent record created."
+          }
+        },
+        {
+          "id": "pack_sitter_schedule",
+          "kind": "form",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_sitter_schedule-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_sitter_schedule-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_sitter_schedule-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Sitter schedule",
+          "placement": {
+            "x": 0.379,
+            "y": 0.316,
+            "width": 0.078,
+            "rotation": -2,
+            "magnet": "star"
+          },
+          "domCopy": {
+            "title": "Sitter schedule",
+            "body": "Sitter schedule artwork. No booking or availability is implied."
+          }
+        },
+        {
+          "id": "pack_holiday",
+          "kind": "photo",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_holiday-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_holiday-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_holiday-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Holiday keepsakes"
+        },
+        {
+          "id": "pack_birthday",
+          "kind": "photo",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_birthday-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_birthday-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_birthday-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Birthday candles"
+        },
+        {
+          "id": "pack_keepsake",
+          "kind": "keepsake",
+          "sources": [
+            {
+              "src": "/fridge/packs/ellison/pack_keepsake-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_keepsake-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/packs/ellison/pack_keepsake-1024.webp",
+              "width": 1024
+            }
+          ],
+          "alt": "Family keepsakes"
+        },
+        {
+          "id": "sample-family-dinner",
+          "kind": "note",
+          "sources": [],
+          "alt": "Dinner reminder artwork",
+          "domCopy": {
+            "title": "Family dinner \u00b7 Sunday 6 PM",
+            "body": "Decorative dinner reminder, not a recorded family event."
+          },
+          "placement": {
+            "x": 0.342,
+            "y": 0.393,
+            "width": 0.113,
+            "rotation": 3,
+            "magnet": "flower"
+          }
+        },
+        {
+          "id": "sample-save-the-date",
+          "kind": "event",
+          "sources": [
+            {
+              "src": "/fridge/samples/invitation-360.webp",
+              "width": 360
+            },
+            {
+              "src": "/fridge/samples/invitation-720.webp",
+              "width": 720
+            },
+            {
+              "src": "/fridge/samples/invitation-1440.webp",
+              "width": 1440
+            }
+          ],
+          "alt": "Baby shower invitation artwork",
+          "domCopy": {
+            "title": "Save the date! \u00b7 Baby shower & reveal party \u00b7 Saturday, December 12, 2026 \u00b7 2 PM",
+            "body": "Decorative invitation. No invitation sent, booking or calendar record created.",
+            "lines": [
+              "Save the date!",
+              "Baby shower & reveal party",
+              "Saturday, December 12, 2026",
+              "2 PM"
+            ]
+          },
+          "placement": {
+            "x": 0.211,
+            "y": 0.468,
+            "width": 0.24,
+            "rotation": -2,
+            "magnet": "heart"
+          }
+        }
+      ],
+      "assetRoot": "/fridge/packs/ellison/"
+    }
+  ]
+}

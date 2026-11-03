@@ -63,4 +63,41 @@ describe('invitation contract and honest states', () => {
     expect(screen.queryByText(/Private question for Maya/)).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Invitation card ready' })).not.toBeInTheDocument()
   })
+  it('preserves the last successful design while regenerating, and on a failed regeneration', async () => {
+    const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
+    let resolveSecond!: (v: Awaited<ReturnType<InviteCreator>>) => void
+    const createInvite: InviteCreator = vi.fn()
+      .mockResolvedValueOnce({ status: 'READY', clarification: null, event, art, provenance })
+      .mockImplementationOnce(() => new Promise(done => { resolveSecond = done }))
+    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
+    expect(await screen.findByRole('region', { name: 'Invitation card ready' })).toBeVisible()
+
+    // Regenerate — the existing card must stay visible while the new request is in flight.
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare a new invitation' }))
+    expect(screen.getByRole('region', { name: 'Invitation card ready' })).toBeVisible()
+    expect(screen.getByText(/Your current card stays ready below/)).toBeVisible()
+
+    // The regeneration fails — the OLD card must still be there, not blanked.
+    await act(async () => resolveSecond({ status: 'NEEDS_CLARIFICATION', clarification: null, event, art: null, provenance }))
+    expect(screen.getByRole('region', { name: 'Invitation card ready' })).toBeVisible()
+    expect(screen.getByText(/did not return its clarification question/)).toBeVisible()
+  })
+  it('offers an explicit Retry after a failure, which actually re-runs the request — never automatically', async () => {
+    const createInvite: InviteCreator = vi.fn().mockRejectedValue({ status: 502, code: 'IMAGE_FAILED' })
+    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
+    await screen.findByRole('button', { name: 'Retry' })
+    expect(createInvite).toHaveBeenCalledTimes(1) // no automatic retry loop
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+    expect(createInvite).toHaveBeenCalledTimes(2) // the explicit click DID retry
+  })
+  it('never offers Retry for a 403 refusal — that boundary will not change on its own', async () => {
+    const createInvite: InviteCreator = async () => { throw { status: 403, code: 'UNAUTHORIZED' } }
+    render(<InviteComposer childId="child-a" childFirstName="Maya" mode="live" createInvite={createInvite} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
+    await screen.findByText(/Only a parent or guardian of this child/)
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
 })
