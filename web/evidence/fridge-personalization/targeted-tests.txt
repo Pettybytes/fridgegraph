@@ -1,0 +1,15 @@
+npm notice run web@0.0.0 test
+npm notice run vitest run src/features/fridge/permissionBoundary.test.tsx src/features/fridge/personalization.test.tsx src/features/fridge/postedNotes.test.tsx --maxWorkers=1
+
+ RUN  v5.0.5 /Users/user/Desktop/bentley/fridgegraph-fridge-personalization/web
+
+
+ Test Files  3 passed (3)
+      Tests  5 passed (5)
+   Start at  21:58:22
+   Duration  12.53s (import 30%, environment 30%, tests 20%, transform 15%, setup 5%)
+
+Environment  jsdom was created 3 times · 3.64s total, 30% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
