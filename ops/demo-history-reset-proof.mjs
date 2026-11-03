@@ -157,8 +157,17 @@ async function main() {
   if (voiceCount !== 3) fail(`check 1b FAILED: expected 3 voice notes, got ${voiceCount}`);
   const declinedAt = (await verify1.query("select decided_at from coordination_jobs where id = 'job_hist_15'")).rows[0]?.decided_at;
   if (!declinedAt) fail('check 1c FAILED: job_hist_15 should have a real decided_at after the first reset');
+  const familyCountsSql = "select child_id, count(*)::int as n from coordination_jobs where id like 'fx_job_history_v1_%' group by child_id order by child_id";
+  const familyCounts = (await verify1.query(familyCountsSql)).rows;
+  const expectedFamilyCounts = { p_avery: 19, p_emma: 22, p_jax: 21, p_leo: 18, p_malik: 24, p_max: 19, p_micah: 23, p_nora: 20, p_skye: 18, p_taylor: 20 };
+  if (JSON.stringify(Object.fromEntries(familyCounts.map(r => [r.child_id, r.n]))) !== JSON.stringify(expectedFamilyCounts)) {
+    fail(`all-family history FAILED: wrong stored counts ${JSON.stringify(familyCounts)}`);
+  }
+  const familySnapshotSql = "select id, child_id, status, created_at, as_of, fixture from coordination_jobs where id like 'fx_job_history_v1_%' order by id";
+  const familyBefore = (await verify1.query(familySnapshotSql)).rows;
   await verify1.end();
   log('check 1 PASS: the first resetDemo() call created all 20 history jobs, 3 voice notes, and a real decided_at for the declined story');
+  log('all-family history PASS: 204 stored requests across all 10 authorized children');
 
   // --- Corrupt + pollute, exactly as a live demo session could ---
   const corrupt = new pg.Client({ host: '127.0.0.1', port, user: 'postgres', password: 'postgres', database: 'postgres', ssl: { rejectUnauthorized: false } });
@@ -206,6 +215,10 @@ async function main() {
     fail(`check 4 FAILED: the unrelated non-demo job was altered: ${JSON.stringify(unrelated)}`);
   }
   log('check 4 PASS: a genuinely unrelated, non-demo coordination_jobs row (sandbox=false) survives both resetDemo() calls completely untouched');
+
+  const familyAfter = (await verify2.query(familySnapshotSql)).rows;
+  if (JSON.stringify(familyBefore) !== JSON.stringify(familyAfter)) fail('all-family history FAILED: duplicate or changed rows after second reset');
+  log('all-family reset PASS: all 204 rows are identical after the second real reset');
 
   await verify2.end();
   log('ALL CHECKS PASS');

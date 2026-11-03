@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:judge": "playwright test -c playwright.judge.config.ts"
+    "test:e2e:judge": "playwright test -c playwright.judge.config.ts",
+  "test:e2e:pristine": "playwright test -c playwright.pristine.config.ts"
   },
   "dependencies": {
     "@apollo/client": "^4.3.5",

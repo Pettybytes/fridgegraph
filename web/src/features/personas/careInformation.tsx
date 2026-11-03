@@ -2,8 +2,16 @@ import { gql, type ApolloClient } from '@apollo/client'
 import { useEffect, useState } from 'react'
 import { useChildAccess } from './childContext'
 import { useSession } from './Session'
-// Derived from the recorded demo care plan. No author metadata exists in today's record.
+// Derived from the recorded demo care plans. No author metadata exists in today's records.
 export const noraCareInformation = { text: 'Peanut allergy. Epi-pen in right backpack pocket.', source: "Nora's care plan" }
+/** Sample care plans per child — mirrors the seeded care_plans rows so the mock view and the
+ *  mock Rosina adapter answer for every demo family, not only Nora's (QA pristine item 8). */
+export const sampleCareInformation: Record<string, { text: string; source: string; peanut: boolean }> = {
+  p_nora: { ...noraCareInformation, peanut: true },
+  p_jax: { text: 'Mild asthma. Inhaler in the front pocket of the school bag.', source: "Jax's care plan", peanut: false },
+  p_emma: { text: 'No known allergies. Glasses for reading — spare pair in the front pouch.', source: "Emma's care plan", peanut: false },
+  p_malik: { text: 'Peanut allergy. Epi-pen in the left backpack pocket; the school office has a second.', source: "Malik's care plan", peanut: true },
+}
 export function sourceCitation(title: string, author?: string | null): string {
   return `Source: ${title}${author ? `, added by ${author}` : ''}`
 }
@@ -14,8 +22,9 @@ export function CareInformation() {
   if (authMode === 'live') return <LiveCareInformation key={`${session.generation}:${access?.selectedChildId ?? session.scope.childId}`} childId={access?.selectedChildId ?? session.scope.childId} childName={access?.selectedChildName ?? session.scope.childName} client={access?.client ?? null} runRead={access?.runRead} />
   const childName = session.scope.childName.split(' ')[0]
   if (!session.persona.parent && !session.persona.guardian && !session.persona.grants.includes('careplan.read')) return <section className="care-information" role="alert"><h2>Care information hasn’t been shared with you</h2><p>{childName}'s parents choose who can see their care information.</p></section>
-  if (session.scope.childId !== 'p_nora') return <section className="care-information" data-state="unavailable"><h2>No care information is available here yet</h2><p>Care information hasn’t been added to this demo view yet.</p></section>
-  return <section className="care-information" aria-label="Care information" data-state="derived" data-source="mock"><h2>Care information for {childName}</h2><p>{noraCareInformation.text}</p><p>{sourceCitation(noraCareInformation.source)}</p></section>
+  const sample = sampleCareInformation[session.scope.childId]
+  if (!sample) return <section className="care-information" data-state="empty"><h2>Care information for {childName}</h2><p>{childName}'s parents haven't added a care plan to this sample view. Open the live demo for the recorded details.</p></section>
+  return <section className="care-information" aria-label="Care information" data-state="derived" data-source="mock"><h2>Care information for {childName}</h2><p>{sample.text}</p><p>{sourceCitation(sample.source)}</p></section>
 }
 
 const CARE_PLAN = gql`query WebCareInformation($childId: ID!) { carePlan(childId: $childId) { text } }`
