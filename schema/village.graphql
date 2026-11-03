@@ -1,10 +1,52 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+# Generated from src/subgraphs/village.ts by ops/gen-subgraph-sdl.mjs — do not edit by hand.
+schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"]) {
+  query: Query
+  mutation: Mutation
+}
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+directive @federation__external on OBJECT | FIELD_DEFINITION
+
+directive @federation__extends on OBJECT | INTERFACE
+
+directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
+
+directive @federation__override(from: String!, label: String) on FIELD_DEFINITION
+
+directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
+
+directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
+directive @federation__interfaceObject on OBJECT
+
+directive @federation__authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+directive @federation__requiresScopes(scopes: [[federation__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+directive @federation__policy(policies: [[federation__Policy!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+directive @federation__context(name: String!) repeatable on INTERFACE | OBJECT | UNION
+
+directive @federation__fromContext(field: federation__ContextFieldValue) on ARGUMENT_DEFINITION
+
+directive @federation__cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
+
+directive @federation__listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
 
 type Query {
+  villageWorld(childId: ID!, asOf: String): VillageWorld!
   person(id: ID!): Person
   child(id: ID!): Child
   village(id: ID!): Village
-  villageWorld(childId: ID!, asOf: String): VillageWorld!
   households(childId: ID!): [Household!]!
   householdMembers(childId: ID!): [HouseholdMember!]!
   relationships(childId: ID!): [Relationship!]!
@@ -15,32 +57,19 @@ type Query {
   goals(childId: ID!): [Goal!]!
   carePlan(childId: ID!): CarePlan
   fridgeNotes(childId: ID!): [FridgeNote!]!
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
 }
 
 type Mutation {
-  """
-  DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later.
-  """
   approveRelationship(relationshipId: ID!): Relationship
-
-  """
-  Set the caller's own shared status, visible to anyone who shares a child's village with
-  them. Opt-in text the person chooses; never inferred from Busy/Free. Replaces any existing
-  status for the caller. The demo guide is refused.
-  """
   setSharedStatus(emoji: String, text: String!, etaText: String, ttlSeconds: Int): SharedStatus!
-
-  """
-  Clears the caller's own shared status, if any. The demo guide is refused.
-  """
   clearSharedStatus: Boolean!
-
   createGoal(childId: ID!, title: String!, ownerId: ID, horizon: String, period: GoalPeriod, status: GoalStatus): Goal!
   updateGoal(id: ID!, title: String, ownerId: ID, horizon: String, period: GoalPeriod, status: GoalStatus): Goal!
   completeGoal(id: ID!): Goal!
   uncompleteGoal(id: ID!): Goal!
   deleteGoal(id: ID!): Boolean!
-
   postFridgeNote(childId: ID!, text: String!, paperColor: PaperColor, audience: FridgeNoteAudience, attachmentRef: String): FridgeNote!
   updateFridgeNote(id: ID!, text: String, paperColor: PaperColor, attachmentRef: String): FridgeNote!
   setFridgeNoteAudience(id: ID!, audience: FridgeNoteAudience!): FridgeNote!
@@ -84,12 +113,6 @@ type FridgeNote {
   revision: Int!
 }
 
-"""
-A status a person CHOOSES to share with a child's village, e.g. "🍼 Changing a diaper · ETA:
-unknown". Opt-in and self-reported only — never derived from Busy/Free, calendar gaps, or any
-other recorded field. Null on the owning `Person` when there is no status, it has expired, or
-the viewer may not see that person — the server owns that authorization.
-"""
 type SharedStatus {
   personId: ID!
   emoji: String
@@ -130,7 +153,6 @@ type VillagePerson {
   scheduledPlaceId: ID
 }
 
-"""Only what a world may reveal about a person: no contacts, no grants, no capabilities."""
 type VillagePersonRef {
   id: ID!
   displayName: String!
@@ -258,64 +280,20 @@ type CarePlan {
   text: String!
 }
 
-directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
 scalar link__Import
 
 enum link__Purpose {
-  """
-  `SECURITY` features provide metadata necessary to securely resolve fields.
-  """
   SECURITY
-  """
-  `EXECUTION` features provide metadata necessary for operation execution.
-  """
   EXECUTION
 }
 
 scalar federation__FieldSet
 
-directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
-
-directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
-
-directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
-
-directive @federation__external on OBJECT | FIELD_DEFINITION
-
-directive @federation__extends on OBJECT | INTERFACE
-
-directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
-
-directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
-
-directive @federation__override(from: String!, label: String) on FIELD_DEFINITION
-
-directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
-
-directive @federation__composeDirective(name: String) repeatable on SCHEMA
-
-directive @federation__interfaceObject on OBJECT
-
 scalar federation__Scope
-
-directive @federation__authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
-
-directive @federation__requiresScopes(scopes: [[federation__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 
 scalar federation__Policy
 
-directive @federation__policy(policies: [[federation__Policy!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
-
 scalar federation__ContextFieldValue
-
-directive @federation__context(name: String!) repeatable on INTERFACE | OBJECT | UNION
-
-directive @federation__fromContext(field: federation__ContextFieldValue) on ARGUMENT_DEFINITION
-
-directive @federation__cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
-
-directive @federation__listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
 
 type _Service {
   sdl: String
@@ -324,8 +302,3 @@ type _Service {
 scalar _Any
 
 union _Entity = Child | Group | Household | Person
-
-extend type Query {
-  _entities(representations: [_Any!]!): [_Entity]!
-  _service: _Service!
-}

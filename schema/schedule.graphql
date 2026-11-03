@@ -1,38 +1,9 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
-
-type Query {
-  events(childId: ID!, date: String!): [Event!]!
-}
-
-type Child @key(fields: "id") {
-  id: ID!
-}
-
-type Event {
-  id: ID!
-  child: Child!
-  title: String!
-  start: String!
-  end: String!
-  location: String
+# Generated from src/subgraphs/schedule.ts by ops/gen-subgraph-sdl.mjs — do not edit by hand.
+schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"]) {
+  query: Query
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-scalar link__Import
-
-enum link__Purpose {
-  """
-  `SECURITY` features provide metadata necessary to securely resolve fields.
-  """
-  SECURITY
-  """
-  `EXECUTION` features provide metadata necessary for operation execution.
-  """
-  EXECUTION
-}
-
-scalar federation__FieldSet
 
 directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
@@ -56,17 +27,11 @@ directive @federation__composeDirective(name: String) repeatable on SCHEMA
 
 directive @federation__interfaceObject on OBJECT
 
-scalar federation__Scope
-
 directive @federation__authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 
 directive @federation__requiresScopes(scopes: [[federation__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 
-scalar federation__Policy
-
 directive @federation__policy(policies: [[federation__Policy!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
-
-scalar federation__ContextFieldValue
 
 directive @federation__context(name: String!) repeatable on INTERFACE | OBJECT | UNION
 
@@ -76,15 +41,82 @@ directive @federation__cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_
 
 directive @federation__listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
 
+type Query {
+  events(childId: ID!, date: String!): [Event!]!
+  childEvents(childId: ID!, from: String!, to: String!, includeCancelled: Boolean = false): [CalendarEvent!]!
+  adultAvailability(personId: ID!, from: String!, to: String!): [AvailabilityWindow!]!
+  effectiveScheduleFor(childId: ID!, date: String!): EffectiveSchedule!
+  scheduleConflicts(childId: ID!, from: String!, to: String!): [ScheduleConflict!]!
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}
+
+type Child @key(fields: "id") {
+  id: ID!
+}
+
+type Event {
+  id: ID!
+  child: Child!
+  title: String!
+  start: String!
+  end: String!
+  location: String
+}
+
+type Person @key(fields: "id") {
+  id: ID!
+}
+
+type CalendarEvent {
+  id: ID!
+  child: Child!
+  title: String!
+  start: String!
+  end: String!
+  location: String
+  status: String!
+}
+
+type AvailabilityWindow {
+  person: Person!
+  start: String!
+  end: String!
+  state: String!
+}
+
+type EffectiveSchedule {
+  parent: Person
+  source: String!
+  arrangementId: ID
+}
+
+type ScheduleConflict {
+  kind: String!
+  onDay: String!
+  arrangementIds: [ID!]!
+  detail: String!
+}
+
+scalar link__Import
+
+enum link__Purpose {
+  SECURITY
+  EXECUTION
+}
+
+scalar federation__FieldSet
+
+scalar federation__Scope
+
+scalar federation__Policy
+
+scalar federation__ContextFieldValue
+
 type _Service {
   sdl: String
 }
 
 scalar _Any
 
-union _Entity = Child
-
-extend type Query {
-  _entities(representations: [_Any!]!): [_Entity]!
-  _service: _Service!
-}
+union _Entity = Child | Person

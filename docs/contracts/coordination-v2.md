@@ -186,7 +186,7 @@ identical before and after (no existing row's `role` value changes), and a new f
 
 ### A. Events + calendar
 
-**What exists.** `Event` (`schema/schedule.graphql:11-18`: `id`, `child`, `title`, `start`, `end`,
+**What exists.** `Event` (`schema/schedule.graphql:57-64`: `id`, `child`, `title`, `start`, `end`,
 `location`) and `Query.events(childId, date)` (`schedule.graphql:4`) — **EXISTING**. Table `events`
 (`0001_schema.sql:123-130`) and RLS `events_read` (`0003_rls.sql:132-133`: parent/guardian or
 `schedule.read`) — **EXISTING**. **`village_event`** (`0007_village_event.sql:9-19`) is the
@@ -213,7 +213,7 @@ guardian, or `events.propose` grant holder. `confirmEvent`: parent/guardian by d
 
 ### B. Parenting schedule + holidays
 
-**What exists.** `ParentingSchedule` (`schema/access.graphql:55-59`), table `parenting_schedules`
+**What exists.** `ParentingSchedule` (`schema/access.graphql:107-111`), table `parenting_schedules`
 (`0001_schema.sql:115-120`), RLS `parenting_schedules_read` (`0003_rls.sql:128-129`) — **EXISTING**.
 `_is_approver_for` (`0013_station06_coordination.sql:216-224`) and `approverFor`
 (`access.graphql:10`, resolved by `approverForChild` in `src/derive.ts`, called from
@@ -243,10 +243,10 @@ itself").
 
 ### C. Consent — staged: a Sunday-minimal path, then full generality
 
-**What exists.** `Approval` (`schema/access.graphql:40-47`; table `approvals`,
+**What exists.** `Approval` (`schema/access.graphql:92-99`; table `approvals`,
 `0001_schema.sql:99-106`) — already a polymorphic, append-only decision ledger, **IMPLEMENTED +
 EVIDENCED** (`docs/evidence/11c-kendra-approves.md`, `11c3-approvals-exist.md`). `PermissionSlip`
-(`schema/school.graphql:20-25`; table `permission_slips`, `0001_schema.sql:140-145`) — **EXISTING**,
+(`schema/school.graphql:85-91`; table `permission_slips`, `0001_schema.sql:140-145`) — **EXISTING**,
 **IN SCHEMA** (no mutation, no fixture row yet).
 
 **Why extend `Approval`, not invent `ConsentRequest`** (Revision 1's argument, unchanged):
@@ -283,7 +283,7 @@ frozen-list member, **never** "whoever is today's scheduled parent."
 
 ### D. Care information
 
-**What exists.** `CarePlan` (`schema/village.graphql:121-124`; table `care_plans`,
+**What exists.** `CarePlan` (`schema/village.graphql:277-280`; table `care_plans`,
 `0001_schema.sql:83-86`), RLS `care_plans_read` (`0003_rls.sql:96-97`) — **EXISTING**,
 **IMPLEMENTED + EVIDENCED** (`docs/evidence/04-loretta-goals-careplan-contact.md`, `06a`/`06b`/
 `06c`). Today, one free-text sentence per child, no severity, no verification — exactly as the
@@ -307,7 +307,7 @@ household-null (shared) fact: any parent/guardian of the child.
 
 ### E. School information
 
-**What exists.** `SchoolReport` (`schema/school.graphql:12-18`; table `school_reports`,
+**What exists.** `SchoolReport` (`schema/school.graphql:66-73`; table `school_reports`,
 `0001_schema.sql:132-138`) — **EXISTING**, **IN SCHEMA** (no `Mutation` type exists at all yet).
 `capabilities.school.report`, held by Angela and Carol (`src/fixtures.ts:243-244`) — already
 "offers to," never "may" (`village.graphql:93-96`).
@@ -330,7 +330,7 @@ scheduled either way by this contract.
 
 ### F. Coordination types — the shared job engine
 
-**What exists.** `CoordinationType` (`schema/coordination.graphql:24-28`): `PICKUP` —
+**What exists.** `CoordinationType` (`schema/coordination.graphql:202-206`): `PICKUP` —
 **IMPLEMENTED + EVIDENCED**; `INVITATION`/`ONBOARDING` — **IN SCHEMA, not built, zero resolvers**.
 `CoordinationJob`/`Attempt`/`InformationRequest`/`Confirmation`/`candidate_evaluations`/`locations`/
 `real_call_authorizations`/`webhook_events`, and every `SECURITY DEFINER` transition function —

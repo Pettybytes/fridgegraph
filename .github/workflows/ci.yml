@@ -43,6 +43,12 @@ jobs:
       - name: Secret scan
         run: npm run check
 
+      # Compose-time inputs, checked offline: `schema/*.graphql` is generated from
+      # `src/subgraphs/*.ts`. When the two drift, composition still exits 0 and only the
+      # supergraph is wrong, so this must fail here instead.
+      - name: Subgraph SDL in sync
+        run: npm run schema:check
+
       - name: Village tests
         run: npm run test:village
 
