@@ -1,0 +1,159 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   FridgeGraph design-v2 Card family. Bound by docs/contracts/design.md and the
+   legend in docs/design.md. ONE card family: every shape here is a variant, no
+   forks. Card TYPE drives colour (accent bar, icon node, corner glow, progress,
+   tile) through a single local --tc custom property set by [data-type]. Motion is
+   transform/opacity only, feedback <=160ms, custom ease-out, reduced-motion safe.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Type → local colour, class-agnostic: any element with data-fgc-type gets --tc
+   (cards, icon nodes, pills, progress bars). Every coloured bit reads var(--tc). */
+[data-fgc-type='pickup']  { --tc: var(--type-pickup); }
+[data-fgc-type='school']  { --tc: var(--type-school); }
+[data-fgc-type='orbit']   { --tc: var(--type-orbit); }
+[data-fgc-type='safe']    { --tc: var(--type-safe); }
+[data-fgc-type='care']    { --tc: var(--type-care); }
+[data-fgc-type='invite']  { --tc: var(--type-invite); }
+[data-fgc-type='fridge']  { --tc: var(--type-fridge); }
+[data-fgc-type='rosina']  { --tc: var(--type-rosina); }
+[data-fgc-type='pending'] { --tc: var(--type-pending); }
+[data-fgc-type='neutral'] { --tc: var(--fg-muted); }
+
+/* ── Base card ────────────────────────────────────────────────────────────── */
+.fgc {
+  position: relative;
+  border-radius: var(--radius-card);
+  background: var(--card-surface-1);
+  border: 1px solid var(--fg-border);
+  box-shadow: var(--card-elev-1);
+  color: var(--fg-ink);
+}
+.fgc[data-elev='2'] { background: var(--card-surface-2); box-shadow: var(--card-elev-2); }
+.fgc[data-elev='3'] { background: var(--card-surface-3); box-shadow: var(--card-elev-3); }
+.fgc[data-pad='true'] { padding: clamp(14px, 1.6vw, 18px); }
+.fgc[data-glass='true'] {
+  background: var(--card-glass);
+  backdrop-filter: blur(16px) saturate(135%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .fgc[data-glass='true'] { background: var(--card-surface-2); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .fgc[data-glass='true'] { background: var(--card-surface-2); }
+}
+
+/* Interactive card — restrained lift (feedback job), transform/shadow only. */
+.fgc[data-interactive='true'] {
+  cursor: pointer; text-align: inherit; width: 100%; font: inherit;
+  transition: transform var(--dur-feedback) var(--ease-out),
+              box-shadow var(--dur-feedback) var(--ease-out),
+              border-color var(--dur-feedback) var(--ease-out);
+}
+.fgc[data-interactive='true']:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklch, var(--tc, var(--fg-primary)) 60%, var(--fg-border));
+  box-shadow: var(--card-elev-2), 0 0 0 3px color-mix(in oklch, var(--tc, var(--fg-focus)) 36%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fgc[data-interactive='true']:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--tc, var(--fg-primary)) 40%, var(--fg-border));
+    box-shadow: var(--card-elev-2);
+  }
+}
+.fgc[data-interactive='true']:active { transform: translateY(0) scale(0.995); }
+
+/* Type glow — a soft bloom of the type colour behind the card. Opt-in; job:
+   orientation (which type this is) / elevation (approval). */
+.fgc[data-glow='true']::before {
+  content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit;
+  background: radial-gradient(130% 90% at 0% 0%, color-mix(in oklch, var(--tc) 28%, transparent), transparent 60%);
+  opacity: 0.9; pointer-events: none;
+}
+
+/* ── Accent-bar row (ref-stacked-status) ─────────────────────────────────────
+   Left vertical type bar + soft inward glow. Row content fills the rest. */
+.fgc-accent { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; padding: 14px 16px 14px 14px; overflow: hidden; }
+.fgc-accent::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in oklch, var(--tc) 9%, transparent), transparent 34%);
+}
+.fgc-accent-bar { position: relative; z-index: 1; width: 4px; align-self: stretch; border-radius: var(--radius-pill); background: var(--tc); box-shadow: 0 0 9px -4px var(--tc); }
+.fgc-accent-body { position: relative; z-index: 1; min-width: 0; display: grid; gap: 3px; }
+
+/* ── Type icon node (ref-timeline / status). Colour encodes type; the glyph
+   is a dark ink for >=3:1 contrast, so it never reads as a bare colour dot. */
+.fgc-node { display: inline-grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--radius-pill); background: var(--tc); color: var(--type-node-ink); box-shadow: 0 0 10px -5px var(--tc); }
+.fgc-node svg { width: 17px; height: 17px; }
+.fgc-node[data-size='sm'] { width: 26px; height: 26px; }
+.fgc-node[data-size='sm'] svg { width: 13px; height: 13px; }
+
+/* ── Status card (ref-upload-toasts): corner glow by state, node + body + actions. */
+.fgc-status { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 16px; overflow: hidden; }
+.fgc-status::after {
+  content: ''; position: absolute; top: -40%; right: -10%; width: 60%; height: 120%; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in oklch, var(--tc) 34%, transparent), transparent 62%);
+}
+.fgc-status > * { position: relative; z-index: 1; }
+.fgc-status-body { min-width: 0; display: grid; gap: 4px; }
+.fgc-status-title { font-size: var(--text-heading); font-weight: 600; letter-spacing: -0.01em; color: var(--fg-ink); }
+.fgc-status-text { font-size: var(--text-body); line-height: 1.5; color: var(--fg-muted); }
+.fgc-status-actions { display: flex; gap: 8px; align-items: flex-start; }
+
+/* ── Horizontal media card (ref-progress-cards): thumb left, title, progress. */
+.fgc-media { display: grid; grid-template-columns: auto 1fr; gap: 14px; padding: 12px; align-items: center; overflow: hidden; }
+.fgc-media::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent 40%, color-mix(in oklch, var(--tc) 16%, transparent));
+}
+.fgc-media > * { position: relative; z-index: 1; }
+.fgc-media-thumb { width: 56px; height: 56px; border-radius: var(--radius-nested); object-fit: cover; background: var(--card-surface-2); flex: 0 0 auto; }
+.fgc-media-body { min-width: 0; display: grid; gap: 7px; }
+.fgc-media-title { font-size: var(--text-body); font-weight: 600; color: var(--fg-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgc-media-meta { font-size: var(--text-caption); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+
+/* ── Progress bar — thin, glowing, type-coloured. Fill width is inline style. */
+.fgc-progress { position: relative; height: 5px; border-radius: var(--radius-pill); background: color-mix(in oklch, var(--fg-ink) 10%, transparent); overflow: hidden; }
+.fgc-progress-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--tc); box-shadow: 0 0 8px -3px var(--tc); transition: width var(--dur-panel) var(--ease-out); }
+
+/* ── Timeline row (ref-timeline): time | node (+line) | card. ───────────────── */
+.fgc-timeline { display: grid; grid-template-columns: auto auto 1fr; gap: 12px; align-items: start; }
+.fgc-timeline-time { font-size: var(--text-caption); color: var(--fg-muted); font-variant-numeric: tabular-nums; padding-top: 8px; white-space: nowrap; text-align: right; min-width: 44px; }
+.fgc-timeline-rail { position: relative; display: grid; justify-items: center; }
+.fgc-timeline-rail::before { content: ''; position: absolute; top: 34px; bottom: -14px; width: 1.5px; background: var(--fg-border); }
+.fgc-timeline[data-last='true'] .fgc-timeline-rail::before { display: none; }
+.fgc-timeline-card { min-width: 0; }
+
+/* ── Photo card (ref-photo-months): image bg, huge type, pill badge, menu. ──── */
+.fgc-photo { aspect-ratio: 16 / 9; padding: 0; border: 0; overflow: hidden; display: block; }
+.fgc-photo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fgc-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, oklch(0 0 0 / 0.1) 0%, transparent 40%, oklch(0 0 0 / 0.55) 100%); }
+.fgc-photo-title { position: absolute; left: 16px; bottom: 10px; z-index: 1; margin: 0; font-size: clamp(30px, 6vw, 54px); font-weight: 680; letter-spacing: -0.03em; line-height: 0.95; color: oklch(1 0 0); text-shadow: 0 2px 20px oklch(0 0 0 / 0.5); }
+.fgc-photo-badge { position: absolute; top: 12px; left: 12px; z-index: 1; }
+.fgc-photo-menu { position: absolute; top: 12px; right: 12px; z-index: 1; }
+
+/* ── Metric / bento tile (ref-color-tiles): gradient per type, big number. ──── */
+/* Opaque base (surface) under the type gradient so the ambient page field never
+   bleeds through and muddies the hue. */
+.fgc-tile { display: grid; gap: 8px; align-content: space-between; padding: 16px; min-height: 120px; border: 1px solid color-mix(in oklch, var(--tc) 30%, var(--fg-border)); background:
+    radial-gradient(86% 104% at 114% 120%, color-mix(in oklch, var(--tc) 54%, var(--card-surface-2)), transparent 68%),
+    var(--card-surface-2); overflow: hidden; }
+.fgc-tile > * { position: relative; }
+.fgc-tile-label { font-size: var(--text-caption); font-weight: 550; color: color-mix(in oklch, var(--fg-ink) 82%, var(--tc)); }
+.fgc-tile-value { font-size: clamp(26px, 3.4vw, 36px); font-weight: 650; letter-spacing: -0.02em; line-height: 1; color: var(--fg-ink); font-variant-numeric: tabular-nums; }
+.fgc-tile-foot { font-size: var(--text-caption); color: var(--fg-muted); }
+
+/* ── Type pill badge (ref-photo-months "23 reports"; type legends). ─────────── */
+.fgc-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-pill); font-size: var(--text-caption); font-weight: 560; line-height: 1.2; white-space: nowrap; background: color-mix(in oklch, var(--tc) 22%, var(--card-surface-2)); color: color-mix(in oklch, var(--tc) 55%, var(--fg-ink)); border: 1px solid color-mix(in oklch, var(--tc) 36%, transparent); }
+.fgc-pill[data-glass='true'] { background: color-mix(in oklch, oklch(0 0 0) 28%, transparent); color: oklch(1 0 0); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-color: oklch(1 0 0 / 0.2); }
+
+/* Shared card heading helpers (consume the type scale from index.css). */
+.fgc-title { font-size: var(--text-heading); font-weight: 600; letter-spacing: -0.01em; color: var(--fg-ink); margin: 0; }
+.fgc-sub { font-size: var(--text-body); line-height: 1.5; color: var(--fg-muted); margin: 0; text-wrap: pretty; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fgc[data-interactive='true'] { transition: none; }
+  .fgc[data-interactive='true']:hover, .fgc[data-interactive='true']:active { transform: none; }
+  .fgc-progress-fill { transition: none; }
+}

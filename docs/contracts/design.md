@@ -283,3 +283,56 @@ visually distinct from each other.
 - **Color**: the existing indigo brand primary only (`currentColor`, inherited from `--fg-primary`
   via the same `.brand svg` / `.fg-picker-brand svg` rule the old icon used) — no new color.
 - **Full rationale, exports and regeneration**: `docs/brand/README.md`.
+
+---
+
+## 12. Design-v2 — dark theme, type-coloured card family (Bryan, 2026-11-03)
+
+Supersedes the light "unify" direction. The app moves to **one dark theme** (near-black
+canvas, layered elevation, frosted glass over imagery) with Geist type scale and tabular
+figures. Rolled out in slices: tokens + card family first, then pages two at a time, so the
+earlier light surfaces are replaced progressively.
+
+### Card type → colour legend
+
+A card's **type drives its colour consistently everywhere** — accent bar, icon node, corner
+glow, progress bar and tile gradient all read one hue. Tokens live in `web/src/index.css`
+(`--type-*`); components in `web/src/components/fg/cards.tsx` / `cards.css` consume them via the
+shared `data-fgc-type` attribute (which sets the local `--tc`).
+
+| Type | Meaning | Token | Hue |
+| --- | --- | --- | --- |
+| `pickup` | pickup / transport | `--type-pickup` | amber |
+| `school` | school notice | `--type-school` | blue |
+| `orbit` | Orbit alert | `--type-orbit` | red |
+| `safe` | found safe / success | `--type-safe` | green |
+| `care` | care information | `--type-care` | teal |
+| `invite` | invitations / celebration | `--type-invite` | violet-pink |
+| `fridge` | fridge / memories | `--type-fridge` | warm orange |
+| `rosina` | Rosina (AI) actions | `--type-rosina` | indigo |
+| `pending` | pending / loading | `--type-pending` | gray |
+
+`neutral` falls back to `--fg-muted`. Colour is never the only signal: an icon **node** carries a
+glyph (dark ink, ≥3:1 on every hue) and text always states the state — no bare colour dots
+(§3). Brand colour and these semantic type colours remain separate systems (§6).
+
+### One card family, variants only (no forks)
+
+All from `@/components/fg/cards`:
+
+- **`Card`** — base dark surface. `elevation` 1/2/3 (3 reserved for approval-level content),
+  `glass`, `interactive` (restrained lift, transform/shadow only, reduced-motion safe),
+  `glow` (soft type bloom, job: orientation/elevation).
+- **`AccentCard`** — left vertical type bar + soft inward glow (stacked status rows).
+- **`StatusCard`** — corner glow by type, icon node, title/body, actions, dismiss (toasts).
+- **`MediaCard`** — horizontal: thumbnail, title, glowing `ProgressBar`, meta.
+- **`TimelineRow`** — time (tabular) + type icon node on a rail + a card.
+- **`PhotoCard`** — image, huge title over a bottom scrim, pill badge, menu.
+- **`MetricTile`** — gradient tile per type, big tabular value.
+- **`TypeNode`**, **`TypePill`**, **`ProgressBar`** — the shared coloured atoms.
+
+**Elevation:** anything awaiting a parent's approval is elevated (highest surface + type glow +
+large primary action, pinned to the top of its page). Nothing approval-related is a plain row.
+
+Reviewed on the dark canvas via `web/showcase.html` (dev-only gallery, not a product route).
+

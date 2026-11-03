@@ -205,6 +205,31 @@
   --fg-workspace: var(--fg-canvas);
   --fg-plum: var(--fg-primary);
   --fg-line: var(--fg-border);
+
+  /* ── design-v2 card system (see docs/design.md legend) ──────────────────────
+     Card TYPE drives colour consistently everywhere: accent bar, icon node,
+     corner glow, progress, gradient tile. One hue per type; these read on both
+     themes. Elevation + glass are theme-aware (overridden under .dark). */
+  --type-pickup:  oklch(0.80 0.15 78);    /* pickup / transport — amber  */
+  --type-school:  oklch(0.70 0.14 248);   /* school notice      — blue   */
+  --type-orbit:   oklch(0.64 0.22 25);    /* Orbit alert        — red    */
+  --type-safe:    oklch(0.74 0.17 155);   /* found safe         — green  */
+  --type-care:    oklch(0.76 0.11 192);   /* care information   — teal   */
+  --type-invite:  oklch(0.72 0.18 332);   /* invitations        — violet-pink */
+  --type-fridge:  oklch(0.73 0.17 55);    /* fridge / memories  — orange */
+  --type-rosina:  oklch(0.66 0.16 276);   /* Rosina (AI)        — indigo */
+  --type-pending: oklch(0.72 0.02 270);   /* pending / loading  — gray   */
+  /* one dark glyph colour that clears >=3:1 on every node hue above */
+  --type-node-ink: oklch(0.19 0.015 270);
+
+  /* Card elevation (light) — hairline + soft shadow + inner top highlight. */
+  --card-surface-1: var(--fg-surface);
+  --card-surface-2: var(--fg-elevated);
+  --card-surface-3: oklch(1 0 0);
+  --card-glass: color-mix(in oklch, var(--fg-surface) 82%, transparent);
+  --card-elev-1: 0 1px 2px oklch(0.2 0.03 270 / 0.05), inset 0 1px 0 oklch(1 0 0 / 0.6);
+  --card-elev-2: 0 1px 2px oklch(0.2 0.03 270 / 0.05), 0 10px 28px -14px oklch(0.2 0.03 270 / 0.18), inset 0 1px 0 oklch(1 0 0 / 0.6);
+  --card-elev-3: 0 2px 4px oklch(0.2 0.03 270 / 0.07), 0 18px 44px -18px oklch(0.2 0.03 270 / 0.28), inset 0 1px 0 oklch(1 0 0 / 0.7);
 }
 
 .dark {
@@ -237,6 +262,15 @@
   --accent: var(--fg-selection);
   --accent-foreground: var(--fg-ink);
   --input: oklch(1 0 0 / 0.15);
+
+  /* design-v2 card elevation (dark) — near-black depth, brighter inner highlight. */
+  --card-surface-1: var(--fg-surface);                 /* ~0.21 */
+  --card-surface-2: var(--fg-elevated);                /* ~0.24 */
+  --card-surface-3: oklch(0.285 0.016 272);
+  --card-glass: color-mix(in oklch, var(--fg-surface) 66%, transparent);
+  --card-elev-1: 0 1px 2px oklch(0 0 0 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.045);
+  --card-elev-2: 0 2px 6px oklch(0 0 0 / 0.4), 0 14px 34px -16px oklch(0 0 0 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.06);
+  --card-elev-3: 0 3px 8px oklch(0 0 0 / 0.45), 0 22px 50px -18px oklch(0 0 0 / 0.72), inset 0 1px 0 oklch(1 0 0 / 0.08);
 }
 
 html,

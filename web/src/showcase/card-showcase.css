@@ -1,0 +1,15 @@
+/* design-v2 Card family gallery (dev-only). Layout only — card visuals live in
+   components/fg/cards.css. */
+.cs { max-width: 1120px; margin: 0 auto; padding: 48px 24px 120px; display: grid; gap: 44px; }
+.cs-head { display: grid; gap: 4px; max-width: 62ch; }
+.cs-head h1 { margin: 6px 0 6px; }
+.cs-section { display: grid; gap: 16px; }
+.cs-h2 { font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-muted); font-weight: 600; margin: 0; }
+.cs-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.cs-legend-item { display: flex; align-items: center; gap: 12px; }
+.cs-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.cs-stack { display: grid; gap: 12px; max-width: 660px; }
+.cs-timeline { display: grid; gap: 16px; max-width: 660px; }
+.cs-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+@media (max-width: 820px) { .cs-row3, .cs-tiles { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .cs-row3, .cs-tiles { grid-template-columns: 1fr; } }
