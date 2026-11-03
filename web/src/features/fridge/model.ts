@@ -1,7 +1,7 @@
 export type Position = { x: number; y: number; width: number; rotation: number }
 export type Slot = { id: string; kind: 'photo'|'event'|'note'|'form'; asset?: string; image?: {src:string;srcSet?:string;alt:string}; text: string; caption: string; heading?:string; lines?:string[]; variant?:'save-date'; position: Position; owner: string|null; source: 'sample'|'live'; destination?: string; paper?: 0|1|2|3; magnet?: 'apple'|'bus'|'grade'|'star'|'heart'|'flower' }
 export type Goal = { id:string; title:string; horizon:string|null; status:string; period?:'DAY'|'WEEK'|'MONTH'|null; completedAt?:string|null }
-export type Read<T> = { status:'loading'|'empty'|'refused'|'failed' } | { status:'ready'; value:T }
+export type Read<T> = { status:'loading'|'empty'|'refused'|'failed'|'unavailable' } | { status:'ready'; value:T }
 export type Source = 'care'|'goals'
 export interface FridgeReader { read(source:Source,childId:string,signal:AbortSignal):Promise<Read<Slot[]|Goal[]>> }
 // Measured from the 2336 × 3504 source. All geometry is normalized to the full image.
