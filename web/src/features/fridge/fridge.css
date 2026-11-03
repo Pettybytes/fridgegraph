@@ -107,3 +107,31 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 .fridge-album-grid span{display:block;padding:8px 0}
 @media(max-width:600px){.fridge-album-grid{grid-template-columns:1fr}}
 .fridge-read{font:400 1.3cqw/1.5 var(--font-sans,Arial,sans-serif)}
+/* Pin intake (readiness-driven). Shares the fridge button family and 8-pt rhythm. */
+.fridge-intake{margin-inline:6%;margin-block:16px;display:flex;flex-direction:column;gap:12px;max-width:640px}
+.fridge-intake-compose{display:flex;flex-direction:column;gap:12px}
+.fridge-intake-btn{min-height:44px;display:inline-flex;align-items:center;gap:8px}
+.fridge-intake-field{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--fg-muted)}
+.fridge-intake-field input{font:inherit;min-height:44px;padding:8px 12px;border:1px solid var(--fg-border,#d0d0d8);border-radius:10px;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832)}
+.fridge-intake-check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-ink)}
+.fridge-intake-check input{width:18px;height:18px}
+.fridge-intake-note{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--fg-muted);margin:0}
+.fridge-intake-error{color:var(--fg-danger,#b4231f)}
+.fridge-intake-done{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--fg-ink)}
+.fridge-intake-done svg{color:var(--fg-safe,#2e7d55)}
+.fridge-intake-review{display:flex;flex-direction:column;gap:12px}
+.fridge-intake-preview{position:relative;width:100%;max-width:420px;border-radius:12px;overflow:hidden;background:#ece8e1;box-shadow:inset 0 0 0 1px #0001}
+.fridge-intake-preview img{display:block;width:100%;height:auto;max-height:46dvh;object-fit:contain;margin:auto}
+/* The crop box names its job: ORIENTATION — it shows what SAM isolated. Not a status color. */
+.fridge-intake-crop{position:absolute;border:2px dashed var(--fg-primary,#514b97);border-radius:4px;box-shadow:0 0 0 100vmax #1a1a2233;pointer-events:none;transform-origin:center}
+.fridge-intake-seg{font-size:13px;color:var(--fg-muted);margin:0}
+.fridge-intake-read{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0;font-size:14px}
+.fridge-intake-read div{display:contents}
+.fridge-intake-read dt{color:var(--fg-muted);font-weight:600}
+.fridge-intake-read dd{margin:0;color:var(--fg-ink);overflow-wrap:anywhere}
+.fridge-intake-clarify{font-size:14px;color:var(--fg-ink);background:var(--fg-surface-2,#f4f3ef);border-radius:10px;padding:10px 12px;margin:0}
+.fridge-intake-audience{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.fridge-intake-audience legend{font-size:13px;color:var(--fg-muted);font-weight:600;padding:0;margin-bottom:2px}
+.fridge-intake-audience label{display:flex;align-items:center;gap:8px;font-size:14px;min-height:28px}
+.fridge-intake-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:700px){.fridge-intake{margin-inline:12px}.fridge-intake-preview{max-width:100%}}
