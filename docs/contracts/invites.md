@@ -152,25 +152,55 @@ for authorization.
   Kendra / `h_b` Andre) shares ONE budget regardless of which parent is asking — a per-household
   split would let the same party be re-generated twice for free by switching parents. "Per family"
   in the brief is realized as "per child," the unambiguous scope.
-- **Cost model.** Muse Image has no published price (it is this project's own fictional provider
-  abstraction — `src/rosina/inviteImage.ts` mirrors the OpenAI-compatible Images shape but is not a
-  real Meta product). Modeled on **DALL-E 3's published Standard 1024×1024 price, $0.04/image**
-  (the same resolution this endpoint requests), the closest real, currently-published comparable —
-  observed 2026-11-03, see `src/rosina/inviteLedgerBudget.ts`'s `INVITE_GENERATION_COST_USD`.
-  Revisit if Muse Image ever publishes a real figure of its own.
-- **Default cap: $1.00/child/day → 25 generations/day**, the brief's own target. Overridable per
-  household via the EXISTING `household_policies` mechanism (same table `ride_cost_cap_usd`
-  already uses), rule `invite_daily_budget_usd`.
+- **Cost model.** Muse Image is priced at **$0.01 per generated image**, per Meta's published
+  docs — a real, current, citable figure, not modeled on a third-party comparable (an earlier
+  draft of this contract wrongly described Muse Image as a "fictional provider" priced off DALL-E
+  3's $0.04/image; that was incorrect and has been corrected). The constant lives ONLY as a SQL
+  literal inside `invite_budget_reserve` (migration 0085) — `src/rosina/inviteLedgerBudget.ts`'s
+  `INVITE_GENERATION_COST_USD` export mirrors it for tests/documentation only and is never sent to
+  the server.
+- **Cost and settlement are decided SERVER-SIDE ONLY.** `reserveInviteBudget` takes no cost
+  argument at all. `settleInviteBudget`'s outcome is a closed GraphQL enum,
+  `InviteGenerationOutcome { SUCCEEDED FAILED UNCERTAIN }`, plus a `cached: Boolean!` argument that
+  conveys a FACT the caller observed (its own image client's cache), not a price — the SQL function
+  computes the actual charge itself from `(status, cached)`. No caller-accessible mutation can set
+  or influence either the per-generation price or the settled outcome's cost.
+- **A cache hit is never a paid generation.** A repeat prompt (many families' requests collapse
+  onto the same small set of occasion-based themes) returns `provenance.cached: true` from the
+  image client with no real provider call. `InviteImageGenerator.peekCached(promptHash)` lets
+  `inviteEndpoint.ts` skip `reserve()` entirely for a confidently-known cache hit — it is never
+  blocked by an exhausted budget, because it costs nothing. If the cache state changes between
+  that check and the real `generate()` call (a race with a concurrent request), a reservation IS
+  made, but `generate()`'s own `provenance.cached` remains the single source of truth `settle()`
+  charges against — `cached: true` at settle time always replaces the provisional charge with $0,
+  regardless of what `peekCached` predicted.
+- **An UNCERTAIN outcome is charged conservatively, never silently released.** Not every thrown
+  error reverses the reservation. `inviteImage.ts` distinguishes a CONFIRMED failure (the provider
+  gave a clean, synchronous rejection — a non-2xx HTTP status — before producing anything; settles
+  FAILED, free) from an UNCERTAIN failure (a network error/timeout/abort after the request was
+  sent, where it's never learned whether the provider received and billed it; or a local
+  validation failure on an otherwise-200 response, where the provider most likely DID generate and
+  the parsing/bound check is what rejected it). An UNCERTAIN outcome settles charged, at the full
+  reserved amount, and is never refunded by default — the provider may have billed for it.
+- **Default cap: $1.00/child/day → 100 generations/day** at the real $0.01/generation price.
+  Overridable per household via the EXISTING `household_policies` mechanism (same table
+  `ride_cost_cap_usd` already uses), rule `invite_daily_budget_usd`. Scope is strictly **per
+  child** (see above) — "per family" is never accurate wording for this limit unless a future
+  slice actually implements per-household splitting, which this one does not.
 - **FIXTURE never touches the ledger at all** — no real spend, no reservation, by construction
-  (the endpoint only calls `reserve`/`settle` when `source === 'MUSE_IMAGE'`).
+  (the endpoint only calls `reserve`/`settle` when `source === 'MUSE_IMAGE'`, and even then only
+  when `peekCached` cannot already answer "free").
 - **Atomic, race-safe.** `invite_budget_reserve` takes a `pg_advisory_xact_lock` keyed per child
   before reading today's spend, so two concurrent requests for the SAME child cannot both pass the
   check before either writes — proven under real concurrency in `ops/invite-budget-proof.mjs`
   check 6 (two simultaneous reservations at the cap boundary: exactly one succeeds).
-  `invite_budget_settle` only updates a reservation the SAME caller created (proof check 7).
+  `invite_budget_settle` only updates a reservation the SAME caller created, and only once — a
+  second settle on an already-terminal reservation is refused, so no replay/override of a prior
+  outcome is possible (proof check 7).
 - **Retries cost nothing extra beyond what they actually spend.** `reserve` happens before the
-  image call; `settle(FAILED)` after a model error reverses it immediately — the same refund
-  semantics the old in-memory budget had, now persisted (proof check 4).
+  image call; `settle(FAILED)` after a CONFIRMED model error reverses it immediately — the same
+  refund semantics the old in-memory budget had, now persisted (proof check 4). An UNCERTAIN
+  outcome is the deliberate exception: it is NOT reversed, per above.
 - **Deduplication** (`src/rosina/inviteDedup.ts`) collapses a double-click, a network retry, or two
   tabs firing the identical request (same caller + child + request text) into ONE real
   extraction+reservation+image call — never two. Authorization and the per-request rate limit
@@ -184,7 +214,7 @@ for authorization.
   "keep credentials and provider accounting out of client responses" exactly.
 - **Demo reset never touches it.** `invite_generations` is NOT in `ID_TABLES`/`RESET_SCOPED`/
   `SANDBOX_TABLES` (`src/demo/reset.ts`) — `resetDemo()` never references it, so it survives
-  untouched by construction. Proven directly: `ops/invite-budget-proof.mjs` check 8 inserts,
+  untouched by construction. Proven directly: `ops/invite-budget-proof.mjs` check 10 inserts,
   calls the REAL `resetDemo()`, and confirms the row count is identical before and after.
 - **Evidence recorded per generation**: `model`, `prompt_hash`, `output_sha256` (sha256 of the
   returned art bytes, computed server-side after generation), `cost_usd`, `source`, `status`,
@@ -207,15 +237,20 @@ equivalent to real reference-image support.
 
 ### 8.4 Proof
 
-- **Mocked-provider tests** (`src/rosina/invite.test.ts`, 20 tests, no network/DB): authorization
+- **Mocked-provider tests** (`src/rosina/invite.test.ts`, 21 tests, no network/DB): authorization
   (unchanged from the original slice), the per-child ledger budget (a new login sharing the same
   child's budget, independent budgets per child, FIXTURE never reaching the ledger), the PII guard
-  refusing before any reservation, deduplication (concurrent/duplicate/retry-after-failure), and a
-  successful generation settling with a real output hash.
-- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 8/8 checks): reservation,
-  shared per-child budget across logins, independent per-child budgets, settle(FAILED) reversal,
-  authorization refusals (stranger + wrong-child parent), concurrency at the cap boundary, settle
-  ownership, and the demo-reset survival proof.
+  refusing before any reservation, deduplication (concurrent/duplicate/retry-after-failure), a
+  successful generation settling with a real output hash, a known cache hit skipping reservation
+  entirely, the settle-time `cached` fact still correctly zeroing the cost on a cache-hit race, an
+  UNCERTAIN outcome charging conservatively, a CONFIRMED failure settling free, and direct unit
+  coverage of `createLiveImageGenerator`'s CONFIRMED-vs-UNCERTAIN failure classification.
+- **Real disposable-Postgres proof** (`ops/invite-budget-proof.mjs`, 10/10 checks): reservation
+  with no caller-supplied cost, shared per-child budget across logins, independent per-child
+  budgets, settle(FAILED) reversal, authorization refusals (stranger + wrong-child parent),
+  concurrency at the cap boundary, settle ownership and replay refusal, a cache-hit settle
+  charging $0 and releasing its budget, an UNCERTAIN settle keeping the full reserved charge, and
+  the demo-reset survival proof.
 - **Web tests** (`web/src/features/invites/*.test.tsx`): the existing honest-states suite plus new
   coverage for preserve-last-design-while-regenerating, the explicit Retry button actually
   re-running the request, and no Retry offered on a 403 refusal.

@@ -102,13 +102,25 @@ const typeDefs = parse(`
     pass. Parent/guardian of the child only, same generic UNAUTHORIZED as every other money-
     adjacent read here. Never returns another family's data, a model name, a prompt, or a raw
     cost figure — only whether this reservation was allowed and what remains today.
-    """
-    reserveInviteBudget(childId: ID!, costUsd: Float!, source: String!, promptHash: String!): InviteBudgetReservation!
 
-    """Settles a reservation after the image call resolves — SUCCEEDED keeps the cost counted
-    toward today's cap; FAILED drops it (nothing was actually spent). Caller must own the
-    reservation; a generation id from someone else's reservation is refused."""
-    settleInviteBudget(generationId: ID!, status: String!, model: String, outputSha256: String): Boolean!
+    Cost is decided SERVER-SIDE ONLY — there is no costUsd argument. The per-generation price
+    (Muse Image, $0.01/image, Meta's published figure) is a fixed constant inside the 0085 RPC;
+    a caller cannot set or influence it.
+    """
+    reserveInviteBudget(childId: ID!, source: String!, promptHash: String!): InviteBudgetReservation!
+
+    """
+    Settles a reservation after the image call resolves. The caller reports FACTS it observed —
+    which of the three closed outcomes occurred, and whether this was a cache hit — never a
+    price: the actual charged cost is computed server-side from (status, cached), never from an
+    argument (0085). SUCCEEDED + cached charges $0.00 (no new provider call was made); SUCCEEDED
+    + not cached charges the real reserved amount; UNCERTAIN keeps the reserved amount charged
+    (the provider may have billed even though this process got no usable result — never refunded
+    by default); FAILED charges $0.00 (a CONFIRMED pre-generation refusal only). Caller must own
+    the reservation, and a reservation settles exactly once — replaying or overriding a prior
+    outcome is refused.
+    """
+    settleInviteBudget(generationId: ID!, status: InviteGenerationOutcome!, model: String, outputSha256: String, cached: Boolean!): Boolean!
 
     """Creates or updates a PENDING_ACTIVATION draft. Parent/guardian only; sends nothing."""
     orbitDraft(
@@ -335,6 +347,16 @@ const typeDefs = parse(`
     allowed: Boolean!
     generationId: ID
     remainingUsd: Float!
+  }
+
+  """A closed set, never a free string — the caller reports which of these occurred; the SERVER
+  (0085) alone decides the resulting charge. UNCERTAIN means the provider may have billed even
+  though this process got no usable result (a network timeout after send, or a local validation
+  failure on an otherwise-200 response) — charged conservatively, never refunded by default."""
+  enum InviteGenerationOutcome {
+    SUCCEEDED
+    FAILED
+    UNCERTAIN
   }
 
   type CandidateEvaluation {
@@ -1208,16 +1230,17 @@ const resolvers = {
       return jobById(ctx, args.jobId);
     },
 
+    // No costUsd argument: the per-generation price is a fixed constant inside the 0085 RPC
+    // itself — a caller cannot set or influence it. See the schema doc comment above.
     reserveInviteBudget: async (
       _: unknown,
-      args: { childId: string; costUsd: number; source: string; promptHash: string },
+      args: { childId: string; source: string; promptHash: string },
       ctx: Ctx,
     ) => {
       refuseDemoGuideWrite(ctx);
       requireCaller(ctx);
       const { data, error } = await dbFor(ctx).rpc('invite_budget_reserve', {
         p_child: args.childId,
-        p_cost_usd: args.costUsd,
         p_source: args.source,
         p_prompt_hash: args.promptHash,
       });
@@ -1229,9 +1252,12 @@ const resolvers = {
       return { allowed: row.allowed, generationId: row.generation_id, remainingUsd: Number(row.remaining_usd) };
     },
 
+    // `status` is the InviteGenerationOutcome enum (closed set), and `cached` is a FACT the
+    // caller observed — the RPC itself computes the actual charged cost_usd from those two
+    // inputs; nothing here or in 0085 accepts a price from the caller.
     settleInviteBudget: async (
       _: unknown,
-      args: { generationId: string; status: string; model?: string | null; outputSha256?: string | null },
+      args: { generationId: string; status: string; model?: string | null; outputSha256?: string | null; cached: boolean },
       ctx: Ctx,
     ) => {
       refuseDemoGuideWrite(ctx);
@@ -1241,6 +1267,7 @@ const resolvers = {
         p_status: args.status,
         p_model: args.model ?? null,
         p_output_sha256: args.outputSha256 ?? null,
+        p_cached: args.cached,
       });
       if (error) rpcError(error);
       return Boolean(data);

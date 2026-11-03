@@ -29,7 +29,7 @@ import { createInviteHandler } from './inviteEndpoint';
 import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
 import { createInviteRateLimiter } from './inviteBudget';
 import { createSparkInviteExtractor, buildInviteParentAuthorizer } from './inviteDeps';
-import { buildInviteLedgerBudget, INVITE_GENERATION_COST_USD } from './inviteLedgerBudget';
+import { buildInviteLedgerBudget } from './inviteLedgerBudget';
 import { createInviteDedup } from './inviteDedup';
 
 loadEnv();
@@ -246,8 +246,8 @@ export function createRosinaApp() {
       dedup: createInviteDedup(),
       // Per-CHILD persistent budget (0085) — only ever called when source is MUSE_IMAGE;
       // FIXTURE spends nothing and never reaches it.
+      // No cost is passed in — price is decided server-side only, inside the 0085 RPCs.
       ledgerBudget: buildInviteLedgerBudget({ graphqlUrl }),
-      generationCostUsd: INVITE_GENERATION_COST_USD,
       source: INVITE_LIVE ? 'MUSE_IMAGE' : 'FIXTURE',
     });
     app.post('/api/rosina/invite', (req, res) => {
