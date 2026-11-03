@@ -74,6 +74,7 @@ function stripJpegMetadata(input: Buffer): Buffer {
 }
 
 const ORBIT_PHOTO_DIR = process.env.ORBIT_PHOTO_DIR ?? join(process.cwd(), 'var', 'orbit-photos');
+const VOICE_NOTE_DIR = process.env.VOICE_NOTE_DIR ?? join(process.cwd(), 'var', 'voice-notes');
 
 function bearerToken(header?: string): string | undefined {
   if (!header) return undefined;
@@ -266,6 +267,45 @@ export function createDemoLoginApp() {
       }
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('X-Orbit-Access', String(row.access));
+      res.send(readFileSync(file));
+    } catch {
+      res.status(404).json({ error: 'NOT_FOUND' });
+    }
+  });
+
+  // ---------------------------------------------------------------- voice note playback (0084)
+  // Same shape as the Orbit photo handler above, deliberately: no-store on every response, a real
+  // bearer, voice_note_access(id) re-checked on EVERY request, 404 for both "no such note" and "no
+  // access" — no oracle, no signed URL, no durable path ever handed to a client.
+  app.get('/api/demo/voice-note/:voiceNoteId', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = bearerToken(req.headers.authorization);
+    if (!token) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+    const identity = await verifyBearer(req.headers.authorization);
+    if (!identity.ok) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+    const ctx: Ctx = { today: todayIso(), token };
+    try {
+      const { data, error } = await dbFor(ctx).rpc('voice_note_access', { p_voice_note: req.params.voiceNoteId });
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { access?: string | null; storage_path?: string | null }
+        | null;
+      if (error || !row?.access || !row?.storage_path) {
+        res.status(404).json({ error: 'NOT_FOUND' });
+        return;
+      }
+      const file = join(VOICE_NOTE_DIR, basename(row.storage_path));
+      if (!existsSync(file)) {
+        res.status(404).json({ error: 'NOT_FOUND' });
+        return;
+      }
+      res.setHeader('Content-Type', 'audio/wav');
+      res.setHeader('X-Voice-Note-Access', String(row.access));
       res.send(readFileSync(file));
     } catch {
       res.status(404).json({ error: 'NOT_FOUND' });

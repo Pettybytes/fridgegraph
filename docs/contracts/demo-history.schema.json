@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fridgegraph.dev/contracts/demo-history/v1",
+  "title": "Demo pickup-coordination history (v1, PROPOSED)",
+  "description": "Machine-readable companion to docs/contracts/demo-history.md. Describes the shape of a story, its timeline events, a response, and a voice note — not a database schema dump; GraphQL/HTTP field names, not SQL column names.",
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC, always. Display conversion to America/Detroit is the reading client's job."
+    },
+    "personRef": {
+      "type": "object",
+      "properties": { "id": { "type": "string" } },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "timelineEntry": {
+      "type": "object",
+      "description": "jobTimeline(jobId) element. Existing kinds unchanged; RESPONSE_RECORDED and JOB_DECLINED are new in v1.",
+      "properties": {
+        "at": { "$ref": "#/$defs/instant" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "JOB_CREATED",
+            "ATTEMPT_OPENED",
+            "ATTEMPT_CLOSED",
+            "COST_CALCULATED",
+            "CONFIRMATION",
+            "RESPONSE_RECORDED",
+            "JOB_DECLINED"
+          ]
+        },
+        "attemptId": { "type": ["string", "null"] },
+        "candidate": {
+          "oneOf": [{ "$ref": "#/$defs/personRef" }, { "type": "null" }]
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "description": "ATTEMPT_CLOSED: closed_reason text (e.g. TIMEOUT, NO_ANSWER). RESPONSE_RECORDED: response_kind (ACCEPTED|DECLINED). JOB_DECLINED: failure_reason text."
+        }
+      },
+      "required": ["at", "kind", "attemptId", "candidate", "detail"],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "description": "candidate_evaluations, response-relevant fields only.",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string" },
+        "candidate": { "$ref": "#/$defs/personRef" },
+        "respondedAt": {
+          "oneOf": [{ "$ref": "#/$defs/instant" }, { "type": "null" }],
+          "description": "Null iff no human has responded yet, including every TIMEOUT/NO_ANSWER closure. Never set by cost calculation or any other system write."
+        },
+        "responseKind": {
+          "oneOf": [{ "type": "string", "enum": ["ACCEPTED", "DECLINED"] }, { "type": "null" }],
+          "description": "Null iff respondedAt is null; non-null iff respondedAt is non-null."
+        },
+        "voiceNoteId": {
+          "type": ["string", "null"],
+          "description": "Present only when this response's story is one of the 'complete voice-to-resolution' stories (demo-history.md §2)."
+        }
+      },
+      "required": ["id", "jobId", "candidate", "respondedAt", "responseKind"],
+      "additionalProperties": false
+    },
+    "responseTime": {
+      "type": "object",
+      "description": "Derived, not stored. attemptAt and respondedAt are the only two instants a duration is ever computed from.",
+      "properties": {
+        "responseId": { "type": "string" },
+        "attemptId": { "type": "string" },
+        "attemptAt": { "$ref": "#/$defs/instant" },
+        "respondedAt": { "$ref": "#/$defs/instant" },
+        "label": {
+          "type": "string",
+          "const": "time from recorded attempt to response",
+          "description": "Fixed wording — dispatch delivery is never verified, so the label never claims to measure delivery."
+        },
+        "sampleSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Required on any aggregate read built from more than one responseTime. Not required on a single story's own reply."
+        }
+      },
+      "required": ["responseId", "attemptId", "attemptAt", "respondedAt", "label"],
+      "additionalProperties": false
+    },
+    "turnTiming": {
+      "type": "object",
+      "description": "Coarse, turn-level only. Word-level timing is never fabricated and never appears here.",
+      "properties": {
+        "speaker": { "$ref": "#/$defs/personRef" },
+        "startSec": { "type": "number", "minimum": 0 },
+        "endSec": { "type": "number", "minimum": 0 }
+      },
+      "required": ["speaker", "startSec", "endSec"],
+      "additionalProperties": false
+    },
+    "voiceNote": {
+      "type": "object",
+      "description": "Metadata read (GraphQL). Audio bytes are a separate HTTP fetch (demo-history.md §6) — never bundled here.",
+      "properties": {
+        "id": { "type": "string" },
+        "responseId": { "type": "string" },
+        "speaker": { "$ref": "#/$defs/personRef" },
+        "transcript": { "type": "string" },
+        "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "turnTimings": {
+          "oneOf": [
+            { "type": "array", "items": { "$ref": "#/$defs/turnTiming" } },
+            { "type": "null" }
+          ]
+        },
+        "createdAt": { "$ref": "#/$defs/instant" }
+      },
+      "required": ["id", "responseId", "speaker", "transcript", "durationSeconds", "createdAt"],
+      "additionalProperties": false,
+      "not": {
+        "anyOf": [
+          { "required": ["synthesisScript"] },
+          { "required": ["providerJobId"] },
+          { "required": ["providerCostUsd"] },
+          { "required": ["modelName"] }
+        ]
+      }
+    },
+    "story": {
+      "type": "object",
+      "description": "coordination_jobs (type=PICKUP) plus everything linked to it. No separate story table — this is a read shape, not a storage shape.",
+      "properties": {
+        "storyId": { "type": "string", "pattern": "^job_hist_[0-9]{2}$" },
+        "child": { "$ref": "#/$defs/personRef" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "discovering", "awaiting_approval", "confirmed", "failed"]
+        },
+        "createdOn": {
+          "type": "string",
+          "format": "date",
+          "description": "America/Detroit calendar date, expressed relative to the documented anchor D = 2026-11-02 in demo-history.md §2 — never a raw offset integer at the data layer."
+        },
+        "timeline": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timelineEntry" }
+        },
+        "responses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/response" }
+        },
+        "confirmation": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "receivedAt": { "$ref": "#/$defs/instant" },
+                "candidate": { "$ref": "#/$defs/personRef" },
+                "approvedBy": { "$ref": "#/$defs/personRef" }
+              },
+              "required": ["id", "receivedAt", "candidate", "approvedBy"],
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ]
+        },
+        "declinedAt": {
+          "oneOf": [{ "$ref": "#/$defs/instant" }, { "type": "null" }],
+          "description": "coordination_jobs.decided_at — present only when approve_pickup's DECLINED branch ran."
+        }
+      },
+      "required": ["storyId", "child", "status", "createdOn", "timeline", "responses", "confirmation", "declinedAt"],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "version": { "type": "string", "const": "v1" },
+    "anchorDate": { "type": "string", "format": "date", "const": "2026-11-02" },
+    "anchorTimezone": { "type": "string", "const": "America/Detroit" },
+    "stories": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/story" }
+    }
+  },
+  "required": ["version", "anchorDate", "anchorTimezone", "stories"],
+  "additionalProperties": false
+}

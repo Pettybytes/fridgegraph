@@ -38,6 +38,15 @@ const typeDefs = parse(`
     jobTimeline(jobId: ID!): [TimelineEntry!]!
 
     """
+    Metadata only (transcript/duration/turn timings/speaker) — never the audio bytes, which are a
+    separate HTTP fetch (GET /api/demo/voice-note/:id, re-checked on every request, no signed URL;
+    docs/contracts/demo-history.md §6). voice_notes_read decides visibility; a caller who may not
+    see it receives null, identical to a nonexistent id — no existence oracle, same shape as every
+    other RLS-governed read in this file.
+    """
+    voiceNote(id: ID!): VoiceNote
+
+    """
     One Orbit alert. A caller who may not see it receives null — identical to a nonexistent id, so
     the read is not an existence oracle.
     """
@@ -340,6 +349,25 @@ const typeDefs = parse(`
     attemptId: ID
     candidate: Person
     detail: String
+  }
+
+  """A single turn's coarse timing. Never word-level — nothing in this pipeline measures
+  individual word timing, so nothing is invented to fill a finer-grained shape."""
+  type TurnTiming {
+    speaker: Person!
+    startSec: Float!
+    endSec: Float!
+  }
+
+  """Transcript/duration/speaker metadata for a private voice note. Audio bytes are a separate,
+  re-checked-every-request HTTP fetch — never bundled here, never a provider/cost/script field."""
+  type VoiceNote {
+    id: ID!
+    speaker: Person!
+    transcript: String!
+    durationSeconds: Float!
+    turnTimings: [TurnTiming!]
+    createdAt: String!
   }
 
   type InformationRequest {
@@ -813,7 +841,7 @@ const resolvers = {
       // Visibility first: an invisible job is indistinguishable from a missing one, so this returns
       // an empty list instead of an error that would confirm the id exists.
       const jobRows = await rows(
-        dbFor(ctx).from('coordination_jobs').select('id,created_at').eq('id', jobId),
+        dbFor(ctx).from('coordination_jobs').select('id,created_at,decided_at,failure_reason').eq('id', jobId),
       );
       if (!jobRows.length) return [];
       const job = jobRows[0];
@@ -825,6 +853,9 @@ const resolvers = {
       };
 
       push(job.created_at, 'JOB_CREATED');
+      // A parent's explicit non-approval, as its own timestamped event — 0084. Only present when
+      // approve_pickup's DECLINED branch actually ran; distinct from a system-closed attempt.
+      push(job.decided_at, 'JOB_DECLINED', { detail: job.failure_reason == null ? null : String(job.failure_reason) });
 
       const attemptRows = await rows(
         dbFor(ctx)
@@ -852,10 +883,18 @@ const resolvers = {
       const evalRows = await rows(
         dbFor(ctx)
           .from('candidate_evaluations')
-          .select('candidate_id,cost_calculated_at,cost_basis')
+          .select('candidate_id,cost_calculated_at,cost_basis,responded_at,response_kind')
           .eq('job_id', jobId),
       );
       for (const e of evalRows) {
+        // A real human response, distinct from an attempt merely closing (TIMEOUT/NO_ANSWER never
+        // produce this — responded_at is null for both, by construction, not by this check).
+        if (e.responded_at != null) {
+          push(e.responded_at, 'RESPONSE_RECORDED', {
+            candidate: { id: String(e.candidate_id) },
+            detail: e.response_kind == null ? null : String(e.response_kind),
+          });
+        }
         if (e.cost_calculated_at == null) continue;
         push(e.cost_calculated_at, 'COST_CALCULATED', {
           candidate: { id: String(e.candidate_id) },
@@ -877,6 +916,29 @@ const resolvers = {
       }
 
       return entries.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    },
+
+    voiceNote: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      // RLS (voice_notes_read, 0084) is the entire visibility rule — no code-level check here,
+      // same posture as fridgeNotes/goals. Zero rows means "no access or doesn't exist," never
+      // distinguished — no existence oracle.
+      const data = await rows(
+        dbFor(ctx)
+          .from('voice_notes')
+          .select('id,speaker_person_id,transcript,duration_seconds,turn_timings,created_at')
+          .eq('id', id),
+      );
+      const row = data[0];
+      if (!row) return null;
+      return {
+        id: String(row.id),
+        speaker: { id: String(row.speaker_person_id) },
+        transcript: String(row.transcript),
+        durationSeconds: Number(row.duration_seconds),
+        turnTimings: row.turn_timings == null ? null : row.turn_timings,
+        createdAt: String(row.created_at),
+      };
     },
   },
 

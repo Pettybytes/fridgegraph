@@ -14,6 +14,7 @@ import { createSimulatedCheckIn } from '../fixtures-simulated';
 import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
 import { createCastV2 } from '../fixtures-cast-v2';
+import { createDemoHistory } from '../fixtures-demo-history';
 import { dropPersonaSessionCache } from './persona-sessions';
 import { deleteCreatedFamilies, purgeFamilyArtifacts, reconcileAbandonedFamilies, type FamilyRow } from './family';
 
@@ -57,6 +58,16 @@ const ID_TABLES = [
   // two-step shape Cast v2 itself uses (clear sandboxed rows, then upsert canonical content back).
   // pkOf('goals') is the default (['id']), so no entry is needed there.
   'goals',
+  // candidate_evaluations/confirmations (0084, staged): the 30-day demo history's responses and
+  // confirmations. Both cascade-delete automatically whenever their parent coordination_jobs row
+  // is cleared (SANDBOX_TABLES, above) — this entry restores their 20 known fixture ids back to
+  // their exact v1 shape afterward. No sandbox column needed on either: cascade already scopes
+  // their cleanup correctly, and a known-id restore needs no sandbox column to work.
+  'candidate_evaluations', 'confirmations',
+  // voice_notes (0084, staged): same cascade reasoning — a voice note's own FK is to
+  // candidate_evaluations, which itself cascades from coordination_jobs, so clearing is already
+  // automatic. Restored by known id so the 3 seeded voice notes revert to their exact v1 content.
+  'voice_notes',
 ] as const;
 
 function pkOf(table: string): string[] {
@@ -77,9 +88,16 @@ function fixtures(): Record<string, Row[]> {
   const orbit = createSimulatedOrbit();
   const checkin = createSimulatedCheckIn();
   const facts = createSimulatedCareFacts();
+  // The 30-day demo pickup-coordination history (0084, staged, v1 PROPOSED —
+  // docs/contracts/demo-history.md). Deterministic: createDemoHistory() computes every date from
+  // a single fixed anchor, never Date.now(), so this is the exact same ~20 stories on every call.
+  const hist = createDemoHistory();
   return {
-    coordination_jobs: sim.coordination_jobs as unknown as Row[],
-    attempts: sim.attempts as unknown as Row[],
+    coordination_jobs: [...sim.coordination_jobs, ...hist.coordination_jobs] as unknown as Row[],
+    attempts: [...sim.attempts, ...hist.attempts] as unknown as Row[],
+    candidate_evaluations: hist.candidate_evaluations,
+    confirmations: hist.confirmations,
+    voice_notes: hist.voice_notes,
     holidays: cal.holidays, routines: cal.routines, adult_availability: cal.adult_availability,
     holiday_arrangements: cal.holiday_arrangements, events: cal.events,
     households: priv.households, people: priv.people, children: priv.children,
@@ -215,7 +233,12 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
     const RESTORE_ORDER = [
       'people', 'shared_statuses', 'households', 'children', 'household_members', 'goals',
       'holidays', 'routines', 'adult_availability', 'holiday_arrangements', 'coordination_jobs',
-      'attempts', 'expected_checkins', 'care_facts', 'household_policies', 'events',
+      'attempts',
+      // candidate_evaluations needs attempts' candidates (people) + coordination_jobs, both just
+      // restored above. confirmations needs coordination_jobs + a candidate (person). voice_notes
+      // needs candidate_evaluations (its own FK) — last of the three, on purpose.
+      'candidate_evaluations', 'confirmations', 'voice_notes',
+      'expected_checkins', 'care_facts', 'household_policies', 'events',
     ];
     for (const table of RESTORE_ORDER) {
       const n = await upsertRows(c, table, data[table] ?? []);
