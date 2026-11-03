@@ -10,13 +10,24 @@
 -- beyond what was asked (nothing previously enforced that), added because it is cheap and closes
 -- a real gap in the existing `for all` write policy.
 --
--- `sandbox` (new, default true): explicit demo-content provenance, same convention as every other
--- SANDBOX_TABLES member (fridge_notes included). Reset must clear demo-CREATED goals (anything a
--- judge creates live through createGoal), not just restore the two canonical seeded ones — found
--- live in review: the first cut only put `goals` in reset.ts's ID_TABLES (restore-by-known-id),
--- which left every OTHER goal, including judge-created ones, permanently un-clearable. Ownership
--- is this column, never inferred from an id prefix or from "belongs to a fixture child" (a real,
--- non-demo goal for the same child must survive untouched — explicit sandbox=false, not guessed).
+-- `sandbox` (new, default FALSE): explicit demo-content provenance, same convention as every
+-- other SANDBOX_TABLES member (fridge_notes included). Reset must clear demo-CREATED goals
+-- (anything a judge creates live through createGoal), not just restore the two canonical seeded
+-- ones — found live in review: the first cut only put `goals` in reset.ts's ID_TABLES
+-- (restore-by-known-id), which left every OTHER goal, including judge-created ones, permanently
+-- un-clearable. Ownership is this column, never inferred from an id prefix or from "belongs to a
+-- fixture child".
+--
+-- SECOND review correction, same migration: the column's own default must NEVER be `true`. Goals
+-- is an EXISTING, already-populated table — `add column ... default true` backfills every row
+-- that already exists at apply time, which would retroactively mark any genuinely non-demo goal
+-- already in the database as demo-clearable, deleting it on the very next reset. The default is
+-- `false` (safe: an unknown pre-existing row is never assumed to be demo content), and the two
+-- verified canonical demo goals are marked `true` by an explicit, targeted UPDATE naming their
+-- exact ids below — never a blanket default, never "belongs to a fixture child" (a real, non-demo
+-- goal for the same child must survive reset untouched). Going forward, `createGoal`'s resolver
+-- sets `sandbox = true` explicitly on every insert — ownership of a NEW demo goal is asserted by
+-- the server at creation time, never left to a column default either.
 --
 -- DEPLOY ORDERING: this migration must be applied BEFORE the code in this PR is deployed. The
 -- `goals` query resolver (village.ts) unconditionally selects `period, completed_at` — deploying
@@ -38,7 +49,13 @@ begin;
 alter table goals
   add column if not exists period text check (period in ('DAY', 'WEEK', 'MONTH')),
   add column if not exists completed_at timestamptz,
-  add column if not exists sandbox boolean not null default true;
+  add column if not exists sandbox boolean not null default false;
+
+-- Explicit, targeted provenance for the two verified canonical demo goals — named by id, never a
+-- blanket default. Every OTHER pre-existing row (anything already in this table before this
+-- migration runs) stays `sandbox = false` from the column default above, including a goal that
+-- happens to belong to the same child as these two.
+update goals set sandbox = true where id in ('goal_reading', 'goal_passing');
 
 create or replace function _goals_guard() returns trigger
 language plpgsql security definer set search_path = public as $$

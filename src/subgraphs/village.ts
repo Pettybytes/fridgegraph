@@ -827,6 +827,9 @@ const resolvers = {
       const callerId = requireCaller(ctx);
       // goals_parent_write (unchanged) enforces is_parent_of(childId) on the insert itself —
       // nothing here duplicates that check; a non-parent's insert is refused by RLS with 0 rows.
+      // sandbox: true is asserted explicitly here, never left to the column's own default (which
+      // is `false` precisely so an unrelated pre-existing row is never assumed to be demo content
+      // — see 0083's own comment). Every goal THIS resolver creates is demo content, full stop.
       const inserted = await one(
         dbFor(ctx)
           .from('goals')
@@ -839,6 +842,7 @@ const resolvers = {
             horizon: horizon ?? null,
             period: period ?? null,
             status: status ?? 'APPROVED',
+            sandbox: true,
           })
           .select(GOAL_COLUMNS)
           .maybeSingle(),
