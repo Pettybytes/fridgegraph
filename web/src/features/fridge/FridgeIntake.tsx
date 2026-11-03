@@ -1,7 +1,7 @@
 import {useEffect,useId,useRef,useState} from 'react'
 import {Upload,Image as ImageIcon,Check,X} from 'lucide-react'
 import {Button} from '@/components/ui/button'
-import {createPinIntakeClient,pinErrorMessage,type PinIntakeClient,type PinPrepareResult,type PinAudience,type PinnedResult} from './pinIntake'
+import {createPinIntakeClient,pinErrorMessage,sampleSlipFile,type PinIntakeClient,type PinPrepareResult,type PinAudience,type PinnedResult} from './pinIntake'
 
 type Phase={kind:'idle'}|{kind:'uploading'}|{kind:'review';result:PinPrepareResult}|{kind:'pinning';result:PinPrepareResult}|{kind:'pinned';pinned:PinnedResult}
 
@@ -53,6 +53,13 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
   }catch(e){if(!controller.signal.aborted&&alive.current){setError(pinErrorMessage(e));setPhase({kind:'idle'})}}
  }
 
+ async function loadSample(){
+  if(!client||phase.kind==='uploading')return
+  setError('')
+  try{const file=await sampleSlipFile();await choose(file)}
+  catch(e){if(alive.current)setError(pinErrorMessage(e))}
+ }
+
  async function confirm(){
   if(phase.kind!=='review'||!client)return
   const result=phase.result,proposal=result.proposal
@@ -90,6 +97,7 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
     <label className="fridge-intake-field"><span>Caption (optional)</span><input type="text" value={caption} maxLength={120} placeholder="e.g. Field trip slip" onChange={e=>setCaption(e.target.value)}/></label>
     <label className="fridge-intake-check"><input type="checkbox" checked={plainPhoto} onChange={e=>setPlainPhoto(e.target.checked)}/><span>This is a plain photo, not a document (skip cropping)</span></label>
     <p className="fridge-intake-note"><Upload size={14} aria-hidden="true"/> PNG, JPEG or WebP up to 10 MB. The photo is stripped of location data, read privately, and pinned only after you confirm.</p>
+    <button type="button" className="fridge-intake-sample" disabled={phase.kind==='uploading'} onClick={()=>void loadSample()}>Try a sample: a Lincoln Elementary permission slip, photographed on the counter</button>
    </div>}
   {phase.kind==='uploading'&&<p role="status">Reading your photo privately…</p>}
   {error&&<p role="alert" className="fridge-intake-error">{error}</p>}

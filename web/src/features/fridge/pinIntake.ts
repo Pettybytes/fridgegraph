@@ -129,3 +129,14 @@ export function createPinIntakeClient(getAccessToken: Bearer, send: Send = fetch
 export function pinErrorMessage(e: unknown): string {
   return e instanceof PinError ? PIN_MESSAGE[e.code] : PIN_MESSAGE.UNAVAILABLE
 }
+
+/** Fetch the fictional Lincoln Elementary permission-slip "phone photo" as a File, so a parent can
+ *  run the real pipeline on a known document and see SAM 3.1 crop the paper off the counter. The
+ *  image is a static demo asset in /public; it is fed through the same upload path as any photo. */
+export const SAMPLE_SLIP_PATH = '/fridge/samples/lincoln-permission-slip-photo.png'
+export async function sampleSlipFile(request: Send = fetch): Promise<File> {
+  const res = await request(SAMPLE_SLIP_PATH, { cache: 'no-store' })
+  if (!res.ok) throw new PinError('UNAVAILABLE')
+  const blob = await res.blob()
+  return new File([blob], 'lincoln-permission-slip-photo.png', { type: 'image/png' })
+}
