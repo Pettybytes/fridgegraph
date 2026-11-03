@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
 @import "@fontsource-variable/geist";
 
 /* @ilamy/calendar ships no CSS: it uses Tailwind + shadcn token classes, so
@@ -20,7 +21,9 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  /* Inter is the design-v2 landing typeface (Framer/Machi look); Geist stays as a
+     metric-close fallback. */
+  --font-sans: 'Inter Variable', 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans);
 
   /* Type scale (design.md §6 — one deliberate set of sizes/weights/line-heights
@@ -147,13 +150,14 @@
 }
 
 :root {
-  /* FridgeGraph runtime palette - light (warm paper, dark ink, indigo, coral). */
-  --fg-canvas: oklch(0.985 0.008 85);
+  /* FridgeGraph runtime palette — design-v2 LIGHT (Framer-landing: bright white
+     canvas with a soft sky field, near-black neutral ink, pure-white surfaces). */
+  --fg-canvas: oklch(0.988 0.004 230);
   --fg-surface: oklch(1 0 0);
   --fg-elevated: oklch(1 0 0);
-  --fg-ink: oklch(0.24 0.03 270);
-  --fg-muted: oklch(0.52 0.022 268);
-  --fg-border: oklch(0.91 0.008 268);
+  --fg-ink: oklch(0.15 0.004 275);          /* ~#0B0B0C */
+  --fg-muted: oklch(0.555 0.017 262);       /* ~#6B7280 */
+  --fg-border: oklch(0.925 0.005 255);
   --fg-primary: oklch(0.47 0.15 274);
   --fg-primary-hover: oklch(0.42 0.15 274);
   --fg-on-primary: oklch(0.99 0.01 274);
@@ -213,29 +217,33 @@
   --fg-line: var(--fg-border);
 
   /* ── design-v2 card system (see docs/design.md legend) ──────────────────────
-     Card TYPE drives colour consistently everywhere: accent bar, icon node,
-     corner glow, progress, gradient tile. One hue per type; these read on both
-     themes. Elevation + glass are theme-aware (overridden under .dark). */
-  --type-pickup:  oklch(0.80 0.15 78);    /* pickup / transport — amber  */
-  --type-school:  oklch(0.70 0.14 248);   /* school notice      — blue   */
-  --type-orbit:   oklch(0.64 0.22 25);    /* Orbit alert        — red    */
-  --type-safe:    oklch(0.74 0.17 155);   /* found safe         — green  */
-  --type-care:    oklch(0.76 0.11 192);   /* care information   — teal   */
-  --type-invite:  oklch(0.72 0.18 332);   /* invitations        — violet-pink */
-  --type-fridge:  oklch(0.73 0.17 55);    /* fridge / memories  — orange */
-  --type-rosina:  oklch(0.66 0.16 276);   /* Rosina (AI)        — indigo */
-  --type-pending: oklch(0.72 0.02 270);   /* pending / loading  — gray   */
-  /* one dark glyph colour that clears >=3:1 on every node hue above */
-  --type-node-ink: oklch(0.19 0.015 270);
+     Card TYPE drives colour consistently everywhere: accent bar, icon chip,
+     tinted glow, progress, tile. One hue per type, tuned for contrast on WHITE
+     (Framer-landing look). */
+  --type-pickup:  oklch(0.66 0.15 62);    /* pickup / transport — amber  */
+  --type-school:  oklch(0.56 0.16 252);   /* school notice      — blue   */
+  --type-orbit:   oklch(0.57 0.22 25);    /* Orbit alert        — red    */
+  --type-safe:    oklch(0.57 0.15 155);   /* found safe         — green  */
+  --type-care:    oklch(0.60 0.10 195);   /* care information   — teal   */
+  --type-invite:  oklch(0.57 0.20 330);   /* invitations        — violet-pink */
+  --type-fridge:  oklch(0.63 0.16 50);    /* fridge / memories  — orange */
+  --type-rosina:  oklch(0.54 0.18 276);   /* Rosina (AI)        — indigo */
+  --type-pending: oklch(0.58 0.018 262);  /* pending / loading  — gray   */
+  /* glyph colour for a solid (saturated) node, if ever used; chips use --tc. */
+  --type-node-ink: oklch(0.99 0.003 230);
 
-  /* Card elevation (light) — hairline + soft shadow + inner top highlight. */
+  /* Card surfaces are white; depth comes from soft, layered neutral shadows
+     (Framer-landing), not from tinted fills. */
   --card-surface-1: var(--fg-surface);
   --card-surface-2: var(--fg-elevated);
   --card-surface-3: oklch(1 0 0);
-  --card-glass: color-mix(in oklch, var(--fg-surface) 82%, transparent);
-  --card-elev-1: 0 1px 2px oklch(0.2 0.03 270 / 0.05), inset 0 1px 0 oklch(1 0 0 / 0.6);
-  --card-elev-2: 0 1px 2px oklch(0.2 0.03 270 / 0.05), 0 10px 28px -14px oklch(0.2 0.03 270 / 0.18), inset 0 1px 0 oklch(1 0 0 / 0.6);
-  --card-elev-3: 0 2px 4px oklch(0.2 0.03 270 / 0.07), 0 18px 44px -18px oklch(0.2 0.03 270 / 0.28), inset 0 1px 0 oklch(1 0 0 / 0.7);
+  --card-glass: color-mix(in oklch, var(--fg-surface) 70%, transparent);
+  --card-elev-1: 0 1px 2px oklch(0.15 0.01 260 / 0.05), 0 1px 3px oklch(0.15 0.01 260 / 0.06);
+  --card-elev-2: 0 2px 6px -2px oklch(0.15 0.01 260 / 0.06), 0 12px 28px -12px oklch(0.15 0.01 260 / 0.12);
+  --card-elev-3: 0 4px 14px -4px oklch(0.15 0.01 260 / 0.08), 0 28px 54px -18px oklch(0.15 0.01 260 / 0.18);
+  /* Landing accents. */
+  --fg-sky: oklch(0.72 0.14 232);         /* ~#2BA8F5 hero gradient */
+  --radius-card-v2: 22px;                 /* 20–28px Framer card radius */
 }
 
 .dark {
@@ -295,10 +303,10 @@ body,
        (picker, Today, village). Palette-tinted so it adapts light/dark; fixed so it
        reads as a field the content floats over, not a scrolling texture. No motion. */
     background-color: var(--fg-canvas);
+    /* Soft sky field (Framer-landing): airy sky-blue bloom from the top over white. */
     background-image:
-      radial-gradient(1200px 860px at 10% -14%, color-mix(in oklch, var(--rosina-periwinkle) 42%, transparent), transparent 64%),
-      radial-gradient(1080px 760px at 106% -6%, color-mix(in oklch, var(--fg-primary) 30%, transparent), transparent 58%),
-      radial-gradient(1040px 1040px at 50% 120%, color-mix(in oklch, var(--rosina-violet) 28%, transparent), transparent 62%);
+      radial-gradient(1500px 940px at 50% -20%, color-mix(in oklch, var(--fg-sky) 24%, transparent), transparent 60%),
+      radial-gradient(1000px 680px at 102% 0%, color-mix(in oklch, var(--fg-sky) 12%, transparent), transparent 56%);
     background-attachment: fixed;
     background-repeat: no-repeat;
     color: var(--fg-ink);

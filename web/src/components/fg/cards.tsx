@@ -5,7 +5,7 @@
  * node, corner glow, progress, tile) via the shared `data-fgc-type` attribute.
  *
  * Status is always carried by text + icon as well as colour (design.md §6): the
- * icon node uses a dark glyph, never a bare colour dot.
+ * icon chip uses the type colour as its glyph, never a bare colour dot.
  */
 import * as React from 'react'
 import { cn } from 'cn'
