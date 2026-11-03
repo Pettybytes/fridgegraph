@@ -24,6 +24,9 @@ export type CastV2 = {
   routines: { id: string; child_id: string; title: string; weekdays: string[]; start_time: string; end_time: string; location: string | null; sandbox: boolean }[];
   events: { id: string; child_id: string; title: string; start_at: string; end_at: string; location: string | null; status: string }[];
   care_facts: Record<string, unknown>[];
+  school_reports: { id: string; child_id: string; kind: string; text: string; at: string }[];
+  permission_slips: { id: string; child_id: string; title: string; signed: boolean }[];
+  care_plans: { child_id: string; text: string }[];
 };
 
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
@@ -235,12 +238,130 @@ export function createCastV2(): CastV2 {
     },
   ];
 
-  console.log(`[cast-v2] ${villages.length} villages, ${people.length} people, ${routines.length} routines, ${events.length} events`);
+  // ---- Pristine window enrichment (Bryan, 2026-11-03, QA pristine item 8) ----------------------
+  // Every parent family's calendar must be FULL for the past 30 + next 14 days: daily pickups,
+  // weekly activities, school one-offs, and one social event. Purely ADDITIVE: new fx_pr_* ids
+  // only; the arrays and index math above are untouched so no existing baseline row changes.
+  // Times follow this file's existing convention (naive local Detroit timestamps, e.g. T08:15:00).
+  const PRISTINE_DAYS = weekdaysBetween('2026-10-05', '2026-11-13');
+  // Leo and Max Ellison already exist as baseline PEOPLE (0002) and appear in Kendra's
+  // myChildren at runtime; their children rows are made explicit here so their events never
+  // hit a missing FK on a fresh seed.
+  const EXTRA_CHILDREN = ['p_leo', 'p_max'];
+  const PRISTINE_CHILDREN: { id: string; first: string; school: string; preschool?: boolean; activities: { title: string; dows: number[]; start: string; end: string; location: string }[] }[] = [
+    { id: 'p_nora', first: 'Nora', school: 'Lincoln Elementary', activities: [{ title: 'Soccer practice (Tigers)', dows: [2, 4], start: '16:00', end: '17:00', location: 'Field 2' }, { title: 'Library club', dows: [6], start: '10:30', end: '11:30', location: 'Public library' }] },
+    { id: 'p_jax', first: 'Jax', school: 'Lincoln Elementary', activities: [{ title: 'Soccer practice (Tigers)', dows: [2, 4], start: '16:00', end: '17:00', location: 'Field 2' }, { title: 'Karate', dows: [6], start: '09:30', end: '10:30', location: 'Eastside dojo' }] },
+    { id: 'p_emma', first: 'Emma', school: 'Lincoln Elementary', activities: [{ title: 'Dance class', dows: [1], start: '16:30', end: '17:30', location: 'Riverfront studio' }, { title: 'Story time', dows: [6], start: '10:00', end: '10:45', location: 'Public library' }] },
+    { id: 'p_taylor', first: 'Taylor', school: 'Lincoln Elementary', activities: [{ title: 'Choir rehearsal', dows: [2], start: '15:45', end: '16:45', location: 'Music room' }, { title: 'Scouts', dows: [4], start: '18:00', end: '19:00', location: 'Community hall' }] },
+    { id: 'p_skye', first: 'Skye', school: 'Little Sprouts preschool', preschool: true, activities: [{ title: 'Tumbling', dows: [3], start: '10:00', end: '10:45', location: 'Little Sprouts gym' }] },
+    { id: 'p_micah', first: 'Micah', school: 'Lincoln Elementary', activities: [{ title: 'Piano lesson', dows: [1], start: '17:00', end: '17:45', location: 'Music room' }, { title: 'Soccer practice (Tigers)', dows: [4], start: '16:00', end: '17:00', location: 'Field 2' }] },
+    { id: 'p_avery', first: 'Avery', school: 'Little Sprouts preschool', preschool: true, activities: [{ title: 'Swim lesson', dows: [6], start: '09:00', end: '09:45', location: 'Rec centre pool' }] },
+    { id: 'p_malik', first: 'Malik', school: 'Lincoln Elementary', activities: [{ title: 'T-ball', dows: [3], start: '16:15', end: '17:15', location: 'Field 1' }, { title: 'Reading club', dows: [5], start: '15:45', end: '16:30', location: 'School library' }] },
+    { id: 'p_leo', first: 'Leo', school: 'Jefferson Middle School', activities: [{ title: 'Robotics club', dows: [1, 3], start: '15:45', end: '17:00', location: 'STEM lab' }, { title: 'Basketball', dows: [6], start: '11:00', end: '12:30', location: 'Rec centre court' }] },
+    { id: 'p_max', first: 'Max', school: 'Lincoln Elementary', activities: [{ title: 'Swim lesson', dows: [3], start: '17:00', end: '17:45', location: 'Rec centre pool' }, { title: 'Art club', dows: [6], start: '13:00', end: '14:00', location: 'Community hall' }] },
+  ];
+  const dowOf = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
+  const saturdays: string[] = [];
+  for (let d = new Date('2026-10-05T12:00:00Z'); d <= new Date('2026-11-13T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() === 6) saturdays.push(d.toISOString().slice(0, 10));
+  }
+  const SCHOOL_ONE_OFFS: { slug: string; title: string; day: string; start: string; end: string; where: string }[] = [
+    { slug: 'picture', title: 'Picture day', day: '2026-10-14', start: '09:00', end: '10:00', where: 'Lincoln Elementary' },
+    { slug: 'earlyout', title: 'Early dismissal (1:30 PM)', day: '2026-11-02', start: '13:30', end: '13:45', where: 'Lincoln Elementary' },
+    { slug: 'fieldtrip', title: 'Field trip: Michigan Science Center', day: '2026-11-06', start: '09:00', end: '14:00', where: 'Michigan Science Center' },
+    { slug: 'bookfair', title: 'Book fair', day: '2026-11-09', start: '15:30', end: '17:00', where: 'School library' },
+  ];
+  const NO_SCHOOL = new Set(['2026-11-11']); // Veterans Day — holiday rows live in the simulated layer
+  for (const child of PRISTINE_CHILDREN) {
+    for (const day of PRISTINE_DAYS) {
+      if (NO_SCHOOL.has(day) && !child.preschool) continue;
+      events.push({
+        id: `fx_pr_${child.id}_${day}_pickup`,
+        child_id: child.id,
+        title: child.preschool ? `Preschool pickup · ${child.first}` : `School pickup · ${child.first}`,
+        start_at: `${day}T${child.preschool ? '12:45' : '15:30'}:00`,
+        end_at: `${day}T${child.preschool ? '13:00' : '15:45'}:00`,
+        location: child.school,
+        status: 'confirmed',
+      });
+      for (const a of child.activities) {
+        if (!a.dows.includes(dowOf(day))) continue;
+        events.push({
+          id: `fx_pr_${child.id}_${day}_${a.title.toLowerCase().replace(/[^a-z]+/g, '-').slice(0, 20)}`,
+          child_id: child.id, title: a.title, start_at: `${day}T${a.start}:00`, end_at: `${day}T${a.end}:00`,
+          location: a.location, status: 'confirmed',
+        });
+      }
+    }
+    for (const day of saturdays) {
+      for (const a of child.activities) {
+        if (!a.dows.includes(6) || dowOf(day) !== 6) continue;
+        events.push({
+          id: `fx_pr_${child.id}_${day}_${a.title.toLowerCase().replace(/[^a-z]+/g, '-').slice(0, 20)}`,
+          child_id: child.id, title: a.title, start_at: `${day}T${a.start}:00`, end_at: `${day}T${a.end}:00`,
+          location: a.location, status: 'confirmed',
+        });
+      }
+    }
+    if (!child.preschool) {
+      for (const o of SCHOOL_ONE_OFFS) {
+        events.push({
+          id: `fx_pr_${child.id}_${o.day}_${o.slug}`,
+          child_id: child.id, title: o.title, start_at: `${o.day}T${o.start}:00`, end_at: `${o.day}T${o.end}:00`,
+          location: o.where, status: 'confirmed',
+        });
+      }
+    }
+  }
+  // One social event everyone can see on their own calendar: Emma's birthday, Saturday Nov 7.
+  for (const guest of ['p_emma', 'p_nora', 'p_jax', 'p_micah', 'p_taylor']) {
+    events.push({
+      id: `fx_pr_${guest}_2026-11-07_birthday`,
+      child_id: guest, title: "Emma's birthday party", start_at: '2026-11-07T14:00:00', end_at: '2026-11-07T16:00:00',
+      location: 'Castellano backyard', status: 'confirmed',
+    });
+  }
+
+  const SCHOOL_REPORTS: CastV2['school_reports'] = [];
+  const reportSpec: [string, string, string][] = [
+    ['note', 'Settled well into the new reading groups this week.', '2026-10-09'],
+    ['achievement', 'Finished the fall math challenge — great persistence.', '2026-10-21'],
+    ['health', 'Rested in the quiet corner after lunch; back to normal by home time.', '2026-10-30'],
+  ];
+  for (const child of PRISTINE_CHILDREN) {
+    reportSpec.forEach(([kind, text, at], i) => {
+      SCHOOL_REPORTS.push({ id: `fx_sr_${child.id}_${i}`, child_id: child.id, kind, text: `${child.first}: ${text}`, at });
+    });
+  }
+  const PERMISSION_SLIPS: CastV2['permission_slips'] = [];
+  for (const child of PRISTINE_CHILDREN) {
+    if (child.preschool) continue;
+    PERMISSION_SLIPS.push(
+      { id: `fx_ps_${child.id}_fieldtrip`, child_id: child.id, title: `${child.school}: Michigan Science Center field trip (Nov 6)`, signed: true },
+      { id: `fx_ps_${child.id}_picture`, child_id: child.id, title: `${child.school}: picture day photo consent`, signed: false },
+    );
+  }
+  // Care plans only for children with NO baseline plan (p_nora and p_jax keep theirs).
+  const CARE_PLANS: CastV2['care_plans'] = [
+    { child_id: 'p_emma', text: 'No known allergies. Glasses for reading — spare pair in the front pouch.' },
+    { child_id: 'p_taylor', text: 'Dairy sensitivity. Oat milk in the lunch bag; no ice cream at parties.' },
+    { child_id: 'p_skye', text: 'Nap after lunch on preschool days. Comfort rabbit lives in the cubby.' },
+    { child_id: 'p_micah', text: 'Seasonal pollen allergy. Antihistamine with breakfast when the count is high.' },
+    { child_id: 'p_avery', text: 'Ear tubes placed spring 2026 — earplugs for swimming, in the swim bag.' },
+    { child_id: 'p_malik', text: 'Peanut allergy. Epi-pen in the left backpack pocket; school office has a second.' },
+    { child_id: 'p_leo', text: 'Wears contacts for sport. Spare glasses in the robotics locker.' },
+    { child_id: 'p_max', text: 'Mild eczema. Fragrance-free soap only; cream in the wash bag.' },
+  ];
+
+  console.log(`[cast-v2] ${villages.length} villages, ${people.length} people, ${routines.length} routines, ${events.length} events, ${SCHOOL_REPORTS.length} reports, ${PERMISSION_SLIPS.length} slips`);
 
   return {
     villages,
     people,
-    children: people.filter((p) => CHILDREN.includes(p.id)).map((p) => ({ person_id: p.id })),
+    children: [
+      ...people.filter((p) => CHILDREN.includes(p.id)).map((p) => ({ person_id: p.id })),
+      ...EXTRA_CHILDREN.map((id) => ({ person_id: id })),
+    ],
     households,
     household_members,
     relationships,
@@ -249,5 +370,8 @@ export function createCastV2(): CastV2 {
     routines,
     events,
     care_facts,
+    school_reports: SCHOOL_REPORTS,
+    permission_slips: PERMISSION_SLIPS,
+    care_plans: CARE_PLANS,
   };
 }
