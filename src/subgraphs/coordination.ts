@@ -311,6 +311,7 @@ const typeDefs = parse(`
     PICKUP
     INVITATION
     ONBOARDING
+    ORBIT_ALERT
   }
 
   enum DeclineReason {

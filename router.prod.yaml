@@ -32,7 +32,8 @@ authentication:
       on_error: RedactedError
 
 cors:
-  origins: ["https://fridgegraph.loomz.stream"]
+  policies:
+    - origins: ["https://fridgegraph.loomz.stream"]
   allow_credentials: true
   allow_headers: [authorization, content-type]
   methods: [GET, POST, OPTIONS]
