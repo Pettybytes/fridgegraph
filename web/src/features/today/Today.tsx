@@ -10,6 +10,7 @@
  */
 import { useState, type ReactNode } from 'react'
 import { useSession } from '@/features/personas/Session'
+import { useVoiceStart } from '@/features/voice/VoiceProvider'
 import { useSurfaceData } from '@/lib/frontendData/provider'
 import type { MissionControlData, VillageData } from '@/lib/frontendData/types'
 import { recordedSummary } from '@/lib/frontendData/displayCopy'
@@ -41,6 +42,7 @@ function shortWhen(at: string): string {
 export function Today({ attention, now = Date.now }: { attention?: ReactNode; now?: () => number }) {
   const [checklistReopen, setChecklistReopen] = useState(0)
   const { session, authMode } = useSession()
+  const voice = useVoiceStart()
   const access = useChildAccess()
   const mission = useSurfaceData<MissionControlData>('mission-control')
   const myChildren: MyChildrenState = access?.authorized ?? { status: 'loading' }
@@ -92,7 +94,12 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
               }))}
               sendLabel="Ask Rosina"
             />
-            <button type="button" className="fg-iconbtn fg-today-mic" aria-label="Open Rosina microphone" title="Open Rosina microphone" onClick={() => window.dispatchEvent(new Event('rosina:focus-mic'))}>
+            <button type="button" className="fg-iconbtn fg-today-mic" aria-label="Open Rosina microphone" title="Open Rosina microphone" onClick={() => {
+              // One gesture: open + focus the panel mic (binds the live thread) AND start capture on
+              // the ONE shared controller — no synthetic click, no second recording.
+              window.dispatchEvent(new Event('rosina:focus-mic'))
+              if (voice) void voice.start()
+            }}>
               <Mic size={19} aria-hidden="true" />
             </button>
           </div>

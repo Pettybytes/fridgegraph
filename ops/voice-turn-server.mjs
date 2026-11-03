@@ -33,6 +33,7 @@ import http from 'node:http'
 import { spawn } from 'node:child_process'
 import pg from 'pg'
 import crypto from 'node:crypto'
+import { parseHistory } from './voice-helpers.mjs'
 
 const PORT = Number(process.env.PORT || 4118)
 const TOLERANCE_S = 300
@@ -209,7 +210,13 @@ const ASR_ENCODING = process.env.MUSE_ASR_ENCODING || 'WAV'
 const ASR_MODE = process.env.MUSE_ASR_MODE || 'PUSH_TO_TALK'
 const ASR_RATE = Number(process.env.MUSE_ASR_RATE || 16000)
 const ROSINA_URL = process.env.ROSINA_URL || 'http://127.0.0.1:4200/api/rosina'
-const TTS_VOICE = process.env.ELEVENLABS_VOICE_ID || 'uG1JFy6xppqckhHCs2KG'
+// Voice: ElevenLabs "Sarah". Default is the PUBLIC ElevenLabs prebuilt Sarah voice id
+// (EXAVITQu4vr4xnSDxMaL, verifiable via the public voice library / GET /v1/voices/{id} → name
+// "Sarah"). The previous default (uG1JFy6xppqckhHCs2KG) was NOT verified to be Sarah. Override with
+// ELEVENLABS_VOICE_ID to point at the account's approved Sarah; live confirmation of the resolved
+// voice's name is owed in Bentley's provider window.
+const TTS_VOICE = process.env.ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL'
+const TTS_VOICE_NAME = process.env.ELEVENLABS_VOICE_NAME || (process.env.ELEVENLABS_VOICE_ID ? null : 'Sarah')
 const TTS_MODEL = process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2'
 const VOICE_LIMIT_PER_MIN = Number(process.env.VOICE_RATE_LIMIT_PER_MIN || 12)
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024
@@ -345,13 +352,16 @@ async function speak(text) {
   return { ok: true, audio: Buffer.from(await r.arrayBuffer()), mimeType: 'audio/mpeg', model: TTS_MODEL, voice: TTS_VOICE }
 }
 
-/** audio (or text) -> transcript -> Rosina turn as the caller -> spoken reply. */
+/** audio (or text) -> transcript -> Rosina turn as the caller (WITH history) -> spoken reply. Stage
+ *  timings are measured and returned/logged; no audio, transcript or token is ever logged. */
 async function handleVoiceTurn(req, res, token, rawBody, contentType) {
-  const started = Date.now()
+  const reqId = crypto.randomUUID().slice(0, 8)
+  const t0 = Date.now()
   let transcript = null
   let transcriptSource = 'audio'
+  let history = []
+  let asrMs = null
 
-  // A JSON body of { text } is a text-mode client: it skips ASR and nothing else.
   if ((contentType || '').includes('application/json')) {
     let payload = {}
     try { payload = JSON.parse(rawBody.toString('utf8') || '{}') } catch { payload = {} }
@@ -360,51 +370,76 @@ async function handleVoiceTurn(req, res, token, rawBody, contentType) {
     }
     transcript = payload.text.trim()
     transcriptSource = 'text'
+    history = parseHistory(payload.history)
   } else {
+    history = parseHistory(req.headers['x-rosina-history'])
+    const tAsr = Date.now()
     const asr = await transcribe(rawBody, contentType)
+    asrMs = Date.now() - tAsr
     if (!asr.ok) {
-      console.log(`[voice-turn] ASR unavailable ${asr.status} ${started}`)
+      console.log(`[voice-turn] req=${reqId} ASR_UNAVAILABLE status=${asr.status} asrMs=${asrMs}`)
       return send(res, 502, { error: 'ASR_UNAVAILABLE', status: asr.status, detail: asr.detail, model: ASR_MODEL })
     }
     if (!asr.transcript || !String(asr.transcript).trim()) {
+      console.log(`[voice-turn] req=${reqId} TRANSCRIPT_EMPTY asrMs=${asrMs}`)
       return send(res, 422, { error: 'TRANSCRIPT_EMPTY', model: ASR_MODEL })
     }
     transcript = String(asr.transcript).trim()
   }
 
+  const tRos = Date.now()
   const ros = await fetch(ROSINA_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: AUTH_PREFIX + token },
-    body: JSON.stringify({ message: transcript, currentRoute: '/voice', history: [] }),
+    body: JSON.stringify({ message: transcript, currentRoute: '/voice', history }),
   })
+  const rosinaMs = Date.now() - tRos
   const rosText = await ros.text()
   let rosBody = null
   try { rosBody = JSON.parse(rosText) } catch { /* leave null */ }
   if (!ros.ok || !rosBody) {
-    console.log(`[voice-turn] rosina ${ros.status} ${Date.now() - started}ms`)
+    console.log(`[voice-turn] req=${reqId} ROSINA_UNAVAILABLE status=${ros.status} rosinaMs=${rosinaMs}`)
     return send(res, 502, { error: 'ROSINA_UNAVAILABLE', status: ros.status })
   }
 
   const reply = String(rosBody.reply ?? '')
+  const tTts = Date.now()
   const tts = await speak(reply)
-  console.log(`[voice-turn] voice turn ${transcriptSource} ${Date.now() - started}ms tts=${tts.ok}`)
+  const ttsMs = Date.now() - tTts
+  const serverTotalMs = Date.now() - t0
+  console.log(`[voice-turn] req=${reqId} ok src=${transcriptSource} historyLen=${history.length} asrMs=${asrMs ?? '-'} rosinaMs=${rosinaMs} ttsMs=${ttsMs} totalMs=${serverTotalMs} tts=${tts.ok}`)
   return send(res, 200, {
     transcript,
     transcriptSource,
     reply,
     actions: rosBody.actions ?? [],
-    models: { asr: transcriptSource === 'audio' ? ASR_MODEL : null, tts: TTS_MODEL, voice: TTS_VOICE, rosina: rosBody.model ?? null },
+    models: { asr: transcriptSource === 'audio' ? ASR_MODEL : null, tts: TTS_MODEL, voice: TTS_VOICE, voiceName: TTS_VOICE_NAME, rosina: rosBody.model ?? null },
+    timings: { asrMs: asrMs ?? undefined, rosinaMs, ttsMs, serverTotalMs },
     audioBase64: tts.ok ? tts.audio.toString('base64') : null,
     mimeType: tts.ok ? tts.mimeType : null,
-    ttsError: tts.ok ? null : tts.detail,
+    ttsError: tts.ok ? null : 'TTS_UNAVAILABLE',
   })
+}
+
+/** Speech-only retry: synthesize a reply the client already has, WITHOUT re-running Rosina or any
+ *  tool. Authenticated + rate-limited like every paid-provider route. */
+async function handleSpeak(req, res, rawBody) {
+  const reqId = crypto.randomUUID().slice(0, 8)
+  let payload = {}
+  try { payload = JSON.parse(rawBody.toString('utf8') || '{}') } catch { payload = {} }
+  if (typeof payload.text !== 'string' || !payload.text.trim()) return send(res, 400, { error: 'TEXT_REQUIRED' })
+  const t0 = Date.now()
+  const tts = await speak(payload.text.trim().slice(0, 4000))
+  console.log(`[voice-turn] req=${reqId} speak ttsMs=${Date.now() - t0} ok=${tts.ok}`)
+  if (!tts.ok) return send(res, 502, { error: 'TTS_UNAVAILABLE' })
+  return send(res, 200, { audioBase64: tts.audio.toString('base64'), mimeType: tts.mimeType, model: TTS_MODEL, voice: TTS_VOICE, voiceName: TTS_VOICE_NAME })
 }
 
 const server = http.createServer(async (req, res) => {
   const url = req.url || ''
 
-  // ---- browser voice: same process, same port, two explicit routes
-  if (req.method === 'POST' && (url === '/voice/transcribe' || url.startsWith('/voice/turn'))) {
+  // ---- browser voice: same process, same port, explicit routes
+  if (req.method === 'POST' && (url === '/voice/transcribe' || url === '/voice/speak' || url.startsWith('/voice/turn'))) {
     try {
       const token = callerToken(req)
       if (!token) return send(res, 401, { error: 'UNAUTHENTICATED' })
@@ -415,6 +450,7 @@ const server = http.createServer(async (req, res) => {
         if (!asr.ok) return send(res, 502, { error: 'ASR_UNAVAILABLE', status: asr.status, detail: asr.detail, model: ASR_MODEL })
         return send(res, 200, { text: asr.transcript, model: asr.model })
       }
+      if (url === '/voice/speak') return await handleSpeak(req, res, body)
       return await handleVoiceTurn(req, res, token, body, req.headers['content-type'])
     } catch (e) {
       console.log('[voice-turn] voice 500', e.message)
