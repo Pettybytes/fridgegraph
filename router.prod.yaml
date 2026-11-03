@@ -19,18 +19,6 @@ sandbox:
 homepage:
   enabled: false
 
-authentication:
-  router:
-    jwt:
-      jwks:
-        - url: "${env.SUPABASE_JWKS_URL}"
-          issuers: ["${env.SUPABASE_URL}/auth/v1"]
-          audiences: [authenticated]
-          algorithms: [ES256]
-      header_name: Authorization
-      header_value_prefix: Bearer
-      on_error: RedactedError
-
 cors:
   policies:
     - origins: ["https://fridgegraph.loomz.stream"]
