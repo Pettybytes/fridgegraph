@@ -36,6 +36,14 @@ import { dedupKey } from './inviteDedup';
 
 export type InviteIdentity = { ok: true; personId: string; demoGuide: boolean } | { ok: false };
 
+/**
+ * Bounds on the two provider calls. Without them a stalled provider left the request (and every
+ * deduplicated retry of it) hanging indefinitely, which the UI renders as "Generating art…" —
+ * indistinguishable from progress. A timeout turns that into a definite, honest failure.
+ */
+const EXTRACT_TIMEOUT_MS = 12_000;
+const IMAGE_TIMEOUT_MS = 45_000;
+
 export type InviteExtractor = (input: { request: string; today: string; signal?: AbortSignal }) => Promise<RawInviteExtraction>;
 
 /** True only when the caller is a parent/guardian of the child. Runs AS THE CALLER. */
@@ -110,7 +118,7 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
       // Muse Spark: extract fields. A failure folds into the single model-pipeline error (502).
       let raw: RawInviteExtraction;
       try {
-        raw = await deps.extractor({ request, today });
+        raw = await deps.extractor({ request, today, signal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS) });
       } catch {
         return { kind: 'ERROR', status: 502, body: { error: 'IMAGE_FAILED' } };
       }
@@ -150,7 +158,7 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
 
       let result;
       try {
-        result = await deps.image.generate({ prompt, promptHash: hash });
+        result = await deps.image.generate({ prompt, promptHash: hash, signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
       } catch (err) {
         if (generationId) {
           // UNCERTAIN (the provider may have billed even though we have no usable result) is
