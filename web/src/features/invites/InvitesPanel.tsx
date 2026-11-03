@@ -3,8 +3,11 @@ import { FgButton, InlineFeedback, Surface } from '@/components/fg/primitives'
 import { useChildAccess } from '@/features/personas/childContext'
 import { useSession } from '@/features/personas/Session'
 import { createMockInvite } from './fixture'
-import { inviteCredit, inviteError, type InviteCreator, type InviteEvent, type InviteResponse } from './invite'
-import { canvasPng, decodeInviteArt, drawInvitation, invitationText, waitForInviteFont } from './renderInvite'
+import {
+  inviteCredit, inviteError, withInviteDefaults,
+  type InviteCreator, type InviteEvent, type InviteResponse,
+} from './invite'
+import { canvasPng, decodeInviteArt, drawInvitation, invitationText, lineSpecs, waitForInviteFont } from './renderInvite'
 import './invites.css'
 
 type Phase = 'idle' | 'generating' | 'clarification' | 'ready' | 'refused' | 'failed'
@@ -24,11 +27,18 @@ export function InvitesPanel({ mode = 'mock', createInvite }: { mode?: 'mock' | 
   if (!permitted) return <Surface className="invites-panel" role="region" aria-label="Invitations unavailable">
     <h2>Invitations</h2><InlineFeedback tone="warning">Only a parent or guardian viewing their child can prepare an invitation.</InlineFeedback>
   </Surface>
-  return <InviteComposer key={identityKey} childId={childId} childFirstName={firstName} mode={mode} createInvite={creator} />
+  return <InviteComposer
+    key={identityKey}
+    childId={childId}
+    childFirstName={firstName}
+    mode={mode}
+    createInvite={creator}
+    defaultHostName={session?.scope.parentName ?? ''}
+  />
 }
 
-export function InviteComposer({ childId, childFirstName, mode, createInvite }: {
-  childId: string; childFirstName: string; mode: 'mock' | 'live'; createInvite: InviteCreator | null
+export function InviteComposer({ childId, childFirstName, mode, createInvite, defaultHostName = '' }: {
+  childId: string; childFirstName: string; mode: 'mock' | 'live'; createInvite: InviteCreator | null; defaultHostName?: string
 }) {
   const [request, setRequest] = useState(`Create a birthday invitation for ${childFirstName} on November 15, 2026, from 2–4 PM at Maple Hall.`)
   const [phase, setPhase] = useState<Phase>('idle')
@@ -56,7 +66,9 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite }: 
         setDetail(question || 'The invitation service did not return its clarification question. Try again later.')
         setPhase(question ? 'clarification' : 'failed')
       } else if (next.status === 'READY' && next.art) {
-        setResult(next)
+        // hostName/message are app-owned, not part of any backend extraction: fill them here so
+        // the card always reads like a real invitation, and never overwrite a family's own value.
+        setResult({ ...next, event: withInviteDefaults(next.event, defaultHostName) })
         setPhase('ready')
       } else {
         setDetail('The invitation service returned no art. No card is ready to download.')
@@ -90,11 +102,27 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite }: 
     </>}
     {/* The last successful design stays visible across every later phase — generating, a
         clarification request, or a failure never remove a card the parent already has. */}
-    {result?.art && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} />}
+    {result?.art && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} mode={mode} />}
   </Surface>
 }
 
-export function InvitationCard({ result }: { result: InviteResponse & { art: NonNullable<InviteResponse['art']> } }) {
+/** Human-readable source line for the card. The canvas itself always draws the short credit
+ *  (`Sample art` / `Art generated with Muse Image`); this adds the reason in plain words so a
+ *  judgement call never mistakes fixture art for a new generation. */
+function sourceNote(result: InviteResponse & { art: NonNullable<InviteResponse['art']> }, mode: 'mock' | 'live'): string {
+  if (result.provenance.source === 'MUSE_IMAGE') {
+    return result.provenance.cached
+      ? 'Art generated with Muse Image, served from the prompt cache — no new image was generated for this request.'
+      : 'Art generated with Muse Image for this request.'
+  }
+  return mode === 'mock'
+    ? 'A fixed fixture illustration, not a new generation. Edit the words below and the art stays the same.'
+    : 'Live art generation is switched off here, so this is the labelled fixture illustration — not a newly generated image.'
+}
+
+export function InvitationCard({ result, mode = 'mock' }: {
+  result: InviteResponse & { art: NonNullable<InviteResponse['art']> }; mode?: 'mock' | 'live'
+}) {
   const [event, setEvent] = useState<InviteEvent>(result.event)
   const [previewReady, setPreviewReady] = useState(false)
   const [previewError, setPreviewError] = useState('')
@@ -154,20 +182,28 @@ export function InvitationCard({ result }: { result: InviteResponse & { art: Non
 
   const update = <K extends keyof InviteEvent>(key: K, value: InviteEvent[K]) => setEvent(current => ({ ...current, [key]: value }))
   const text = invitationText(event)
+  const readout = lineSpecs(event)
   return <div className="invites-card" role="region" aria-label="Invitation card ready">
     <div className="invites-card__preview">
-      <canvas ref={canvas} width={result.art.width} height={result.art.height} role="img" aria-label={`${text[0]}, ${text[1]}. ${text[2]}. ${text[3]}. ${text[4]}.`} />
+      <p className="invites-card__caption">Downloaded PNG · {result.art.width} × {result.art.height}</p>
+      <canvas ref={canvas} width={result.art.width} height={result.art.height} role="img" aria-label={`${text.join('. ')}.`} />
       {!previewReady && !previewError && <p role="status">Preparing the card preview…</p>}
       <p className="invites-card__credit">{inviteCredit(result.provenance)}</p>
+      <p className="invites-card__source" data-source={result.provenance.source}>{sourceNote(result, mode)}</p>
+      {text.length > 0 && <div className="invites-card__readout" aria-label="Invitation text">
+        {readout.map(line => <p key={line.role} className={`invites-card__line invites-card__line--${line.role}`}>{line.text}</p>)}
+      </div>}
     </div>
     <div className="invites-card__editor"><h3>Check the event text</h3><p>Edit these words without making new art.</p>
       <div className="invites-card__fields">
+        <label className="invites-card__field--full">Hosted by<input value={event.hostName} onChange={e => update('hostName', e.target.value)} placeholder="Add a host name" /></label>
         <label>Child’s first name<input value={event.childFirstName} onChange={e => update('childFirstName', e.target.value)} /></label>
-        <label>Occasion<input value={event.occasion} onChange={e => update('occasion', e.target.value)} /></label>
+        <label className="invites-card__field--full">Occasion<input value={event.occasion} onChange={e => update('occasion', e.target.value)} /></label>
         <label>Date<input type="date" value={event.date ?? ''} onChange={e => update('date', e.target.value || null)} /></label>
         <label>Start time<input type="time" value={event.startTime ?? ''} onChange={e => update('startTime', e.target.value || null)} /></label>
         <label>End time<input type="time" value={event.endTime ?? ''} onChange={e => update('endTime', e.target.value || null)} /></label>
-        <label>Place<input value={event.placeLabel ?? ''} onChange={e => update('placeLabel', e.target.value || null)} /></label>
+        <label className="invites-card__field--full">Place<input value={event.placeLabel ?? ''} onChange={e => update('placeLabel', e.target.value || null)} /></label>
+        <label className="invites-card__field--full">Personal message<textarea rows={2} value={event.message} onChange={e => update('message', e.target.value)} placeholder="A short note for your guests" /></label>
       </div>
       <p className="invites-card__timezone">Times are shown in America/Detroit.</p>
       {previewError && <InlineFeedback tone="error">{previewError}</InlineFeedback>}
