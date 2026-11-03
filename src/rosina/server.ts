@@ -262,8 +262,19 @@ export function createRosinaApp() {
       ledgerBudget: buildInviteLedgerBudget({ graphqlUrl, settlementSecret: INVITE_SETTLEMENT_SECRET }),
       source: INVITE_LIVE ? 'MUSE_IMAGE' : 'FIXTURE',
     });
-    app.post('/api/rosina/invite', (req, res) => {
+    // The global gate above deliberately skips this path so a reference image can exceed 64kb;
+    // that means this route MUST mount its own JSON parser or `req.body` is undefined and every
+    // request is a 400. 12mb covers a 5 MB reference after base64 inflation (~6.7 MB) plus JSON.
+    const jsonInvite = express.json({ limit: '12mb' });
+    app.post('/api/rosina/invite', jsonInvite, (req, res) => {
       inviteHandler(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'IMAGE_FAILED' }); });
+    });
+    // Route-level parser errors (oversized / malformed) — the early handler is mounted before this
+    // route so it never sees them; map them to the contract's codes instead of Express's HTML page.
+    app.use('/api/rosina/invite', (err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {
+      if (err && typeof err === 'object' && (err as { type?: string }).type === 'entity.too.large') { res.status(413).json({ error: 'PAYLOAD_TOO_LARGE' }); return; }
+      if (err instanceof SyntaxError) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+      next(err);
     });
   } catch (err) {
     console.log(`[rosina] invites OFF: ${err instanceof Error ? err.message : 'configuration error'}`);
