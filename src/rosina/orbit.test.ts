@@ -296,6 +296,27 @@ test('card: flag flipped but the gate fails on authority — authority still dec
   }
 });
 
+test('card: a missing-child turn may propose prepareOrbitAlert with ONLY childId — no descriptor required to open the prepare/review step', async () => {
+  const mcp = stubOrbitMcp({ CheckInStatus: checkInOk({ recorded: true }) });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('c1', 'CheckInStatus', { childId: 'p_nora' })] }),
+    chatResult({ toolCalls: [toolCall('c2', 'proposeAction_prepareOrbitAlert', { childId: 'p_nora' })] }),
+    chatResult({ content: 'Here is a card to prepare an Orbit alert.' }),
+  ]);
+
+  const original = catalog.prepareOrbitAlert.implemented;
+  (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = true;
+  try {
+    const result = await runRosinaTurn({ ...baseOptions, message: "I can't find Nora, she's missing!", chatFn, mcpClientFactory: () => mcp });
+    assert.equal(result.actions.length, 1, 'zero descriptors must still be enough to open the prepare/review step');
+    assert.deepEqual(result.actions[0], { id: 'prepareOrbitAlert', args: { childId: 'p_nora' } });
+    const evidence = result.toolCalls.find((t) => t.kind === 'action' && t.name === 'prepareOrbitAlert');
+    assert.equal(evidence?.isError, false, 'recorded as accepted, not refused, even with no descriptor supplied');
+  } finally {
+    (catalog.prepareOrbitAlert as { implemented: boolean }).implemented = original;
+  }
+});
+
 test('card: refused for a child the caller has no verified parent authority over this turn', async () => {
   const mcp = stubOrbitMcp({ OrbitVocabulary: VOCAB_OK });
   const chatFn = scriptedChat([
