@@ -238,19 +238,37 @@ for authorization.
   timestamps. Reference proof is byte-for-byte: `output_sha256` is computed from the exact bytes
   returned to the client, not a separate re-fetch.
 
-### 8.3 Reference image upload — deferred, not built
+### 8.3 Reference image upload — BUILT as a labelled style-extraction alternative
 
-Checked both prerequisites the brief requires before building this: (1) **provider support** —
-Muse Image's live path (§ live Muse Image path, above) is still itself UNVERIFIED against Meta's
-real docs, and there is no reference-image parameter anywhere in the documented or implemented
-request shape (`{ model, prompt, n, size, response_format }` only); (2) **existing private
-upload/storage contract** — none exists for invites. `inviteEndpoint.ts`'s `IMAGE_KEYS` guard
-actively REJECTS any image/photo/upload field in the request body today (400 `INVALID_REQUEST`),
-which is the opposite of upload support. Both prerequisites are missing, so per the brief's own
-instruction this slice ships **text-driven generation only**; reference upload is not implemented,
-not stubbed, and not silently approximated by a vision-generated description — if a future slice
-adds one, it must be an explicit, separately-labelled alternative pipeline, never presented as
-equivalent to real reference-image support.
+**Provider path (checked first, per the brief).** Meta's documented and implemented Muse Image
+request shape is `{ model, prompt, n, size, response_format }` only (OpenAI-images-compatible
+`POST ${META_BASE_URL}/images/generations`, see §live). There is **no reference/input-image
+parameter** anywhere in it — muse-image-1.0 cannot take a reference image directly. So we use the
+**second path the brief specifies**: Muse **vision** (`muse-spark-1.3` via `/chat/completions` with
+an image input — the same call shape as `museVision.ts`) extracts the reference's **style, palette,
+subject and mood**, and those feed the Muse Image prompt. This is an **explicit, separately-labelled
+alternative** (the exact posture §8.3 reserved): the uploaded image is **never placed in the card**
+and the UI never claims it is — it only guides the art *style*.
+
+**Safety (`imageHygiene.ts` + `inviteEndpoint.ts`, all in memory, never persisted, never logged):**
+PNG/JPEG/WebP only by **magic-byte sniff** (a lying `mimeType` is rejected), **≤5 MB**, **dimensions
+read server-side** (16–4096 px), **EXIF/GPS/XMP stripped** before the bytes reach the vision model.
+The caller is authenticated and must be the child's parent/guardian (unchanged authz — a refusal
+makes zero model calls). A reference generation **counts as one unit against the per-child ledger
+budget (0085)** and the per-caller rate limit: when a reference is active the budget is **reserved
+before** the vision call, so an exhausted budget makes zero provider calls.
+
+**Bounded, PII-safe prompt (`inviteReference.ts`).** Vision returns only values from FIXED allowed
+lists (palette/style/subject/mood); `styleHintToFragment` maps them to a FIXED phrase — **no free
+text, no transcription, no name/face ever enters the prompt**, so invitePrompt.ts's "never echoes
+input" + `assertNoPii` guarantees still hold. The prompt (and its cache key) include the style, so a
+different reference yields different art; the reference content hash is part of the dedup key.
+
+**Honesty.** The response carries `reference: { requested, applied }`. With `INVITE_LIVE` off
+(FIXTURE), the control still renders and the UI says live generation is off — the reference is
+validated for safety but never style-applied (`applied:false`). If vision fails, the card still
+generates with the default style and the UI says the reference's style wasn't applied — never
+silently approximated. Best-effort: a vision failure never fails the whole generation.
 
 ### 8.4 Proof
 

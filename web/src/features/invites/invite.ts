@@ -51,8 +51,37 @@ export type InviteResponse = {
   event: InviteEvent
   art: InviteArt | null
   provenance: InviteProvenance
+  /** Present when the request carried a reference image: whether it was requested and whether its
+   *  style was actually applied (false in fixture mode, or if style extraction didn't land). */
+  reference?: { requested: boolean; applied: boolean }
 }
-export type InviteCreator = (request: { childId: string; request: string }, signal?: AbortSignal) => Promise<InviteResponse>
+
+/** Optional reference image a parent uploads for STYLE inspiration (never placed in the card). */
+export type InviteReferenceImage = { mimeType: string; dataBase64: string }
+export const REFERENCE_MAX_BYTES = 5 * 1024 * 1024
+export const REFERENCE_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'] as const
+
+/** Read a picked/dropped file into the request shape with a first-pass client guard (the server
+ *  re-validates authoritatively: sniffs the real type, re-checks size + dimensions, strips EXIF). */
+export async function readReferenceFile(file: File): Promise<{ ok: true; image: InviteReferenceImage; previewUrl: string } | { ok: false; error: string }> {
+  if (!(REFERENCE_ACCEPT as readonly string[]).includes(file.type)) return { ok: false, error: 'Use a PNG, JPEG, or WebP image.' }
+  if (file.size > REFERENCE_MAX_BYTES) return { ok: false, error: 'That image is larger than 5 MB. Choose a smaller one.' }
+  if (file.size === 0) return { ok: false, error: 'That file is empty.' }
+  let dataUrl: string
+  try {
+    dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(new Error('read failed'))
+      reader.readAsDataURL(file)
+    })
+  } catch { return { ok: false, error: 'That image could not be read. Try another.' } }
+  const comma = dataUrl.indexOf(',')
+  if (comma < 0) return { ok: false, error: 'That image could not be read. Try another.' }
+  return { ok: true, image: { mimeType: file.type, dataBase64: dataUrl.slice(comma + 1) }, previewUrl: dataUrl }
+}
+
+export type InviteCreator = (request: { childId: string; request: string; referenceImage?: InviteReferenceImage }, signal?: AbortSignal) => Promise<InviteResponse>
 
 /** Plainly says whether this card is a real generation or a placeholder — never ambiguous.
  * Burned into the exported PNG footer AND shown in the UI, so the distinction survives a
@@ -65,6 +94,8 @@ export function inviteError(error: unknown): { state: 'refused' | 'failed'; mess
   const value = error as { status?: number; code?: string; error?: string; retryAfterMs?: number; errors?: { extensions?: { code?: string; retryAfterMs?: number } }[] } | null
   const code = value?.code ?? value?.error ?? value?.errors?.[0]?.extensions?.code
   const status = value?.status
+  if (status === 413 || code === 'PAYLOAD_TOO_LARGE') return { state: 'failed', message: 'That reference image is too large (5 MB max). Choose a smaller one and try again.' }
+  if (status === 415 || code === 'UNSUPPORTED_MEDIA_TYPE') return { state: 'failed', message: 'That reference image type is not supported. Use a PNG, JPEG, or WebP.' }
   if (status === 400 || code === 'INVALID_REQUEST') return { state: 'failed', message: 'The invitation request is invalid. Check the event details and try again.' }
   if (status === 401 || code === 'UNAUTHENTICATED') return { state: 'refused', message: 'Your session ended. Choose a perspective again.' }
   if (status === 403 || code === 'UNAUTHORIZED') return { state: 'refused', message: 'Only a parent or guardian of this child can prepare an invitation. No art was generated.' }

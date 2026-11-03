@@ -29,6 +29,7 @@ import { createInviteHandler } from './inviteEndpoint';
 import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
 import { createInviteRateLimiter } from './inviteBudget';
 import { createSparkInviteExtractor, buildInviteParentAuthorizer } from './inviteDeps';
+import { createMuseReferenceStyleExtractor } from './inviteReference';
 import { buildInviteLedgerBudget } from './inviteLedgerBudget';
 import { createInviteDedup } from './inviteDedup';
 
@@ -158,7 +159,9 @@ export function createRosinaApp() {
   // The notice-plan routes carry an image/PDF, so they parse their own (larger) body; every other
   // route keeps the 64kb cap. Mounting this as a gate keeps the global cap off exactly those paths.
   app.use((req: Request, res: Response, next: (err?: unknown) => void) => {
-    if (req.path.startsWith('/api/rosina/notice-plan')) { next(); return; }
+    // notice-plan and invite carry an image (notice: PDF/photo; invite: optional reference image),
+    // so they parse their own (larger) body; every other route keeps the 64kb cap.
+    if (req.path.startsWith('/api/rosina/notice-plan') || req.path === '/api/rosina/invite') { next(); return; }
     jsonSmall(req, res, next);
   });
   // A malformed JSON body reaches here as a SyntaxError from express.json(); treat it the same
@@ -250,6 +253,9 @@ export function createRosinaApp() {
       authorizeParent: buildInviteParentAuthorizer({ graphqlUrl }),
       extractor: createSparkInviteExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model }),
       image,
+      // Optional reference-image STYLE extractor (Muse vision) — live only; in FIXTURE mode a
+      // reference is validated for safety but never style-applied (and the UI says live is off).
+      referenceExtractor: INVITE_LIVE ? createMuseReferenceStyleExtractor({ apiKey: c.apiKey, baseUrl: c.baseUrl }) : undefined,
       rateLimiter: createInviteRateLimiter(INVITE_RATE_PER_MIN),
       dedup: createInviteDedup(),
       // Per-CHILD persistent budget (0085) — only ever called when source is MUSE_IMAGE;
