@@ -121,7 +121,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
        onPointerUp={()=>{if(drag.current?.moved)storePosition(slot.id,drag.current.next)}} onPointerCancel={()=>{drag.current=null}}
        onClick={e=>{if(drag.current?.moved){drag.current=null;return}drag.current=null;activate(e.detail,()=>{if(slot.destination)location.hash=slot.destination;else setSelected(slot)})}}>
        <Magnet kind={slot.magnet??'apple'}/>
-       {(slot.asset||slot.image)&&<img draggable={false} src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} srcSet={slot.image?.srcSet??(slot.asset?`/fridge/samples/${slot.asset}-360.webp 360w, /fridge/samples/${slot.asset}-720.webp 720w, /fridge/samples/${slot.asset}-1440.webp 1440w`:undefined)} sizes="500px" alt={slot.image?.alt??''}/>}
+       {(slot.asset||slot.image)&&<img draggable={false} src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} srcSet={slot.image?.srcSet??(slot.asset?`/fridge/samples/${slot.asset}-360.webp 360w, /fridge/samples/${slot.asset}-720.webp 720w, /fridge/samples/${slot.asset}-1440.webp 1440w`:undefined)} sizes={viewport.view.scale>1?'(max-width:600px) 45vw, 500px':'(max-width:600px) 18vw, 220px'} alt={slot.image?.alt??''}/>}
        {(slot.kind==='note'||slot.kind==='form')&&<span className="fridge-note-source">{slot.heading??(slot.source==='sample'?'':'Shared note')}</span>}
        {slot.variant==='save-date'?<span className="fridge-save-date-copy"><span className="fridge-reveal-accent" aria-hidden="true">?</span>{slot.lines?.map((line,index)=><span key={line} className={index===0?'save-date-title':''}>{line}</span>)}</span>:slot.kind!=='photo'&&<span className="fridge-paper-text">{slot.text}</span>}
       </button>

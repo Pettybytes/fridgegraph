@@ -1,3 +1,4 @@
+import {prefetchFridgeRoute} from '@/features/fridge/routeLoader'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map, List, Mail, Refrigerator } from 'lucide-react'
@@ -33,7 +34,7 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
       <a href="#/today" className="brand"><Sprout size={26} aria-hidden="true" />FridgeGraph</a>
       <p className="village-caption">A little more village.</p>
       <nav aria-label="Main navigation">{routes.map(({ path, label, icon: Icon }) =>
-        <a key={path} href={`#/${path}`} className={cn('nav-link', route === path && 'active')} aria-current={route === path ? 'page' : undefined}><Icon size={19} aria-hidden="true" />{label}</a>
+        <a onMouseEnter={path==='fridge'?prefetchFridgeRoute:undefined} onFocus={path==='fridge'?prefetchFridgeRoute:undefined} key={path} href={`#/${path}`} className={cn('nav-link', route === path && 'active')} aria-current={route === path ? 'page' : undefined}><Icon size={19} aria-hidden="true" />{label}</a>
       )}</nav>
       <div className="sidebar-footer"><span className="avatar">{scope.parentName[0]}</span><div><strong>{scope.parentName}</strong><small>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</small></div></div>
     </aside>

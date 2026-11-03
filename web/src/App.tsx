@@ -1,3 +1,4 @@
+import {loadFridgeRoute} from '@/features/fridge/routeLoader'
 import {MapCalendarBridge} from '@/features/village-map/calendar'
 import {VillageMapProvider,MapRosinaContext} from '@/features/village-map/runtime'
 import {VillageMapMini} from '@/features/village-map/VillageMapMini'
@@ -38,7 +39,7 @@ import { SignatureVillageRoute } from '@/components/signature'
 import { Activity } from '@/features/activity/Activity'
 import { InvitesPanel } from '@/features/invites/InvitesPanel'
 import { ThreePhoneStory } from '@/features/story-replay/ThreePhoneStory'
-const FridgeRoute = lazy(() => import('@/features/fridge/ConnectedFridge').then(module => ({ default: module.ConnectedFridge })))
+const FridgeRoute = lazy(loadFridgeRoute)
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   const { session } = useSession()
