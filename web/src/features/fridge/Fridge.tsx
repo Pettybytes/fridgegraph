@@ -3,16 +3,17 @@ import {Dialog,Popover} from 'radix-ui'
 import {authorInk,doors,loadLayout,notePositions,saveLayout,samples,type FridgeReader,type Goal,type Position,type Slot,type Read} from './model'
 import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
+import type {FridgeNoteRecord} from './editingContract'
 import './fridge.css'
 
 type Door='notes'|'goals'|null
-type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean}
+type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void}
 const hashDoor=():Door=>location.hash==='#/fridge/notes'?'notes':location.hash==='#/fridge/goals'?'goals':null
 const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*100}%`,width:`${p.width*100}%`,'--turn':`${p.rotation}deg`} as CSSProperties)
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Sample family collage',editingControls,goalsOverride,boardReadOnly=true}:Props){
+function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Sample family collage',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes}:Props){
  const [door,setDoor]=useState<Door>(hashDoor)
  const [layout,setLayout]=useState(()=>loadLayout(personId)),[selected,setSelected]=useState<Slot|null>(null)
  const care=useFridgeSource(reader,childId,'care'),goals=useFridgeSource(reader,childId,'goals')
@@ -42,7 +43,10 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
  },[selected,door,navigate])
  const live=[care].flatMap(({state})=>state.status==='ready'?state.value as Slot[]:[])
  const displayedLive=artLabel==='Sample Ellison family art pack'?live.map(slot=>({...slot,position:{...slot.position,y:.39}})):live
- const slots=[...sampleSlots,...displayedLive],region=door?doors[door]:null
+ // Stored papers take priority over decorative samples; the invitation remains
+ // reachable in the separate sample tray. Never merge stored text into that manifest.
+ const doorSamples=postedNotes.length?sampleSlots.filter(slot=>slot.variant!=='save-date').map(slot=>slot.id==='sample-family-dinner'?{...slot,position:{x:.211,y:.478,width:.115,rotation:3}}:slot):sampleSlots
+ const slots=[...doorSamples,...displayedLive],region=door?doors[door]:null
  const storePosition=(id:string,p:Position)=>setLayout(old=>{const value={...old,[id]:p};saveLayout(personId,value);return value})
  const goalFeedback=()=>board.status==='ready'?null:<p className="fridge-read" role={board.status==='failed'?'alert':'status'}>{board.status==='loading'?'Loading shared goals…':board.status==='empty'?'Nothing posted here yet.':board.status==='refused'?"These notes aren't shared with this perspective.":"Couldn't load these notes"}{board.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
  return <section className="fridge-feature" aria-label="The Fridge">
@@ -69,6 +73,11 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
        {slot.variant==='save-date'?<span className="fridge-save-date-copy"><span className="fridge-sample-badge">Sample</span><span className="fridge-reveal-accent" aria-hidden="true">?</span>{slot.lines?.map((line,index)=><span key={line} className={index===0?'save-date-title':''}>{line}</span>)}</span>:slot.kind!=='photo'&&<span className="fridge-paper-text">{slot.text}</span>}
       </button>
      })}
+     {postedNotes.length>0&&<section className="fridge-posted-notes" aria-label="Posted fridge notes" tabIndex={door==='goals'?-1:0}>
+      {postedNotes.map(note=><button key={note.id} className="fridge-posted-paper" data-paper={note.paperColor} data-note-id={note.id} onClick={openPostedNotes} aria-label={`Open posted note: ${note.text}`}>
+       <Magnet kind="star"/><span className="fridge-note-source">{note.audience==='PARENTS_ONLY'?'Parents only':'Shared with granted readers'}</span><span className="fridge-paper-text">{note.text}</span><span className="fridge-note-author">{note.author.displayName?`By ${note.author.displayName}`:'Author not shared'}</span>
+      </button>)}
+     </section>}
      {([['care',care]] as const).map(([source,{state,refresh}])=>state.status==='ready'?null:<article key={source} className={`fridge-feedback paper-0`} style={positionStyle(artLabel==='Sample Ellison family art pack'?{...notePositions.care,y:.39}:notePositions.care)} aria-label={'Care notes'}>
       <Magnet kind={'apple'}/>
       <p role={state.status==='failed'?'alert':'status'}><span className="fridge-note-source">Care notes · </span><span>{state.status==='loading'?'Loading…':state.status==='empty'?'Nothing posted yet.':state.status==='refused'?'Not shared with this perspective.':"Couldn't load"}</span></p>
@@ -82,7 +91,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     </section>
    </div>
   </div>
-  {!door&&sampleSlots.some(slot=>slot.kind==='form')&&<div className="fridge-sample-card-tray" aria-label="Sample cards">{sampleSlots.filter(slot=>slot.kind==='form').map(slot=><button key={slot.id} aria-label={`Open sample ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src} alt=""/><small>Sample</small><strong>{slot.text}</strong></button>)}</div>}
+  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Sample cards">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open sample ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><small>Sample</small><strong>{slot.text}</strong></button>)}</div>}
   <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{selected?.caption}</Dialog.Description><Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }

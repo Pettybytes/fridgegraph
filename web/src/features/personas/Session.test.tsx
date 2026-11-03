@@ -40,10 +40,17 @@ describe('persona sessions', () => {
     render(<ApolloProvider client={client}><SessionProvider adapter={auth}><Controls /></SessionProvider></ApolloProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'Kendra' }))
     await act(async () => {})
+    // Supersede the still-pending (delayed) Kendra sign-in by switching to Loretta.
     fireEvent.click(screen.getByRole('button', { name: 'Loretta' }))
     await waitFor(() => expect(screen.getAllByText('Loretta')).toHaveLength(2))
+    // Loretta's FIRST render: her name shows as both button + active session (2); 'Kendra' appears
+    // only as the still-present button (1) — i.e. Kendra never became the session.
+    expect(screen.getAllByText('Kendra')).toHaveLength(1)
+    expect(screen.queryByText('Switching')).not.toBeInTheDocument()
+    // Release the delayed Kendra response: the generation guard must drop it — it must never reappear.
     await act(async () => resolveKendra(await real('kendra')))
     expect(screen.getAllByText('Loretta')).toHaveLength(2)
+    expect(screen.getAllByText('Kendra')).toHaveLength(1)
     expect(screen.queryByText('Switching')).not.toBeInTheDocument()
   })
   it('removes Kendra pickup data before Loretta renders', async () => {
@@ -55,12 +62,22 @@ describe('persona sessions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch person' }))
     expect(screen.queryByRole('button', { name: 'Select Tasha Ellison' })).not.toBeInTheDocument()
     expect(screen.queryByText('Signed in as Kendra')).not.toBeInTheDocument()
-    await screen.findByRole('button', { name: /Loretta/ })
+    // The picker disables every persona while `switching` stays true — and switching only clears
+    // after the awaited private-data cleanup (Apollo clearStore) resolves. Clicking Loretta before
+    // then is a silent no-op, so wait for the real precondition: an *enabled* button. The picker
+    // remounts with a fresh key when switching flips, so re-query each poll rather than holding a
+    // stale (switching-era) node. This is the race; do not swap it for a bare findByRole + sleep.
+    await waitFor(() => expect(screen.getByRole('button', { name: /Loretta/ })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: /Loretta/ }))
+    // Kendra's pickup data must be absent from Loretta's FIRST render, not merely eventually.
     await screen.findByText('Signed in as Loretta')
     expect(screen.queryByRole('button', { name: 'Select Tasha Ellison' })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByRole('alert')).toHaveTextContent("Pickup plans are shared with Nora's parents")
+    // And it must stay gone once Loretta's subtree has fully settled (pending reads/microtasks drained).
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByRole('button', { name: 'Select Tasha Ellison' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Signed in as Kendra')).not.toBeInTheDocument()
   })
   it('clears a selected person from the route before switching', async () => {
     window.location.hash = ''
