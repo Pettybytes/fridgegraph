@@ -340,5 +340,23 @@ All from `@/components/fg/cards`:
 **Elevation:** anything awaiting a parent's approval is elevated (highest surface + type glow +
 large primary action, pinned to the top of its page). Nothing approval-related is a plain row.
 
-Reviewed on the dark canvas via `web/showcase.html` (dev-only gallery, not a product route).
+Reviewed on the light canvas via `web/showcase.html` (dev-only gallery, not a product route).
+
+### Shared system (single design owner)
+
+- **No purple anywhere.** Colour is reserved for card **type** only. The interactive
+  accent (links, focus, selection, brand mark) is the landing **sky-blue** (`--fg-primary`
+  = `oklch(0.58 0.13 237)`); primary buttons are near-black pills. `invite` violet and
+  `rosina` indigo remain **only** as type accents (never a button or page colour). Legacy
+  hardcoded purples are purged to tokens as each page converts.
+- **One button family** (`FgButton` + `IconButton`, `components/fg/primitives.tsx` /
+  `fg.css`): variants `primary` (near-black pill) · `secondary` (white pill + soft shadow) ·
+  `ghost` · `destructive` (red) · `quiet` (legacy alias); sizes `sm` / `md` / `lg`; 999px
+  radius; `IconButton` for icon-only (aria-label required). Replaces hand-rolled buttons
+  as pages convert.
+- **Cloud-sky backdrop** app-wide: `web/public/sky-backdrop.png` (self-hosted from the
+  landing) painted by `body::before` as a fixed layer that fades into the white canvas —
+  content floats over sky/clouds at the top, clean paper below. Reduced-transparency aware.
+- Type scale + tabular figures (§6) and the card family above are the shared primitives;
+  pages compose them, two at a time.
 

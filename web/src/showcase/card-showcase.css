@@ -4,9 +4,12 @@
 .cs-head { display: grid; gap: 4px; max-width: 62ch; }
 .cs-head h1 { margin: 6px 0 6px; }
 .cs-section { display: grid; gap: 16px; }
-.cs-h2 { font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-muted); font-weight: 600; margin: 0; }
+.cs-h2 { font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.08em; color: color-mix(in oklch, var(--fg-ink) 68%, var(--fg-muted)); font-weight: 600; margin: 0; }
+/* Showcase header sits on the backdrop — keep it dark for AA. */
+.cs-head .fg-caption, .cs-head .fgc-sub { color: color-mix(in oklch, var(--fg-ink) 85%, var(--fg-muted)); }
 .cs-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
 .cs-legend-item { display: flex; align-items: center; gap: 12px; }
+.cs-btns { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .cs-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .cs-stack { display: grid; gap: 12px; max-width: 660px; }
 .cs-timeline { display: grid; gap: 16px; max-width: 660px; }

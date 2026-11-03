@@ -6,7 +6,7 @@
 import type { ReactNode } from 'react'
 import { Car, GraduationCap, Siren, Check, HeartPulse, Mail, Refrigerator, Sparkles, Loader, ArrowRight } from 'lucide-react'
 import { Card, AccentCard, StatusCard, MediaCard, TimelineRow, PhotoCard, MetricTile, TypeNode, TypePill, ProgressBar, type CardType } from '@/components/fg/cards'
-import { FgButton } from '@/components/fg/primitives'
+import { FgButton, IconButton, Icon } from '@/components/fg/primitives'
 
 const TYPES: { type: CardType; label: string; icon: ReactNode }[] = [
   { type: 'pickup', label: 'Pickup / transport', icon: <Car /> },
@@ -53,6 +53,21 @@ export function CardShowcase() {
               </div>
             </div>
           ))}
+        </div>
+      </Section>
+
+      <Section title="Buttons">
+        <div className="cs-btns">
+          <FgButton variant="primary">Approve pickup</FgButton>
+          <FgButton variant="secondary">Copy link</FgButton>
+          <FgButton variant="ghost">Dismiss</FgButton>
+          <FgButton variant="destructive">Remove</FgButton>
+          <IconButton label="More options"><Icon.chevron /></IconButton>
+        </div>
+        <div className="cs-btns">
+          <FgButton size="sm">Small</FgButton>
+          <FgButton size="md">Medium</FgButton>
+          <FgButton size="lg">Large</FgButton>
         </div>
       </Section>
 
