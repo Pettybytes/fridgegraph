@@ -14,10 +14,11 @@
  *      guess, never substitute a near match silently, never pass free text" is enforced here,
  *      not just asked for in the prompt.
  *
- * `prepareOrbitAlert` is `implemented: false` in the shared catalog until Codex's app handler
- * (orbitDraft + orbitPreview + the confirm UI) exists, so none of this currently reaches a real
- * card regardless — this module exists so the gate is already correct, and already tested, for
- * when that flag flips.
+ * `prepareOrbitAlert` is now `implemented: true` in the shared catalog, and this server's own
+ * `ORBIT_HANDLER_PRESENT` (src/rosina/model.ts) is `true` — both already reflect the live app's
+ * draft/preview/confirm screen. This module's gate still runs unconditionally on every call:
+ * authority and vocabulary membership are decided first and are never overridden by either flag
+ * (see `decideOrbitAction` below).
  */
 
 export const DESCRIPTOR_KEYS = ['wearColor', 'wearGarment', 'hair', 'carryColor', 'carryItem'] as const;
