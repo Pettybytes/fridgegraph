@@ -1,5 +1,5 @@
 import {prefetchFridgeRoute} from '@/features/fridge/routeLoader'
-import { useEffect, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, Sprout, CalendarDays, Home, Map, List, Mail, Refrigerator } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,8 @@ export function Shell({ slots = {} }: { slots?: Partial<Record<Route, ReactNode>
   const [route, setRoute] = useState(readRoute)
   const { scope } = useDataContext()
   useEffect(() => {
-    const onHash = () => setRoute(readRoute())
+    // Only route navigation is deferred; session/permission context updates stay urgent.
+    const onHash = () => {const next=readRoute();if(next==='fridge')startTransition(()=>setRoute(next));else setRoute(next)}
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
