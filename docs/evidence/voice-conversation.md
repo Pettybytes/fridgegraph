@@ -44,9 +44,16 @@ overrides it. **Owed:** confirm the resolved voice's name is "Sarah" live (GET `
 
 The server measures and logs per request (request id + stage ms + status, never audio/transcript/
 tokens): `asrMs`, `rosinaMs`, `ttsMs`, `serverTotalMs`, and returns them in the turn response. The
-client adds `speechEndToReplyMs` and `speechEndToAudioMs` (end of user speech → first reply audio).
+client adds `speechEndToReplyMs` and `speechEndToAudioMs`. Both are **speech detection → audio**: the
+clock starts when end-of-speech is DECIDED (VAD silence, duration cap or manual tap) and stops at first
+reply audio. They deliberately EXCLUDE the configured silence wait, so they are **not** user-perceived
+latency.
 
-Targets from end of user speech to first meaningful reply audio: **≈ ≤ 3 s simple, ≤ 6 s tool-backed**.
+Targets use the same basis — **speech detection → first audio**: ≈ ≤ 3 s simple, ≤ 6 s tool-backed.
+Do not report these as user-perceived. User-perceived latency adds the silence wait that precedes
+detection: `speechEndToAudioMs + vad.silenceMs`, where `silenceMs` defaults to **1200 ms**
+(`DEFAULT_VAD` in `web/src/features/voice/useRosinaVoice.ts`; `speechThreshold` 0.08, `minMs` 500,
+`maxMs` 15000) and is **0 ms for a manual tap**. Any published number must name which basis it uses.
 These are targets, not measured results. Cold/warm samples and per-stage numbers will be recorded in
 Bentley's provider window (below). Planned bottleneck work: skip tools for greetings, parallelize
 independent authorized reads, and consider streaming where provider contracts support it — never
