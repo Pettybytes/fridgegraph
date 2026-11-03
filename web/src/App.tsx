@@ -1,3 +1,4 @@
+import {loadFridgeRoute} from '@/features/fridge/routeLoader'
 import {MapCalendarBridge} from '@/features/village-map/calendar'
 import {VillageMapProvider,MapRosinaContext} from '@/features/village-map/runtime'
 import {VillageMapMini} from '@/features/village-map/VillageMapMini'
@@ -15,6 +16,7 @@ import {LiveMissionControl} from '@/features/mission-control/LiveMissionControl'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 import { SessionProvider, useSession } from '@/features/personas/Session'
 import { PersonaPicker, SandboxBanner, SessionChip } from '@/features/personas/PersonaPicker'
+import { VoiceProvider } from '@/features/voice/VoiceProvider'
 import { ApolloSessionCleanup } from '@/features/personas/ApolloSessionCleanup'
 import { createPersonaDataAdapter } from '@/features/personas/personaData'
 import '@/app/village-route.css'
@@ -39,7 +41,7 @@ import { Activity } from '@/features/activity/Activity'
 import { InvitesPanel } from '@/features/invites/InvitesPanel'
 import { createLiveInvite } from '@/features/invites/liveInvite'
 import { ThreePhoneStory } from '@/features/story-replay/ThreePhoneStory'
-const FridgeRoute = lazy(() => import('@/features/fridge/ConnectedFridge').then(module => ({ default: module.ConnectedFridge })))
+const FridgeRoute = lazy(loadFridgeRoute)
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   const { session } = useSession()
@@ -68,6 +70,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
   if (switching) return <PersonaPicker key="switching" />
   if (!session || !adapter) return <PersonaPicker key="picker" />
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
+    <VoiceProvider getAccessToken={() => getCurrentSession()?.accessToken ?? null} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
     <SessionChip />
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
@@ -94,6 +97,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
       </VillageMapProvider>
       </ChildAccessProvider>
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
+    </VoiceProvider>
   </div>
 }
 export default function App({authAdapter,orbitNow=Date.now}:{authAdapter?:AuthAdapter;orbitNow?:()=>number}={}) {

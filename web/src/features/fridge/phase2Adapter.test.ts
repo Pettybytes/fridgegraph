@@ -5,12 +5,15 @@ import {createPhase2Service,FRIDGE_COMPATIBILITY,missingPhase2Schema,phase2Failu
 import {createFridgeReader} from './reader'
 const graphError=(code:string,message:string)=>Object.assign(Error(message),{errors:[{message,extensions:{code}}]})
 const run=<T,>(f:()=>Promise<T>)=>f()
-it('checks compatibility without introspection, writes or executing record resolvers',async()=>{
- const schema=buildSchema('type Query{goals(childId:ID!):[Goal!]! fridgeNotes(childId:ID!):[FridgeNote!]!} type Goal{period:String completedAt:String} type FridgeNote{id:ID text:String paperColor:String audience:String revision:Int createdAt:String updatedAt:String author:Person} type Person{id:ID displayName:String}')
+it('plans and executes a non-mutating compatibility read instead of skipping every field',async()=>{
+ const schema=buildSchema('type Query{goals(childId:ID!):[Goal!]! fridgeNotes(childId:ID!):[FridgeNote!]!} type Goal{id:ID period:String completedAt:String} type FridgeNote{id:ID text:String paperColor:String audience:String revision:Int createdAt:String updatedAt:String author:Person} type Person{id:ID displayName:String}')
  expect(validate(schema,FRIDGE_COMPATIBILITY,[NoSchemaIntrospectionCustomRule])).toEqual([])
- const goals=vi.fn(),fridgeNotes=vi.fn()
- expect(await execute({schema,document:FRIDGE_COMPATIBILITY,variableValues:{childId:'child'},rootValue:{goals,fridgeNotes}})).toEqual({data:{__typename:'Query'}})
- expect(goals).not.toHaveBeenCalled();expect(fridgeNotes).not.toHaveBeenCalled()
+ // A fully-skipped selection is an empty query plan on Apollo Router (500). The probe
+ // must therefore carry resolvable fields; this asserts the regression cannot return.
+ expect(print(FRIDGE_COMPATIBILITY)).not.toMatch(/@skip/)
+ const goals=vi.fn(()=>[{id:'g',period:null,completedAt:null}]),fridgeNotes=vi.fn(()=>[])
+ expect(await execute({schema,document:FRIDGE_COMPATIBILITY,variableValues:{childId:'child'},rootValue:{goals,fridgeNotes}})).toEqual({data:{__typename:'Query',goals:[{id:'g',period:null,completedAt:null}],fridgeNotes:[]}})
+ expect(goals).toHaveBeenCalledTimes(1);expect(fridgeNotes).toHaveBeenCalledTimes(1)
  expect(print(FRIDGE_COMPATIBILITY)).not.toMatch(/__schema|__type\(/)
 })
 it('recognizes only known missing-schema validation failures, including with introspection disabled',async()=>{
@@ -20,7 +23,7 @@ it('recognizes only known missing-schema validation failures, including with int
  for(const error of [graphError('DB_UNAVAILABLE','column period does not exist'),graphError('UNAUTHORIZED','Cannot query field "fridgeNotes" on type "Query".'),graphError('GRAPHQL_VALIDATION_FAILED','Unknown directive "other".'),{errors:[...errors,{message:'Denied',extensions:{code:'UNAUTHORIZED'}}]}])expect(missingPhase2Schema(error)).toBe(false)
 })
 it.each([
- ['UNAUTHENTICATED','authentication'],['UNAUTHORIZED','refused'],['DB_UNAVAILABLE','database'],['INTERNAL_SERVER_ERROR','failed'],
+ ['UNAUTHENTICATED','authentication'],['UNAUTHORIZED','refused'],['DB_UNAVAILABLE','database'],['INTERNAL_SERVER_ERROR','server'],
 ] as const)('retains %s separately from an older schema',async(code,kind)=>{
  const client={query:vi.fn().mockRejectedValue(graphError(code,'sanitized upstream error')),mutate:vi.fn()}
  const service=createPhase2Service(client as unknown as ApolloClient,run,()=>true)
@@ -30,7 +33,7 @@ it.each([
 it('retains network failure and HTTP authentication separately',()=>{
  expect(phase2Failure(new TypeError('Failed to fetch'))).toBe('network')
  expect(phase2Failure({statusCode:401})).toBe('authentication')
- expect(phase2Failure({statusCode:503})).toBe('network')
+ expect(phase2Failure({statusCode:503})).toBe('server')
 })
 it('leaves Phase 1 queries independent and readable when compatibility fails',async()=>{
  const query=vi.fn().mockRejectedValueOnce(graphError('GRAPHQL_VALIDATION_FAILED','Cannot query field "period" on type "Goal".')).mockResolvedValueOnce({data:{goals:[{id:'g',title:'Original goal',horizon:'Whenever',status:'APPROVED'}]}})
@@ -54,4 +57,31 @@ it('sends exact content and separate explicit sharing operations through the exi
  expect(print(mutate.mock.calls[0][0].mutation)).not.toMatch(/authorId|attachmentRef/)
  await adapter.setFridgeNoteAudience({id:'n',audience:'SHARED'})
  expect(mutate.mock.calls[1][0].variables).toEqual({id:'n',audience:'SHARED'})
+})
+it('reports ready only when both collections resolve to arrays, populated or empty',async()=>{
+ const populated={query:vi.fn().mockResolvedValue({data:{__typename:'Query',goals:[{id:'g',period:'WEEK',completedAt:null}],fridgeNotes:[{id:'n',text:'t',paperColor:'PINK',audience:'PARENTS_ONLY',revision:1,createdAt:'x',updatedAt:'x',author:{id:'p',displayName:'K'}}]}}),mutate:vi.fn()}
+ expect(await createPhase2Service(populated as unknown as ApolloClient,run,()=>true).check('c',new AbortController().signal)).toEqual({kind:'ready'})
+ const empty={query:vi.fn().mockResolvedValue({data:{__typename:'Query',goals:[],fridgeNotes:[]}}),mutate:vi.fn()}
+ expect(await createPhase2Service(empty as unknown as ApolloClient,run,()=>true).check('c',new AbortController().signal)).toEqual({kind:'ready'})
+})
+it.each([
+ ['null data',{data:null}],
+ ['missing notes field',{data:{__typename:'Query',goals:[]}}],
+ ['null notes',{data:{__typename:'Query',goals:[],fridgeNotes:null}}],
+ ['object instead of array',{data:{__typename:'Query',goals:{},fridgeNotes:[]}}],
+ ['wrong root typename',{data:{__typename:'Mutation',goals:[],fridgeNotes:[]}}],
+] as const)('never reports ready for %s',async(_label,result)=>{
+ const client={query:vi.fn().mockResolvedValue(result),mutate:vi.fn()}
+ const state=await createPhase2Service(client as unknown as ApolloClient,run,()=>true).check('c',new AbortController().signal)
+ expect(state.kind).not.toBe('ready')
+})
+it('never treats a mixed validation-and-auth error set as an older backend',async()=>{
+ const errors=[{message:'Cannot query field "period" on type "Goal".',extensions:{code:'GRAPHQL_VALIDATION_FAILED'}},{message:'Denied',extensions:{code:'UNAUTHORIZED'}}]
+ const client={query:vi.fn().mockRejectedValue({errors}),mutate:vi.fn()}
+ expect(await createPhase2Service(client as unknown as ApolloClient,run,()=>true).check('c',new AbortController().signal)).toEqual({kind:'refused'})
+})
+it('discards a compatibility result once the caller aborts on a persona or child switch',async()=>{
+ const controller=new AbortController()
+ const client={query:vi.fn().mockImplementation(async()=>{controller.abort();return {data:{__typename:'Query',goals:[],fridgeNotes:[]}}}),mutate:vi.fn()}
+ await expect(createPhase2Service(client as unknown as ApolloClient,run,()=>true).check('c',controller.signal)).rejects.toThrow()
 })

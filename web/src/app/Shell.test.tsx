@@ -11,7 +11,7 @@ describe('app shell', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('The village it takes to raise')
     fireEvent.click(screen.getByRole('button', { name: /Kendra/ }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeVisible()
-    expect(screen.getByText('Fictional demo')).toBeVisible()
+    expect(screen.queryByText('Fictional demo')).not.toBeInTheDocument()
   })
   it('supports direct links and an injectable Living Village slot', () => {
     window.location.hash = '#/village'

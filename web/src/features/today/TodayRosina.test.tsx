@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeEach, expect, it } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import App from '@/App'
 import { createMockAuthAdapter } from '@/features/personas/auth'
 
@@ -27,15 +27,27 @@ it('sends the typed Today question once into the existing Rosina conversation', 
   expect(panel).toHaveClass('is-open')
 })
 
-it('opens and focuses the one mounted voice control without starting or resending a turn', async () => {
-  const today = await enterToday()
-  fireEvent.click(within(today).getByRole('button', { name: 'Open Rosina microphone' }))
-  const panel = screen.getByRole('region', { name: 'Ask Rosina' })
-  const microphone = within(panel).getByRole('button', { name: 'Start talking to Rosina' })
-  await waitFor(() => expect(microphone).toHaveFocus())
-  expect(panel).toHaveClass('is-open')
-  expect(within(within(panel).getByRole('log', { name: 'Rosina conversation' })).queryByText('You', { exact: true })).not.toBeInTheDocument()
-  expect(within(panel).getByRole('status')).toHaveTextContent('Tap to talk to Rosina')
+it('opens the one shared mic and starts capture from the gesture, without sending a turn', async () => {
+  // The Today mic opens Rosina AND starts capture on the SAME shared controller (one mic, no second
+  // recording). jsdom has no real microphone, so getUserMedia is the observable start signal.
+  const getUserMedia = vi.fn(() => Promise.reject(new DOMException('no mic', 'NotFoundError')))
+  const original = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+  Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } })
+  try {
+    const today = await enterToday()
+    fireEvent.click(within(today).getByRole('button', { name: 'Open Rosina microphone' }))
+    const panel = screen.getByRole('region', { name: 'Ask Rosina' })
+    expect(panel).toHaveClass('is-open')
+    // Exactly ONE mic control is mounted (the shared controller, not a second one).
+    expect(within(panel).getAllByRole('button', { name: /talking to Rosina|Stop and send/ })).toHaveLength(1)
+    // Capture was initiated from the user gesture…
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1))
+    // …but starting to listen is NOT sending a turn: no 'You' message was appended.
+    expect(within(within(panel).getByRole('log', { name: 'Rosina conversation' })).queryByText('You', { exact: true })).not.toBeInTheDocument()
+  } finally {
+    if (original) Object.defineProperty(navigator, 'mediaDevices', original)
+    else delete (navigator as { mediaDevices?: unknown }).mediaDevices
+  }
 })
 
 it('drops a late Today question after leaving the perspective', async () => {
