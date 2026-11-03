@@ -69,3 +69,9 @@ it('distinguishes an empty result from a source that failed to load',async()=>{
  await screen.findByText(/No records could be loaded for this view/)
  expect(screen.queryByText('No records are available to this view')).toBeNull()
 })
+it('does not call a parent not shared when Activity simply has no live connection',async()=>{
+ render(<Activity client={null} adapter={adapter}/>)
+ await screen.findByText('Activity isn’t connected in this view.')
+ expect(screen.getByText('Choose a live perspective to see the records shared with it.')).toBeInTheDocument()
+ expect(screen.queryByText('This activity is not shared with you')).toBeNull()
+})
