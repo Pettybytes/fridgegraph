@@ -1,0 +1,77 @@
+{
+  "at": "2026-11-03T06:13:10.961Z",
+  "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
+  "migration": "0088_villager_proposals_read_grant.sql",
+  "checks": [
+    {
+      "name": "disposable database started",
+      "status": "PASS",
+      "detail": "127.0.0.1:55445"
+    },
+    {
+      "name": "supabase-shaped prelude",
+      "status": "PASS",
+      "detail": "roles, auth schema, pgcrypto"
+    },
+    {
+      "name": "migration chain applies up to 0088",
+      "status": "PASS",
+      "detail": "82 migrations"
+    },
+    {
+      "name": "three proposals seeded across two families",
+      "status": "PASS",
+      "detail": "prop_a1, prop_a2, prop_b1"
+    },
+    {
+      "name": "DEFECT REPRODUCED before 0088: authenticated has no SELECT and gets 42501",
+      "status": "PASS",
+      "detail": "hasSelect=false error=42501"
+    },
+    {
+      "name": "0088 applies cleanly",
+      "status": "PASS",
+      "detail": "grant + revokes"
+    },
+    {
+      "name": "a caller sees their OWN proposal only",
+      "status": "PASS",
+      "detail": "[\"prop_a1\"]"
+    },
+    {
+      "name": "a same-household caller does NOT see the other person's proposal",
+      "status": "PASS",
+      "detail": "[\"prop_a2\"]"
+    },
+    {
+      "name": "another family sees only its own proposal",
+      "status": "PASS",
+      "detail": "[\"prop_b1\"]"
+    },
+    {
+      "name": "anonymous SELECT is refused",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "authenticated cannot INSERT/UPDATE/DELETE",
+      "status": "PASS",
+      "detail": "{\"insert\":\"42501\",\"update\":\"42501\",\"delete\":\"42501\"}"
+    },
+    {
+      "name": "privileges are exactly one SELECT, and nothing to anon",
+      "status": "PASS",
+      "detail": "{\"auth_select\":true,\"auth_insert\":false,\"auth_update\":false,\"auth_delete\":false,\"anon_select\":false}"
+    },
+    {
+      "name": "the proposer-only policy is present and unchanged",
+      "status": "PASS",
+      "detail": "SELECT · (proposer_id = current_person())"
+    },
+    {
+      "name": "no write policy was added",
+      "status": "PASS",
+      "detail": "writePolicies=0"
+    }
+  ]
+}
