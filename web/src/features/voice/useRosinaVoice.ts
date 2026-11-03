@@ -61,13 +61,13 @@ export type VoiceDeps = {
 
 const ERRORS: Record<number, VoiceError> = {
   401: { kind: 'sign-in', message: 'Please sign in again to use voice.' },
-  429: { kind: 'rate-limited', message: 'Rosina needs a moment — try again shortly.' },
+  429: { kind: 'rate-limited', message: 'Rosina needs a moment. Try again shortly.' },
 }
 // Server error codes → calm, specific copy. Each failure class is distinct so the UI can say what
 // actually went wrong without leaking internals.
 const CODE_ERRORS: Record<string, VoiceError> = {
   ASR_UNAVAILABLE: { kind: 'transcribe', message: "I couldn't make out the audio just now. You can type instead." },
-  TRANSCRIPT_EMPTY: { kind: 'no-speech', message: "I didn't catch anything — try again a little closer to the mic." },
+  TRANSCRIPT_EMPTY: { kind: 'no-speech', message: "I didn't catch anything. Try again a little closer to the mic." },
   ROSINA_UNAVAILABLE: { kind: 'model', message: "I couldn't think that through just now. You can type instead." },
   MCP_UNAVAILABLE: { kind: 'mcp', message: "I couldn't reach your information just now. You can type instead." },
 }

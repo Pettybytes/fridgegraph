@@ -17,6 +17,30 @@
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans);
 
+  /* Type scale (design.md §6 — one deliberate set of sizes/weights/line-heights
+     on Geist). Each name generates a Tailwind `text-*` utility that carries its
+     own line-height, tracking and weight; the matching semantic classes
+     (.fg-display … .fg-caption, .fg-stat) live in components/fg/fg.css so the
+     hand-written feature CSS can reach the same scale. Data uses tabular figures
+     via .fg-tnum / the Stat primitive. */
+  --text-display: clamp(1.75rem, 3vw, 2.25rem);   /* 28→36px — page title */
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 640;
+  --text-title: 1.375rem;                          /* 22px — large section */
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 620;
+  --text-heading: 1rem;                            /* 16px — card heading */
+  --text-heading--line-height: 1.35;
+  --text-heading--letter-spacing: -0.01em;
+  --text-heading--font-weight: 600;
+  --text-body: 0.875rem;                           /* 14px — body */
+  --text-body--line-height: 1.55;
+  --text-caption: 0.75rem;                         /* 12px — caption / meta */
+  --text-caption--line-height: 1.45;
+  --text-caption--font-weight: 500;
+
   /* Radius roles. Concentric rule (design.md §5): inner = outer − total inset,
      clamped at 0. --radius-screen is --radius-device (44) − 8px device inset. */
   --radius-device: 44px;
@@ -311,7 +335,7 @@ body,
 .workspace main { padding: 42px 44px; flex: 1; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; gap: 20px; }
 .page-heading p { font-size: 12px; color: var(--fg-muted); margin: 0 0 10px; }
-h1 { margin: 0; font-size: clamp(27px, 3vw, 36px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.18; text-wrap: balance; }
+h1 { margin: 0; font-size: var(--text-display); font-weight: var(--text-display--font-weight); letter-spacing: var(--text-display--letter-spacing); line-height: var(--text-display--line-height); text-wrap: balance; }
 /* A sticky topbar must never cover a heading reached by scroll or focus. */
 main :is(h1, h2, h3) { scroll-margin-top: 96px; }
 .scope-mark { display: flex; align-items: center; gap: 8px; color: var(--fg-muted); font-size: 12px; white-space: nowrap; }

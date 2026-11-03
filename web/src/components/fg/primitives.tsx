@@ -30,8 +30,18 @@ export const Icon = {
 }
 
 /* ── Surface / card ───────────────────────────────────────────────────── */
-export function Surface({ elevated, pad = true, nested, className, ...p }: React.ComponentProps<'div'> & { elevated?: boolean; pad?: boolean; nested?: boolean }) {
-  return <div className={cn(nested ? 'fg-nested' : 'fg-surface', className)} data-elevated={elevated || undefined} data-pad={!nested && pad ? 'true' : undefined} {...p} />
+export function Surface({ elevated, pad = true, nested, interactive, className, ...p }: React.ComponentProps<'div'> & { elevated?: boolean; pad?: boolean; nested?: boolean; interactive?: boolean }) {
+  return <div className={cn(nested ? 'fg-nested' : 'fg-surface', className)} data-elevated={elevated || undefined} data-pad={!nested && pad ? 'true' : undefined} data-interactive={interactive || undefined} {...p} />
+}
+
+/* ── Stat — a labelled number, rendered with tabular figures (design.md §6) ── */
+export function Stat({ value, label, className, ...p }: Omit<React.ComponentProps<'div'>, 'children'> & { value: React.ReactNode; label: React.ReactNode }) {
+  return (
+    <div className={cn('fg-stat', className)} {...p}>
+      <span className="fg-stat-value">{value}</span>
+      <span className="fg-stat-label">{label}</span>
+    </div>
+  )
 }
 
 /* ── Status chip ──────────────────────────────────────────────────────── */

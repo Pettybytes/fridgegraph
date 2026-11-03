@@ -138,6 +138,10 @@
 .fg-iconbtn svg { width: 18px; height: 18px; }
 .fg-iconbtn:hover { background: color-mix(in oklch, var(--fg-ink) 6%, transparent); }
 .fg-iconbtn:active { transform: scale(0.94); }
+.fg-iconbtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 40%, transparent);
+}
 .fg-iconbtn[data-variant='brand'] { background: var(--fg-primary); color: var(--fg-on-primary); }
 .fg-iconbtn[data-variant='brand']:hover { background: var(--fg-primary-hover); }
 .fg-iconbtn:disabled { opacity: 0.5; pointer-events: none; }
@@ -153,6 +157,10 @@
   transition: background-color var(--dur-feedback) var(--ease-out), transform var(--dur-feedback) var(--ease-out), border-color var(--dur-feedback) var(--ease-out);
 }
 .fg-btn:active { transform: scale(0.98); }
+.fg-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 40%, transparent);
+}
 .fg-btn:disabled { opacity: 0.55; pointer-events: none; }
 .fg-btn svg { width: 16px; height: 16px; }
 .fg-btn[data-variant='primary'] { background: var(--fg-primary); color: var(--fg-on-primary); }
@@ -255,3 +263,71 @@
   background-position: calc(var(--sz, 40px) * -3.078) calc(var(--sz, 40px) * -1.469);
 }
 .fg-rosina-art-img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Type scale (design.md §6) ────────────────────────────────────────────
+   Semantic classes mirroring the @theme --text-* tokens, for the hand-written
+   feature CSS that can't reach Tailwind utilities. Sizes/weights/line-heights
+   stay in one place (index.css); these just consume them. */
+.fg-display {
+  font-size: var(--text-display);
+  line-height: 1.15; letter-spacing: -0.03em; font-weight: 640;
+  color: var(--fg-ink); text-wrap: balance; margin: 0;
+}
+.fg-title {
+  font-size: var(--text-title);
+  line-height: 1.25; letter-spacing: -0.02em; font-weight: 620;
+  color: var(--fg-ink); text-wrap: balance; margin: 0;
+}
+.fg-heading {
+  font-size: var(--text-heading);
+  line-height: 1.35; letter-spacing: -0.01em; font-weight: 600;
+  color: var(--fg-ink); margin: 0;
+}
+.fg-body {
+  font-size: var(--text-body);
+  line-height: 1.55; color: var(--fg-ink); text-wrap: pretty; margin: 0;
+}
+.fg-caption {
+  font-size: var(--text-caption);
+  line-height: 1.45; font-weight: 500; color: var(--fg-muted); margin: 0;
+}
+
+/* Tabular figures for data that should not reflow digit-by-digit (times,
+   counts, money, estimates). design.md §6 / baseline-ui "tabular-nums for data". */
+.fg-tnum { font-variant-numeric: tabular-nums; }
+
+/* ── Stat (a labelled number, read from tabular figures) ──────────────────── */
+.fg-stat { display: grid; gap: 2px; }
+.fg-stat-value {
+  font-size: var(--text-title); line-height: 1.1; font-weight: 640;
+  letter-spacing: -0.02em; color: var(--fg-ink);
+  font-variant-numeric: tabular-nums;
+}
+.fg-stat-label {
+  font-size: var(--text-caption); line-height: 1.3; font-weight: 500;
+  color: var(--fg-muted);
+}
+
+/* ── Interactive surface — an opt-in, restrained lift for a clickable card.
+   Feedback only (design.md §3 job: feedback); transform/shadow, no glow, and it
+   collapses to a still hover under reduced motion via the global rule. */
+.fg-surface[data-interactive='true'] {
+  cursor: pointer;
+  transition: transform var(--dur-feedback) var(--ease-out),
+              box-shadow var(--dur-feedback) var(--ease-out),
+              border-color var(--dur-feedback) var(--ease-out);
+}
+.fg-surface[data-interactive='true']:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklch, var(--fg-primary) 30%, var(--fg-border));
+  box-shadow: 0 1px 2px oklch(0.2 0.03 270 / 0.05), 0 10px 28px -14px oklch(0.2 0.03 270 / 0.16);
+}
+.fg-surface[data-interactive='true']:focus-visible {
+  outline: none;
+  border-color: var(--fg-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 32%, transparent);
+}
+.fg-surface[data-interactive='true']:active { transform: translateY(0); }
+@media (hover: none) {
+  .fg-surface[data-interactive='true']:hover { transform: none; box-shadow: none; }
+}

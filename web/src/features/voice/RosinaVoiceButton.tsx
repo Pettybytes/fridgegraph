@@ -23,7 +23,7 @@ import './voice.css'
 const STATE_LABEL: Record<VoiceState, string> = {
   idle: 'Tap to talk to Rosina', listening: 'Listening… tap to send', processing: 'Rosina is working…',
   speaking: 'Rosina is speaking', 'needs-play': 'Tap Play to hear Rosina’s reply',
-  'audio-unavailable': 'Audio is unavailable — her written reply is below', error: 'Voice error',
+  'audio-unavailable': 'Audio is unavailable; her written reply is below', error: 'Voice error',
 }
 
 export type VoiceController = ReturnType<typeof useRosinaVoice>

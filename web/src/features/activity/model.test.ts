@@ -40,7 +40,7 @@ describe('activity certainty',()=>{
   const villager=entries.find(e=>e.id==='villager:vp_1')
   expect(villager?.kind).toBe('CONFIRMED')
   expect(villager?.who).toBe('Kendra')
-  expect(villager?.what).toBe('Added Dana Coleman — pickup access.')
+  expect(villager?.what).toBe('Added Dana Coleman: pickup access.')
   expect(villager?.href).toBe('#/village')
  })
  it('falls back to "A parent" when the confirming parent is not the caller (never fabricates a name)',()=>{
