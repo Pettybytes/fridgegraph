@@ -15,7 +15,10 @@ export type StoryEvent = Readonly<{
 }>
 
 // Visibility is defined here. A teacher projection never receives the family messages.
+// Every viewer has an atMs 0 event so all three phones show content from the first frame.
 export const ILLUSTRATIVE_STORY: readonly StoryEvent[] = [
+  { id: 'parent-today', atMs: 0, viewer: 'parent', kind: 'today', title: 'Today', body: 'Nora · school 8:15 AM – 3:00 PM. Pickup recorded for 3:15 PM.' },
+  { id: 'caregiver-today', atMs: 0, viewer: 'caregiver', kind: 'today', title: 'Village', body: 'Loretta · available for school-day pickups after 1 PM.' },
   { id: 'notice', atMs: 0, viewer: 'teacher', kind: 'notice', title: 'School notice', body: 'Monday, November 2: early dismissal at 1:30 PM.' },
   { id: 'parent-notice', atMs: 1900, viewer: 'parent', kind: 'notice', title: 'Notice received', body: 'Nora’s school dismisses at 1:30 PM on Monday, November 2.' },
   { id: 'rosina', atMs: 4100, viewer: 'parent', kind: 'explanation', title: 'Rosina · proposal', body: 'Nora’s pickup is still at 3:15. She needs a new pickup plan. Ask Loretta?' },
@@ -43,7 +46,9 @@ export function projectStory(viewer: Viewer, elapsedMs: number, voiceDurationMs 
   return ILLUSTRATIVE_STORY.filter(event => event.viewer === viewer && eventAt(event, voiceDurationMs) <= elapsedMs)
 }
 export function storyBeat(elapsedMs: number, voiceDurationMs = 0) {
-  if (elapsedMs < eventAt(ILLUSTRATIVE_STORY[5], voiceDurationMs)) return 'The problem: school ends before Nora’s recorded pickup.'
-  if (elapsedMs < eventAt(ILLUSTRATIVE_STORY[7], voiceDurationMs)) return 'Loretta offers. Kendra still needs to decide.'
+  const offer = ILLUSTRATIVE_STORY.find(event => event.id === 'offer')!
+  const confirm = ILLUSTRATIVE_STORY.find(event => event.id === 'confirm')!
+  if (elapsedMs < eventAt(offer, voiceDurationMs)) return 'The problem: school ends before Nora’s recorded pickup.'
+  if (elapsedMs < eventAt(confirm, voiceDurationMs)) return 'Loretta offers. Kendra still needs to decide.'
   return 'Kendra confirms Loretta for Monday’s pickup.'
 }

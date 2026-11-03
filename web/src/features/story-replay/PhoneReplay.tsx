@@ -1,4 +1,16 @@
-import { STORY_DATE_LABEL, type StoryEvent, type Viewer } from './story'
+import { STORY_DATE_LABEL, type StoryEvent, type StoryKind, type Viewer } from './story'
+import '@/components/fg/cards.css'
+
+/** Story kind → design-v2 card type (docs/contracts/design.md §12) for the accent bar colour. */
+const KIND_TYPE: Record<StoryKind, string> = {
+  notice: 'school',
+  explanation: 'rosina',
+  'request-approved': 'pickup',
+  offer: 'pickup',
+  'parent-confirmed': 'safe',
+  'pickup-authorized': 'safe',
+  today: 'pending',
+}
 
 const viewNames: Record<Viewer, { label: string; name: string; surface: string; nav: readonly string[] }> = {
   parent: { label: 'Parent', name: 'Kendra', surface: 'Today · Nora', nav: ['Today', 'Village', 'Activity'] },
@@ -21,8 +33,7 @@ export function PhoneReplay({ viewer, events, voicePeaks }: { viewer: Viewer; ev
           <div className="sr-screen-body">
             <p className="sr-day">{STORY_DATE_LABEL}</p>
             <div className="sr-message-list" aria-label={`${meta.label} story events`}>
-              {events.length === 0 && <p className="sr-wait">The story is about to begin.</p>}
-              {events.slice(-3).map(event => <article className={`sr-message sr-message--${event.kind}`} key={event.id} data-event-id={event.id}>
+              {events.slice(-3).map(event => <article className={`sr-message sr-message--${event.kind}`} key={event.id} data-event-id={event.id} data-fgc-type={KIND_TYPE[event.kind]}>
                 <strong>{event.title}</strong>{event.id === 'offer' && voicePeaks && <div className="sr-waveform" role="img" aria-label="Waveform derived from Loretta’s approved audio">{voicePeaks.map((peak, index) => <span key={index} style={{ height: `${Math.min(100, Math.max(8, peak * 100))}%` }} />)}</div>}<p>{event.body}</p>{event.detail && <small>{event.detail}</small>}
               </article>)}
             </div>
