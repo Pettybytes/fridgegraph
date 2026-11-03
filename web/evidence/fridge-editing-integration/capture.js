@@ -1,0 +1,53 @@
+async page => {
+ const root='/Users/user/Desktop/bentley/fridgegraph-fridge-editing-integration/web/evidence/fridge-editing-integration/'
+ const check=(condition,message)=>{if(!condition)throw Error(message)}
+ const calls=[],errors=[];page.on('request',r=>{if(/\/api\/|\/graphql(?:\?|$)/.test(r.url()))calls.push(r.url())});page.on('pageerror',e=>errors.push(e.message))
+ await page.route(/\/api\//,r=>r.abort());await page.route(/\/graphql(?:\?|$)/,r=>r.abort())
+ page.setDefaultTimeout(8000)
+ const align=async locator=>locator.evaluate(el=>{for(let p=el.parentElement;p;p=p.parentElement){if(getComputedStyle(p).overflowY==='auto'&&p.scrollHeight>p.clientHeight){p.scrollTop+=el.getBoundingClientRect().top-80;return}}})
+ const results=[]
+ for(const width of [1440,390])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:width===390?844:900})
+  await page.goto('http://127.0.0.1:5241/evidence/fridge-editing-integration/preview.html#/fridge');await page.reload()
+  await page.evaluate(dark=>document.documentElement.classList.toggle('dark',dark),theme==='dark')
+  await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
+  await page.getByRole('button',{name:'Manage goals',exact:true}).waitFor()
+  await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))})
+  await align(page.locator('.fridge-viewport'))
+  await page.screenshot({path:`${root}parent-${theme}-${width}-overview.png`,fullPage:width===1440})
+  if(width===390){await align(page.locator('.fridge-sample-card-tray'));await page.screenshot({path:`${root}parent-${theme}-${width}-sample-cards.png`})}
+  check(await page.locator('.fridge-sample-card-tray strong').evaluateAll(nodes=>nodes.every(n=>parseFloat(getComputedStyle(n).fontSize)>=14)),'Overview card labels at least 14px')
+  await page.getByRole('button',{name:'Manage goals',exact:true}).click()
+  let dialog=page.getByRole('dialog')
+  await dialog.getByText('Read together after school',{exact:true}).waitFor()
+  await page.screenshot({path:`${root}parent-${theme}-${width}-goals.png`})
+  const form=dialog.getByRole('form',{name:'Add a goal'})
+  await form.getByRole('textbox',{name:'Goal title',exact:true}).fill('Read a chapter together')
+  await form.getByRole('textbox',{name:/Horizon/}).fill('Whenever we can')
+  await form.getByRole('combobox',{name:/Period/}).selectOption('DAY')
+  await form.getByRole('button',{name:'Add goal',exact:true}).click()
+  const goal=dialog.locator('article').filter({has:page.getByText('Read a chapter together',{exact:true})})
+  await goal.getByRole('button',{name:'Mark complete',exact:true}).click()
+  await goal.getByRole('button',{name:'Reopen',exact:true}).waitFor()
+  check((await goal.innerText()).includes('Proposed goal'),'Completion never changes approval')
+  await goal.scrollIntoViewIfNeeded();await page.screenshot({path:`${root}parent-${theme}-${width}-confirmed-goal.png`})
+  check(await page.getByRole('button',{name:'Close editor'}).isVisible(),'Editor close remains reachable')
+  await page.getByRole('button',{name:'Close editor'}).click()
+  check((await page.getByRole('region',{name:'Recorded goals'}).innerText()).includes('Read a chapter together'),'Confirmed goal appears on actual whiteboard')
+  await page.getByRole('button',{name:/^Family notes/}).click();dialog=page.getByRole('dialog')
+  const post=dialog.getByRole('form',{name:'Post a fridge note'})
+  await post.getByRole('textbox',{name:'Note text',exact:true}).fill('Bring the library book.')
+  await post.getByRole('combobox',{name:'Paper color',exact:true}).selectOption('GREEN')
+  await post.getByRole('button',{name:'Post privately',exact:true}).click()
+  const note=dialog.locator('article').filter({has:page.getByText('Bring the library book.',{exact:true})})
+  check((await note.innerText()).includes('Parents only'),'New note stays private')
+  await note.getByRole('button',{name:'Share',exact:true}).click()
+  await note.getByText('By Mock author · Shared with granted readers',{exact:true}).waitFor()
+  await note.scrollIntoViewIfNeeded();await page.screenshot({path:`${root}parent-${theme}-${width}-shared-note.png`})
+  check(await note.getByRole('button',{name:'Edit note',exact:true}).isVisible(),'Confirmed note retains actual mock author')
+  await page.getByRole('button',{name:'Close editor'}).click()
+  results.push(`${width} ${theme}: goal create/complete stays PROPOSED; whiteboard synchronized; private post then explicit Share`)
+ }
+ check(calls.length===0,'No backend requests');check(errors.length===0,`Browser errors: ${errors.join('; ')}`)
+ return {passed:results,backendRequests:calls.length,browserErrors:errors.length}
+}

@@ -1,0 +1,20 @@
+npm notice run fridgegraph@0.1.0 npx
+npm notice run 'impeccable' detect http://127.0.0.1:5241/evidence/fridge-editing/preview.html --viewport 390x844
+
+http://127.0.0.1:5241/evidence/fridge-editing/preview.html
+  [nested-cards] Card inside card
+    → Cards inside cards create visual noise and excessive depth. Flatten the hierarchy — use spacing, typography, and dividers instead of nesting containers.
+  [nested-cards] Card inside card
+    → Cards inside cards create visual noise and excessive depth. Flatten the hierarchy — use spacing, typography, and dividers instead of nesting containers.
+  [cream-palette] cream/beige page background rgb(253, 250, 244)
+    → A warm cream or beige page background has become the default "tasteful" AI surface, reached for by reflex. Choose a background that comes from a deliberate palette, not the safe warm off-white.
+
+3 anti-patterns found.
+
+── Advisory (not counted as failures) ──
+
+http://127.0.0.1:5241/evidence/fridge-editing/preview.html
+  [straggler] "perspective" alone on the last of 2 lines (20% of the measure)
+    → The last line of this paragraph holds one word, which leaves a hole under the block. Set text-wrap: pretty on body copy (Chrome, Safari) to pull a word down beside it. Where a browser ignores it, edit the last sentence or bind the last two words with a no-break space. Keep it if the break is intended.
+
+1 advisory note. Suppress with --no-advisory.
