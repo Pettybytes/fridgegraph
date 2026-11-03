@@ -27,19 +27,32 @@ export type ParentAuthorizer = (input: { personId: string; childId: string; bear
 
 /** Private media. Authorization is checked on EVERY access; no public bucket, no ambient id access. */
 export interface MediaStore {
-  /** Store EXIF/metadata-stripped bytes for a child; returns an opaque assetId. */
-  put(input: { childId: string; mimeType: string; bytes: Buffer; personId: string }): Promise<{ ok: true; assetId: string } | { ok: false; code: 'TOO_LARGE' | 'UNSUPPORTED' }>;
+  /** Store EXIF/metadata-stripped bytes for a child; returns an opaque assetId. The caller's bearer
+   *  is required so the real store registers the row AS THE CALLER (parent-only, enforced in the db). */
+  put(input: { childId: string; mimeType: string; bytes: Buffer; personId: string; bearer: string }): Promise<{ ok: true; assetId: string } | { ok: false; code: 'TOO_LARGE' | 'UNSUPPORTED' }>;
   /** Resolve an asset for a caller — only if they are authorized for its child. A non-owner, a wrong
    *  child and a missing asset all answer `{ ok:false }` (no oracle). */
   access(input: { assetId: string; personId: string; bearer: string }): Promise<{ ok: true; childId: string; mimeType: string } | { ok: false }>;
 }
 
-export type PinExtractor = (input: { assetId: string; childId: string; caption: string | null; today: string }) => Promise<RawPinExtraction>;
+/** Re-authorized byte load for the retrieval endpoint (the real store's `load`). */
+export type MediaLoad = (input: { assetId: string; personId: string; bearer: string }) => Promise<{ bytes: Uint8Array; mimeType: string; access: string } | null>;
+
+/** Readiness: the web checks this before offering the real intake. Default OFF. */
+export type PinReadiness = () => { ready: boolean; reasons: string[] };
+
+export type PinExtractor = (input: { assetId: string; childId: string; caption: string | null; today: string; image: { bytes: Uint8Array; mimeType: string } | null }) => Promise<RawPinExtraction>;
 
 export type PinRecord = { pinId: string; callerId: string; childId: string; assetId: string; kind: string; audience: string; caption: string | null; extracted: PinExtracted | null };
 export interface PinStore {
-  /** Idempotent: a repeated key returns the SAME pin (created:false), never a second. */
-  pin(key: string, make: () => PinRecord): { record: PinRecord; created: boolean };
+  /** Idempotent: a repeated key returns the SAME pin (created:false), never a second. Async and
+   *  bearer-bound because the real store writes a fridge_notes row through the CALLER's RLS client.
+   *  May throw a PinPersistenceError (e.g. CAPTION_REQUIRED) which confirm maps to a bounded status. */
+  pin(key: string, bearer: string, make: () => PinRecord): Promise<{ record: PinRecord; created: boolean }> | { record: PinRecord; created: boolean };
+}
+
+export class PinPersistenceError extends Error {
+  constructor(public code: 'CAPTION_REQUIRED' | 'PERSIST_FAILED') { super(code); this.name = 'PinPersistenceError'; }
 }
 
 export type PinEndpointDeps = {
@@ -49,6 +62,8 @@ export type PinEndpointDeps = {
   extractor: PinExtractor;
   pinStore: PinStore;
   signingKey: string;
+  mediaLoad?: MediaLoad;
+  readiness?: PinReadiness;
   now?: () => Date;
   ttlMs?: number;
   today?: () => string;
@@ -87,7 +102,7 @@ export function createPinHandlers(deps: PinEndpointDeps) {
     const bearer = bearerOf(req);
     // Only a parent/guardian may upload a child's private asset.
     if (!(await deps.authorizeParent({ personId: identity.personId, childId, bearer }))) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
-    const stored = await deps.media.put({ childId, mimeType, bytes, personId: identity.personId });
+    const stored = await deps.media.put({ childId, mimeType, bytes, personId: identity.personId, bearer });
     if (!stored.ok) { res.status(stored.code === 'TOO_LARGE' ? 413 : 415).json({ error: stored.code === 'TOO_LARGE' ? 'PAYLOAD_TOO_LARGE' : 'UNSUPPORTED_MEDIA_TYPE' }); return; }
     res.status(200).json({ assetId: stored.assetId, mimeType });
   }
@@ -109,7 +124,11 @@ export function createPinHandlers(deps: PinEndpointDeps) {
     if (!asset.ok || asset.childId !== childId) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
     if (!(await deps.authorizeParent({ personId: identity.personId, childId, bearer }))) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
 
-    const raw = await deps.extractor({ assetId, childId, caption, today: today() });
+    // Load the authorized bytes (re-checked as the caller) for the extractor. The fixture extractor
+    // ignores them; the live Muse vision extractor reads them. Absent loader → no image (fixture path).
+    const loaded = deps.mediaLoad ? await deps.mediaLoad({ assetId, personId: identity.personId, bearer }) : null;
+    const image = loaded ? { bytes: loaded.bytes, mimeType: loaded.mimeType } : null;
+    const raw = await deps.extractor({ assetId, childId, caption, today: today(), image });
     const body: PinProposalBody = classifyPin({ ...raw, caption: caption ?? raw.caption }, { today: today() });
     const selectedAudience = audienceOverride ?? body.audience.selected;
     const audienceOut = { selected: selectedAudience, options: body.audience.options };
@@ -172,14 +191,44 @@ export function createPinHandlers(deps: PinEndpointDeps) {
 
     // Idempotent pin, bound to this proposal (key includes proposalId): a retry returns the same pin;
     // a distinct proposal for the same image is a different pin with its own content + audience.
-    const { record, created } = deps.pinStore.pin(pinIdempotencyKey(claims), () => ({
-      pinId: newId('pinned'), callerId: claims.callerId, childId: claims.childId, assetId: claims.assetId,
-      kind: claims.kind, audience: claims.audience, caption, extracted,
-    }));
+    let record: PinRecord, created: boolean;
+    try {
+      ({ record, created } = await deps.pinStore.pin(pinIdempotencyKey(claims), bearer, () => ({
+        pinId: newId('pinned'), callerId: claims.callerId, childId: claims.childId, assetId: claims.assetId,
+        kind: claims.kind, audience: claims.audience, caption, extracted,
+      })));
+    } catch (e) {
+      if (e instanceof PinPersistenceError && e.code === 'CAPTION_REQUIRED') { res.status(422).json({ error: 'CAPTION_REQUIRED' }); return; }
+      res.status(502).json({ error: 'PERSIST_FAILED' }); return;
+    }
     res.status(200).json({ status: 'PINNED', created, pin: { id: record.pinId, childId: record.childId, assetId: record.assetId, kind: record.kind, audience: record.audience, caption: record.caption, extracted: record.extracted } });
   }
 
-  return { upload, prepare, confirm };
+  /** GET the pinned image. Caller-scoped: the loader re-evaluates authority (parent, or SHARED via a
+   *  fridge.read grant) on every fetch. A refusal and a missing asset return the SAME generic 404 —
+   *  no oracle. No durable URL is ever handed out; bytes are served no-store. */
+  async function download(req: Request, res: Response): Promise<void> {
+    res.setHeader('Cache-Control', 'no-store');
+    const identity = await deps.verify(req.header('authorization'));
+    if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    const assetId = (req.params?.id ?? (typeof req.query?.id === 'string' ? req.query.id : '')) || '';
+    if (!assetId) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+    const bearer = bearerOf(req);
+    const loaded = deps.mediaLoad ? await deps.mediaLoad({ assetId, personId: identity.personId, bearer }) : null;
+    if (!loaded) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    res.setHeader('Content-Type', loaded.mimeType);
+    res.setHeader('X-Pin-Media-Access', loaded.access);
+    res.send(Buffer.from(loaded.bytes));
+  }
+
+  /** Unauthenticated capability probe. Default OFF — the web must not offer the real intake until the
+   *  deployment reports ready. Reasons are intentionally generic (no config values). */
+  function readiness(_req: Request, res: Response): void {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json(deps.readiness ? deps.readiness() : { ready: false, reasons: ['not configured'] });
+  }
+
+  return { upload, prepare, confirm, download, readiness };
 }
 
 // ---- mocked, in-memory implementations (for the staged slice + tests; no storage, no network) ----
@@ -189,7 +238,7 @@ export function createInMemoryMediaStore(): MediaStore & { grant(assetId: string
   const authorized = new Map<string, Set<string>>(); // assetId -> personIds allowed
   let n = 0;
   return {
-    async put({ childId, mimeType, personId }) {
+    async put({ childId, mimeType, personId }: { childId: string; mimeType: string; bytes: Buffer; personId: string; bearer: string }) {
       if (!ALLOWED_MIME.has(mimeType)) return { ok: false, code: 'UNSUPPORTED' };
       const assetId = `pma_${n++}`;
       assets.set(assetId, { childId, mimeType }); // NOTE: real impl strips EXIF/metadata before storing
@@ -210,7 +259,7 @@ export function createInMemoryMediaStore(): MediaStore & { grant(assetId: string
 export function createInMemoryPinStore(): PinStore {
   const pins = new Map<string, PinRecord>();
   return {
-    pin(key, make) {
+    async pin(key, _bearer, make) {
       const existing = pins.get(key);
       if (existing) return { record: existing, created: false };
       const record = make();

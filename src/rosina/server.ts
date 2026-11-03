@@ -29,11 +29,16 @@ import { createInviteHandler } from './inviteEndpoint';
 import { createFixtureImageGenerator, createLiveImageGenerator } from './inviteImage';
 import { createInviteRateLimiter, createGenerationBudget } from './inviteBudget';
 import { createSparkInviteExtractor, buildInviteParentAuthorizer } from './inviteDeps';
+import { createPinHandlers } from './pinEndpoint';
+import { buildPinDeps } from './pinDeps';
+import { pinIntakeReadiness } from './pinReadiness';
 
 loadEnv();
 
 // Same private photo directory the demo upload/photo-GET path uses.
 const ORBIT_PHOTO_DIR = process.env.ORBIT_PHOTO_DIR ?? join(process.cwd(), 'var', 'orbit-photos');
+// Private directory for pin media (EXIF-stripped bytes; never a public bucket).
+const PIN_MEDIA_DIR = process.env.PIN_MEDIA_DIR ?? join(process.cwd(), 'var', 'pin-media');
 
 const PORT = Number(process.env.ROSINA_PORT ?? 4200);
 const PROVIDER = (process.env.ROSINA_PROVIDER ?? 'meta') as ProviderId;
@@ -150,7 +155,8 @@ export function createRosinaApp() {
   // The notice-plan routes carry an image/PDF, so they parse their own (larger) body; every other
   // route keeps the 64kb cap. Mounting this as a gate keeps the global cap off exactly those paths.
   app.use((req: Request, res: Response, next: (err?: unknown) => void) => {
-    if (req.path.startsWith('/api/rosina/notice-plan')) { next(); return; }
+    // notice-plan and pin/upload carry an image, so they parse their own (larger) body.
+    if (req.path.startsWith('/api/rosina/notice-plan') || req.path === '/api/rosina/pin/upload') { next(); return; }
     jsonSmall(req, res, next);
   });
   // A malformed JSON body reaches here as a SyntaxError from express.json(); treat it the same
@@ -248,6 +254,55 @@ export function createRosinaApp() {
     });
   } catch (err) {
     console.log(`[rosina] invites OFF: ${err instanceof Error ? err.message : 'configuration error'}`);
+  }
+
+  // Pin it to the fridge: real private media + Muse Spark extraction (behind PIN_LIVE) + persistence
+  // into #157's fridge_notes. OFF unless a signing key and the router URL are configured (parent
+  // authz + the confirm HMAC). The readiness probe is ALWAYS mounted (default OFF) so the web can
+  // check capability without the actions being live. Nothing content-bearing is logged — only the
+  // extraction's metadata provenance.
+  let pinHandlers: ReturnType<typeof createPinHandlers> | null = null;
+  if (NOTICE_SIGNING_KEY) {
+    try {
+      const graphqlUrl = requireGraphqlUrl();
+      pinHandlers = createPinHandlers(buildPinDeps({
+        graphqlUrl,
+        signingKey: NOTICE_SIGNING_KEY,
+        mediaDir: PIN_MEDIA_DIR,
+        log: (p) => console.log(`[rosina] pin extraction source=${p.source} model=${p.model ?? 'none'} kind=${String(p.kind)} confidence=${String(p.confidence)}`),
+      }));
+    } catch (err) {
+      pinHandlers = null;
+      console.log(`[rosina] pin OFF: ${err instanceof Error ? err.message : 'configuration error'}`);
+    }
+  }
+  if (pinHandlers) {
+    const p = pinHandlers;
+    const pinJsonLarge = express.json({ limit: '16mb' });
+    app.post('/api/rosina/pin/upload', pinJsonLarge, (req, res) => {
+      p.upload(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'PIN_ERROR' }); });
+    });
+    app.post('/api/rosina/pin', (req, res) => {
+      p.prepare(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'PIN_ERROR' }); });
+    });
+    app.post('/api/rosina/pin/confirm', (req, res) => {
+      p.confirm(req, res).catch(() => { if (!res.headersSent) res.status(502).json({ error: 'PIN_ERROR' }); });
+    });
+    app.get('/api/rosina/pin/media/:id', (req, res) => {
+      p.download(req, res).catch(() => { if (!res.headersSent) res.status(404).json({ error: 'NOT_FOUND' }); });
+    });
+    app.get('/api/rosina/pin/readiness', (req, res) => p.readiness(req, res));
+    app.use('/api/rosina/pin/upload', (err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {
+      if (err && typeof err === 'object' && (err as { type?: string }).type === 'entity.too.large') { res.status(413).json({ error: 'PAYLOAD_TOO_LARGE' }); return; }
+      if (err instanceof SyntaxError) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
+      next(err);
+    });
+  } else {
+    app.get('/api/rosina/pin/readiness', (_req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json(pinIntakeReadiness());
+    });
+    console.log('[rosina] pin OFF (set ROSINA_PROPOSAL_SIGNING_KEY and ROSINA_GRAPHQL_URL to enable; PIN_LIVE=1 for real extraction)');
   }
 
   return app;
