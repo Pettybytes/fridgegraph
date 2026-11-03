@@ -5,7 +5,7 @@ Mobile launcher occupies a safe-area-aware bottom-right dock outside the scrolla
 with content/list bottom padding. Duplicate Rosina eyebrow removed; generic Muse Spark credit.
 
 Run against the production preview on port 5181:
-`browser automation -s=cal run-code --filename=web/evidence/task-cal/revision-1/browser-proof.js`
+`playwright-cli -s=cal run-code --filename=web/evidence/task-cal/revision-1/browser-proof.js`
 
 The same five persona flows are repeated. Added geometric checks verify the content viewport
 ends above the launcher and the final day can scroll clear of it. Screenshots preserve original

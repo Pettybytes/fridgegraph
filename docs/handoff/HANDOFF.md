@@ -3912,8 +3912,8 @@ once; reduced motion is static. Parent ring response chips enter from a newly ob
 response, with the existing ledger preventing replay. The #73 controller/sanitizer is byte-for-byte
 unchanged. Fixture descriptors now say red sweater, matching the supplied Nora portrait.
 
-Interaction review shaped 140ms press feedback, a 480ms ease-out chip arrival and
-state-driven confirmation; interaction principles shaped optical display hierarchy, continuous red-to-green
+Skills applied: emil-design-eng shaped 140ms press feedback, a 480ms ease-out chip arrival and
+state-driven confirmation; apple-design shaped optical display hierarchy, continuous red-to-green
 change, nonblocking feedback and static reduced-motion equivalents. No additional palette.
 
 Validation: 312 web tests / 52 files PASS; root typecheck and web typecheck/build PASS (existing

@@ -40,7 +40,7 @@ npm --prefix web run build     # tsc -b && vite build — must pass
 npm run check                  # repo secret scan (root)
 ```
 
-Any visual claim needs a real browser check via browser automation — not a screenshot from memory, not "it should look right".
+Any visual claim needs a real browser check via `playwright-cli` — not a screenshot from memory, not "it should look right".
 
 ## 5. Known defects and version traps
 
@@ -57,5 +57,5 @@ Documented so nobody re-discovers them the hard way.
 
 1. `npm --prefix web run build` passes.
 2. `npm run check` passes.
-3. The change was exercised in a browser through browser automation, and you said what you saw.
+3. The change was exercised in a browser through `playwright-cli`, and you said what you saw.
 4. No secret, no `VITE_` server value, no copied code with an unread licence.

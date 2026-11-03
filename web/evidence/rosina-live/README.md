@@ -18,7 +18,7 @@ The harness starts its own Vite dev server on 5184 and a temporary loopback brid
 actual person ID is p_mom (Bryan confirmed the correction to the requested p_kendra lookup).
 The bridge is no-store and restricted to the local Vite origin. Its bearer never appears in
 argv, product globals, files, storage state, traces, videos or screenshots. Browser control
-uses browser automation. No backend, schema, auth, database or ops/auth.mjs changes were made.
+uses playwright-cli. No backend, schema, auth, database or ops/auth.mjs changes were made.
 
 ## Actual tool output, not a mock name list
 

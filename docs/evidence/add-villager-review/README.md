@@ -11,7 +11,7 @@
 
 Playwright CLI snapshots showed the person, exact `pickup.request` scope, validity dates, review expiry, unknowns, sample notice, and confirm control. The phone view had no horizontal overflow. The only browser console error was the temporary fixture's missing favicon.
 
-visual review source scan reported no findings. The rendered scan initially flagged a nested bordered box and a one-word final line; the box was flattened to a top divider and the paragraph was given `text-wrap: pretty`. Its remaining `cream-palette` finding is the existing app canvas token from `web/src/index.css`, preserved under the design freeze.
+Impeccable source scan reported no findings. The rendered scan initially flagged a nested bordered box and a one-word final line; the box was flattened to a top divider and the paragraph was given `text-wrap: pretty`. Its remaining `cream-palette` finding is the existing app canvas token from `web/src/index.css`, preserved under the design freeze.
 
 Visual review, three weakest points:
 

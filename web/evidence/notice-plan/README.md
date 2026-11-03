@@ -26,7 +26,7 @@ an ordinary field assignment. Sample/drop parity test then caught Blob→File cr
 stringification; changed loader to ArrayBuffer bytes. Strict payload equality assertion kept,
 and the same test passed. These failures remain recorded here.
 
-Source visual review scan reports no regex findings, and explicitly does not run parsed-element
+Source Impeccable scan reports no regex findings, and explicitly does not run parsed-element
 rules. Separate rendered scan opens the picker and reports the existing cream-palette finding
 plus picker contrast/text-wrap advisories; shared palette/picker remain frozen. Authenticated
 notice UI reviewed in Playwright in both themes, using shared surface/ink/primary/on-primary

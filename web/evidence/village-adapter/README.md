@@ -40,7 +40,7 @@ were created or modified. This PR does not implement the graph visualization.
 4. In the same browser, invoke the actual mock adapter and verify graph counts, scope and privacy.
 
 Reproduce with the local Vite server on port 4181, then from the repository root:
-`browser automation run-code --filename=web/evidence/village-adapter/verify-browser.js`.
+`playwright-cli run-code --filename=web/evidence/village-adapter/verify-browser.js`.
 No credentials, live graph calls, schema changes, database actions, merge or deploy.
 
 ## Handoff packet
