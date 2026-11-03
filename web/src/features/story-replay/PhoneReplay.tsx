@@ -1,4 +1,4 @@
-import type { StoryEvent, Viewer } from './story'
+import { STORY_DATE_LABEL, type StoryEvent, type Viewer } from './story'
 
 const viewNames: Record<Viewer, { label: string; name: string; surface: string; nav: readonly string[] }> = {
   parent: { label: 'Parent', name: 'Kendra', surface: 'Today · Nora', nav: ['Today', 'Village', 'Activity'] },
@@ -19,7 +19,7 @@ export function PhoneReplay({ viewer, events, voicePeaks }: { viewer: Viewer; ev
           <div className="sr-statusbar" aria-hidden="true"><span>9:41</span><span>●●● ▰</span></div>
           <div className="sr-appbar"><span><strong>FridgeGraph</strong><small>{meta.surface}</small></span></div>
           <div className="sr-screen-body">
-            <p className="sr-day">Friday, October 30, 2026</p>
+            <p className="sr-day">{STORY_DATE_LABEL}</p>
             <div className="sr-message-list" aria-label={`${meta.label} story events`}>
               {events.length === 0 && <p className="sr-wait">The story is about to begin.</p>}
               {events.slice(-3).map(event => <article className={`sr-message sr-message--${event.kind}`} key={event.id} data-event-id={event.id}>
