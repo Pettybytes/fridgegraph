@@ -9,6 +9,7 @@ import type { ParentAuthorizer, PinEndpointDeps } from './pinEndpoint';
 import { buildPinMediaStore } from './pinMediaStore';
 import { buildFridgeNoteWriter, createFridgeNotePinStore } from './pinPersistence';
 import { buildPinExtractor, type PinVisionProvenance } from './pinVision';
+import { buildPinSegmenter, type SegmentProvenance } from './pinSegment';
 import { pinIntakeReadiness } from './pinReadiness';
 
 /** Parent/guardian of the child, AS THE CALLER — the parent-only `checkInStatus` read (a clean result
@@ -40,6 +41,7 @@ export function buildPinDeps(cfg: {
   env?: NodeJS.ProcessEnv;
   fetchFn?: typeof fetch;
   log?: (p: PinVisionProvenance) => void;
+  segmentLog?: (p: SegmentProvenance) => void;
 }): PinEndpointDeps {
   const env = cfg.env ?? process.env;
   const media = buildPinMediaStore({ mediaDir: cfg.mediaDir });
@@ -49,6 +51,7 @@ export function buildPinDeps(cfg: {
     authorizeParent: buildPinParentAuthorizer({ graphqlUrl: cfg.graphqlUrl, fetchFn: cfg.fetchFn }),
     media,
     extractor: buildPinExtractor({ env, fetchFn: cfg.fetchFn, log: cfg.log }),
+    segmenter: buildPinSegmenter({ env, fetchFn: cfg.fetchFn, log: cfg.segmentLog }),
     pinStore: createFridgeNotePinStore({ writer }),
     mediaLoad: (input) => media.load(input),
     readiness: () => pinIntakeReadiness(env),

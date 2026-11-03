@@ -13,6 +13,7 @@
 import type { Request, Response } from 'express';
 import { classifyPin, type RawPinExtraction, type PinProposalBody } from './pinClassify';
 import { AUDIENCE_OPTIONS, type Audience, type PinExtracted } from './pinTypes';
+import type { PinSegmenter, PinSegmentation } from './pinSegment';
 import {
   buildPinProposal,
   captionHashOf,
@@ -60,6 +61,9 @@ export type PinEndpointDeps = {
   authorizeParent: ParentAuthorizer;
   media: MediaStore;
   extractor: PinExtractor;
+  /** SAM 3.1 segmentation. Render-only: the returned crop is NOT part of the signed claims; it just
+   *  lets the fridge show the paper, not the whole counter. Absent → the photo is placed uncropped. */
+  segmenter?: PinSegmenter;
   pinStore: PinStore;
   signingKey: string;
   mediaLoad?: MediaLoad;
@@ -116,6 +120,10 @@ export function createPinHandlers(deps: PinEndpointDeps) {
     const assetId = typeof b.assetId === 'string' ? b.assetId : '';
     const caption = typeof b.caption === 'string' ? b.caption.slice(0, 500) : null; // untrusted content
     const audienceOverride = AUDIENCE_OPTIONS.includes(b.audience as Audience) ? (b.audience as Audience) : null;
+    // A plain photo skips SAM (document defaults true — this intake is paper-first). `concept` is the
+    // SAM noun phrase; it is content, never an instruction, and is capped.
+    const isDocument = b.document !== false;
+    const concept = (typeof b.concept === 'string' && b.concept.trim() ? b.concept.trim() : 'sheet of paper').slice(0, 80);
     if (!childId || !assetId) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
 
     const bearer = bearerOf(req);
@@ -128,13 +136,20 @@ export function createPinHandlers(deps: PinEndpointDeps) {
     // ignores them; the live Muse vision extractor reads them. Absent loader → no image (fixture path).
     const loaded = deps.mediaLoad ? await deps.mediaLoad({ assetId, personId: identity.personId, bearer }) : null;
     const image = loaded ? { bytes: loaded.bytes, mimeType: loaded.mimeType } : null;
+    // SAM 3.1 and Muse vision are independent reads of the same bytes; SAM finds the paper, vision
+    // reads it. A SAM failure must never fail the pin (contract §7), so default to "uncropped".
+    let segmentation: PinSegmentation = { applied: false, source: 'NONE', reason: image ? 'segmentation not run' : 'no image' };
+    if (deps.segmenter && image) {
+      try { segmentation = await deps.segmenter({ image, concept, isDocument }); }
+      catch { segmentation = { applied: false, source: 'SAM_3_1', reason: 'sam unavailable' }; }
+    }
     const raw = await deps.extractor({ assetId, childId, caption, today: today(), image });
     const body: PinProposalBody = classifyPin({ ...raw, caption: caption ?? raw.caption }, { today: today() });
     const selectedAudience = audienceOverride ?? body.audience.selected;
     const audienceOut = { selected: selectedAudience, options: body.audience.options };
 
     if (body.status === 'NEEDS_CLARIFICATION') {
-      res.status(200).json({ ...body, audience: audienceOut, asset: { assetId, mimeType: asset.mimeType }, proposal: null });
+      res.status(200).json({ ...body, audience: audienceOut, asset: { assetId, mimeType: asset.mimeType }, segmentation, proposal: null });
       return;
     }
 
@@ -143,7 +158,7 @@ export function createPinHandlers(deps: PinEndpointDeps) {
       kind: body.classification.kind, audience: selectedAudience, caption: body.extracted.caption,
       extracted: body.extracted, now: now(), ttlMs, signingKey: deps.signingKey,
     });
-    res.status(200).json({ ...body, audience: audienceOut, asset: { assetId, mimeType: asset.mimeType }, proposal });
+    res.status(200).json({ ...body, audience: audienceOut, asset: { assetId, mimeType: asset.mimeType }, segmentation, proposal });
   }
 
   async function confirm(req: Request, res: Response): Promise<void> {
