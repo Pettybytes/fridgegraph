@@ -1,0 +1,161 @@
+{
+  "generatedAt": "2026-11-03T01:46:57.153Z",
+  "clips": [
+    {
+      "id": "vn_hist_08_1",
+      "speakerPersonId": "p_priya",
+      "speakerName": "Priya",
+      "childId": "p_nora",
+      "storyId": "job_hist_08",
+      "responseId": "ce_hist_08_1",
+      "attemptId": "att_hist_08_1",
+      "recordedAt": "2026-10-12T20:08:00Z",
+      "offset": "-04:00",
+      "illustrative": false,
+      "script": "Hi — yes, I can get Nora at 4:20. I'm already heading that way for my own pickup, so it's no trouble. I'll be at the gate a few minutes early.",
+      "voiceId": "cgSgspJ2msm6clMCkdW9",
+      "voiceName": "Jessica - Playful, Bright, Warm",
+      "transcript": "Hi. Yes, I can get Nora at 4.20. I'm already heading that way for my own pickup, so it's no trouble. I'll be at the gate a few few minutes early.",
+      "durationSeconds": 9.2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "generatedAt": "2026-11-03T01:46:45Z",
+          "transcribedAt": "2026-11-03T01:46:46Z",
+          "duration": 9.195125,
+          "transcript": "Hi. Yes, I can get Nora at 4.20. I'm already heading that way for my own pickup, so it's no trouble. I'll be at the gate a few few minutes early.",
+          "criticalOk": true,
+          "audioDurationMs": 9200
+        }
+      ],
+      "files": {
+        "playback": "data/demo-voice/audio/vn_hist_08_1.mp3",
+        "muse": "data/demo-voice/audio/vn_hist_08_1.wav"
+      },
+      "sha256": {
+        "mp3": "aa8833aac0eec66b49d80b5a42ce2bcff678986558cf8e186eeecc2245ccc0fb",
+        "wav": "39af15a6cd3724f4933d98e99a3a73dce2fe7e86ea61e3a3cee258e01037b126"
+      },
+      "generatedAt": "2026-11-03T01:46:45Z",
+      "transcribedAt": "2026-11-03T01:46:46Z",
+      "turnTimings": null
+    },
+    {
+      "id": "vn_hist_09_1",
+      "speakerPersonId": "p_gma",
+      "speakerName": "Loretta",
+      "childId": "p_nora",
+      "storyId": "job_hist_09",
+      "responseId": "ce_hist_09_1",
+      "attemptId": "att_hist_09_1",
+      "recordedAt": "2026-10-13T16:47:00Z",
+      "offset": "-04:00",
+      "illustrative": false,
+      "script": "Of course. I'll leave a little early and bring her the snack she likes. Tell them not to worry — I'll be there by one.",
+      "voiceId": "EXAVITQu4vr4xnSDxMaL",
+      "voiceName": "Sarah - Mature, Reassuring",
+      "transcript": "Of course, I'll leave a little early and bring her the snack she likes. Tell them not to worry. I'll be there by one.,",
+      "durationSeconds": 6.27,
+      "attempts": [
+        {
+          "attempt": 1,
+          "generatedAt": "2026-11-03T01:46:49Z",
+          "transcribedAt": "2026-11-03T01:46:49Z",
+          "duration": 6.269375,
+          "transcript": "Of course, I'll leave a little early and bring her the snack she likes. Tell them not to worry. I'll be there by one.,",
+          "criticalOk": true,
+          "audioDurationMs": 6320
+        }
+      ],
+      "files": {
+        "playback": "data/demo-voice/audio/vn_hist_09_1.mp3",
+        "muse": "data/demo-voice/audio/vn_hist_09_1.wav"
+      },
+      "sha256": {
+        "mp3": "4f6672bbeac0808b742f27de08952af6996e0bdf8d16d0ac9cb8ceb62ecea81c",
+        "wav": "a89fe1ccb9f5e5302d03f906f03b948a4ee6521eba748d6cc81871334719a0b3"
+      },
+      "generatedAt": "2026-11-03T01:46:49Z",
+      "transcribedAt": "2026-11-03T01:46:49Z",
+      "turnTimings": null
+    },
+    {
+      "id": "vn_hist_12_1",
+      "speakerPersonId": "p_gloria",
+      "speakerName": "Gloria",
+      "childId": "p_nora",
+      "storyId": "job_hist_12",
+      "responseId": "ce_hist_12_1",
+      "attemptId": "att_hist_12_1",
+      "recordedAt": "2026-10-18T18:21:00Z",
+      "offset": "-04:00",
+      "illustrative": false,
+      "script": "Hi, this is Gloria. Walter and I can take turns this week — I'm free at half past two today. Just let the front office know I'm coming.",
+      "voiceId": "XrExE9yKIg1WjnnlVkGX",
+      "voiceName": "Matilda - Knowledgeable, Professional",
+      "transcript": "Hi. This is is Gloria. Walter and I can take turns this week. I'm free at half half past two today. Just Just let the front office know I'm coming.",
+      "durationSeconds": 8.68,
+      "attempts": [
+        {
+          "attempt": 1,
+          "generatedAt": "2026-11-03T01:46:51Z",
+          "transcribedAt": "2026-11-03T01:46:52Z",
+          "duration": 8.68425,
+          "transcript": "Hi. This is is Gloria. Walter and I can take turns this week. I'm free at half half past two today. Just Just let the front office know I'm coming.",
+          "criticalOk": true,
+          "audioDurationMs": 8720
+        }
+      ],
+      "files": {
+        "playback": "data/demo-voice/audio/vn_hist_12_1.mp3",
+        "muse": "data/demo-voice/audio/vn_hist_12_1.wav"
+      },
+      "sha256": {
+        "mp3": "2fd15b9bb8507129f584b45b09f4ca764fc7c029efa0dad3b828c986b80f2cc2",
+        "wav": "dd486c50ad36145c5ab802ea1bce0bfc9203a999a7e4fdaa8455c41e5193ad80"
+      },
+      "generatedAt": "2026-11-03T01:46:51Z",
+      "transcribedAt": "2026-11-03T01:46:52Z",
+      "turnTimings": null
+    },
+    {
+      "id": "voice_three_phone_loretta",
+      "speakerPersonId": "p_gma",
+      "speakerName": "Loretta",
+      "childId": "p_nora",
+      "storyId": null,
+      "responseId": null,
+      "attemptId": null,
+      "recordedAt": null,
+      "offset": null,
+      "illustrative": true,
+      "script": "Yes — I can be there at one-twenty. I'll head out now so I'm not rushing.",
+      "voiceId": "EXAVITQu4vr4xnSDxMaL",
+      "voiceName": "Sarah - Mature, Reassuring",
+      "transcript": "Yes, I can be there at 1.20. I'll head I'll head out now so I'm not rushing.",
+      "durationSeconds": 4.13,
+      "attempts": [
+        {
+          "attempt": 1,
+          "generatedAt": "2026-11-03T01:46:55Z",
+          "transcribedAt": "2026-11-03T01:46:55Z",
+          "duration": 4.133167,
+          "transcript": "Yes, I can be there at 1.20. I'll head I'll head out now so I'm not rushing.",
+          "criticalOk": true,
+          "audioDurationMs": 4160
+        }
+      ],
+      "files": {
+        "playback": "data/demo-voice/audio/voice_three_phone_loretta.mp3",
+        "muse": "data/demo-voice/audio/voice_three_phone_loretta.wav"
+      },
+      "sha256": {
+        "mp3": "e6a1b980b454009eb3461471b425564621a80fe020efa2eba2fc8a45e2db129c",
+        "wav": "df49f46006b95466ca5643a1fbef218ac851eaf616e2393a2255a26138812af6"
+      },
+      "generatedAt": "2026-11-03T01:46:55Z",
+      "transcribedAt": "2026-11-03T01:46:55Z",
+      "turnTimings": null
+    }
+  ]
+}

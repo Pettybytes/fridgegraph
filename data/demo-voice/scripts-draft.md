@@ -1,6 +1,6 @@
 # Demo voice notes — script sheet (draft for agreement)
 
-Status: **draft for teacher-persona/Bryan sign-off. No batch generated yet.**
+Status: **generated — four clips, transcriptions verbatim. Scripts below are the spoken versions.**
 
 Source of truth: `docs/contracts/demo-history.md` + `demo-history.schema.json` at `origin/main`
 `aff06e5`. Fixtures: `src/fixtures-demo-history.ts`.
@@ -21,19 +21,27 @@ The fourth clip is the requested Loretta line; its story/event IDs are not in th
 ## 2. Scripts (proposed)
 
 **1 · Priya — `p_priya`, `job_hist_08` / `ce_hist_08_1`**
-> Hi — yes, I can get Nora at 3:30. I'm already heading that way for my own pickup, so it's no
+> Hi — yes, I can get Nora at 4:20. I'm already heading that way for my own pickup, so it's no
 > trouble. I'll be at the gate a few minutes early.
+
+_(Corrected from 3:30: the response is recorded at 16:08 EDT and the parent confirmation at 16:40,
+so the offered pickup must sit between them. 4:20 does.)_
 
 **2 · Loretta — `p_gma`, `job_hist_09` / `ce_hist_09_1`**
 > Of course. I'll leave a little early and bring her the snack she likes. Tell them not to worry —
-> I'll be there.
+> I'll be there by one.
+
+_("By one" sits between the 12:47 response and the 13:15 confirmation.)_
 
 **3 · Gloria — `p_gloria`, `job_hist_12` / `ce_hist_12_1`**
-> Hi, this is Gloria. Walter and I can take turns this week — I'm free at three today. Just let the
-> front office know I'm coming.
+> Hi, this is Gloria. Walter and I can take turns this week — I'm free at half past two today. Just
+> let the front office know I'm coming.
+
+_(Corrected from three o'clock: 15:00 is after the 14:50 confirmation. 14:30 sits between the 14:21
+response and 14:50.)_
 
 **4 · Loretta — three-phone story**
-> Yes — I can be there at 1:20. I'll head out now so I'm not rushing.
+> Yes — I can be there at one-twenty. I'll head out now so I'm not rushing.
 
 No "Hey Kendra" openings; no parent named at all, so the scripts survive the parent-on-duty fix.
 Spoken availability is an offer, not authorization or proof of pickup — the copy never claims a
