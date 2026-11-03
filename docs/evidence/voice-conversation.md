@@ -67,3 +67,40 @@ Server: `ops/voice-helpers.test.mjs` proves the history passthrough (decode/norm
 - Three-turn spoken conversation recording: greeting → authorized question → contextual follow-up.
 - Measured cold/warm stage timings vs. the targets above; the tested browser and any platform limits.
 - Confirm the ElevenLabs voice id resolves to "Sarah".
+
+---
+
+## Follow-up — hosting-blocker hardening (branch `fix/voice-auth-hardening`)
+
+Corrections to the claims above where #180's implementation did not fully match, plus the auth fix
+required before the app goes public.
+
+**1. Caller verified before any paid provider.** #180 forwarded the bearer to Rosina (which verifies),
+but ASR/TTS ran FIRST, and the voice server only length-checked the token. Now the browser-voice routes
+(`ops/voice-browser.mjs`) VERIFY the JWT via the identity path (`ops/voice-auth.mjs` — the same Supabase
+ES256 + JWKS + identity-map mechanism as `src/auth/verify.ts`) BEFORE the body is read and before ASR,
+Rosina or TTS — on all three routes including `/voice/speak`. Missing / malformed / expired tokens
+return 401 with ZERO provider calls (`ops/voice-browser.test.mjs`). Rate limiting is keyed by the
+VERIFIED person id (not a token hash/length). The same verified bearer is still forwarded to Rosina, so
+downstream per-caller authorization is preserved. (The server stays plain `node --env-file=.env …`; the
+verifier mirrors `verify.ts` and must be kept in sync with it.)
+
+**2. Single-flight capture + lifecycle.** Rapid taps during permission acquisition acquire the mic once
+(an `acquiring` guard). Enabling conversation while already listening ADOPTS the recording; starting it
+during processing/playback is one explicit transition; a new recorder/stream never overwrites an active
+one without releasing it. `visibilitychange`→hidden and `pagehide` stop capture/playback and cancel
+pending work, with NO automatic restart on return. The recording cap is a `setTimeout`, not an
+animation frame (rAF is suspended in background tabs). Regressions covered in `useRosinaVoice.test.tsx`.
+
+**3. Honest timing + Speaking.** `speechEndToAudioMs`/`speechEndToReplyMs` are measured from the moment
+end-of-speech is DECIDED (VAD silence / duration cap / manual tap), not from `finishTurn`, so recorder
+finalization + transport are included. `Speaking` is set only AFTER `audio.play()` resolves, with epoch
+checks on both resolution and rejection (a late play after teardown never flips to Speaking). Latency
+targets remain explicitly UNPROVEN until the provider window.
+
+**4. History header bounded by UTF-8 bytes** (`encodeHistoryHeader`), not characters, so multilingual
+history (CJK/emoji) cannot exceed request-header limits; the server also byte-bounds defensively
+(`boundHistoryBytes`).
+
+Verification: full web suite green; `ops/voice-browser.test.mjs` + `ops/voice-helpers.test.mjs` green;
+`tsc -b` + `vite build` green. Live provider proof still owed after Bentley's window.

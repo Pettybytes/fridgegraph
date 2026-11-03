@@ -33,7 +33,8 @@ import http from 'node:http'
 import { spawn } from 'node:child_process'
 import pg from 'pg'
 import crypto from 'node:crypto'
-import { parseHistory } from './voice-helpers.mjs'
+import { createVerifier } from './voice-auth.mjs'
+import { createBrowserVoiceRoutes } from './voice-browser.mjs'
 
 const PORT = Number(process.env.PORT || 4118)
 const TOLERANCE_S = 300
@@ -222,10 +223,10 @@ const VOICE_LIMIT_PER_MIN = Number(process.env.VOICE_RATE_LIMIT_PER_MIN || 12)
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024
 
 const buckets = new Map()
-/** Per-caller limit. Keyed by a hash of the caller's bearer: no claims are decoded and no token is
- *  stored or logged, but the same caller keeps the same bucket. */
-function allowVoice(token) {
-  const key = crypto.createHash('sha256').update(token).digest('hex').slice(0, 16)
+/** Per-caller limit, keyed by the VERIFIED person id (never a raw/length-checked token). The id is
+ *  hashed only to keep bucket keys uniform; nothing sensitive is stored or logged. */
+function allowVoice(identity) {
+  const key = crypto.createHash('sha256').update(String(identity)).digest('hex').slice(0, 16)
   const now = Date.now()
   const windowStart = now - 60_000
   const hits = (buckets.get(key) ?? []).filter((t) => t > windowStart)
@@ -233,29 +234,6 @@ function allowVoice(token) {
   hits.push(now)
   buckets.set(key, hits)
   return true
-}
-
-function readBinary(req, limit = MAX_AUDIO_BYTES) {
-  return new Promise((resolve, reject) => {
-    const chunks = []
-    let size = 0
-    req.on('data', (c) => {
-      size += c.length
-      if (size > limit) { reject(Object.assign(new Error('TOO_LARGE'), { status: 413 })); req.destroy(); return }
-      chunks.push(c)
-    })
-    req.on('end', () => resolve(Buffer.concat(chunks)))
-    req.on('error', reject)
-  })
-}
-
-/** The caller's bearer, or null. Identity is required for BOTH endpoints: an anonymous voice turn
- *  would have nobody to be. */
-function callerToken(req) {
-  const raw = String(req.headers.authorization || '').trim()
-  if (!raw.toLowerCase().startsWith('bearer ')) return null
-  const token = raw.slice(7).trim()
-  return token.length > 20 ? token : null
 }
 
 /** True only for a genuine uncompressed PCM WAV the API accepts as-is. */
@@ -352,111 +330,46 @@ async function speak(text) {
   return { ok: true, audio: Buffer.from(await r.arrayBuffer()), mimeType: 'audio/mpeg', model: TTS_MODEL, voice: TTS_VOICE }
 }
 
-/** audio (or text) -> transcript -> Rosina turn as the caller (WITH history) -> spoken reply. Stage
- *  timings are measured and returned/logged; no audio, transcript or token is ever logged. */
-async function handleVoiceTurn(req, res, token, rawBody, contentType) {
-  const reqId = crypto.randomUUID().slice(0, 8)
-  const t0 = Date.now()
-  let transcript = null
-  let transcriptSource = 'audio'
-  let history = []
-  let asrMs = null
-
-  if ((contentType || '').includes('application/json')) {
-    let payload = {}
-    try { payload = JSON.parse(rawBody.toString('utf8') || '{}') } catch { payload = {} }
-    if (typeof payload.text !== 'string' || !payload.text.trim()) {
-      return send(res, 400, { error: 'TEXT_REQUIRED' })
-    }
-    transcript = payload.text.trim()
-    transcriptSource = 'text'
-    history = parseHistory(payload.history)
-  } else {
-    history = parseHistory(req.headers['x-rosina-history'])
-    const tAsr = Date.now()
-    const asr = await transcribe(rawBody, contentType)
-    asrMs = Date.now() - tAsr
-    if (!asr.ok) {
-      console.log(`[voice-turn] req=${reqId} ASR_UNAVAILABLE status=${asr.status} asrMs=${asrMs}`)
-      return send(res, 502, { error: 'ASR_UNAVAILABLE', status: asr.status, detail: asr.detail, model: ASR_MODEL })
-    }
-    if (!asr.transcript || !String(asr.transcript).trim()) {
-      console.log(`[voice-turn] req=${reqId} TRANSCRIPT_EMPTY asrMs=${asrMs}`)
-      return send(res, 422, { error: 'TRANSCRIPT_EMPTY', model: ASR_MODEL })
-    }
-    transcript = String(asr.transcript).trim()
-  }
-
-  const tRos = Date.now()
-  const ros = await fetch(ROSINA_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: AUTH_PREFIX + token },
-    body: JSON.stringify({ message: transcript, currentRoute: '/voice', history }),
-  })
-  const rosinaMs = Date.now() - tRos
-  const rosText = await ros.text()
-  let rosBody = null
-  try { rosBody = JSON.parse(rosText) } catch { /* leave null */ }
-  if (!ros.ok || !rosBody) {
-    console.log(`[voice-turn] req=${reqId} ROSINA_UNAVAILABLE status=${ros.status} rosinaMs=${rosinaMs}`)
-    return send(res, 502, { error: 'ROSINA_UNAVAILABLE', status: ros.status })
-  }
-
-  const reply = String(rosBody.reply ?? '')
-  const tTts = Date.now()
-  const tts = await speak(reply)
-  const ttsMs = Date.now() - tTts
-  const serverTotalMs = Date.now() - t0
-  console.log(`[voice-turn] req=${reqId} ok src=${transcriptSource} historyLen=${history.length} asrMs=${asrMs ?? '-'} rosinaMs=${rosinaMs} ttsMs=${ttsMs} totalMs=${serverTotalMs} tts=${tts.ok}`)
-  return send(res, 200, {
-    transcript,
-    transcriptSource,
-    reply,
-    actions: rosBody.actions ?? [],
-    models: { asr: transcriptSource === 'audio' ? ASR_MODEL : null, tts: TTS_MODEL, voice: TTS_VOICE, voiceName: TTS_VOICE_NAME, rosina: rosBody.model ?? null },
-    timings: { asrMs: asrMs ?? undefined, rosinaMs, ttsMs, serverTotalMs },
-    audioBase64: tts.ok ? tts.audio.toString('base64') : null,
-    mimeType: tts.ok ? tts.mimeType : null,
-    ttsError: tts.ok ? null : 'TTS_UNAVAILABLE',
-  })
-}
-
-/** Speech-only retry: synthesize a reply the client already has, WITHOUT re-running Rosina or any
- *  tool. Authenticated + rate-limited like every paid-provider route. */
-async function handleSpeak(req, res, rawBody) {
-  const reqId = crypto.randomUUID().slice(0, 8)
-  let payload = {}
-  try { payload = JSON.parse(rawBody.toString('utf8') || '{}') } catch { payload = {} }
-  if (typeof payload.text !== 'string' || !payload.text.trim()) return send(res, 400, { error: 'TEXT_REQUIRED' })
-  const t0 = Date.now()
-  const tts = await speak(payload.text.trim().slice(0, 4000))
-  console.log(`[voice-turn] req=${reqId} speak ttsMs=${Date.now() - t0} ok=${tts.ok}`)
-  if (!tts.ok) return send(res, 502, { error: 'TTS_UNAVAILABLE' })
-  return send(res, 200, { audioBase64: tts.audio.toString('base64'), mimeType: tts.mimeType, model: TTS_MODEL, voice: TTS_VOICE, voiceName: TTS_VOICE_NAME })
-}
+// Browser-voice routes. The caller's JWT is VERIFIED (voice-auth, the identity path) BEFORE the body
+// is read and before any paid provider is touched, on every route including /voice/speak; the rate
+// limit is keyed by the verified person id. The same verified bearer is forwarded to Rosina, which
+// re-verifies and reads as the signed-in caller (downstream authorization preserved). No audio,
+// transcript or token is ever logged — only metadata + stage timings.
+const browserRoutes = createBrowserVoiceRoutes({
+  verify: createVerifier(),
+  allow: (personId) => allowVoice(personId),
+  transcribe,
+  speak,
+  rosinaTurn: async ({ token, message, history }) => {
+    let ros
+    try {
+      ros = await fetch(ROSINA_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: AUTH_PREFIX + token },
+        body: JSON.stringify({ message, currentRoute: '/voice', history }),
+      })
+    } catch { return { ok: false, status: 0 } }
+    const text = await ros.text()
+    let body = null
+    try { body = JSON.parse(text) } catch { /* leave null */ }
+    if (!ros.ok || !body) return { ok: false, status: ros.status }
+    return { ok: true, reply: body.reply, actions: body.actions, model: body.model }
+  },
+  log: (line) => console.log(`[voice-turn] ${line}`),
+  maxAudioBytes: MAX_AUDIO_BYTES,
+  asrModel: ASR_MODEL, ttsModel: TTS_MODEL, ttsVoice: TTS_VOICE, ttsVoiceName: TTS_VOICE_NAME,
+})
 
 const server = http.createServer(async (req, res) => {
   const url = req.url || ''
 
-  // ---- browser voice: same process, same port, explicit routes
-  if (req.method === 'POST' && (url === '/voice/transcribe' || url === '/voice/speak' || url.startsWith('/voice/turn'))) {
-    try {
-      const token = callerToken(req)
-      if (!token) return send(res, 401, { error: 'UNAUTHENTICATED' })
-      if (!allowVoice(token)) return send(res, 429, { error: 'RATE_LIMITED' })
-      const body = await readBinary(req)
-      if (url === '/voice/transcribe') {
-        const asr = await transcribe(body, req.headers['content-type'])
-        if (!asr.ok) return send(res, 502, { error: 'ASR_UNAVAILABLE', status: asr.status, detail: asr.detail, model: ASR_MODEL })
-        return send(res, 200, { text: asr.transcript, model: asr.model })
-      }
-      if (url === '/voice/speak') return await handleSpeak(req, res, body)
-      return await handleVoiceTurn(req, res, token, body, req.headers['content-type'])
-    } catch (e) {
-      console.log('[voice-turn] voice 500', e.message)
-      if (!res.headersSent) return send(res, e.status || 500, { error: 'INTERNAL' })
-      return
-    }
+  // ---- browser voice: same process, same port. Verify-first routes own /voice/*.
+  try {
+    if (await browserRoutes.dispatch(req, res)) return
+  } catch (e) {
+    console.log('[voice-turn] voice 500', e.message)
+    if (!res.headersSent) return send(res, e.status || 500, { error: 'INTERNAL' })
+    return
   }
 
   if (req.method !== 'POST' || !url.startsWith('/voice-turn')) return send(res, 404, { error: 'NOT_FOUND' })

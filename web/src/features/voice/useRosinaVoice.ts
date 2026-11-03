@@ -100,18 +100,28 @@ function defaultMeter(stream: MediaStream): LevelMeter {
 }
 function defaultAudio(url: string): AudioLike { return new Audio(url) as unknown as AudioLike }
 
-/** Bounded history header: last 8 messages, each content clamped, total ≤ ~6KB, base64(JSON). Keeps
- *  the audio body as the request body while still giving the turn its conversational memory. */
+// Bound the history header by ENCODED UTF-8 BYTES, not characters, so a multilingual history (CJK /
+// emoji are 3–4 bytes per char) can never exceed request-header limits. ~4KB of content → ~5.5KB
+// base64, comfortably under the 8–16KB a server accepts.
+const MAX_HISTORY_BYTES = 4096
+const MAX_MESSAGE_BYTES = 1500
+
+/** Last ≤8 messages (most recent kept), each clamped and the whole bounded by UTF-8 bytes, base64(JSON).
+ *  Keeps the audio body as the request body while still giving the turn its conversational memory. */
 export function encodeHistoryHeader(history: HistoryMessage[]): string | null {
   if (!history.length) return null
+  const enc = new TextEncoder()
+  const bytesOf = (s: string) => enc.encode(s).length
   const bounded: HistoryMessage[] = []
-  let size = 0
-  for (const m of history.slice(-8)) {
-    const content = String(m.content ?? '').slice(0, 600)
-    const entry = { role: m.role === 'assistant' ? 'assistant' as const : 'user' as const, content }
-    size += content.length + 16
-    if (size > 6000) break
-    bounded.push(entry)
+  let total = 0
+  for (let i = history.length - 1; i >= 0 && bounded.length < 8; i -= 1) {
+    const role = history[i].role === 'assistant' ? 'assistant' as const : 'user' as const
+    let content = String(history[i].content ?? '')
+    while (content.length && bytesOf(content) > MAX_MESSAGE_BYTES) content = content.slice(0, -1) // clamp by bytes
+    const cost = bytesOf(content) + bytesOf(role) + 24 // + per-entry JSON overhead
+    if (total + cost > MAX_HISTORY_BYTES) break
+    bounded.unshift({ role, content })
+    total += cost
   }
   if (!bounded.length) return null
   try { return btoa(unescape(encodeURIComponent(JSON.stringify(bounded)))) } catch { return null }
@@ -156,13 +166,17 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const lastLoudAtRef = useRef(0)
   const stoppingRef = useRef(false)
   const autoStopRef = useRef(false) // true when VAD/duration-cap stopped the turn, false for a manual tap
+  const acquiringRef = useRef(false) // true only while getUserMedia is pending — single-flight guard
+  const capTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null) // timer-independent recording cap
 
+  const clearCapTimer = useCallback(() => { if (capTimerRef.current != null) { clearTimeout(capTimerRef.current); capTimerRef.current = null } }, [])
   const stopMeter = useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
+    clearCapTimer()
     meterRef.current?.stop(); meterRef.current = null
     setLevel(0)
-  }, [])
+  }, [clearCapTimer])
 
   const releaseStream = useCallback(() => {
     if (streamRef.current) { try { streamRef.current.getTracks().forEach((t) => t.stop()) } catch { /* noop */ } streamRef.current = null }
@@ -200,14 +214,18 @@ export function useRosinaVoice(deps: VoiceDeps) {
     return { res }
   }, [deps, request])
 
-  const playStored = useCallback(async () => {
+  const playStored = useCallback(async (epoch: number) => {
     const audio = audioRef.current
-    if (!audio) { setState('idle'); return }
-    setState('speaking')
+    if (!audio) { if (epochRef.current === epoch) setState('idle'); return }
     try {
       await audio.play()
+      if (epochRef.current !== epoch) return        // torn down while play() was pending
+      setState('speaking')                           // "Speaking" only once playback ACTUALLY started
       if (speechEndAtRef.current) setTimings((t) => ({ ...(t ?? {}), speechEndToAudioMs: now() - speechEndAtRef.current }))
-    } catch { setState('needs-play') }
+    } catch {
+      if (epochRef.current !== epoch) return          // epoch check on rejection too
+      setState('needs-play')
+    }
   }, [now])
 
   // After playback completes: re-arm ONLY while conversation mode is still active (and not torn down).
@@ -248,7 +266,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
       const audio = createAudio(`data:${u.mimeType};base64,${u.audioBase64}`)
       audioRef.current = audio
       audio.onended = () => onPlaybackEnded(epoch)
-      await playStored()
+      await playStored(epoch)
     } else {
       // Speech generation failed but the answer is good: keep the text, say audio is unavailable, and
       // offer a speech-only retry. Do NOT auto re-arm (no playback completed).
@@ -262,27 +280,36 @@ export function useRosinaVoice(deps: VoiceDeps) {
     if (epochRef.current !== epoch) return // the turn was torn down; drop the clip, never send it
     recorderRef.current = null
     stopMeter(); releaseStream()
-    speechEndAtRef.current = now()
-    // A manual "stop and send" always sends (the user chose to). An AUTO stop (VAD silence or the
-    // duration cap) with no speech detected is silence — never sent; re-arm or go idle instead.
+    // speechEndAt was stamped at the moment end-of-speech was DECIDED (VAD silence / cap / manual tap),
+    // so the measured interval includes recorder finalization + transport, not just the network.
+    // A manual "stop and send" always sends. An AUTO stop (VAD silence or the duration cap) with no
+    // speech detected is silence — never sent; re-arm or go idle instead.
     if (autoStopRef.current && !sawSpeechRef.current) { if (conversationRef.current) armNext.current(); else setState('idle'); return }
     void runTurn(clip)
-  }, [stopMeter, releaseStream, now, runTurn])
+  }, [stopMeter, releaseStream, runTurn])
 
   const beginListening = useCallback(async () => {
+    if (acquiringRef.current) return // single-flight: a stream is already being acquired (rapid taps)
     setError(null)
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       if (deps.getUserMedia == null) { setError(UNSUPPORTED); setState('error'); return }
     }
+    // Never overwrite an active recorder/stream without releasing it first.
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') { try { recorderRef.current.stop() } catch { /* noop */ } }
+    recorderRef.current = null
+    stopMeter(); releaseStream()
     const epoch = epochRef.current
+    acquiringRef.current = true
     let stream: MediaStream
     try { stream = await getUserMedia({ audio: true }) }
     catch (e) {
+      acquiringRef.current = false
       const name = (e as { name?: string } | null)?.name
       setError(name === 'NotFoundError' || name === 'OverconstrainedError' ? MIC_UNAVAILABLE : name === 'NotSupportedError' ? UNSUPPORTED : MIC_DENIED)
       setState('error'); return
     }
-    // If we were torn down (cancel / persona change) while permission was pending, release immediately.
+    acquiringRef.current = false
+    // If we were torn down (cancel / persona change / tab hidden) while permission was pending, release.
     if (epochRef.current !== epoch) { stream.getTracks().forEach((t) => t.stop()); return }
     streamRef.current = stream
     sawSpeechRef.current = false; startedAtRef.current = now(); lastLoudAtRef.current = now(); stoppingRef.current = false
@@ -295,9 +322,9 @@ export function useRosinaVoice(deps: VoiceDeps) {
       if (lvl >= vad.speechThreshold) { sawSpeechRef.current = true; lastLoudAtRef.current = t }
       const elapsed = t - startedAtRef.current
       const silentFor = t - lastLoudAtRef.current
-      // Real end-of-speech: speech seen, then a bounded silence. Hard cap regardless.
-      if ((sawSpeechRef.current && silentFor >= vad.silenceMs && elapsed >= vad.minMs) || elapsed >= vad.maxMs) {
-        stoppingRef.current = true; autoStopRef.current = true
+      // Real end-of-speech: speech seen, then a bounded silence. (The hard cap is a timer, below.)
+      if (sawSpeechRef.current && silentFor >= vad.silenceMs && elapsed >= vad.minMs) {
+        stoppingRef.current = true; autoStopRef.current = true; speechEndAtRef.current = now()
         recorderRef.current?.stop() // → finishTurn
         return
       }
@@ -307,7 +334,15 @@ export function useRosinaVoice(deps: VoiceDeps) {
     recorderRef.current.start()
     setState('listening')
     rafRef.current = requestAnimationFrame(tick)
-  }, [deps.getUserMedia, getUserMedia, createMeter, createRecorder, finishTurn, now, vad])
+    // Recording cap on a TIMER, not an animation frame — rAF is suspended in a background tab, so a
+    // rAF-based cap could let a recording run unbounded; setTimeout still fires.
+    clearCapTimer()
+    capTimerRef.current = setTimeout(() => {
+      if (epochRef.current !== epoch || stoppingRef.current) return
+      stoppingRef.current = true; autoStopRef.current = true; speechEndAtRef.current = now()
+      recorderRef.current?.stop()
+    }, vad.maxMs)
+  }, [deps.getUserMedia, getUserMedia, createMeter, createRecorder, finishTurn, now, vad, stopMeter, releaseStream, clearCapTimer])
 
   armNext.current = () => { void beginListening() }
 
@@ -324,9 +359,10 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const stop = useCallback(() => {
     if (state !== 'listening') return
     stoppingRef.current = true; autoStopRef.current = false // manual send
+    speechEndAtRef.current = now() // end-of-speech is the tap; finalization + transport are measured after
     stopMeter()
     recorderRef.current?.stop() // → finishTurn
-  }, [state, stopMeter])
+  }, [state, stopMeter, now])
 
   /** Tap the primary control: start/stop in a single turn, or interrupt speech to talk again. */
   const toggle = useCallback(() => {
@@ -335,7 +371,17 @@ export function useRosinaVoice(deps: VoiceDeps) {
     else void start()
   }, [state, stop, start, beginListening, releaseAudio])
 
-  const startConversation = useCallback(() => { setConversation(true); conversationRef.current = true; void beginListening() }, [beginListening])
+  const startConversation = useCallback(() => {
+    setConversation(true); conversationRef.current = true
+    // One explicit transition, by current state:
+    //  - listening: ADOPT the recording already in flight (do not start a second one).
+    //  - processing: a turn is mid-flight; the post-turn re-arm will start listening (conversation now on).
+    //  - speaking / needs-play / audio-unavailable: interrupt playback into a fresh listening turn.
+    //  - idle / error: begin listening.
+    if (state === 'listening' || state === 'processing') return
+    if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') releaseAudio()
+    void beginListening()
+  }, [state, beginListening, releaseAudio])
   const endConversation = useCallback(() => { teardown(true) }, [teardown])
 
   const stopAudio = useCallback(() => {
@@ -358,15 +404,26 @@ export function useRosinaVoice(deps: VoiceDeps) {
     const audio = createAudio(`data:${u.mimeType};base64,${u.audioBase64}`)
     audioRef.current = audio
     audio.onended = () => onPlaybackEnded(epoch)
-    await playStored()
+    await playStored(epoch)
   }, [authed, createAudio, playStored, onPlaybackEnded])
 
   const cancel = useCallback(() => teardown(true), [teardown])
-  const playReply = useCallback(() => { void playStored() }, [playStored])
+  const playReply = useCallback(() => { void playStored(epochRef.current) }, [playStored])
   const toggleVoiceReplies = useCallback(() => setVoiceReplies((v) => !v), [])
 
   // Persona/child/generation change, or unmount: reset or tear down everything; discard any late result.
   useEffect(() => { return () => { teardown(true) } }, [deps.resetKey, teardown])
+
+  // Tab hidden / navigating away: stop capture + playback, cancel pending work, discard late results.
+  // Deliberately NO automatic restart when the tab returns — the user re-initiates.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const onHide = () => { if (document.visibilityState === 'hidden') teardown(true) }
+    const onPageHide = () => teardown(true)
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', onPageHide)
+    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onPageHide) }
+  }, [teardown])
 
   return {
     state, conversation, transcript, reply, actions, models, timings, error, level, voiceReplies,
