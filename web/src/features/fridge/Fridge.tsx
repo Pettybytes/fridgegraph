@@ -10,13 +10,13 @@ import type {AlbumAsset} from './packs'
 import './fridge.css'
 
 type Door='notes'|'goals'|null
-type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void;boardEditor?:ReactNode;noteCreateControl?:ReactNode;artPackId?:string|null;albumAssets?:AlbumAsset[]}
+type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void;boardEditor?:ReactNode;noteCreateControl?:ReactNode;artPackId?:string|null;albumAssets?:AlbumAsset[];intake?:ReactNode}
 const hashDoor=():Door=>location.hash==='#/fridge/notes'?'notes':location.hash==='#/fridge/goals'?'goals':null
 const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*100}%`,width:`${p.width*100}%`,'--turn':`${p.rotation}deg`} as CSSProperties)
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[]}:Props){
+function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[],intake}:Props){
  const viewport=useFridgeViewport()
  const [arrange,setArrange]=useState(false)
  const [door,setDoor]=useState<Door>(hashDoor)
@@ -85,7 +85,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
   <nav aria-label="Fridge doors"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
   <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
   {!sampleSlots.length&&<p className="fridge-empty-art">Make room for your family’s moments. There’s no artwork in this family album yet.</p>}
-  <div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>
+  {intake??<div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>}
   {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
   <nav className="fridge-view-controls" aria-label="Fridge view controls">
    <button onClick={()=>viewport.zoom(1.25)}>Zoom in</button><button disabled={viewport.view.scale===1} onClick={()=>viewport.zoom(.8)}>Zoom out</button><button onClick={()=>navigate(null)}>Reset view</button>
