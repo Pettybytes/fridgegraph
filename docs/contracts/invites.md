@@ -388,6 +388,12 @@ silently approximated.
    — `alter database <db> set app.invite_settlement_hmac_secret = '<the same secret>';` (run once,
    out of band; never checked into any migration file or committed anywhere). Settlement cannot
    succeed until both sides agree — that is the fail-closed design, not a bug.
+   **Platform fallback (0091).** A Supabase project whose migration role is not a superuser cannot
+   run that `ALTER DATABASE` (PostgreSQL 15+ parameter ACL: SQLSTATE 42501, verified on both pooled
+   and direct connections). Migration 0091 adds a private, grant-less single-row table
+   `invite_settlement_config`; `invite_budget_settle` keeps the GUC as its first source and falls
+   back to that row. The secret is inserted out of band with the same rule: never in a migration
+   file, never committed. An empty table still fails closed.
 3. Bentley applies migration 0085 in an authorized window (content hash recorded in the PR), on
    the real project database — never by this PR, never by an agent.
 4. Deploy the updated `coordination` subgraph (adds `reserveInviteBudget`/`settleInviteBudget`) and
