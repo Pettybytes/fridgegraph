@@ -82,6 +82,27 @@ if (session) {
   check('authenticated myChildren is non-empty', false, 'no session to test with');
 }
 
+// 3b. the graph must survive one page's parallel fan-out. A GraphOS Free-plan router 503s
+// (ROUTER_FREE_PLAN_RATE_LIMIT_REACHED) under the ~dozen concurrent reads Mission Control or
+// Today fires, which renders "Couldn't load" tiles — measured 2026-11-03. Serve the demo from
+// the self-contained router; this check makes a rate-limited edge an UNHEALTHY stack.
+if (session) {
+  const bad = [];
+  for (let round = 0; round < 2; round++) {
+    const burst = await Promise.all(Array.from({ length: 40 }, () => fetch(APP + '/graphql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: SCHEME + session },
+      body: JSON.stringify({ query: '{ myChildren { child { id } } }' }),
+    }).then((r) => r.status, () => 0)));
+    bad.push(...burst.filter((s) => s !== 200));
+    if (round === 0) await new Promise((r) => setTimeout(r, 500));
+  }
+  check('80 parallel graph reads all return 200 (no rate limit on the demo path)', bad.length === 0,
+    bad.length === 0 ? 'all 200' : `${bad.length} of 80 failed: ${[...new Set(bad)].join(',')}`);
+} else {
+  check('80 parallel graph reads all return 200 (no rate limit on the demo path)', false, 'no session to test with');
+}
+
 // 4. MCP must not only answer — it must FORWARD THE CALLER'S TOKEN and return real data.
 // 2026-11-02: the generated config lacked `forward_headers: [authorization]`, so every tool answered
 // UNAUTHENTICATED for a valid bearer and every Rosina turn failed closed. "status 200 with a payload"
