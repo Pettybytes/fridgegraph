@@ -26,22 +26,22 @@ version cheap enough that keeping Task F beats cutting it.
 | --- | --- | --- |
 | `AIChatDemoSection.tsx` | scripted phone chat demo | 60 KB |
 | `InteractiveVideoDemoSection.tsx` | branching video demo | 65 KB |
-| `DreemzyDashDemo.tsx` | dashboard with animated counters | 147 KB |
-| `DREEMZY - SMS Auto Response (Polling).json` | n8n, 6 nodes, inactive | 7.7 KB |
-| `Derm by Erica - Acuity to GHL Calendar Sync.json` | n8n, 9 nodes, active | 8.7 KB |
-| `Derm by Erica - Appointment Reminders.json` | n8n, 10 nodes, active | 10.8 KB |
-| `Derm by Erica - Check Availability.json` | n8n, 5 nodes, active | 6.5 KB |
-| `Derm by Erica - Create Appointment.json` | n8n, 9 nodes, active | 12.2 KB |
-| `Derm by Erica - Payment Confirmed.json` | n8n, 7 nodes, active | 8.7 KB |
+| `dashboard-demo.tsx` | dashboard with animated counters | 147 KB |
+| `sms-auto-response-polling.json` | n8n, 6 nodes, inactive | 7.7 KB |
+| `acuity-ghl-sync.json` | n8n, 9 nodes, active | 8.7 KB |
+| `appointment-reminders.json` | n8n, 10 nodes, active | 10.8 KB |
+| `check-availability.json` | n8n, 5 nodes, active | 6.5 KB |
+| `create-appointment.json` | n8n, 9 nodes, active | 12.2 KB |
+| `payment-confirmed.json` | n8n, 7 nodes, active | 8.7 KB |
 
 ### Blocking finding — the "sanitized" exports are not sanitized
 
-`DREEMZY - SMS Auto Response (Polling).json` carries a **live-format GHL bearer token** in two HTTP
-nodes (`Authorization: Bearer pit-…`, redacted here). The same set also contains:
+`sms-auto-response-polling.json` carries a **live-format GHL bearer token** in two HTTP
+nodes (the authorization header value is redacted here and not reproduced). The same set also
+contains:
 
-- a client phone number, `+1 323 766 6566`, in three Derm flows;
-- hotlinked GHL media (`storage.googleapis.com/msgsndr/<location>/…`) and a
-  `api.leadconnectorhq.com/widget/booking/…` embed;
+- a client phone number in three flows;
+- hotlinked hosted media and a booking-widget embed;
 - WhatsApp branding in `AIChatDemoSection.tsx` — logo URL, dark-green user bubbles (`#075E54`), and
   WhatsApp copy.
 
@@ -93,7 +93,7 @@ envelope**.
 
 `AIChatDemoSection.tsx` is a scripted step machine: an array of steps, `setTimeout` delays, a typing
 indicator, and a phone frame. `InteractiveVideoDemoSection.tsx` is a node graph with choices rendered
-inside a phone frame. `DreemzyDashDemo.tsx` is a dashboard, not a phone display — out of scope.
+inside a phone frame. The dashboard demo component is out of scope — not a phone display.
 
 | Pattern | Reuse for the three displays | Change required |
 | --- | --- | --- |
