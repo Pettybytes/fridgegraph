@@ -192,17 +192,17 @@ it('auto-sends on end-of-speech (silence after speech); silence alone is never s
     flushA(50); flushA(100); flushA(170); flushA(260) // silence crosses the 100ms window after speech
     await waitFor(() => expect(fa.calls).toEqual(['/voice/turn']))
 
-    // (b) pure silence to the duration cap → nothing sent, back to idle
+    // (b) pure silence → the TIMER-based cap stops the recording even though rAF never runs (a
+    // background tab), and silence is never sent.
     frames.length = 0
-    let clock2 = 0
     const meterB = { level: () => 0, stop: vi.fn() }
-    const b = makeDeps({ createMeter: () => meterB, now: () => clock2, vad: { speechThreshold: 0.08, silenceMs: 100, minMs: 0, maxMs: 200 } })
+    const b = makeDeps({ createMeter: () => meterB, vad: { speechThreshold: 0.08, silenceMs: 5000, minMs: 0, maxMs: 30 } })
     const fb = okFetch()
     const rb = renderHook(() => useRosinaVoice({ ...b.deps, request: fb.fetchMock }))
     await act(async () => { await rb.result.current.start() })
-    const flushB = (t: number) => { clock2 = t; const cb = frames.shift(); if (cb) act(() => cb(clock2)) }
-    flushB(100); flushB(250) // elapsed ≥ maxMs 200, never any speech
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)) }) // let the setTimeout cap fire
     await waitFor(() => expect(rb.result.current.state).toBe('idle'))
+    expect(meterB.stop).toHaveBeenCalled() // the cap stopped capture with no animation frame at all
     expect(fb.calls).toEqual([]) // silence is never sent
   } finally {
     vi.unstubAllGlobals()
@@ -224,4 +224,64 @@ it('a persona/child change discards an in-flight late result and resets', async 
   expect(result.current.transcript).toBeNull()
   expect(result.current.reply).toBeNull()
   expect(result.current.state).not.toBe('speaking')
+})
+
+it('single-flight: rapid taps during permission acquisition acquire the mic only once', async () => {
+  let resolveMedia!: (s: MediaStream) => void
+  const stream = { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream
+  const getUserMedia = vi.fn(() => new Promise<MediaStream>((r) => { resolveMedia = r }))
+  const { deps } = makeDeps({ getUserMedia })
+  const { fetchMock } = okFetch()
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+  act(() => { void result.current.start(); void result.current.start(); void result.current.start() })
+  expect(getUserMedia).toHaveBeenCalledTimes(1) // the 2nd/3rd taps are blocked while one is acquiring
+  await act(async () => { resolveMedia(stream) })
+  expect(result.current.state).toBe('listening')
+  expect(getUserMedia).toHaveBeenCalledTimes(1)
+})
+
+it('enabling conversation while already listening adopts the recording (no second stream)', async () => {
+  const { deps } = makeDeps()
+  const gum = deps.getUserMedia as ReturnType<typeof vi.fn>
+  const { fetchMock } = okFetch()
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+  await act(async () => { await result.current.start() })
+  expect(result.current.state).toBe('listening'); expect(gum).toHaveBeenCalledTimes(1)
+  await act(async () => { result.current.startConversation() })
+  expect(result.current.conversation).toBe(true)
+  expect(result.current.state).toBe('listening')
+  expect(gum).toHaveBeenCalledTimes(1) // adopted the in-flight recording, did not re-acquire
+})
+
+it('hiding the tab stops capture and does NOT auto-restart on return', async () => {
+  const track = { stop: vi.fn() }
+  const stream = { getTracks: () => [track] } as unknown as MediaStream
+  const { deps } = makeDeps({ getUserMedia: vi.fn(() => Promise.resolve(stream)) })
+  const { fetchMock } = okFetch()
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+  await act(async () => { result.current.startConversation() })
+  await waitFor(() => expect(result.current.state).toBe('listening'))
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+  expect(result.current.state).toBe('idle')
+  expect(result.current.conversation).toBe(false) // conversation ended; no auto-restart
+  expect(track.stop).toHaveBeenCalled()
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+  expect(result.current.state).toBe('idle') // returning visible does not restart capture
+})
+
+it('a late playback resolution after teardown never flips to speaking', async () => {
+  let resolvePlay!: () => void
+  const { deps, audio } = makeDeps()
+  audio.play = vi.fn(() => new Promise<void>((r) => { resolvePlay = r }))
+  const { fetchMock } = okFetch()
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, request: fetchMock }))
+  await act(async () => { await result.current.start() })
+  await act(async () => { result.current.stop() })
+  await waitFor(() => expect(result.current.reply).toBe('Hi Kendra')) // turn done; play() pending
+  expect(result.current.state).not.toBe('speaking')                   // speaking not set before play resolves
+  await act(async () => { result.current.cancel() })
+  await act(async () => { resolvePlay(); await Promise.resolve() })    // late play resolves after teardown
+  expect(result.current.state).not.toBe('speaking')                   // epoch check dropped it
 })
