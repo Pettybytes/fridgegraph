@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react'
 import {Dialog,Popover} from 'radix-ui'
-import {authorInk,doors,loadLayout,notePositions,saveLayout,samples,type FridgeReader,type Goal,type Position,type Slot,type Read} from './model'
+import {authorInk,doors,loadCaptions,loadLayout,notePositions,saveCaptions,saveLayout,samples,type FridgeReader,type Goal,type Position,type Slot,type Read} from './model'
 import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
 import type {FridgeNoteRecord} from './editingContract'
@@ -22,6 +22,8 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
  const [door,setDoor]=useState<Door>(hashDoor)
  const appliedHash=useRef<string|null>(null)
  const [layout,setLayout]=useState(()=>loadLayout(personId)),[selected,setSelected]=useState<Slot|null>(null)
+ const [captions,setCaptions]=useState(()=>loadCaptions(personId))
+ const storeCaption=(id:string,text:string)=>setCaptions(old=>{const value={...old,[id]:text};saveCaptions(personId,value);return value})
  const care=useFridgeSource(reader,childId,'care'),goals=useFridgeSource(reader,childId,'goals')
  const board=goalsOverride??goals.state
  const scene=useRef<HTMLDivElement>(null),notesControl=useRef<HTMLButtonElement>(null),goalsControl=useRef<HTMLButtonElement>(null)
@@ -149,6 +151,6 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
    </div>
   </div>
   {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Decorative papers">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open decorative ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><strong>{slot.text}</strong></button>)}</div>}
-  <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{selected?.caption}</Dialog.Description><Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
+  <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{(selected&&(captions[selected.id]||selected.caption))||''}</Dialog.Description>{selected&&!readOnly&&<label className="fridge-caption-edit"><span>Your caption</span><textarea value={captions[selected.id]??''} maxLength={300} rows={2} placeholder={selected.caption} aria-label={`Edit caption for ${selected.text}`} onChange={e=>storeCaption(selected.id,e.target.value)}/><small>Saved in this browser.</small></label>}<Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }
