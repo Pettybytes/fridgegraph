@@ -18,3 +18,15 @@ describe('village map boundaries and state',()=>{
 })
 
 it('area labels never become coordinates and a public event requires its authorized place',async()=>{const world=await createMockMapAdapter('kendra').readWorld(),andre=world.people.find(p=>p.id==='p_dad')!,loretta=world.people.find(p=>p.id==='p_gma')!;expect(andre.position.point).toBeUndefined();expect(personPoint({...andre,position:{...andre.position,point:[1,2]}},world)).toBeUndefined();expect(personPoint(loretta,world)).toEqual(world.places.find(p=>p.id==='community')?.point);expect(personPoint(loretta,{...world,places:world.places.map(p=>({...p,point:undefined}))})).toBeUndefined();await expect(createMockMapAdapter('kendra').route('p_dad','school','Drive')).rejects.toThrow('UNAUTHORIZED')})
+describe('sample route plausibility',()=>{
+ it('a route from a person already at the destination is ~zero, not a fixed 3.2 mi / 18 min',async()=>{
+  const route=await createMockMapAdapter('kendra').route('p_nora','school','Drive')
+  expect(route.distanceMiles).toBeLessThan(0.1);expect(route.durationSeconds).toBeLessThan(120)
+ })
+ it('non-canonical route time follows its own distance and mode speed',async()=>{
+  const a=createMockMapAdapter('kendra'),walk=await a.route('p_mom','school','Walk'),drive=await a.route('p_mom','school','Drive')
+  expect(walk.distanceMiles).toBeGreaterThan(0.5);expect(walk.distanceMiles).toBeLessThan(3)
+  expect(walk.durationSeconds).toBeGreaterThan(drive.durationSeconds)
+  expect(walk.durationSeconds).toBeCloseTo(walk.distanceMiles/3*3600,-1)
+ })
+})
