@@ -1,0 +1,58 @@
+### Result
+{"backendRequests":0,"captures":8,"flow":"post/edit/remove confirmed on door at both widths"}
+### Ran Playwright code
+```js
+await (async page => {
+ const root='/Users/user/Desktop/bentley/fridgegraph-fridge-posted-notes/web/evidence/fridge-posted-notes/'
+ const calls=[];page.on('request',r=>{if(/\/api\/|\/graphql(?:\?|$)/.test(r.url()))calls.push(r.url())})
+ await page.route(/\/api\//,r=>r.abort());await page.route(/\/graphql(?:\?|$)/,r=>r.abort())
+ const align=async locator=>locator.evaluate(el=>{for(let p=el.parentElement;p;p=p.parentElement){if(getComputedStyle(p).overflowY==='auto'&&p.scrollHeight>p.clientHeight){p.scrollTop+=el.getBoundingClientRect().top-65;return}}})
+ for(const width of [1440,390]){
+  await page.setViewportSize({width,height:width===390?844:900})
+  await page.goto('http://127.0.0.1:5242/evidence/fridge-editing-integration/preview.html#/fridge')
+  await page.reload()
+  await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
+  await page.getByRole('region',{name:'Posted fridge notes'}).waitFor()
+  await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))})
+  await align(page.locator('.fridge-viewport'))
+  await page.screenshot({path:root+'overview-'+width+'.png',fullPage:true})
+  await page.getByRole('button',{name:'Open collage door',exact:true}).click()
+  await align(page.locator('.fridge-viewport'))
+  await page.screenshot({path:root+'door-'+width+'.png',fullPage:true})
+  const rail=page.getByRole('region',{name:'Posted fridge notes'})
+  await rail.focus();await page.keyboard.press('End')
+  await rail.getByRole('button').last().scrollIntoViewIfNeeded()
+  await page.screenshot({path:root+'door-scrolled-'+width+'.png'})
+  await page.getByRole('button',{name:/^Family notes/}).click()
+  const form=page.getByRole('form',{name:'Post a fridge note'})
+  await form.getByRole('textbox',{name:'Note text'}).fill('Bring the library book.')
+  await form.getByRole('button',{name:'Post privately'}).click()
+  await page.getByText('Saved.',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Close editor'}).click()
+  const posted=rail.getByRole('button',{name:'Open posted note: Bring the library book.',exact:true})
+  await posted.scrollIntoViewIfNeeded()
+  await page.screenshot({path:root+'posted-'+width+'.png'})
+  await posted.click()
+  const article=page.getByRole('dialog').locator('article').filter({hasText:'Bring the library book.'})
+  await article.getByRole('button',{name:'Edit note',exact:true}).click()
+  await page.getByRole('form',{name:'Edit fridge note'}).getByRole('textbox',{name:'Note text'}).fill('Bring the blue folder.')
+  await page.getByRole('button',{name:'Save note',exact:true}).click()
+  await page.getByText('Saved.',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Close editor'}).click()
+  await rail.getByRole('button',{name:'Open posted note: Bring the blue folder.',exact:true}).click()
+  const updated=page.getByRole('dialog').locator('article').filter({hasText:'Bring the blue folder.'})
+  await updated.getByRole('button',{name:'Remove',exact:true}).click()
+  await updated.getByRole('button',{name:'Confirm remove',exact:true}).click()
+  await page.getByText('Saved.',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Close editor'}).click()
+  if(await rail.getByText('Bring the blue folder.',{exact:true}).count())throw Error('Removed note retained')
+  if((await page.evaluate(()=>JSON.stringify(localStorage))).includes('library book'))throw Error('Note content persisted')
+
+ }
+ if(calls.length)throw Error('Unexpected backend request')
+ return {backendRequests:0,captures:8,flow:'post/edit/remove confirmed on door at both widths'}
+}
+)(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-03T01-28-43-967Z.log#L5-L7
