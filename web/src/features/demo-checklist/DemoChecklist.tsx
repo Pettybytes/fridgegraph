@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Compass, FileText, Image, Mic, Radar, Users } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { FgButton, Surface } from '@/components/fg/primitives'
+import { ProgressBar, TypeNode, type CardType } from '@/components/fg/cards'
 import { checklistStorageKey } from './storage'
 import './demo-checklist.css'
 
@@ -47,6 +50,16 @@ function readSaved(key: string): Saved {
 
 type Step = { id: DemoStepId; number: number; title: string; doThis: ReactNode; lookFor: ReactNode; evidenceLabel: string }
 
+/** Card type + icon per step — the design-v2 type system (docs/contracts/design.md §12). */
+const STEP_LOOK: Record<DemoStepId, { type: CardType; icon: LucideIcon }> = {
+  notice: { type: 'school', icon: FileText },
+  village: { type: 'invite', icon: Users },
+  orbit: { type: 'orbit', icon: Radar },
+  voice: { type: 'rosina', icon: Mic },
+  photo: { type: 'fridge', icon: Image },
+  guide: { type: 'pending', icon: Compass },
+}
+
 function steps(availability: DemoChecklistAvailability): Step[] {
   const result: Step[] = [{
     id: 'notice', number: 1, title: 'A school notice changes the plan',
@@ -81,7 +94,7 @@ function steps(availability: DemoChecklistAvailability): Step[] {
   result.push({
     id: 'guide', number: 6, title: 'Explore read-only',
     doThis: <>Use <strong>Explore as…</strong> to switch to the <strong>Demo guide</strong> perspective.</>,
-    lookFor: <>A broad sandbox view for exploration. Parent-only changes remain unavailable.</>,
+    lookFor: <>A broad sandbox view for exploration. Only a parent can make changes.</>,
     evidenceLabel: 'Demo guide scope receipt',
   })
   return result
@@ -129,17 +142,24 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
   if (saved.dismissed) return <FgButton variant="secondary" onClick={() => setSaved(current => ({ ...current, dismissed: false }))}>Reopen judge checklist</FgButton>
   return <Surface className="demo-checklist" role="region" aria-label="Judge checklist">
     <div className="demo-checklist__header">
-      <div><h2>Judge checklist</h2><p>{props.mode === 'guide' ? 'Demo guide · read-only exploration' : 'Start as Kendra, viewing Nora. The notice flow is the quick demonstration.'}</p></div>
+      <div><h2>Here's what to expect</h2><p>{props.mode === 'guide' ? 'Demo guide · read-only exploration' : 'Start as Kendra, viewing Nora. The notice flow is the quick demonstration.'}</p></div>
       <FgButton variant="quiet" onClick={() => setSaved(current => ({ ...current, dismissed: true }))}>Dismiss checklist</FgButton>
     </div>
     {props.mode === 'parent' && (props.personaId !== 'kendra' || props.childId !== 'p_nora') && <p className="demo-checklist__context">The notice sample is for Kendra viewing Nora. Switch perspective before trying it.</p>}
-    <p className="demo-checklist__progress">{triedCount} of {visible.length} tried. These boxes record what you tried; they do not verify an app result.</p>
+    <div className="demo-checklist__running">
+      <ProgressBar value={visible.length ? Math.round((triedCount / visible.length) * 100) : 0} type="safe" label={`${triedCount} of ${visible.length} steps tried`} />
+      <p className="demo-checklist__progress">{triedCount} of {visible.length} tried. These boxes record what you tried; they do not verify an app result.</p>
+    </div>
     <ol className="demo-checklist__steps">
-      {visible.map(step => <li key={step.id} className="demo-checklist__step" value={step.number}>
-        <div className="demo-checklist__step-heading"><span className="demo-checklist__number" aria-hidden="true">{step.number}</span><div><h3>{step.title}</h3>{step.number > 1 && <span className="demo-checklist__optional">Optional</span>}</div></div>
-        <p><strong>Do this:</strong> {step.doThis}</p>
-        <p><strong>Look for:</strong> {step.lookFor}</p>
-        <div className="demo-checklist__step-foot"><a href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a><label><input type="checkbox" checked={saved.tried.includes(step.id)} onChange={event => mark(step.id, event.target.checked)} aria-label={`I tried this: ${step.title}`} /><span>I tried this</span></label></div>
+      {visible.map(step => <li key={step.id} className="demo-checklist__step" data-fgc-type={STEP_LOOK[step.id].type} data-tried={saved.tried.includes(step.id) || undefined} value={step.number}>
+        <span className="demo-checklist__bar" aria-hidden="true" />
+        <div className="demo-checklist__node"><TypeNode type={STEP_LOOK[step.id].type}>{(() => { const StepIcon = STEP_LOOK[step.id].icon; return <StepIcon size={18} aria-hidden="true" /> })()}</TypeNode><span className="demo-checklist__number">{step.number}</span></div>
+        <div className="demo-checklist__body">
+          <div className="demo-checklist__step-heading"><h3>{step.title}</h3>{step.number > 1 && <span className="demo-checklist__optional">Optional</span>}</div>
+          <p><strong>Do this:</strong> {step.doThis}</p>
+          <p><strong>Look for:</strong> {step.lookFor}</p>
+          <div className="demo-checklist__step-foot"><a href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a><label><input type="checkbox" checked={saved.tried.includes(step.id)} onChange={event => mark(step.id, event.target.checked)} aria-label={`I tried this: ${step.title}`} /><span>I tried this</span></label></div>
+        </div>
       </li>)}
     </ol>
     {props.mode === 'parent' && props.onReset && <div className="demo-checklist__reset">

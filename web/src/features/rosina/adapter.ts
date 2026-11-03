@@ -1,7 +1,7 @@
 import { createMockCalendarAdapter } from '@/features/calendar/mockAdapter'
 import { localDay, validDay } from '@/features/calendar/time'
 import type { AuthSession } from '@/features/personas/auth'
-import { noraCareInformation, sourceCitation } from '@/features/personas/careInformation'
+import { sampleCareInformation, sourceCitation } from '@/features/personas/careInformation'
 import { pickupStatusLabel } from '@/lib/frontendData/displayCopy'
 import { reasonLabel } from '@/lib/frontendData/types'
 import type { FrontendAdapter } from '@/lib/frontendData/types'
@@ -53,15 +53,25 @@ export function createMockRosinaAdapter(session: AuthSession | null, data?: Fron
       return reply(`Here is ${child.displayName.split(' ')[0]}'s shared calendar. It shows scheduled plans, not a confirmed location.`, [{ id: 'open-calendar', args: { day: requestedDay ?? localDay(Date.now()), childId: child.id } }])
     }
     if (/peanut|snack|care rule/.test(text)) {
-      if (((currentRoute.startsWith('#/calendar') || currentRoute.startsWith('#/village')) && calendarChildId !== 'p_nora') || /\b(malik|emma|jax)\b/.test(text)) return reply("I can't confirm that yet. Care information for this child is not available in this view.")
-      if (!session || (session.scope.childId !== 'p_nora') || (!session.persona.parent && !session.persona.grants.includes('careplan.read'))) return reply("I can't confirm that yet. I don't have care information available within your access.")
-      return reply(`No, Nora has a peanut allergy. Her care plan says: '${noraCareInformation.text}' ${sourceCitation(noraCareInformation.source)}.`)
+      // Care answers come per child from the recorded sample care plans. The only gate is the
+      // real one: the asker must be a parent/guardian of, or hold careplan.read for, that child.
+      if (!session) return reply('Choose a person first. Care information is shared per family.')
+      const namedCare = ['nora', 'jax', 'emma', 'malik'].find(name => new RegExp(`\\b${name}\\b`).test(text))
+      const targetId = namedCare ? `p_${namedCare}` : (((currentRoute.startsWith('#/calendar') || currentRoute.startsWith('#/village')) && calendarChildId) || session.scope.childId)
+      const first = session.scope.childName.split(' ')[0]
+      if (targetId !== session.scope.childId) return reply(`That child's care information hasn't been shared with you. You can ask about ${first}.`)
+      if (!session.persona.parent && !session.persona.guardian && !session.persona.grants.includes('careplan.read')) return reply(`${first}'s care information hasn't been shared with your role. Their parents choose who can read it.`)
+      const care = sampleCareInformation[targetId]
+      if (!care) return reply(`${first}'s care plan isn't in this sample view. Open Care information for the recorded details.`)
+      const lead = /peanut|snack/.test(text) ? (care.peanut ? `No, ${first} has a peanut allergy. ` : `There is no peanut allergy on record for ${first}. `) : ''
+      const possessive = first.endsWith('s') ? `${first}'` : `${first}'s`
+      return reply(`${lead}${targetId === 'p_nora' ? 'Her' : possessive} care plan says: '${care.text}' ${sourceCitation(care.source)}.`)
     }
     if (/what can i do/.test(text)) {
       if (!session) return reply('Choose a person to get started. What you can see depends on what their family has shared.')
       if (session.persona.guardian) return reply(`You can open ${session.scope.childName.split(' ')[0]}'s calendar through your guardian role. Other family records stay private.`, [{ id: 'open-calendar', args: { day: localDay(Date.now()), childId: session.scope.childId } }])
       if (session.persona.grants.includes('careplan.read')) return reply(`You can read ${session.scope.childName.split(' ')[0]}'s care information. You can also open their shared calendar.`, [{ id: 'open-screen', args: { screen: 'care-information' } }, { id: 'open-calendar', args: { day: localDay(Date.now()), childId: session.scope.childId } }])
-      if (!session.persona.parent) return reply(`You can ask about ${session.scope.childName.split(' ')[0]}'s schedule and goals. You can open the shared calendar for scheduled plans; goals remain unavailable here. Pickup plans are shared with the child's parents.`, [{ id: 'explain-screen', args: { screen: 'mission-control' } }])
+      if (!session.persona.parent) return reply(`You can ask about ${session.scope.childName.split(' ')[0]}'s schedule and goals. You can open the shared calendar for scheduled plans; goals stay with the family here. Pickup plans are shared with the child's parents.`, [{ id: 'explain-screen', args: { screen: 'mission-control' } }])
       return reply('You can review pickup plans, explore your village and prepare a pickup request. The screens show recorded information, and every change needs your confirmation.', [{ id: 'open-screen', args: { screen: 'village' } }, { id: 'open-screen', args: { screen: 'mission-control' } }])
     }
     if (/new to/.test(text)) return reply(session?.persona.parent ? 'Start with your own village. It shows the people and relationships shared with you.' : 'Start with what the family has shared with you. You can ask what your role includes before choosing a screen.', [{ id: 'open-screen', args: { screen: session?.persona.parent ? 'village' : session?.persona.grants.includes('careplan.read') ? 'care-information' : 'ask-rosina' } }])
