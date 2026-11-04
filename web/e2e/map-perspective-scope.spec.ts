@@ -2,7 +2,8 @@ import {test,expect} from '@playwright/test'
 const parents=['Kendra','Andre','Dana',"Jax's family",'Rosa Castellano','Felicia Reyes','Simone Lee','Dwayne Ferris']
 for(const name of parents)test(`${name} sees each authorized child's live map`,async({page})=>{
  const worlds=new Map<string,any>()
- page.on('response',async response=>{if(response.url().endsWith('/graphql')&&response.request().postData()?.includes('WebMapVillageWorld')){const childId=response.request().postDataJSON()?.variables?.childId;worlds.set(childId,await response.json())}})
+ page.on('response',async response=>{if(response.url().endsWith('/graphql')&&response.request().postData()?.includes('WebMapVillageWorld')){const childId=response.request().postDataJSON()?.variables?.childId;// A child switch can cancel an earlier read before its body is available.
+  const body=await response.json().catch(()=>null);if(body)worlds.set(childId,body)}})
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message))
  await page.goto('/')
  await page.getByRole('button',{name:`Explore as ${name}`,exact:true}).click()
