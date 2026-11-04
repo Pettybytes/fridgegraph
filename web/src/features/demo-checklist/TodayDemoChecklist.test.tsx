@@ -34,7 +34,7 @@ it('puts guide and Kendra first, mounts the parent checklist on Today, and reope
   fireEvent(window, new HashChangeEvent('hashchange'))
   const guide = await screen.findByRole('region', { name: 'Judge checklist' })
   expect(guide).toHaveTextContent('Demo guide · showcase exploration')
-  expect(within(guide).getAllByRole('checkbox')).toHaveLength(1)
+  expect(within(guide).getAllByRole('checkbox')).toHaveLength(6)
   expect(within(guide).queryByRole('button', { name: 'Reset shared demo…' })).not.toBeInTheDocument()
 })
 
@@ -59,11 +59,11 @@ it('uses the session reset path; failure preserves progress and success clears i
   expect(within(checklist).getByText(/resets the shared sandbox for everyone/)).toBeVisible()
   fireEvent.click(within(checklist).getByRole('button', { name: 'Reset demo for everyone' }))
   await waitFor(() => expect(within(checklist).getByRole('alert')).toHaveTextContent('progress is unchanged'))
-  expect(within(checklist).getByText(/1 of 2 tried/)).toBeVisible()
+  expect(within(checklist).getByText(/1 of 6 tried/)).toBeVisible()
   expect(reset).toHaveBeenCalledTimes(1)
   fireEvent.click(within(checklist).getByRole('button', { name: 'Reset demo for everyone' }))
   // #239 deliberately preserves the perspective and remounts generation-owned state.
-  await waitFor(() => expect(screen.getByRole('region', { name: 'Judge checklist' })).toHaveTextContent('0 of 2 tried'))
+  await waitFor(() => expect(screen.getByRole('region', { name: 'Judge checklist' })).toHaveTextContent('0 of 6 tried'))
   expect(reset).toHaveBeenCalledTimes(2)
   expect(screen.queryByRole('button', { name: 'Choose Kendra' })).not.toBeInTheDocument()
 })

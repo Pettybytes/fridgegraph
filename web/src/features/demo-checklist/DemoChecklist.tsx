@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Compass, FileText, Image, Mic, Radar, Users } from 'lucide-react'
+import { CalendarDays, FileText, HeartHandshake, Map as MapIcon, MessageCircle, Radar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FgButton, Surface } from '@/components/fg/primitives'
 import { ProgressBar, TypeNode, type CardType } from '@/components/fg/cards'
 import { checklistStorageKey } from './storage'
 import './demo-checklist.css'
 
-export type DemoStepId = 'notice' | 'village' | 'orbit' | 'voice' | 'photo' | 'guide'
+export type DemoStepId = 'notice' | 'calendar' | 'rosina' | 'orbit' | 'map' | 'living'
 export type DemoChecklistAvailability = {
   noticeConfirmReady: boolean
   villageReady: boolean
@@ -32,7 +32,7 @@ export type DemoChecklistProps = {
   noticeResult?: { jobId: string; status: string; mode: 'mock' | 'live' } | null
 }
 
-const IDS: DemoStepId[] = ['notice', 'village', 'orbit', 'voice', 'photo', 'guide']
+const IDS: DemoStepId[] = ['notice', 'calendar', 'rosina', 'orbit', 'map', 'living']
 type Saved = { tried: DemoStepId[]; dismissed: boolean }
 const EMPTY: Saved = { tried: [], dismissed: false }
 
@@ -50,50 +50,55 @@ function readSaved(key: string): Saved {
   } catch { return EMPTY }
 }
 
-type Step = { id: DemoStepId; number: number; title: string; doThis: ReactNode; lookFor: ReactNode }
+type Step = { id: DemoStepId; number: number; title: string; doThis: ReactNode; lookFor: ReactNode; perspective: ReactNode }
 
 /** Card type + icon per step — the design-v2 type system (docs/contracts/design.md §12). */
 const STEP_LOOK: Record<DemoStepId, { type: CardType; icon: LucideIcon }> = {
   notice: { type: 'school', icon: FileText },
-  village: { type: 'invite', icon: Users },
+  calendar: { type: 'pending', icon: CalendarDays },
+  rosina: { type: 'rosina', icon: MessageCircle },
   orbit: { type: 'orbit', icon: Radar },
-  voice: { type: 'rosina', icon: Mic },
-  photo: { type: 'fridge', icon: Image },
-  guide: { type: 'pending', icon: Compass },
+  map: { type: 'neutral', icon: MapIcon },
+  living: { type: 'care', icon: HeartHandshake },
 }
 
 function steps(availability: DemoChecklistAvailability): Step[] {
-  const result: Step[] = [{
+  // The six-step provenance path: every step points at a journey verified on the
+  // public build (release board rows 1, 2, 4, 7, 9, 10). Unverified actions
+  // (growing the village, Fridge photo upload, voice as the primary path) stay
+  // out of the guided path until they are verified; each step carries a
+  // perspective check so a judge can see the family boundaries for themselves.
+  return [{
     id: 'notice', number: 1, title: 'A school notice changes the plan',
     doThis: <>Viewing Nora as Kendra or the Demo guide, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
     lookFor: <>This is a historical October 26, 2026 sample: 12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup that day. {availability.noticeConfirmReady ? <>After parent confirmation, look for <strong>Pickup request created</strong>; pickup is <strong>not arranged yet</strong>.</> : <>In mock mode, confirmation shows a sample pickup request; <strong>no record is created</strong>. A recorded request needs live parent confirmation.</>}</>,
+    perspective: <>Switch to Dana (Jax’s mom): she cannot see or confirm Nora’s notice. Switch back to Kendra or the Demo guide to try this step.</>,
+  }, {
+    id: 'calendar', number: 2, title: 'Ask Rosina to add a calendar event',
+    doThis: <>Open <strong>Ask Rosina</strong> and type: Please add a calendar event titled “Piano practice” for Nora tomorrow at 4:00 PM. Review the proposal card, then confirm it.</>,
+    lookFor: <>The event appears in <strong>Family Calendar</strong> and <strong>Activity</strong>. Reload the page and check it is still there.</>,
+    perspective: <>Open Family Calendar as Andre (Nora’s dad): the same event is in his view of Nora’s calendar.</>,
+  }, {
+    id: 'rosina', number: 3, title: 'Ask Rosina a question',
+    doThis: <>In <strong>Ask Rosina</strong>, type: Who is picking Nora up today?</>,
+    lookFor: <>An answer drawn from Nora’s recorded schedule, naming what it checked.</>,
+    perspective: <>Ask the same question as Dana: Rosina refuses and shares none of Nora’s facts. Dana can ask about Jax instead.</>,
+  }, {
+    id: 'orbit', number: 4, title: 'Review Orbit before anyone sends',
+    doThis: <>Open <strong>Orbit</strong> for Nora and review the start screen: who would be contacted and what would be sent. Only a parent can start an alert.</>,
+    lookFor: <>The audience includes Nora’s dad Andre. An incomplete Send stays on the start screen; nothing is sent from this step.</>,
+    perspective: <>Open Orbit as Loretta (Nora’s grandma): her view is read-only and she cannot start an alert.</>,
+  }, {
+    id: 'map', number: 5, title: 'Walk the Village map',
+    doThis: <>Open <strong>Village map</strong> for Nora. Drag a person marker onto a place, then open a route.</>,
+    lookFor: <>Pins, the walking route and its travel time update on the map.</>,
+    perspective: <>Open the map as Dwayne (Malik’s dad), then as Priya: each sees only the children shared with them.</>,
+  }, {
+    id: 'living', number: 6, title: 'See a caregiver’s Living Village',
+    doThis: <>Open <strong>Living Village</strong> as Loretta, then as Priya, for the children they care for.</>,
+    lookFor: <>Care schedules and handoffs for Nora (and Malik for Priya), presented read-only.</>,
+    perspective: <>As the Demo guide, every family opens read-only. Parents keep their own editing paths in Today and Family Calendar.</>,
   }]
-  if (availability.villageReady) result.push({
-    id: 'village', number: 2, title: 'Grow the village with permission',
-    doThis: <>Review Dana’s proposed relationship and <strong>exact access scopes</strong>, then confirm as a parent.</>,
-    lookFor: <>A bounded grant with only the approved scopes. A relationship alone grants no access.</>,
-  })
-  if (availability.orbitReady) result.push({
-    id: 'orbit', number: 3, title: 'Coordinate with Orbit Alert',
-    doThis: <>As a parent, review and approve activation. View caregiver responses, then close the alert explicitly.</>,
-    lookFor: <>Caregiver responses are <strong>reports</strong>, not verified safety. The alert stays active until a parent closes it.</>,
-  })
-  if (availability.voiceReady) result.push({
-    id: 'voice', number: 4, title: 'Talk to Rosina',
-    doThis: <>Use the microphone on Today to speak to Rosina.</>,
-    lookFor: <>Your spoken words as text in the conversation; listen to a reply only if playback is enabled.</>,
-  })
-  if (availability.photoReady) result.push({
-    id: 'photo', number: 5, title: 'Review photo suggestions',
-    doThis: <>Use the <a download href="/samples/demo-checklist/fictional-outfit.png">fictional outfit sample illustration</a> as the photo input, then review the suggested descriptors. The sample is an authored fixture with no recorded generation model; it is not Muse art.</>,
-    lookFor: <>Suggestions from the child’s allowed vocabulary for a parent to review; none are automatically confirmed.</>,
-  })
-  result.push({
-    id: 'guide', number: 6, title: 'Explore the showcase',
-    doThis: <>Use <strong>Explore as…</strong> to switch to the <strong>Demo guide</strong> perspective.</>,
-    lookFor: <>Explore all fictional families. Try parent actions with the Ellison showcase.</>,
-  })
-  return result
 }
 
 /** Standalone checklist. It never calls a model or backend, and it never mounts itself. */
@@ -116,7 +121,7 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
     setSaved(current => current.dismissed ? { ...current, dismissed: false } : current)
   }, [props.reopenSignal])
 
-  const visible = props.mode === 'guide' ? steps(props.availability).filter(step => step.id === 'guide') : steps(props.availability)
+  const visible = steps(props.availability)
   // Card 1 (notice) is a persisted-state action card under the live gate — never a tried checkbox.
   const isNoticeAction = (id: DemoStepId) => id === 'notice' && props.availability.noticeConfirmReady
   const noticeDone = props.noticeResult?.mode === 'live'
@@ -163,6 +168,7 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
           <div className="demo-checklist__step-heading"><h3>{step.title}</h3>{step.number > 1 && <span className="demo-checklist__optional">Optional</span>}</div>
           <p><strong>Do this:</strong> {step.doThis}</p>
           <p><strong>Look for:</strong> {step.lookFor}</p>
+          <p><strong>Perspective check:</strong> {step.perspective}</p>
           {isNoticeAction(step.id) ? (
             <div className="demo-checklist__action">
               <FgButton variant={noticeDone ? 'secondary' : 'primary'} onClick={props.onStartNotice} disabled={!props.onStartNotice}>{noticeDone ? 'Add another notice' : 'Add the school notice'}</FgButton>
