@@ -14,6 +14,7 @@ import { useSession } from '@/features/personas/Session'
 import { useChildAccess } from '@/features/personas/childContext'
 import type { ChatMessage, FrontendAdapter } from '@/lib/frontendData/types'
 import { actionAllowed, actionLabel, actionRoute, catalog, validateActions } from './catalog'
+import { pickupStatusLabel } from '@/lib/frontendData/displayCopy'
 import type { CatalogAction, ExplainableScreen } from './catalog'
 import { createLiveRosinaAdapter, LIVE_FALLBACK, RosinaCancelled } from './liveAdapter'
 import { createMockRosinaAdapter } from './adapter'
@@ -192,7 +193,18 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     if (catalog[action.id].changesData && !confirmed) { setPending({ action, key }); return }
     if (catalog[action.id].changesData) {
       executed.current.add(key); setPending(null)
-      append('ROSINA', adapter.mode === 'mock' ? 'Your demo request has been reviewed. No pickup was arranged and nobody was contacted.' : 'Pickup requests aren’t available here yet. Nothing was changed.')
+      if (adapter.mode === 'mock' || !dataAdapter?.requestPickup || action.id !== 'start-pickup' || !session) {
+        append('ROSINA', adapter.mode === 'mock' ? 'Your demo request has been reviewed. No pickup was arranged and nobody was contacted.' : 'Recording requests from here is not wired for this perspective. Nothing was changed.')
+        return
+      }
+      // LIVE: the parent just confirmed, so record the request through the graph's own
+      // parent-gated requestPickup. Recording a request contacts nobody; approval is separate.
+      try {
+        const job = await dataAdapter.requestPickup(session.scope, { childId: action.args.childId, date: action.args.date, window: action.args.window })
+        append('ROSINA', `Pickup request recorded: ${pickupStatusLabel(job.status)}. You can watch it in Mission Control. Nobody has been contacted, and your approval stays a separate step.`, [{ id: 'open-screen', args: { screen: 'mission-control' } }])
+      } catch {
+        append('ROSINA', 'That request did not go through, so nothing was recorded or changed. Try once more in a moment.')
+      }
       return
     }
     const route = actionRoute(action)
@@ -238,6 +250,6 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   return <>
     {!pageTarget && <FgButton ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</FgButton>}
     {pageTarget ? createPortal(panel, pageTarget) : panel}
-    <Dialog.Root open={!!pending} onOpenChange={value => { if (!value) setPending(null) }}><Dialog.Portal><Dialog.Overlay className="rosina-confirm-overlay" /><Dialog.Content className="rosina-confirm"><Dialog.Title>Confirm pickup request</Dialog.Title><Dialog.Description>Review the child, date and window. {adapter.mode === 'mock' ? 'This is a demo request. It doesn’t arrange a pickup.' : 'Pickup requests aren’t available here yet.'}</Dialog.Description>{pending?.action.id === 'start-pickup' && <dl><dt>Child</dt><dd>{session?.scope.childName}</dd><dt>Date</dt><dd>{pending.action.args.date}</dd><dt>Window</dt><dd>{pending.action.args.window}</dd></dl>}<button type="button" onClick={() => { if (pending) void execute(pending.action, pending.key, true) }}>Confirm {adapter.mode === 'mock' ? 'demo ' : ''}pickup request</button><Dialog.Close>Cancel</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
+    <Dialog.Root open={!!pending} onOpenChange={value => { if (!value) setPending(null) }}><Dialog.Portal><Dialog.Overlay className="rosina-confirm-overlay" /><Dialog.Content className="rosina-confirm"><Dialog.Title>Confirm pickup request</Dialog.Title><Dialog.Description>Review the child, date and window. {adapter.mode === 'mock' ? 'This is a demo request. It doesn’t arrange a pickup.' : 'Confirming records the request. It contacts nobody and arranges nothing until you approve.'}</Dialog.Description>{pending?.action.id === 'start-pickup' && <dl><dt>Child</dt><dd>{session?.scope.childName}</dd><dt>Date</dt><dd>{pending.action.args.date}</dd><dt>Window</dt><dd>{pending.action.args.window}</dd></dl>}<button type="button" onClick={() => { if (pending) void execute(pending.action, pending.key, true) }}>Confirm {adapter.mode === 'mock' ? 'demo ' : ''}pickup request</button><Dialog.Close>Cancel</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
   </>
 }

@@ -49,7 +49,7 @@ it('persona switch discards a late live result and all previous persona messages
 })
 it('live data-changing proposals cannot bypass the app confirm even if the response says so',async()=>{
  vi.stubGlobal('fetch',vi.fn<typeof fetch>(async()=>new Response(JSON.stringify({reply:'Review this pickup',actions:[{id:'start-pickup',args:{childId:'p_nora',date:'2026-10-30',window:'afternoon'},requiresConfirmation:false}]}),{status:200})))
- await enter();send();await screen.findByText('Review this pickup');fireEvent.click(screen.getByRole('button',{name:/Review pickup request/}));expect(screen.getByRole('dialog')).toBeVisible();expect(screen.queryByText('Pickup requests aren’t available here yet. Nothing was changed.')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Confirm pickup request'}));await screen.findByText('Pickup requests aren’t available here yet. Nothing was changed.');vi.unstubAllGlobals()
+ await enter();send();await screen.findByText('Review this pickup');fireEvent.click(screen.getByRole('button',{name:/Review pickup request/}));expect(screen.getByRole('dialog')).toBeVisible();expect(screen.queryByText(/did not go through/)).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Confirm pickup request'}));await screen.findByText(/not wired for this perspective. Nothing was changed/);vi.unstubAllGlobals()
 })
 it('closing via a catalog navigation card aborts another in-flight request',async()=>{
  let resolve!:(response:Response)=>void,signal:AbortSignal|undefined

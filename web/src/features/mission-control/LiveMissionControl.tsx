@@ -1,7 +1,7 @@
 import {useState} from 'react'
 import type {ReactNode} from 'react'
-import {useSurfaceData,dataErrorMessage} from '@/lib/frontendData/provider'
-import type {StoredMissionControl} from '@/lib/frontendData/deliveredAdapter'
+import {useSurfaceData,useDataContext,dataErrorMessage} from '@/lib/frontendData/provider'
+import type {StoredMissionControl,StoredRun} from '@/lib/frontendData/deliveredAdapter'
 import {useSession} from '@/features/personas/Session'
 import {formatRecordedTime,contactBadge} from './v2/model'
 import {pickupStatusLabel,contactChannelLabel} from '@/lib/frontendData/displayCopy'
@@ -25,7 +25,36 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
  <header className="mcv-job"><div><p>{run.timeline.length?'Sample activity':'Pickup record · event times not recorded'}</p><h2>{session?.scope.childName.split(' ')[0]}’s pickup</h2><p>{pickupStatusLabel(run.job.status)}</p></div></header>
  <div className="mcv-lane-grid">{run.attempts.map(a=><article key={a.id} className="mcv-lane"><h3>{a.candidate?.displayName??'Caregiver not recorded'}</h3><span className="mcv-contact">{contactBadge(a.destinationMode)}</span><p>{contactChannelLabel(a.channel)}</p><time dateTime={a.at}>{formatRecordedTime(a.at)}</time><p>{a.closedAt?'Attempt ended · see recorded activity':'Attempt open · no reply recorded'}</p>{a.closedAt&&<time dateTime={a.closedAt}>{formatRecordedTime(a.closedAt)}</time>}</article>)}</div>
  <section className="mcv-decision"><h3>Current caregiver information</h3>{!run.job.candidateEvaluations.length&&<p>No caregiver evaluation has been recorded.</p>}{run.job.candidateEvaluations.map(e=><p key={e.candidate.id}>{e.candidate.displayName}: {reasonLabel(e.reasonCode)}. {e.available===true?'Available':e.available===false?'Not available':'Availability not recorded'}.</p>)}</section>
+ <LiveApproval run={run} canApprove={Boolean(session?.persona.parent&&!session?.marks?.demoGuide)} refetch={()=>{void result.refetch()}}/>
  <section className="mcv-timeline"><h3>Recorded activity</h3>{!run.timeline.length?<p>Event times not recorded.</p>:<ol>{run.timeline.map((e,i)=><li key={`${e.at}:${e.kind}:${i}`}><time dateTime={e.at}>{formatRecordedTime(e.at)}</time><div><h4>{title[e.kind]??'Recorded activity'}</h4>{e.candidate&&<p>{e.candidate.displayName}</p>}{e.kind==='ATTEMPT_OPENED'&&<p>{contactChannelLabel(e.detail??'Unknown')}</p>}{e.kind==='ATTEMPT_CLOSED'&&<p>Contact attempt ended. No decline is inferred from silence.</p>}</div></li>)}</ol>}</section>
  </>}
  </section>
+}
+
+/** The parent's one-tap approval for a LIVE job awaiting it. Two deliberate taps (review, then
+ * confirm) and the approval is recorded through the graph's own parent-gated mutation; the
+ * polling read shows the confirmation within one cycle. Approval is never a completed pickup. */
+function LiveApproval({run,canApprove,refetch}:{run:StoredRun;canApprove:boolean;refetch:()=>void}){
+ const {adapter,scope}=useDataContext()
+ const [phase,setPhase]=useState<'idle'|'review'|'busy'|'done'|'failed'>('idle')
+ if(!adapter.approvePickup)return null
+ if(run.job.status!=='awaiting_approval'&&phase!=='done')return null
+ const recommended=run.job.candidateEvaluations.find(e=>e.available===true)??run.job.candidateEvaluations[0]
+ async function approve(){
+  if(!adapter.approvePickup)return
+  setPhase('busy')
+  try{await adapter.approvePickup(scope,{jobId:run.job.id,version:run.job.version,decision:'APPROVED'});setPhase('done');refetch()}
+  catch{setPhase('failed')}
+ }
+ return <aside className="mcv-decision" aria-label="Parent decision">
+  <h3>Parent approval</h3>
+  {phase==='done'?<><strong>Approval recorded.</strong><p>Approval is a decision record. The pickup itself is a separate fact with its own record.</p></>:<>
+  <p>{recommended?`${recommended.candidate.displayName} is the recorded option for this pickup.`:'This request is waiting for your decision.'} Nothing is arranged until you approve.</p>
+  {!canApprove&&<p>Only this child's parent can approve.</p>}
+  {phase==='idle'&&<button type="button" className="mcv-primary" disabled={!canApprove} onClick={()=>setPhase('review')}>Review and approve</button>}
+  {phase==='review'&&<><p>Approving records your decision{recommended?` for ${recommended.candidate.displayName}`:''}. It does not contact anyone and does not mark the pickup done.</p><button type="button" className="mcv-primary" onClick={()=>{void approve()}}>Confirm approval</button> <button type="button" className="mcv-secondary" onClick={()=>setPhase('idle')}>Back</button></>}
+  {phase==='busy'&&<p role="status">Recording your approval…</p>}
+  {phase==='failed'&&<p role="alert">That approval did not go through. Nothing was recorded. Try again in a moment.</p>}
+  </>}
+ </aside>
 }

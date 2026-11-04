@@ -38,7 +38,7 @@ describe('read-only graphql adapter', () => {
     expect((await adapter.readMissionControl(demoScope)).candidates[0].channel).toBe('—')
     expect(operations).toEqual(['WebCoordinationJobs', 'WebAttempts'])
     expect(adapter.readParentChat).toBeUndefined()
-    expect(adapter.approvePickup).toBeUndefined()
+    expect(typeof adapter.approvePickup).toBe('function');expect(typeof adapter.requestPickup).toBe('function') // parent-gated by the graph itself (Bryan 2026-11-03 one-tap approve)
   })
   it('refuses a missing session before making a graph request', async () => {
     const adapter = createGraphqlAdapter(createGraphClient(async () => null, new ApolloLink(() => { throw new Error('Must not request') })))

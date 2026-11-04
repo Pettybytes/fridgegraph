@@ -31,7 +31,7 @@ describe('shared adapter', () => {
   it('distinguishes authentication, authorization and network errors', () => {
     expect(dataErrorMessage(new Error('UNAUTHENTICATED'))).toBe('Your perspective needs a fresh session. Please try again in a moment.')
     expect(dataErrorMessage(new Error('UNAUTHORIZED'))).toBe("You don't have access to this.")
-    expect(dataErrorMessage(new Error('network'))).toBe('Unable to load updates. Try again.')
+    expect(dataErrorMessage(new Error('network'))).toBe('Updates stalled just now. They keep retrying on their own.')
   })
   it('never costs a driver and costs only an explicit paid-ride path', async () => {
     // pickup-job.md §6a: no driver is ever costed; normal night has a driver.

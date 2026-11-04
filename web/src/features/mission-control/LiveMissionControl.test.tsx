@@ -4,7 +4,7 @@ import {SessionProvider,useSession} from '@/features/personas/Session'
 import {createMockAuthAdapter} from '@/features/personas/auth'
 import {LiveMissionControl} from './LiveMissionControl'
 const surface=vi.hoisted(()=>({runs:[] as unknown[]}))
-vi.mock('@/lib/frontendData/provider',()=>({useSurfaceData:()=>({data:{frontendSnapshot:{recordedRuns:surface.runs}},loading:false}),dataErrorMessage:()=> 'Unable to load updates. Try again.'}))
+vi.mock('@/lib/frontendData/provider',()=>({useSurfaceData:()=>({data:{frontendSnapshot:{recordedRuns:surface.runs}},loading:false,refetch:async()=>({})}),useDataContext:()=>({scope:{childId:'p_nora',childName:'Nora Ellison',parentName:'Kendra Ellison',villageId:'v_nora'},mode:'graphql',adapter:{}}),dataErrorMessage:()=> 'Updates stalled just now. They keep retrying on their own.'}))
 function Choose(){const {switchPerson}=useSession();return <button onClick={()=>{void switchPerson('kendra')}}>Choose Kendra</button>}
 async function mount(){render(<SessionProvider adapter={createMockAuthAdapter()}><Choose/><LiveMissionControl accessDenied={<p>Pickup plans are shared with Nora’s parents.</p>}/></SessionProvider>);fireEvent.click(screen.getByRole('button',{name:'Choose Kendra'}));await screen.findByRole('heading',{name:'Nora’s pickup'})}
 const job={id:'stored-job',status:'AWAITING_APPROVAL',version:1,candidateEvaluations:[],confirmation:null}

@@ -18,7 +18,7 @@ it('renders school words as plain text with source date and no confirmation',asy
  expect(screen.getByText('Time not recorded')).toBeInTheDocument();expect(container.querySelector('b')).toBeNull();expect(screen.getByText('School report')).toBeInTheDocument();expect(screen.queryByText('CONFIRMED')).toBeNull()
 })
 it('keeps authorized activity when school reports fail',async()=>{
- render(<Activity client={client(async()=>{throw Error('SCHOOL_REPORTS_UNAVAILABLE')})} adapter={adapter}/>);await screen.findByText('School reports unavailable');expect(screen.getByText('Pickup coordination job created. A plan is not yet a decision.')).toBeInTheDocument()
+ render(<Activity client={client(async()=>{throw Error('SCHOOL_REPORTS_UNAVAILABLE')})} adapter={adapter}/>);await screen.findByText('School reports did not answer');expect(screen.getByText('Pickup coordination job created. A plan is not yet a decision.')).toBeInTheDocument()
 })
 it('keeps school refusal distinct from empty success',async()=>{
  render(<Activity client={client(async()=>{throw Error('UNAUTHORIZED')})} adapter={adapter}/>);await screen.findByText('School reports not shared');expect(screen.getByText('Pickup coordination job created. A plan is not yet a decision.')).toBeInTheDocument()
@@ -45,7 +45,7 @@ it('degrades to no villager-addition entries when the field is not deployed yet,
 it('names the failing source instead of blanking Activity when one read is a privilege defect',async()=>{
  const graph=client(async()=>({data:{schoolReports:[]}}),async()=>{throw Error('DB_PRIVILEGE')})
  render(<Activity client={graph} adapter={adapter}/>)
- await screen.findByText('Village additions unavailable')
+ await screen.findByText('Village additions did not answer')
  expect(screen.getByText(/server permission problem/)).toBeInTheDocument()
  expect(screen.getByText('Pickup coordination job created. A plan is not yet a decision.')).toBeInTheDocument()
  expect(screen.queryByText('Activity unavailable')).toBeNull()
@@ -55,7 +55,7 @@ it('names the failing source instead of blanking Activity when one read is a pri
 it('keeps healthy sources visible when the mission-control feed itself fails',async()=>{
  const failing={...adapter,readMissionControl:async()=>{throw Error('DB_UNAVAILABLE')}}
  render(<Activity client={client(async()=>({data:{schoolReports:[{id:'one',kind:'health',text:'A real school note',at:'2026-11-01',reportedAt:null}]}}))} adapter={failing}/>)
- await screen.findByText('Activity feed unavailable')
+ await screen.findByText('Activity feed did not answer')
  expect(screen.getByText('A real school note')).toBeInTheDocument()
 })
 
@@ -63,10 +63,10 @@ it('distinguishes an empty result from a source that failed to load',async()=>{
  const empty={candidates:[],events:[],recordedRuns:[]} as unknown as StoredMissionControl
  const emptyAdapter={...adapter,readMissionControl:async()=>empty}
  const first=render(<Activity client={client(async()=>({data:{schoolReports:[]}}))} adapter={emptyAdapter}/>)
- await screen.findByText('No records are available to this view')
+ await screen.findByText(/Nothing recorded for this view yet/)
  first.unmount()
  render(<Activity client={client(async()=>{throw Error('SCHOOL_REPORTS_UNAVAILABLE')})} adapter={emptyAdapter}/>)
- await screen.findByText(/No records could be loaded for this view/)
+ await screen.findByText(/Some activity sources did not answer/)
  expect(screen.queryByText('No records are available to this view')).toBeNull()
 })
 it('does not call a parent not shared when Activity simply has no live connection',async()=>{
