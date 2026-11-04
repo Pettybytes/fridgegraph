@@ -8,7 +8,7 @@ change the historical results below.
 | Slice | Implementation | Served acceptance |
 | --- | --- | --- |
 | #220 fixture copy | Em dashes removed from generated care plans, reports, achievements and closure labels; regression guard added | Pending Bentley deploy and Claude |
-| #220 all-family history | Fixed October 5 through November 3 Detroit window, all ten authorized children; 216 simulated jobs and 200 closed test attempts in the source | Pending Bentley seed and Claude |
+| #220 all-family history | All 216 simulated pickup IDs now verified through caller-authorized API reads for all ten children; co-parent overlap matches; 33 sampled creation timestamps match the source | Pending Claude served acceptance |
 | Mission Control copy and evidence | Removed approval-unavailable sentence; status-only confirmed rows do not claim parent approval; chart colors use shared tokens | Pending Bentley deploy and Claude |
 | Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
 | Calendar | #220 light cards and fixtures; follow-up fixes month read range and extends all-child pickup fixtures through November 17 | Pending Bentley seed, deploy and Claude |
@@ -22,7 +22,7 @@ outcome, delivery or parent approval. The pre-existing Nora/Jax fixtures retain 
 recorded statuses. The new history uses stable IDs and no dispatchable state. Bentley must seed
 both the baseline cast and simulated layer; `db:seed` alone does not insert simulated jobs.
 
-Served build under test: `http://127.0.0.1:5189` (Bentley deploy `bbe11a4`, web asset `index-BrdDul22.js`, backend branch `fix/orbit-alert-job-type` @ `eda19e3`).
+Historical served baseline: `http://127.0.0.1:5189` (Bentley deploy `bbe11a4`, web asset `index-BrdDul22.js`, backend branch `fix/orbit-alert-job-type` @ `eda19e3`).
 
 Method: every cell is page x persona x viewport on the SERVED build. A cell is PASS only with a
 screenshot from the served build showing rich seeded data, no failure strings, and the design-v2
