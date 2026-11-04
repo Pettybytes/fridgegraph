@@ -156,8 +156,6 @@ as $$
      )
 $$;
 
-create policy demo_guide_fridge_preferences on public.fridge_item_preferences
-for select to authenticated using (public.guide_reads_child(child_id));
 create policy demo_guide_recorded_places on public.recorded_places
 for select to authenticated using (
   public.is_demo_guide() and exists (
@@ -180,8 +178,6 @@ for select to authenticated using (
       and a.sandbox and public.guide_reads_child(a.child_id)
   )
 );
-create policy demo_guide_fridge_notes on public.fridge_notes
-for select to authenticated using (public.guide_reads_child(child_id));
 create or replace function orbit_photo_access(p_photo text)
 returns table (access text, storage_path text, child_id text)
 language sql

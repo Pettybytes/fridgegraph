@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { buildASTSchema, graphql, Kind, type DocumentNode, type DefinitionNode } from 'graphql';
 import { guideDatabase, insertRows } from './guide-database.mjs';
 import { DEMO_PERSONAS } from '../src/demo/personas';
+import { createFridgeSeed } from '../src/fixtures-fridge';
 import { createDemoHistory } from '../src/fixtures-demo-history';
 import { createSimulatedPrivate, createSimulatedCoordination, createSimulatedCalendar, createSimulatedCheckIn, createSimulatedCareFacts } from '../src/fixtures-simulated';
 import village from '../src/subgraphs/village';
@@ -22,7 +23,7 @@ pg.types.setTypeParser(1082, value => value);
 const db = await guideDatabase();
 process.once('uncaughtException',async error=>{console.error(error.message);await db.close();process.exit(1)});
 process.once('unhandledRejection',async error=>{console.error(error);await db.close();process.exit(1)});
-for (const source of [createSimulatedPrivate(),createSimulatedCalendar(),createSimulatedCheckIn(),createSimulatedCareFacts(),createDemoHistory(),createSimulatedCoordination()]) {
+for (const source of [createSimulatedPrivate(),createSimulatedCalendar(),createSimulatedCheckIn(),createSimulatedCareFacts(),createDemoHistory(),createSimulatedCoordination(),createFridgeSeed()]) {
  for (const [table, rows] of Object.entries(source)) if (Array.isArray(rows)) await insertRows(db.admin,table,rows);
 }
 await db.admin.query('select seed_recorded_places(); select seed_event_place_links()');
