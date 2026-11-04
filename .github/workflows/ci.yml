@@ -142,7 +142,7 @@ jobs:
 
       - name: Mission Control exact-record drilldowns
         if: steps.detect.outputs.present == 'true'
-        run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx src/features/orbit/controller.test.ts src/features/village-map/guideBoundary.test.tsx src/features/village-map/perspectiveBoundary.test.tsx src/features/village-map/readerLifetime.test.ts src/features/personas/careInformation.test.tsx --maxWorkers=1
+        run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx src/features/orbit/controller.test.ts src/features/village-map/guideBoundary.test.tsx src/features/village-map/perspectiveBoundary.test.tsx src/features/village-map/readerLifetime.test.ts src/features/personas/careInformation.test.tsx src/components/signature/villageRead.test.ts src/components/signature/AuthorizedVillage.test.tsx --maxWorkers=1
 
       - name: Reset perspective and recovery regressions
         if: steps.detect.outputs.present == 'true'
