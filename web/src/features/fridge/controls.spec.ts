@@ -1,0 +1,53 @@
+import {test,expect} from '@playwright/test'
+const live=process.env.FRIDGE_CONTROLS_LIVE==='1'
+for(const guide of [false,true])test(`${guide?'Demo guide':'Kendra'} retains every browsing control`,async({page},info)=>{
+ await page.goto(live?'/#/fridge':`/src/features/fridge/fixtures/family-finishes.html?child=p_nora${guide?'&role=guide':''}`)
+ if(live){
+  await page.getByRole('button',{name:guide?'Explore as the Demo guide':'Explore as Kendra',exact:true}).click()
+  await expect(page.getByRole('link',{name:'The Fridge',exact:true})).toBeVisible()
+  if(guide)await page.getByRole('link',{name:'The Fridge',exact:true}).click()
+ }
+ const viewer=page.getByRole('region',{name:'Fridge viewer',exact:true})
+ await expect(viewer).toBeVisible()
+ const controls=page.getByRole('group',{name:'Fridge controls',exact:true})
+ await expect(controls).toBeVisible()
+ await expect(page.getByText('Read-only perspective.',{exact:true})).toHaveCount(0)
+ for(const [name,door] of [['Open collage door','notes'],['Open goals door','goals']]){
+  await controls.getByRole('button',{name,exact:true}).click()
+  await expect(viewer).toHaveAttribute('data-view',door)
+  await controls.getByRole('button',{name:'← Back to fridge',exact:true}).click()
+  await expect(viewer).toHaveAttribute('data-view','overview')
+ }
+ await controls.getByRole('button',{name:/^(View family album|Add from family album)$/}).click()
+ await expect(page.getByRole('dialog')).toContainText('Your family album')
+ await page.locator('.fridge-album-grid button').first().click()
+ await expect(page.getByRole('region',{name:'Artwork preview'})).toBeVisible()
+ await page.getByRole('button',{name:'Close album',exact:true}).click()
+ for(const [name,title] of [[/^(Goal details|Manage goals)$/,'Whiteboard'],[/^Family notes/,'Family notes']] as const){
+  const trigger=controls.getByRole('button',{name})
+  await trigger.click()
+  await expect(page.getByRole('dialog')).toContainText(title)
+  await page.getByRole('button',{name:'Close editor',exact:true}).click()
+  await expect(trigger).toBeFocused()
+ }
+ const zoom=controls.getByRole('group',{name:'Zoom controls',exact:true})
+ await expect(zoom.getByRole('button',{name:'Zoom out',exact:true})).toBeDisabled()
+ await zoom.getByRole('button',{name:'Zoom in',exact:true}).click()
+ await expect.poll(()=>viewer.getAttribute('data-scale')).not.toBe('1')
+ await zoom.getByRole('button',{name:'Zoom out',exact:true}).click()
+ await expect(viewer).toHaveAttribute('data-scale','1')
+ await zoom.getByRole('button',{name:'Zoom in',exact:true}).click()
+ await zoom.getByRole('button',{name:'Reset view',exact:true}).click()
+ await expect(viewer).toHaveAttribute('data-scale','1')
+ const help=controls.getByRole('button',{name:'Fridge layout and keyboard help',exact:true})
+ await help.focus();await page.keyboard.press('Enter')
+ await expect(page.getByRole('heading',{name:'Make yourself at home'})).toBeVisible()
+ await page.keyboard.press('Escape');await expect(help).toBeFocused()
+ const bounds=await controls.boundingBox();expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+ const buttons=await controls.getByRole('button').evaluateAll(nodes=>nodes.map(n=>({name:n.getAttribute('aria-label')||n.textContent,height:n.getBoundingClientRect().height})))
+ for(const button of buttons)expect(button.height,button.name??'button height').toBeGreaterThanOrEqual(44)
+ await page.screenshot({path:`/tmp/fridge-controls-${live?'public':'local'}-${guide?'guide':'kendra'}-${info.project.name}.png`})
+ await page.emulateMedia({reducedMotion:'reduce',colorScheme:'dark'})
+ await expect(help).toHaveCSS('transition-duration','0s')
+ await help.click();await page.getByRole('button',{name:'Close fridge help',exact:true}).click()
+})

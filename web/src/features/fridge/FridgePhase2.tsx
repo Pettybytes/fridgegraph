@@ -1,6 +1,6 @@
 import {cloneElement,isValidElement,createContext,useContext,useEffect,useRef,useState,type ComponentProps} from 'react'
 import {Dialog} from 'radix-ui'
-import {FgButton} from '@/components/fg/primitives'
+import {FridgeButton as FgButton} from './FridgeControls'
 import {Fridge} from './Fridge'
 import {latestCaptions} from './captions'
 import {FridgeIntake} from './FridgeIntake'
@@ -52,5 +52,5 @@ function Ready({fridge,viewer,service}:Omit<Props,'enabled'> & {service:Phase2Se
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>openSection('goals')}>{editing.canWrite?'Manage goals':'Goal details'}</FgButton>
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>openSection('notes')}>Family notes{editing.notes.kind==='ready'?` (${editing.notes.items.length})`:''}</FgButton>
  </>}/>
- <Dialog.Root open={section!==null} onOpenChange={open=>{if(!open)setSection(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog fridge-editor-dialog" onCloseAutoFocus={event=>{event.preventDefault();editorOpener.current?.focus()}}><div className="fridge-editor-heading"><div><Dialog.Title>{section==='goals'?'Whiteboard':'Family notes'}</Dialog.Title><Dialog.Description>{editing.canWrite?'Review your changes before saving.':viewer.role==='GUIDE'?'Demo guide is read-only.':'Read-only perspective.'}</Dialog.Description></div><Dialog.Close className="fridge-editor-close" aria-label="Close editor">Close</Dialog.Close></div>{section==='goals'?<FridgeGoalsEditor editing={editing}/>:<FridgeNotesEditor editing={editing} viewer={viewer}/>}</Dialog.Content></Dialog.Portal></Dialog.Root></>
+ <Dialog.Root open={section!==null} onOpenChange={open=>{if(!open)setSection(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog fridge-editor-dialog" onCloseAutoFocus={event=>{event.preventDefault();editorOpener.current?.focus()}}><div className="fridge-editor-heading"><div><Dialog.Title>{section==='goals'?'Whiteboard':'Family notes'}</Dialog.Title><Dialog.Description>{editing.canWrite?'Review your changes before saving.':'Explore the family notes and goals.'}</Dialog.Description></div><Dialog.Close className="fridge-editor-close" aria-label="Close editor">Close</Dialog.Close></div>{section==='goals'?<FridgeGoalsEditor editing={editing}/>:<FridgeNotesEditor editing={editing} viewer={viewer}/>}</Dialog.Content></Dialog.Portal></Dialog.Root></>
 }
