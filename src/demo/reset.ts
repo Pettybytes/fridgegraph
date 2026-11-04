@@ -15,6 +15,7 @@ import { createSimulatedCheckIn } from '../fixtures-simulated';
 import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
 import { createCastV2 } from '../fixtures-cast-v2';
+import { createFridgeSeed } from '../fixtures-fridge';
 import { createDemoHistory } from '../fixtures-demo-history';
 import { dropPersonaSessionCache } from './persona-sessions';
 import { purgeFamilyArtifacts, reconcileAbandonedFamilies, type FamilyRow } from './family';
@@ -98,6 +99,8 @@ function castRowsByTable(): Record<string, Row[]> {
   const cv = createCastV2() as unknown as Record<string, Row[]>;
   const out: Record<string, Row[]> = {};
   for (const [table, rows] of Object.entries(cv)) if (Array.isArray(rows)) out[table] = rows;
+  // Restore family Fridge rows after Cast has supplied every child and author.
+  for (const [table, rows] of Object.entries(createFridgeSeed())) out[table] = [...(out[table] ?? []), ...rows];
   return out;
 }
 

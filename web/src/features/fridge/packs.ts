@@ -1,3 +1,5 @@
+import {fridgeFamilies} from '../../../../src/fixtures-fridge'
+import {invitationText} from '../invites/renderInvite'
 import raw from '../../../public/fridge/packs/manifest.v1.json'
 import {parsePackManifest,resolvePack,type FamilyPack} from './packManifest'
 import type {Slot} from './model'
@@ -16,5 +18,17 @@ export const ellisonSlots=ellison?slots(ellison):[]
 export const ellisonAlbum=ellison?album(ellison):[]
 export function familyArt(childId:string):{id:string|null;label:string;slots:Slot[];album:AlbumAsset[]}{
  const pack=resolvePack(manifest,childId)
- return pack?{id:pack.id,label:'Family artwork',slots:slots(pack),album:album(pack)}:{id:null,label:'A little space for your family',slots:[],album:[]}
+ const family=fridgeFamilies.find(f=>f.children.some(id=>id===childId))
+ if(!family)return {id:null,label:'Family artwork',slots:[],album:[]}
+ const photos:Slot[]=family.photos.map((asset,index)=>({
+  id:`${family.key}-${asset}`,kind:'photo',asset,text:`${family.name} · ${['A favorite afternoon','Little everyday moments','Out together'][index]}`,
+  caption:'Fictional family collage photograph. Existing Higgsfield artwork.',owner:null,source:'sample',magnet:(['heart','flower','bus'] as const)[index],
+  position:[{x:.215,y:.125,width:.126,rotation:-5},{x:.351,y:.14,width:.104,rotation:5},{x:.244,y:.238,width:.169,rotation:-3}][index],
+ }))
+ const event={childFirstName:family.name,occasion:family.occasion,date:family.date,startTime:'14:00',endTime:null,timezone:'America/Detroit' as const,placeLabel:family.place,hostName:'',message:'Please join us to celebrate!'}
+ const invitation:Slot={id:`${family.key}-invitation`,kind:'event',variant:'save-date',image:{src:'/invites/sample-art.png',alt:`${family.occasion} invitation artwork`},text:family.occasion,lines:[family.occasion,...invitationText(event).slice(2,5)],caption:`Fictional invitation from the Invitations card template. ${invitationText(event).join('. ')} No invitation sent.`,owner:null,source:'sample',magnet:'heart',position:{x:.211,y:.457,width:.24,rotation:-2}}
+ const slip:Slot={id:`${family.key}-permission-slip`,kind:'form',image:{src:'/fridge/samples/lincoln-permission-slip-photo.png',alt:'Fictional school permission slip'},text:'School permission slip',heading:'School paper',caption:'Fictional school permission slip. No signature or consent is recorded here.',owner:null,source:'sample',paper:0,magnet:'grade',position:{x:.219,y:.29,width:.108,rotation:-3}}
+ const art=pack?slots(pack).filter(slot=>slot.variant!=='save-date'):[...photos,slip]
+ const images=pack?album(pack):photos.map(slot=>({id:slot.id,title:slot.text,src:`/fridge/samples/${slot.asset}-1440.webp`,srcSet:[360,720,1440].map(w=>`/fridge/samples/${slot.asset}-${w}.webp ${w}w`).join(', '),body:slot.caption}))
+ return {id:pack?.id??`${family.key}-fridge-v1`,label:'Fictional family artwork',slots:[...art,invitation],album:images}
 }

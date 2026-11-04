@@ -61,7 +61,7 @@ it('discards a late compatibility result and clears an open editor on context sw
  let resolve!:(value:Compatibility)=>void;const old=service();old.check=()=>new Promise<Compatibility>(done=>{resolve=done})
  const view=render(<FridgePhase2 fridge={fridge} viewer={viewer} service={old} enabled/>)
  view.rerender(<FridgePhase2 fridge={{...fridge,childId:'other'}} viewer={{...viewer,sessionKey:'two',role:'GUIDE'}} service={service()} enabled/>)
- fireEvent.click(await screen.findByRole('button',{name:'Family notes'}));expect(await screen.findByText('Fridge notes are not shared with this perspective.')).toBeInTheDocument()
+ fireEvent.click(await screen.findByRole('button',{name:'Family notes'}));expect(await within(screen.getByRole('dialog')).findByText(/Nora picked the next library book/)).toBeInTheDocument();expect(screen.queryByRole('button',{name:'Post privately'})).not.toBeInTheDocument()
  await act(async()=>resolve({kind:'ready'}));expect(screen.queryByRole('button',{name:'Manage goals'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Post privately'})).not.toBeInTheDocument()
  view.rerender(<FridgePhase2 fridge={{...fridge,childId:'third'}} viewer={{...viewer,sessionKey:'three'}} service={service('absent')} enabled/>)
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

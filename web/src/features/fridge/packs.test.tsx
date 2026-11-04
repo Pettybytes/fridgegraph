@@ -5,8 +5,9 @@ import {familyArt,ellisonSlots} from './packs'
 import {type FridgeReader} from './model'
 afterEach(()=>{cleanup();history.replaceState(null,'','#/fridge')})
 it('selects approved art by recorded child ID, never by a display name',()=>{
- expect(familyArt('p_nora').slots).toEqual(ellisonSlots)
- for(const id of ['p_jax','Nora','Ellison','unknown'])expect(familyArt(id).slots).toEqual([])
+ expect(familyArt('p_nora').slots.filter(s=>s.kind==='photo')).toEqual(ellisonSlots.filter(s=>s.kind==='photo'))
+ expect(familyArt('p_jax').slots.filter(s=>s.kind==='photo')).toHaveLength(3)
+ for(const id of ['Nora','Ellison','unknown'])expect(familyArt(id).slots).toEqual([])
  expect(ellisonSlots.every(slot=>slot.source==='sample'&&slot.owner===null&&!slot.destination)).toBe(true)
 })
 it('shows DOM sample content and preserves independent caller reads with the pack',async()=>{
@@ -17,7 +18,7 @@ it('shows DOM sample content and preserves independent caller reads with the pac
  expect(screen.getByRole('button',{name:'The family dog'})).toBeInTheDocument()
  expect(screen.getByText('Family dinner · Sunday 6 PM')).toBeInTheDocument()
  expect(screen.queryByText('Sample note')).not.toBeInTheDocument()
- expect(screen.getByText('Saturday, December 12, 2026')).toBeInTheDocument()
+ expect(screen.getByText('Saturday, November 21, 2026')).toBeInTheDocument()
  fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.click(screen.getByRole('button',{name:'Permission slip'}));expect(screen.getByRole('dialog')).toHaveTextContent('Not submitted; no consent record created.')
  expect(screen.queryByRole('button',{name:/sign|submit|book/i})).not.toBeInTheDocument()
 })
@@ -27,7 +28,7 @@ it('clears pack artwork and dialogs when the selected family changes',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.click(screen.getByRole('button',{name:'The family dog'}))
  view.rerender(<Fridge personId="p_dana" childId="p_jax" generation={2} reader={reader} sampleSlots={jax.slots} artLabel={jax.label}/>)
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'The family dog'})).not.toBeInTheDocument()
- expect(screen.queryByRole('button',{name:'A quiet afternoon'})).not.toBeInTheDocument();expect(screen.getByText(/There’s no artwork in this family album yet/)).toBeInTheDocument()
+ expect(screen.queryByRole('button',{name:'A quiet afternoon'})).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Jax · A favorite afternoon'})).toBeInTheDocument()
 })
 it('keeps layout instructions in an accessible help popover',()=>{
  render(<Fridge personId="p" childId="c" generation={1} reader={{read:async()=>({status:'empty'})}}/>)
@@ -41,5 +42,5 @@ it('offers readable overview sample cards and keeps the save-the-date time conci
  const art=familyArt('p_nora')
  render(<Fridge personId="p_mom" childId="p_nora" generation={1} reader={{read:async()=>({status:'empty'})}} sampleSlots={art.slots} artLabel={art.label}/>)
  for(const name of ['Retirement','Permission slip','Sitter schedule'])expect(screen.getByRole('button',{name:`Open decorative ${name}`})).toHaveTextContent(name)
- expect(screen.getByText('2 PM')).toBeInTheDocument();expect(screen.queryByText(/America\/Detroit/)).not.toBeInTheDocument()
+ expect(screen.getByText('2:00 PM · Detroit time')).toBeInTheDocument();expect(screen.queryByText(/America\/Detroit/)).not.toBeInTheDocument()
 })

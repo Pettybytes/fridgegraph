@@ -674,6 +674,8 @@ const resolvers = {
         dbFor(ctx).from('goals').select(GOAL_COLUMNS).eq('child_id', childId),
       );
       const mapped = data.map(toGoal);
+      // The existing demo_guide_goals RLS policy limits this verified guide to sandbox children.
+      if (ctx.demoGuide) return mapped;
       if (await isParentOf(ctx, childId)) return mapped;
       // A grant holder sees approved goals only; a PROPOSED goal is for parents. Unchanged.
       const grants = await ownGrants(ctx, childId);
