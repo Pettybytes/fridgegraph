@@ -25,6 +25,7 @@ import {
   SIMULATED_LABEL,
 } from '../src/fixtures-simulated';
 import { createCastV2 } from '../src/fixtures-cast-v2';
+import { seedFridge } from '../src/fixtures-fridge';
 
 function parseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -243,6 +244,9 @@ export async function seedDatabase() {
       : raw;
     total += await upsert(t, rows, CONFLICT[t]);
   }
+
+  // Fridge records share this seed/reset path; never write them from a browser bootstrap.
+  total += await seedFridge(upsert);
 
   // Places LAST: the canonical place rows (0062) reference households, and the event links reference
   // both the events and those places. Both helpers are idempotent; a fresh seed that skipped them

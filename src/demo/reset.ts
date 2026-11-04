@@ -14,6 +14,7 @@ import { createSimulatedCheckIn } from '../fixtures-simulated';
 import { createSimulatedCareFacts } from '../fixtures-simulated';
 import { createSimulatedPrivate } from '../fixtures-simulated';
 import { createCastV2 } from '../fixtures-cast-v2';
+import { createFridgeSeed } from '../fixtures-fridge';
 import { createDemoHistory } from '../fixtures-demo-history';
 import { dropPersonaSessionCache } from './persona-sessions';
 import { deleteCreatedFamilies, purgeFamilyArtifacts, reconcileAbandonedFamilies, type FamilyRow } from './family';
@@ -71,6 +72,7 @@ const ID_TABLES = [
 ] as const;
 
 function pkOf(table: string): string[] {
+  if (table === 'fridge_item_preferences') return ['child_id', 'kind', 'item_id'];
   if (table === 'care_facts') return ['child_id', 'key'];
   if (table === 'household_policies') return ['household_id', 'rule'];
   if (table === 'household_members') return ['person_id', 'household_id'];
@@ -155,7 +157,7 @@ function castRowsByTable(): Record<string, Row[]> {
 }
 
 /** Idempotent upsert of one table's rows. Column set is taken from the rows themselves. */
-async function upsertRows(c: pg.Client, table: string, rows: Row[]): Promise<number> {
+async function upsertRows(c: Pick<pg.Client, 'query'>, table: string, rows: Row[]): Promise<number> {
   if (!rows.length) return 0;
   const keys = pkOf(table);
   const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
@@ -177,6 +179,16 @@ async function upsertRows(c: pg.Client, table: string, rows: Row[]): Promise<num
   }
   return n;
 }
+
+/** Restore the same deterministic Fridge catalog within the caller's transaction. */
+export async function restoreFridgeFixtures(c: Pick<pg.Client, 'query'>): Promise<Record<string, number>> {
+  const restored: Record<string, number> = {};
+  for (const [table, rows] of Object.entries(createFridgeSeed())) {
+    restored[table] = await upsertRows(c, table, rows);
+  }
+  return restored;
+}
+
 
 export type ResetReport = {
   restored: Record<string, number>;
@@ -255,6 +267,11 @@ export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
       if (!rows.length) continue;
       const n = await upsertRows(c, table, rows);
       if (n) restored[table] = (restored[table] ?? 0) + n;
+    }
+
+    // Fridge content follows Cast so every child and author already exists.
+    for (const [table, count] of Object.entries(await restoreFridgeFixtures(c))) {
+      restored[table] = (restored[table] ?? 0) + count;
     }
 
     // Geographic seed (0062): coordinates + canonical event→place links, restored through the

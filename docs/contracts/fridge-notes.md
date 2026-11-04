@@ -1,20 +1,12 @@
 # Contract — Fridge backend, Phase 2 (goals CRUD + fridge notes)
 
-Status: **STAGED, NOT APPLIED.** `feat/fridge-notes` (#157) merged the code and the staged
-migration file `0083_fridge_phase2.sql` into `main` — the file itself has **never been applied to
-any database**, shared or disposable. A correction after that merge (`fix/0083-goals-provenance`,
-this branch) fixed a real `goals.sandbox` provenance bug found in review before any live apply —
-see §3. The migration's content hash changed as a result; §3 and the PR record the new one. Every
-proof in this contract still runs exclusively on a disposable, loopback-bound Postgres container
-this session creates and removes.
+Status: Phase 2 is consumed by the live Fridge UI. Applied migration state belongs to the operator's catalog; never infer it from this document. Existing migrations remain immutable.
 
-Relationship to `#153` (`feat/fridge-experience`, draft, web-only): that PR builds **The Fridge**
-UI — a photographic collage with a **read-only** goals whiteboard and mock/visual-only paper notes
-for care/Orbit feedback. It explicitly states "No completion/edit actions or invented time
-buckets" for goals, and that its goals read stays exactly `goals(childId) { title horizon status
-}` — nothing this contract adds is consumed by `#153` today. **Layout/position storage is
-browser-local, per-person, geometry-only** (`#153`'s own words) — this backend never stores,
-reads, or implies shared note positioning. This contract does not modify any `#153` file.
+The Fridge persists notes and goals through the caller's GraphQL client, and positions and handwriting through the Fridge preferences API introduced in `0094`. Captions and marker choices are server-backed, not browser-local.
+
+The family-finish follow-up stages `0096_fridge_demo_guide_reads.sql`. It gives the verified demo guide SELECT access only to deterministic `fridge_demo_note_` notes on sandbox children and to the corresponding sandbox-family arrangement. It grants no write authority. Ordinary parent/caregiver audiences and private-media checks are unchanged. The existing sandbox goals RLS policy remains the guide's goals boundary.
+
+`src/fixtures-fridge.ts` defines the fictional goals, notes and styles. `scripts/db.ts` calls its seed helper from `seedDatabase()`. The app’s Reset demo route restores the same catalog through `restoreFridgeFixtures()` inside its existing locked transaction, after the family and child rows. Fixed IDs make reseeding idempotent. The operator applies the staged migration and restores the deterministic seed through the established path; feature agents do not apply either to the shared database during tests.
 
 Owner: `village` subgraph (port 4001) — same owner as the existing `goals`/`care_plans` tables,
 for the same reason: parent-authored, child-scoped content, no cross-table atomicity need. A new

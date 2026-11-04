@@ -95,7 +95,7 @@ describe('Phase 2 Fridge editing UI', () => {
     expect(remove).toHaveBeenCalledWith({ id: 'note_dana' })
   })
 
-  it('shows no edit controls for caregiver or guide; guide notes remain refused', async () => {
+  it('shows no edit controls for caregiver or guide; guide reads only the notes supplied by the server', async () => {
     const caregiver: FridgeViewer = { personId: 'dana', role: 'CAREGIVER', sessionKey: 'dana-1' }
     const view = mount(mockFridgeEditingAdapter(sampleGoals.filter(goal => goal.status === 'APPROVED'), sampleNotes.filter(note => note.audience === 'SHARED')), caregiver)
     await screen.findByText('Read together after school')
@@ -104,8 +104,9 @@ describe('Phase 2 Fridge editing UI', () => {
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
     view.rerender(<FridgeEditing adapter={mockFridgeEditingAdapter(sampleGoals.filter(goal => goal.status === 'APPROVED'))} childId="nora" viewer={{ personId: 'guide', role: 'GUIDE', sessionKey: 'guide-1' }} />)
-    expect(await screen.findByText('Fridge notes are not shared with this perspective.')).toBeInTheDocument()
-    expect(screen.queryByText(/Nora picked the next library book/)).not.toBeInTheDocument()
+    expect(await screen.findByText(/Nora picked the next library book/)).toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Post privately'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Edit note'})).not.toBeInTheDocument()
   })
 
   it('renders guardian editing controls against the parent/guardian contract', async () => {

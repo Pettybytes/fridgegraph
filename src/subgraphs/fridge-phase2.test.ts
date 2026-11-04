@@ -60,6 +60,7 @@ function fakeTable(rows: Row[]) {
   let lastUpdate: Row | null = null;
   const builder = {
     select() { return builder; },
+    then(onf: (v: {data:Row[];error:null})=>unknown) {return Promise.resolve({data:rows.filter(r=>filters.every(f=>f(r))),error:null}).then(onf)},
     eq(col: string, val: unknown) { filters.push((r) => r[col] === val); return builder; },
     insert(row: Row) {
       lastInsert = { ...row };
@@ -130,4 +131,9 @@ test('postFridgeNote derives authorId from current_person() and maps the GraphQL
   assert.equal(notesRows[0].paper_color, 'pink');
   assert.equal(result.paperColor, 'PINK');
   assert.equal(result.authorId, 'p_priya');
+});
+test('verified guide receives only the goals already returned by sandbox RLS',async()=>{
+ const ctx={...ctxFor('p_demo_guide',[{id:'demo',child_id:'p_nora',title:'A fictional goal',status:'APPROVED'}],[]),demoGuide:true};
+ const goals=await village.Query.goals(null,{childId:'p_nora'},ctx);
+ assert.equal(goals.length,1);assert.equal(goals[0].title,'A fictional goal');
 });

@@ -28,3 +28,8 @@ test('database authorization and unavailable migration errors never report a sav
 test('reads use a separate read-only RPC',async()=>{
  const result=await call({childId:'p_nora'},{method:'GET'});assert.deepEqual(result.calls,[{bearer:'fixture-caller',name:'read_fridge_preferences',args:{p_child:'p_nora'}}]);
 });
+test('verified guide reads use RLS through the read RPC but cannot write',async()=>{
+ const result=await call({childId:'p_nora'},{method:'GET',identity:{...parent,demoGuide:true}});
+ assert.equal(result.status,200);
+ assert.deepEqual(result.calls,[{bearer:'fixture-caller',name:'read_fridge_preferences',args:{p_child:'p_nora'}}]);
+});
