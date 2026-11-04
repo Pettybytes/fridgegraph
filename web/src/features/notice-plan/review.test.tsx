@@ -116,6 +116,8 @@ it('keeps live review read-only until click and never presents its result as a m
  expect(screen.queryByText('Mock review · No records created')).not.toBeInTheDocument()
  fireEvent.click(screen.getByRole('button',{name:'Confirm pickup request'}))
  expect(await screen.findByText('Pickup request created')).toBeVisible()
+ expect(screen.getByText(/Job ID:/)).toBeVisible()
+ expect(screen.getByText('persisted-job')).toBeVisible()
  expect(screen.getByText(/Pickup is not arranged yet/)).toBeVisible()
  expect(screen.queryByText('Mock pickup request shown')).not.toBeInTheDocument()
  expect(doConfirm).toHaveBeenCalledTimes(1)
