@@ -1,6 +1,8 @@
 import { gql, type ApolloClient } from '@apollo/client'
-import { useCallback } from 'react'
-import { useCachedResource } from '@/lib/frontendData/resourceCache'
+import { useCallback, useState } from 'react'
+import { useCachedResource, storeResource, invalidateResources } from '@/lib/frontendData/resourceCache'
+import {FgButton} from '@/components/fg/primitives'
+import './care-plan-edit.css'
 import { RouteSkeleton } from '@/app/RouteSkeleton'
 import { useChildAccess } from './childContext'
 import { useSession } from './Session'
@@ -39,6 +41,18 @@ export async function readCareInformation(client:ApolloClient|null,childId:strin
   })
 }
 function LiveCareInformation({childId,childName,client,runRead}:{childId:string;childName:string;client:ApolloClient|null;runRead?:<T>(read:()=>Promise<T>)=>Promise<T>}) {
+  const {session}=useSession()
+  const canEdit=!!session&&(session.persona.parent||session.persona.guardian===true)&&(!session.marks?.demoGuide||session.marks.showcaseEditor===true)
+  const [editing,setEditing]=useState(false),[draft,setDraft]=useState(''),[saving,setSaving]=useState(false),[saveMessage,setSaveMessage]=useState('')
+  async function save(){
+    if(!client||!runRead||!canEdit||saving||!draft.trim())return
+    setSaving(true);setSaveMessage('')
+    try {
+      const result=await client.mutate<{updateCarePlan:{text:string}}>({mutation:gql`mutation WebUpdateCarePlan($childId:ID!,$text:String!){updateCarePlan(childId:$childId,text:$text){text}}`,variables:{childId,text:draft}})
+      if(!result.data?.updateCarePlan)throw Error('Missing receipt')
+      invalidateResources(client);storeResource(client,`care:${childId}`,{plan:result.data.updateCarePlan,facts:state.facts??[]});window.dispatchEvent(new Event('frontend:changed'));setEditing(false);setSaveMessage('Care plan saved.')
+    }catch{setSaveMessage('Care plan was not saved. Try again.')}finally{setSaving(false)}
+  }
   const load=useCallback(()=>readCareInformation(client,childId,runRead),[client,childId,runRead])
   const cached=useCachedResource(client,`care:${childId}`,load,2500)
   const state:CarePlanState=!client?{status:'error'}:cached?.error?{status:/UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|AUTH_ERROR/.test(cached.error)?'refused':'error'}:!cached?{status:'loading'}:cached.value&&(cached.value.plan||cached.value.facts.length)?{status:'ready',text:cached.value.plan?.text,facts:cached.value.facts}:{status:'empty'}
@@ -46,6 +60,14 @@ function LiveCareInformation({childId,childName,client,runRead}:{childId:string;
   if(state.status==='loading')return <RouteSkeleton />
   if(state.status==='refused')return <section className="care-information" role="alert">This isn't shared with you.</section>
   if(state.status==='error')return <section className="care-information" role="alert">Couldn't load this just now.</section>
-  if(state.status==='empty')return <section className="care-information" data-state="empty">No records are available to this view.</section>
-  return <section className="care-information" aria-label="Care information" data-state="live" data-source="live"><h2>Care information for {firstName}</h2><p>{state.text}</p>{!!state.facts?.length&&<dl>{state.facts.map(fact=><div key={fact.id}><dt>{fact.key.replaceAll('_',' ')}</dt><dd>{fact.value}<p>Source: {fact.source.kind.replaceAll('_',' ')} · {fact.source.ref}</p></dd></div>)}</dl>}<p>{sourceCitation(`${firstName}'s care plan`)}</p></section>
+  if(state.status==='empty'&&!canEdit)return <section className="care-information" data-state="empty">No records are available to this view.</section>
+  return <section className="care-information" aria-label="Care information" data-state="live" data-source="live"><h2>Care information for {firstName}</h2><p>{state.text}</p>{!!state.facts?.length&&<dl>{state.facts.map(fact=><div key={fact.id}><dt>{fact.key.replaceAll('_',' ')}</dt><dd>{fact.value}<p>Source: {fact.source.kind.replaceAll('_',' ')} · {fact.source.ref}</p></dd></div>)}</dl>}<p>{sourceCitation(`${firstName}'s care plan`)}</p>
+    {canEdit&&(editing?<form className="care-plan-edit" onSubmit={event=>{event.preventDefault();void save()}}>
+      <label>Care plan<textarea value={draft} maxLength={10000} required onChange={event=>setDraft(event.target.value)} disabled={saving}/></label>
+      <p>Saving replaces the care plan shared with this child's authorized caregivers.</p>
+      <FgButton type="submit" disabled={saving||!draft.trim()}>{saving?'Saving…':'Save care plan'}</FgButton>
+      <FgButton type="button" variant="secondary" disabled={saving} onClick={()=>setEditing(false)}>Cancel</FgButton>
+    </form>:<FgButton type="button" onClick={()=>{setDraft(state.text??'');setEditing(true);setSaveMessage('')}}>Edit care plan</FgButton>)}
+    <p role="status">{saveMessage}</p>
+  </section>
 }

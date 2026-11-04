@@ -75,10 +75,10 @@ export function InvitesPanel({ mode = 'mock', createInvite }: { mode?: 'mock' | 
   const childName = child?.selectedChildName ?? ''
   const firstName = childName.trim().split(/\s+/)[0] || 'Child'
   const permitted = !!session && !!child && (session.persona.parent || session.persona.guardian) &&
-    !session.marks?.demoGuide && session.scope.childId === childId
+    (!session.marks?.demoGuide||session.marks.showcaseEditor===true) && session.scope.childId === childId
   const creator = useMemo(() => createInvite ?? (mode === 'mock' ? createMockInvite(firstName) : null), [createInvite, mode, firstName])
   const identityKey = `${session?.generation ?? 'signed-out'}:${session?.persona.personId ?? ''}:${childId}`
-  if (session?.marks?.demoGuide && mode === 'live') return <RecordedInvitations key={identityKey} />
+  if (session?.marks?.demoGuide && !session.marks.showcaseEditor && mode === 'live') return <RecordedInvitations key={identityKey} />
   if (!permitted) return <Surface className="invites-panel" role="region" aria-label="Invitations unavailable">
     <h2>Invitations</h2><InlineFeedback tone="warning">Only a parent or guardian viewing their child can prepare an invitation.</InlineFeedback>
   </Surface>

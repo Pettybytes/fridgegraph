@@ -80,7 +80,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   const panelRef = useRef<HTMLElement>(null), focusMicOnOpen = useRef(false)
   const askFromToday = useRef<(message:string)=>void>(()=>{})
   const sent = useRef(false), executed = useRef(new Set<string>())
-  const context = { ...calendarScope, canPrepareOrbit:orbit?.canPrepare()??false, readOnly: session?.marks?.demoGuide===true, childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
+  const context = { ...calendarScope, canPrepareOrbit:orbit?.canPrepare()??false, readOnly: (session?.marks?.demoGuide===true&&!session.marks.showcaseEditor), childId: session?.scope.childId ?? null, parent: session?.persona.parent ?? false, visiblePeople: people, canReadCare: !!session && (session.persona.parent || session.persona.grants.includes('careplan.read')) }
   useEffect(() => {
     active.current = true
     const unregister = registerPrivateCleanup(() => {
@@ -236,7 +236,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   const focusedChildId = child?.selectedChildId ?? session?.scope.childId
   const latestReport = [...messages].reverse().find(message => message.schoolReportProposal)?.schoolReportProposal
   const reportAccessLoading = adapter.mode === 'live' && child?.authorized.status === 'loading'
-  const mayReport = (proposal:SchoolReportProposal) => !!session && !session.marks?.demoGuide && proposal.childId === focusedChildId &&
+  const mayReport = (proposal:SchoolReportProposal) => !!session && (!session.marks?.demoGuide||session.marks.showcaseEditor===true) && proposal.childId === focusedChildId &&
     (adapter.mode === 'mock' ? session.persona.grants.includes('school.report') : child?.authorized.status === 'ready' && child.authorized.children.some(item => item.id === proposal.childId && item.scopes.includes('school.report')))
   function reportCard(message:ThreadMessage) {
     const proposal=message.schoolReportProposal

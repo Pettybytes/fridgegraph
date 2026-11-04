@@ -62,6 +62,7 @@ type Query {
 }
 
 type Mutation {
+  updateCarePlan(childId: ID!, text: String!): CarePlan!
   approveRelationship(relationshipId: ID!): Relationship
   setSharedStatus(emoji: String, text: String!, etaText: String, ttlSeconds: Int): SharedStatus!
   clearSharedStatus: Boolean!

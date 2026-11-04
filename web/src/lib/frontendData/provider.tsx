@@ -54,7 +54,7 @@ export function useSurfaceData<T extends MissionControlData | ParentChatData | V
   return { ...result, loading: result.loading && !result.data }
 }
 export function dataErrorMessage(error: { message: string }): string {
-  if(error.message.includes('DEMO_GUIDE_READ_ONLY'))return 'Demo guide is read-only'
+  if(error.message.includes('DEMO_GUIDE_READ_ONLY'))return 'This action is available only in the showcase family'
   if(error.message.includes('DEMO_OUTREACH_REFUSED'))return 'Calls and texts stay in the demo sandbox.'
   if (error.message.includes('UNAVAILABLE')) return 'This view has nothing to show for this perspective yet.'
   if (error.message.includes('UNAUTHENTICATED') || error.message.includes('AUTH_ERROR')) return 'Your perspective needs a fresh session. Please try again in a moment.'

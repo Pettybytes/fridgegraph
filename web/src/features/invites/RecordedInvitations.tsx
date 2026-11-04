@@ -24,7 +24,7 @@ export function RecordedInvitations() {
  const gatherings=records.childEvents.filter(event=>/party|birthday|celebration|reunion|shower/i.test(event.title))
  return <Surface role="region" aria-label="Recorded invitations" className="invites-panel">
   <h2>Recorded invitations for {access?.selectedChildName}</h2>
-  <p>Demo guide is read-only. Parents and guardians prepare new invitations.</p>
+  <p>Viewing another showcase family. Select Nora, Max or Leo to prepare an invitation.</p>
   {invitations.length?<ul>{invitations.map(job=><li key={job.id}>Invitation {job.id}: {job.status.replaceAll('_',' ')}</li>)}</ul>:<p>No invitation requests have been recorded.</p>}
   <h3>Gatherings on the calendar</h3>
   <p>These are scheduled events. An event is not proof that an invitation was sent.</p>

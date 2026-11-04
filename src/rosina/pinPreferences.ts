@@ -12,7 +12,7 @@ export function createPinPreferencesHandler(deps={
   res.setHeader('Cache-Control','no-store');
   const identity=await deps.verify(req.header('authorization'));
   if(!identity.ok){res.status(401).json({error:'UNAUTHENTICATED'});return}
-  if(identity.demoGuide&&req.method!=='GET'){res.status(403).json({error:'UNAUTHORIZED'});return}
+  if(identity.demoGuide&&identity.personId!=='p_demo_guide'&&req.method!=='GET'){res.status(403).json({error:'UNAUTHORIZED'});return}
   const write=req.method==='POST',body=write?req.body:req.query;
   if(!body||typeof body.childId!=='string'||!body.childId||body.childId.length>120){res.status(400).json({error:'INVALID_REQUEST'});return}
   const bearer=(req.header('authorization')??'').replace(/^Bearer\s+/i,'');

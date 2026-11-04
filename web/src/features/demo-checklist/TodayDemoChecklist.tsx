@@ -39,7 +39,7 @@ export function TodayDemoChecklist({ reopenSignal }: { reopenSignal: number }) {
   if (!guide && session.persona.id !== 'kendra') return null
   const childId = child?.selectedChildId ?? session.scope.childId
   const live = authMode === 'live' && Boolean(session.accessToken)
-  const parent = !guide && session.persona.parent && live
+  const parent = (!guide || session.marks?.showcaseEditor === true) && session.persona.parent && live
   const availability = {
     noticeConfirmReady: parent && import.meta.env.VITE_NOTICE_PLAN_LIVE === 'true',
     villageReady: parent && import.meta.env.VITE_ADD_VILLAGER_LIVE === 'true',
@@ -56,7 +56,7 @@ export function TodayDemoChecklist({ reopenSignal }: { reopenSignal: number }) {
     return success
   } : undefined
   return <div id="today-demo-checklist" tabIndex={-1}>
-    <DemoChecklist demoRunId={runId} personaId={session.persona.id} childId={childId} mode={guide ? 'guide' : 'parent'}
+    <DemoChecklist demoRunId={runId} personaId={session.persona.id} childId={childId} mode={guide && !parent ? 'guide' : 'parent'}
       evidenceLinks={DEMO_CHECKLIST_EVIDENCE} availability={availability} reopenSignal={reopenSignal}
       onReset={onReset} resetFailure={resetError} />
   </div>

@@ -19,11 +19,14 @@ export function GuideDirectory({ children }: { children: ReactNode }) {
 function FocusedGuide({ children }: { children: ReactNode }) {
   const context = useSession(), access = useChildAccess()!
   const session = context.session!
-  const focused = useMemo(() => ({ ...context, session: { ...session, scope: {
-    ...session.scope, childId: access.selectedChildId, childName: access.selectedChildName,
-  } } }), [context, session, access.selectedChildId, access.selectedChildName])
+  const showcaseEditor = access.authorized.status === 'ready' && access.authorized.children.some(child => child.id === access.selectedChildId && child.scopes.includes('showcase.manage'))
+  const focused = useMemo(() => ({ ...context, session: { ...session,
+    persona: { ...session.persona, parent: showcaseEditor },
+    marks: { ...session.marks!, showcaseEditor },
+    scope: { ...session.scope, childId: access.selectedChildId, childName: access.selectedChildName },
+  } }), [context, session, access.selectedChildId, access.selectedChildName, showcaseEditor])
   return <SessionContext.Provider value={focused}>
-    <div key={access.selectedChildId}>{children}</div>
+    <div key={`${access.selectedChildId}:${showcaseEditor}`}>{children}</div>
   </SessionContext.Provider>
 }
 /** Keep the guide directory outside remounted page readers when its focus changes. */

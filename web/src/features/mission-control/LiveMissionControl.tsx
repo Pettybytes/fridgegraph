@@ -19,15 +19,15 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
  return <section className="mcv" aria-label="Mission Control live records" data-state="live" data-execution-state="unavailable"><div className="mcv-scenarios"><strong>Live data · stored demo records</strong><button onClick={()=>setSample(true)}>View sample scenario</button></div>
  {/* Live read provenance does not prove dispatch. No execution-source field is delivered. */}
  <p className="mcv-missing">Sample activity from stored demo records. Calls and texts are simulated in this example; sending isn’t verified here.</p>
- {session?.marks?.demoGuide&&<p className="mcv-missing">Demo guide is read-only</p>}
+ {session?.marks?.demoGuide&&<p className="mcv-missing">Fictional showcase</p>}
  <VillagePulse result={result}/>
  {result.loading&&!data?<RouteSkeleton />:result.error?/UNAUTHORIZED/.test(result.error.message)?accessDenied:<p role="alert">{dataErrorMessage(result.error)}</p>:!run?<div className="mcv-empty"><h2>No recorded pickup run</h2><p>No records are available to this view</p>{!(session?.persona.parent||session?.marks?.demoGuide)&&accessDenied}</div>:<>
  <label>Pickup record<select aria-label="Pickup record" value={run.job.id} onChange={e=>setSelected(e.target.value)}>{runs.map((r,i)=><option key={r.job.id} value={r.job.id}>Pickup {i+1} · {pickupStatusLabel(r.job.status)}</option>)}</select></label>
  <header className="mcv-job"><div><p>{run.timeline.length?'Sample activity':'Pickup record · event times not recorded'}</p><h2>{session?.scope.childName.split(' ')[0]}’s pickup</h2><p>{pickupStatusLabel(run.job.status)}</p></div></header>
  <div className="mcv-lane-grid">{run.attempts.map(a=><article key={a.id} className="mcv-lane"><h3>{a.candidate?.displayName??'Caregiver not recorded'}</h3><span className="mcv-contact">{contactBadge(a.destinationMode)}</span><p>{contactChannelLabel(a.channel)}</p><time dateTime={a.at}>{formatRecordedTime(a.at)}</time><p>{a.closedAt?'Attempt ended · see recorded activity':'Attempt open · no reply recorded'}</p>{a.closedAt&&<time dateTime={a.closedAt}>{formatRecordedTime(a.closedAt)}</time>}</article>)}</div>
  <section className="mcv-decision"><h3>Current caregiver information</h3>{!run.job.candidateEvaluations.length&&<p>No caregiver evaluation has been recorded.</p>}{run.job.candidateEvaluations.map(e=><p key={e.candidate.id}>{e.candidate.displayName}: {reasonLabel(e.reasonCode)}. {e.available===true?'Available':e.available===false?'Not available':'Availability not recorded'}.</p>)}</section>
- <TestOutreachControl run={run} canAct={Boolean(session?.persona.parent&&!session?.marks?.demoGuide)} token={session?.accessToken??null} refetch={()=>{void result.refetch()}}/>
- <LiveApproval run={run} canApprove={Boolean(session?.persona.parent&&!session?.marks?.demoGuide)} refetch={()=>{void result.refetch()}}/>
+ <TestOutreachControl run={run} canAct={Boolean(session?.persona.parent&&(!session?.marks?.demoGuide||session.marks.showcaseEditor===true))} token={session?.accessToken??null} refetch={()=>{void result.refetch()}}/>
+ <LiveApproval run={run} canApprove={Boolean(session?.persona.parent&&(!session?.marks?.demoGuide||session.marks.showcaseEditor===true))} refetch={()=>{void result.refetch()}}/>
  <section className="mcv-timeline"><h3>Recorded activity</h3>{!run.timeline.length?<p>Event times not recorded.</p>:<ol>{run.timeline.map((e,i)=><li key={`${e.at}:${e.kind}:${i}`}><time dateTime={e.at}>{formatRecordedTime(e.at)}</time><div><h4>{title[e.kind]??'Recorded activity'}</h4>{e.candidate&&<p>{e.candidate.displayName}</p>}{e.kind==='ATTEMPT_OPENED'&&<p>{contactChannelLabel(e.detail??'Unknown')}</p>}{e.kind==='ATTEMPT_CLOSED'&&<p>Contact attempt ended. No decline is inferred from silence.</p>}</div></li>)}</ol>}</section>
  </>}
  </section>
@@ -39,7 +39,9 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
 function TestOutreachControl({run,canAct,token,refetch}:{run:StoredRun;canAct:boolean;token:string|null;refetch:()=>void}){
  const [phase,setPhase]=useState<'idle'|'busy'|'sent'|'failed'>('idle')
  if(run.job.status!=='discovering'||!canAct||!token)return null
- if(phase==='idle'&&run.attempts.some(a=>!a.closedAt))return null
+ const open=run.attempts.filter(a=>!a.closedAt)
+ const reusable=open.some(a=>a.destinationMode==='TEST_RESPONDER'&&['p_tasha','p_gma','p_bryan'].includes(a.candidate?.id??''))
+ if(phase==='idle'&&open.length&&!reusable)return null
  async function send(){
   setPhase('busy')
   try{
@@ -51,7 +53,7 @@ function TestOutreachControl({run,canAct,token,refetch}:{run:StoredRun;canAct:bo
  return <aside className="mcv-decision" aria-label="Test outreach">
   <h3>Reach the test caregiver</h3>
   <p>Simulated: this records outreach to a labeled TEST responder inside the demo sandbox. No real call or text goes out.</p>
-  {phase==='idle'&&<button type="button" className="mcv-primary" onClick={()=>{void send()}}>Send the test outreach (simulated)</button>}
+  {phase==='idle'&&<button type="button" className="mcv-primary" onClick={()=>{void send()}}>{reusable?'Receive a test reply (simulated)':'Send the test outreach (simulated)'}</button>}
   {phase==='busy'&&<p role="status">Recording the outreach…</p>}
   {phase==='sent'&&<p role="status">Outreach recorded. The test caregiver's reply lands here in a few seconds.</p>}
   {phase==='failed'&&<p role="alert">That did not go through. Nothing was sent. Try again in a moment.</p>}

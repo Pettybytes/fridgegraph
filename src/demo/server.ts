@@ -280,7 +280,11 @@ export function createDemoLoginApp() {
     if (!url || !key) { res.status(503).json({ error: 'NOT_CONFIGURED' }); return; }
     const service = (path: string, init?: RequestInit) => fetch(`${url}${path}`, { ...init, headers: { apikey: key, authorization: `Bearer ${key}`, ...(init?.headers ?? {}) } });
     const jobId = typeof (req.body as { jobId?: unknown } | undefined)?.jobId === 'string' ? (req.body as { jobId: string }).jobId : '';
-    const outcome = await runTestOutreach({ service }, identity.personId, jobId);
+    const outcome = await runTestOutreach({ service, authorizeChild: async childId => {
+      if (!identity.demo) return false;
+      const {data,error}=await dbFor({today:todayIso(),token:bearerToken(req.headers.authorization)!}).rpc('is_parent_of',{child:childId});
+      return !error && data === true;
+    } }, identity.personId, jobId);
     res.status(outcome.status).json(outcome.body);
   });
 

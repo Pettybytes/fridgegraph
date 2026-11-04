@@ -22,7 +22,7 @@ it('temporary failures leave the persona selectable without a false Coming soon 
 it('guide marks prevent data-changing catalog cards even if a persona claims parent status',()=>{
  const context={childId:'p_nora',parent:true,readOnly:true,visiblePeople:new Set<string>()}
  expect(actionAllowed({id:'start-pickup',args:{childId:'p_nora',date:'2026-10-30',window:'afternoon'}},context)).toBe(false)
- expect(dataErrorMessage({message:'DEMO_GUIDE_READ_ONLY'})).toBe('Demo guide is read-only')
+ expect(dataErrorMessage({message:'DEMO_GUIDE_READ_ONLY'})).toBe('This action is available only in the showcase family')
  expect(dataErrorMessage({message:'DEMO_OUTREACH_REFUSED'})).toBe('Calls and texts stay in the demo sandbox.')
  expect(readyBody('demo-guide').marks.demoGuide).toBe(true)
 })

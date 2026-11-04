@@ -30,11 +30,11 @@ export const personaGroups = [
 ] as const
 export type DemoFamilyInput = { parentName: string; childName: string }
 export type DemoFamily = DemoFamilyInput & { id: string; childId: string }
-export type AuthSession = { persona: Persona; scope: Scope; generation: number; accessToken?: string; expiresAt?: number; marks?: {demo:boolean;demoGuide:boolean} }
-// Reset is limited to seeded parents and guardians. The guide is read-only everywhere.
+export type AuthSession = { persona: Persona; scope: Scope; generation: number; accessToken?: string; expiresAt?: number; marks?: {demo:boolean;demoGuide:boolean;showcaseEditor?:boolean} }
+// The guide uses the server-scoped Ellison restore; seeded parents retain their reset.
 export function canResetDemo(persona:Persona|undefined){
  const seeded=persona&&personas.find(candidate=>candidate.id===persona.id&&candidate.personId===persona.personId)
- return !!seeded&&(seeded.parent||seeded.guardian===true)
+ return !!seeded&&(seeded.parent||seeded.guardian===true||seeded.id==='demo-guide')
 }
 export interface AuthAdapter {
   readonly mode: 'mock' | 'live'

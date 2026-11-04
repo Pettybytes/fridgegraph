@@ -7,7 +7,7 @@
  * audit history are never touched: every delete is scoped to `sandbox = true` or to fixture ids.
  */
 import pg from 'pg';
-import { createShowcaseCalendar } from '../fixtures';
+import { createSeed, createShowcaseCalendar } from '../fixtures';
 import { randomUUID } from 'node:crypto';
 import { createSimulatedCoordination } from '../fixtures-simulated';
 import { createSimulatedCalendar } from '../fixtures-simulated';
@@ -127,6 +127,21 @@ export type ResetDependencies = {
 };
 export function resetSnapshot() { return { fixtures: fixtures(), cast: castRowsByTable() }; }
 
+/** Canonical content for the scoped showcase reset. No client-supplied rows. */
+export function showcaseSnapshot() {
+  const base=createSeed(), {fixtures,cast}=resetSnapshot();
+  const snapshot: Record<string, Row[]> = {
+    events: base.events.map(e=>({id:e.id,child_id:e.childId,title:e.title,start_at:e.start,end_at:e.end,location:e.location})),
+    relationships: base.relationships.map(r=>({id:r.id,from_id:r.fromId,to_id:r.toId,type:r.type,status:r.status,created_at:r.createdAt,history:r.history})),
+    care_plans: base.carePlans.map(c=>({child_id:c.childId,text:c.text})),
+    grants: [...base.grants.map(g=>({id:g.id,actor_id:g.actorId,child_id:g.childId,scopes:g.scopes,valid_from:g.validFrom??null,valid_until:g.validUntil??null,granted_by:g.grantedBy})),
+      // Canonical address grants introduced by migration 0057 are also part of the baseline.
+      ...[['gr_addr_kendra_nora','p_mom'],['gr_addr_andre_nora','p_dad']].map(([id,actor_id])=>({id,actor_id,child_id:'p_nora',scopes:['address.read'],valid_from:null,valid_until:null,granted_by:'p_mom'}))],
+  };
+  for(const source of [fixtures,cast]) for(const [table,rows] of Object.entries(source)) snapshot[table]=[...(snapshot[table]??[]),...rows];
+  return snapshot;
+}
+
 /** Slow external-account disposal is independent of the already-committed data restore. */
 export async function resetDemo(actor = 'resetDemo', dependencies: ResetDependencies = {}): Promise<ResetReport & { runId: string; status: 'committed' }> {
   const before = Date.now();
@@ -135,7 +150,9 @@ export async function resetDemo(actor = 'resetDemo', dependencies: ResetDependen
   await c.connect();
   let result: { restored: Record<string, number>; cleared: Record<string, number>; demoDecisionsCleared: number; createdFamiliesRemoved: number; familyRows: FamilyRow[]; cleanupBefore?: number };
   try {
-    const response = await c.query('select public.restore_demo_snapshot($1,$2::uuid,$3::jsonb,$4::jsonb) as report', [actor,runId,JSON.stringify(data.fixtures),JSON.stringify(data.cast)]);
+    const response = actor === 'p_demo_guide'
+      ? await c.query('select public.restore_showcase_snapshot($1,$2::uuid,$3::jsonb) as report',[actor,runId,JSON.stringify(showcaseSnapshot())])
+      : await c.query('select public.restore_demo_snapshot($1,$2::uuid,$3::jsonb,$4::jsonb) as report', [actor,runId,JSON.stringify(data.fixtures),JSON.stringify(data.cast)]);
     result = response.rows[0]?.report;
     if (!result) throw new Error('RESET_RECEIPT_MISSING');
   } finally { await c.end(); }
@@ -144,7 +161,7 @@ export async function resetDemo(actor = 'resetDemo', dependencies: ResetDependen
     await (dependencies.purge ?? purgeFamilyArtifacts)(result.familyRows, { sweep: false });
     await (dependencies.reconcile ?? reconcileAbandonedFamilies)(Number(result.cleanupBefore ?? before) - 60_000);
   };
-  (dependencies.schedule ?? (task => { setImmediate(() => { void task().catch(() => console.error('[demo-reset] background cleanup needs reconciliation')); }); }))(cleanup);
+  if(actor !== 'p_demo_guide') (dependencies.schedule ?? (task => { setImmediate(() => { void task().catch(() => console.error('[demo-reset] background cleanup needs reconciliation')); }); }))(cleanup);
   return { runId,status:'committed',restored:result.restored,cleared:result.cleared,demoDecisionsCleared:result.demoDecisionsCleared,
     createdFamiliesRemoved:result.createdFamiliesRemoved,abandonedFamiliesReconciled:0,droppedSessionCache:true };
 }

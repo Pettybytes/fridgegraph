@@ -25,7 +25,7 @@ export type Ctx = {
   memo?: Map<string, Promise<unknown>>;
   /** Verified `app_metadata.demo` marker. True only for a demo persona's real session. */
   demo?: boolean;
-  /** Verified `app_metadata.demo_guide` marker. Read-only guide over sandbox records. */
+  /** Verified `app_metadata.demo_guide` marker. Guide over explicitly authorized fictional showcase records. */
   demoGuide?: boolean;
 };
 
@@ -78,9 +78,9 @@ export function refuseDemoOutreach(ctx: Ctx): void {
   }
 }
 
-/** A guide may read sandbox records and nothing else; every write path calls this first. */
+/** A guide write requires the verified showcase identity; row/RPC grants enforce its tenant. */
 export function refuseDemoGuideWrite(ctx: Ctx): void {
-  if (ctx?.demoGuide === true) {
+  if (ctx?.demoGuide === true && !(isShowcaseGuide(ctx) && ctx.demo === true)) {
     throw new GraphQLError('DEMO_GUIDE_READ_ONLY', { extensions: { code: 'DEMO_GUIDE_READ_ONLY' } });
   }
 }
@@ -117,6 +117,7 @@ export async function householdIdsOfChild(ctx: Ctx, childId: string): Promise<st
 export async function isParentOf(ctx: Ctx, childId: string): Promise<boolean> {
   const callerId = ctx.callerId;
   if (!callerId) return false;
+  if (await guideCanManageChild(ctx, childId)) return true;
   const households = await householdIdsOfChild(ctx, childId);
   if (households.length === 0) return false;
   return memo(ctx, `parent:${callerId}:${childId}`, async () => {
@@ -242,4 +243,14 @@ export async function personRow(ctx: Ctx, id: string): Promise<Record<string, un
   return memo(ctx, `person:${id}`, async () =>
     one(dbFor(ctx).from('people').select('id,display_name,birth_date').eq('id', id).maybeSingle()),
   );
+}
+
+/** Explicit server-side grant, separate from a real household membership. */
+export async function guideCanManageChild(ctx: Ctx, childId: string): Promise<boolean> {
+  if (!isShowcaseGuide(ctx) || ctx.demo !== true) return false;
+  return memo(ctx, `guide:manage:${childId}`, async () => {
+    const {data,error}=await dbFor(ctx).rpc('guide_can_manage_child',{p_child:childId});
+    if(error)throw error;
+    return data===true;
+  });
 }

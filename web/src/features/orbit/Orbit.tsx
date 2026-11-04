@@ -37,7 +37,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
  if(!parent&&!controller.scope.readOnly&&state.alert?.audience.some(member=>member.person.id===controller.scope.personId&&member.eligible)&&(active||(closed&&state.alert.closeOutcome==='FOUND_SAFE')))return <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>
  return <section className={`orbit-page ${active&&parent?'orbit-page-active':''}`} aria-label="Orbit" data-state="live">
   <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>{parent&&<FoundSafe controller={controller} childName={childFullName} closerName={session?.scope.parentName}/>}
-  <div className="orbit-context"><span className="orbit-simulation">Simulated notification</span>{controller.scope.readOnly&&<span>Demo guide is read-only</span>}<button type="button" className="sg-refresh" disabled={!!state.busy} onClick={()=>{void controller.refresh()}} aria-label="Refresh Orbit"><RefreshCw size={16}/></button></div>
+  <div className="orbit-context"><span className="orbit-simulation">Simulated notification</span>{controller.scope.readOnly&&<span>Viewing another showcase family</span>}<button type="button" className="sg-refresh" disabled={!!state.busy} onClick={()=>{void controller.refresh()}} aria-label="Refresh Orbit"><RefreshCw size={16}/></button></div>
   {state.guidance&&<p className="orbit-guidance" role="note">{state.guidance}</p>}
   {state.phase==='loading'?<p role="status">Loading the records shared with you…</p>:<>
    {state.error&&<div className="orbit-error" role="alert"><p>{state.error}</p><button type="button" onClick={()=>{void(state.phase==='unavailable'?controller.load():controller.refresh())}}><RefreshCw size={15}/> Refresh recorded state</button></div>}
@@ -57,7 +57,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
     </div>
    </div>}
    {/* The parent found-safe close is the green glass card above; the plain record card stays for the
-       read-only guide and for any non found-safe closure. */}
+       perspectives without management access and for any non found-safe closure. */}
    {((active&&!parent)||(closed&&!(parent&&state.alert?.closeOutcome==='FOUND_SAFE')))&&state.alert&&<>
     <section className="orbit-record"><div className="orbit-record-heading"><div><p>{closed?'Closed':'Active'}</p><h2>{closed?(state.acknowledgedClosure?.alertId===state.alert.id&&state.acknowledgedClosure.personId===session?.persona.personId?`Closed by ${session.scope.parentName}`:'Your village’s responses are recorded.'):'Your village can respond.'}</h2></div><span className={`orbit-status ${closed?'is-closed':''}`}>{closed?'Closed':'Active'}</span></div>
      {state.alert.message?<blockquote>{state.alert.message}</blockquote>:<p>Message not recorded.</p>}

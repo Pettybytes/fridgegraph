@@ -17,7 +17,7 @@ export function ConnectedFridge(){
  const preview=usePhase2Preview()
  // The read-only compatibility probe gates the editors against the deployed schema.
  const verified=true
- const guide=!!session?.marks?.demoGuide||session?.persona.id==='demo-guide'
+ const guide=(!!session?.marks?.demoGuide||session?.persona.id==='demo-guide')&&!session?.marks?.showcaseEditor
  const home=access?.selectedChildId===session?.scope.childId
  const viewer=useMemo<FridgeViewer|null>(()=>session?{personId:session.persona.personId,sessionKey:String(session.generation),role:guide?'GUIDE':home&&session.persona.guardian?'GUARDIAN':home&&session.persona.parent?'PARENT':'CAREGIVER'}:null,[session?.persona,session?.generation,guide,home])
  const service=useMemo(()=>viewer&&access?(preview?preview(viewer,access.selectedChildId):access.client?createPhase2Service(access.client,access.runRead,()=>verified):null):null,[preview,viewer,access?.selectedChildId,access?.client,access?.runRead,verified])

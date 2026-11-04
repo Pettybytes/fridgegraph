@@ -71,7 +71,7 @@ for (const [name, resolver, args] of reads) {
 for (const [name, subgraph] of Object.entries({ village, access, coordination, schedule, school, transport, activities })) {
   const mutations = (subgraph.resolvers as { Mutation?: Record<string, (root: unknown, args: unknown, ctx: Ctx) => unknown> }).Mutation ?? {};
   for (const [field, mutate] of Object.entries(mutations)) {
-    test(`guide cannot write ${name}.${field}`, async () => {
+    test(`guide without the verified demo action identity cannot write ${name}.${field}`, async () => {
       const ctx: Ctx = { callerId: 'p_demo_guide', demoGuide: true, today: '2026-11-03', db: new Proxy({}, { get() { throw Error('Database touched before guide refusal'); } }) as never };
       await assert.rejects(async () => mutate(null, {}, ctx), /DEMO_GUIDE_READ_ONLY/);
     });
@@ -98,7 +98,7 @@ for (const [name, subgraph] of Object.entries({ village, access, coordination, s
 }
 
 for (const scope of ['pickup.request', 'pickup.verify', 'supervise.request', 'school.report', 'fridge.post']) {
- test(`showcase grant never authorizes ${scope}`, async () => {
+ test(`showcase read grant alone never authorizes ${scope}`, async () => {
   await assert.rejects(authorizeChild(context(), 'p_jax', scope), /UNAUTHORIZED/);
  });
 }

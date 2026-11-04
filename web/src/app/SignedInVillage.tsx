@@ -49,7 +49,7 @@ export default function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
     if(session.accessToken&&authMode==='live'){
       const client=createGraphClient(async()=>getCurrentSession()?.accessToken??null,undefined,getSessionGeneration)
       const calendar=createLiveCalendarAdapter(client,{generation:session.generation,persona:session.persona,scope:session.scope,marks:session.marks},runRead,getSessionGeneration)
-      const orbit=new OrbitController(createOrbitAdapter(client,runRead,()=>getCurrentSession()?.accessToken),{childId:session.scope.childId,personId:session.persona.personId,parent:session.persona.parent||session.persona.guardian===true,readOnly:session.marks?.demoGuide===true,generation:session.generation},getSessionGeneration,orbitNow)
+      const orbit=new OrbitController(createOrbitAdapter(client,runRead,()=>getCurrentSession()?.accessToken),{childId:session.scope.childId,personId:session.persona.personId,parent:session.persona.parent||session.persona.guardian===true,readOnly:session.marks?.demoGuide===true&&!session.marks.showcaseEditor,generation:session.generation},getSessionGeneration,orbitNow)
       const adapter=createDeliveredAdapter(client,runRead),clear=adapter.clearStore
       adapter.clearStore=async()=>{orbit.dispose();calendar.clear();await clear?.()}
       return {adapter,calendar,mockCalendar:null,orbit,client}

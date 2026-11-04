@@ -51,6 +51,7 @@ type Query {
   supervisionCandidates(childId: ID!, asOf: String): [Candidate!]!
   approverFor(childId: ID!, date: String): ApproverResult!
   myChildren: [ChildAccess!]!
+  canManageChild(childId: ID!): Boolean!
   villagerAdditions(childId: ID!): [VillagerAddition!]!
   _entities(representations: [_Any!]!): [_Entity]!
   _service: _Service!

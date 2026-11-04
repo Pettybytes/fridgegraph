@@ -92,7 +92,7 @@ export function createPinHandlers(deps: PinEndpointDeps) {
   async function upload(req: Request, res: Response): Promise<void> {
     const identity = await deps.verify(req.header('authorization'));
     if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
-    if (identity.demoGuide) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
+    if (identity.demoGuide && identity.personId !== 'p_demo_guide') { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
     const b = (req.body ?? {}) as Record<string, unknown>;
     const childId = typeof b.childId === 'string' ? b.childId : '';
     const mimeType = typeof b.mimeType === 'string' ? b.mimeType : '';
@@ -114,7 +114,7 @@ export function createPinHandlers(deps: PinEndpointDeps) {
   async function prepare(req: Request, res: Response): Promise<void> {
     const identity = await deps.verify(req.header('authorization'));
     if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
-    if (identity.demoGuide) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
+    if (identity.demoGuide && identity.personId !== 'p_demo_guide') { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
     const b = (req.body ?? {}) as Record<string, unknown>;
     const childId = typeof b.childId === 'string' ? b.childId : '';
     const assetId = typeof b.assetId === 'string' ? b.assetId : '';
@@ -173,7 +173,7 @@ export function createPinHandlers(deps: PinEndpointDeps) {
   async function confirm(req: Request, res: Response): Promise<void> {
     const identity = await deps.verify(req.header('authorization'));
     if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
-    if (identity.demoGuide) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
+    if (identity.demoGuide && identity.personId !== 'p_demo_guide') { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
     const body = (req.body ?? {}) as Record<string, unknown>;
     const signature = typeof body.signature === 'string' ? body.signature : '';
     const claimsIn = body.claims as Record<string, unknown> | undefined;

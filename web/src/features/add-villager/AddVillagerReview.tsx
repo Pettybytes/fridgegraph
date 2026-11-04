@@ -20,7 +20,7 @@ export function useAddVillagerConfirm(liveEnabled = false): {
   return {
     confirm,
     mode,
-    canConfirm: !!session?.persona.parent && !session.marks?.demoGuide,
+    canConfirm: !!session?.persona.parent && (!session.marks?.demoGuide||session.marks.showcaseEditor===true),
     identityKey: `${session?.generation ?? getSessionGeneration()}:${session?.persona.personId ?? 'signed-out'}:${child?.selectedChildId ?? ''}`,
     childName: child?.selectedChildName ?? session?.scope.childName ?? 'Child',
   }
