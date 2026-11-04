@@ -37,3 +37,32 @@ ordering inside SQL; the real database proof covers transaction rollback.
 Public after timing and independent served acceptance remain pending Bentley's0096 rehearsal,
 migration application, backend/frontend deployment, and Claude's verification. No shared migration
 was applied by the fix owner.
+
+## Public acceptance follow-up, November 4 UTC
+
+The public index served `index-DbcpDZiq.js`. The protected UUID status route returned401 JSON,
+and the new black-pill AlertDialog rendered at desktop and390x844. Served reset source hashes
+matched reviewed head6c0fda1. Bentley's full deployment/migration receipt remains required.
+
+The strict under2000ms public acceptance gate failed. One diagnostic interval returned502 from
+both POST and status GET; backend and static-proxy PIDs changed during those observations.
+The UI showed uncertainty at5985.2ms while preserving Kendra and the route. A restart is a possible
+explanation for that interval, not a proven root cause.
+
+After health recovered and the observed PIDs stayed unchanged, the strict gate failed again.
+Run `bc34b9aa-3094-4d01-80ba-83409bc016d5` received nine successful status GET responses
+(83-413ms each) without confirming a commit before bounded recovery ended. Kendra remained
+signed in and uncertainty was visible. A later read-only status GET returned committed with
+a fresh Kendra session in146.7ms. That later read duration is not the reset duration. The full
+public commit latency is unknown, and no successful public after measurement is claimed.
+
+The acceptance test now observes bounded recovery after a missed deadline and logs only paths,
+HTTP status, timing and UI booleans. It rethrows the original deadline failure; the2000ms limit
+and committed-response requirements are unchanged. No session payload or credential is logged.
+Bentley has the run ID for numeric connection, query and lock-wait investigation. No additional
+shared reset should be inferred from test discovery or offline checks. Reset acceptance stays open;
+Claude owns served PASS, and live analytics implementation remains queued behind this fix.
+
+The subsequent guide showcase change in #240 removes the guide-reset exception. The current
+integrated source keeps reset parent/guardian-only and the Demo guide read-only. The observations
+above identify the earlier served asset and must not be read as deployment proof for that change.
