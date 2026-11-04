@@ -1,4 +1,10 @@
-# Village Map UI — mock port, live wire contract pending
+# Village Map UI
+
+## Authenticated perspectives
+
+A session with an access token always uses the live village-world reader for the selected child, regardless of `VITE_VILLAGE_MAP_LIVE`. Every request forwards the caller session and retains the server's child, member, place and coordinate authorization. Missing clients and denied reads fail closed. A child switch cannot substitute Nora's synthetic scenario. Each map lifetime owns its request cancellation, so an earlier unmount cannot cancel a replacement map's reads.
+
+The synthetic adapter described below applies only to sessions without an access token. The following original mock-port notes are historical; the live reader and route proxy are now implemented.
 
 Bryan's P0 brief is the behavior contract. `web/src/features/village-map/types.ts` is an internal
 frontend port, **not** a proposed GraphQL schema or a claim that an endpoint exists. Bentley owns

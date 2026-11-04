@@ -21,7 +21,9 @@ export function VillageMapProvider({children}:{children:ReactNode}){
  const client=child?.client
  const controller=useMemo(()=>{
   if(!session||!selectedChildId)return null
-  const live=import.meta.env.VITE_VILLAGE_MAP_LIVE==='true'&&!!session.accessToken
+  // A signed-in perspective always uses caller-scoped records. The synthetic
+  // adapter only describes Nora and cannot authorize other families.
+  const live=!!session.accessToken
   if(live&&!client)return new MapController({mode:'live',readWorld:async()=>{throw Error('WORLD_READ_UNAVAILABLE')},route:async()=>{throw Error('WORLD_READ_UNAVAILABLE')}})
   if(live&&client){
    const getSession=()=>{const current=getCurrentSession();return current&&selectedRef.current?{generation:current.generation,childId:selectedRef.current,accessToken:current.accessToken,canReadCost:(current.persona.parent||current.persona.guardian===true)&&current.marks?.demoGuide!==true,parentName:current.persona.name}:null}
