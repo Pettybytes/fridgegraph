@@ -38,3 +38,10 @@
 .vm-workspace,.vm-mini,.vm-canvas{--fg-primary:var(--type-school);--fg-focus:var(--type-school);--fg-selection:oklch(.95 .028 237)}
 .dark .vm-workspace,.dark .vm-mini,.dark .vm-canvas{--fg-primary:oklch(.72 .13 237);--fg-focus:oklch(.72 .13 237);--fg-on-primary:oklch(.14 0 0);--fg-selection:oklch(.34 .04 237)}
 .vm-map-credit,.vm-cluster b{font-size:12px}
+/* The map has its own Back control. Keep the perspective bar visible and give
+   the mobile canvas the space otherwise occupied by the navigation sidebar. */
+@media(max-width:600px){
+ .village-map-open .sidebar{display:none}
+ .village-map-open .app-shell{display:block;min-height:0}
+ .village-map-open .topbar{position:relative;min-height:0;padding:8px 12px}
+}

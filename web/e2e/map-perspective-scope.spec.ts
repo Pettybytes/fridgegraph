@@ -22,15 +22,36 @@ for(const name of parents)test(`${name} sees each authorized child's live map`,a
   expect(body.errors).toBeUndefined()
   expect(body.data.villageWorld.child.id).toBe(child.id)
   expect(body.data.villageWorld.people.length).toBeGreaterThan(0)
+  expect(body.data.villageWorld.people.every((row:any)=>row.homePlaceId)).toBe(true)
   expect(body.data.villageWorld.places.length).toBeGreaterThan(0)
   const map=page.getByRole('region',{name:'Village map',exact:true})
   await expect(map).toHaveAttribute('data-state','live')
+  if(test.info().project.name==='mobile')expect((await map.locator('.vm-header').boundingBox())!.y).toBeLessThan(220)
   await expect(map).not.toContainText(/isn't shared|Couldn't load|Sample data/)
   const people=body.data.villageWorld.people.map((row:{person:{id:string}})=>row.person.id)
   if(['p_jax','p_malik','p_emma','p_taylor','p_skye','p_micah','p_avery'].includes(child.id))expect(people).not.toContain('p_mom')
   // Dana is a recorded friend-parent in Nora's village. Dwayne has no Ellison relationship.
   if(['p_nora','p_max','p_leo'].includes(child.id))expect(people).not.toContain('p_dwayne')
   if(child.id==='p_malik')expect(people).not.toContain('p_dana')
+  if(child===children[0]){
+   if(test.info().project.name==='mobile')await map.getByRole('button',{name:'expanded planner',exact:true}).click()
+   await map.locator('summary').filter({hasText:'Route from'}).click()
+   if(test.info().project.name==='desktop'){
+    const pin=map.locator('.vm-person-marker').first(),destinationPin=map.locator('.vm-place-marker[data-place-id]').first();
+    await pin.dragTo(destinationPin);await expect(map.getByRole('region',{name:'Route estimate',exact:true})).toBeVisible()
+   }
+   await map.getByRole('combobox',{name:'From',exact:true}).selectOption(people[0])
+   const destination=body.data.villageWorld.places.find((p:any)=>p.kind!=='HOME'&&p.coordinateState==='SET')
+   await map.getByRole('combobox',{name:'To',exact:true}).selectOption(destination.id)
+   await map.getByRole('button',{name:'Estimate route',exact:true}).click()
+   const route=map.getByRole('region',{name:'Route estimate',exact:true})
+   await expect(route).toContainText('fictional showcase route')
+   for(const mode of ['Walk','Bike','Drive']){
+    await map.getByRole('button',{name:mode,exact:true}).click()
+    await expect(route.locator('strong')).toContainText(/min/)
+    await expect(route).toContainText(/mi/)
+   }
+  }
   console.info(`${name}: ${child.id}: ${people.length} members, ${body.data.villageWorld.places.length} places`)
  }
  expect(errors).toEqual([])

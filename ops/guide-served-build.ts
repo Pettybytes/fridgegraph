@@ -2,6 +2,9 @@
  * Only the session issuer and PostgREST transport are replaced. No external services or credentials.
  */
 import express from 'express';
+import {showcaseRoute} from '../src/village/showcaseRoute';
+import {decideRoute,type PlaceLookup} from '../src/village/routeRequest';
+import {isRouteProfile} from '../src/village/ors';
 import {createDiscoverySweeper} from '../src/village/discoverySweeper';
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
@@ -205,6 +208,18 @@ app.post('/api/demo/test-outreach',async(req,res)=>{
   },
  },persona.personId,req.body.jobId);
  res.status(result.status).json(result.body);
+});
+app.post('/api/village/route',async(req,res)=>{
+ const persona=personaFor(req.headers.authorization);if(!persona){res.sendStatus(401);return}
+ const {childId,fromPlaceId,toPlaceId,profile}=req.body;
+ if(!isRouteProfile(profile)){res.sendStatus(400);return}
+ const result=await withCaller(persona,async client=>{
+  const lookup=async(id:string):Promise<PlaceLookup>=>{const r=(await client.query('select * from place_route_geometry_for($1,$2)',[childId,id])).rows[0];return r?{kind:'row',row:{...r,latitude:r.latitude===null?null:Number(r.latitude),longitude:r.longitude===null?null:Number(r.longitude)}}:{kind:'notfound'}};
+  const decision=decideRoute(await lookup(fromPlaceId),await lookup(toPlaceId));
+  if(!decision.ok)return {status:decision.status,body:decision.body};
+  const allowed=(await client.query('select showcase_route_allowed($1,$2,$3) as allowed',[childId,fromPlaceId,toPlaceId])).rows[0].allowed;
+  return allowed?{status:200,body:showcaseRoute(profile,decision.from,decision.to)}:{status:403,body:{error:'UNAUTHORIZED'}};
+ });res.status(result.status).json(result.body);
 });
 app.use(express.static('web/dist'));
 const sweeper=createDiscoverySweeper({

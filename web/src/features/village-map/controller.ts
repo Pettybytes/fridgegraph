@@ -24,6 +24,9 @@ export class MapController{
   this.patch({mode,routing:true,route:null,proposal:'none',acceptedOverCap:false,progress:0,playing:false,error:'',selection:{kind:'place',id:toId}})
   try{const route=await this.adapter.route(fromId,toId,mode,this.abort.signal);if(this.alive&&revision===this.revision){if(route.mode!==mode)throw Error('ROUTE_UNAVAILABLE');this.patch({route,routing:false,following:true,fitRevision:this.state.fitRevision+1})}}catch(error){if(this.alive&&revision===this.revision&&!(error instanceof DOMException&&error.name==='AbortError'))this.patch({routing:false,error:mapRouteError(error)})}
  }
+ async place(personId:string,placeId:string){
+  await this.route(personId,placeId);if(this.state.route?.fromId===personId&&this.state.route.toId===placeId&&this.adapter.placePerson?.(personId,placeId)&&this.state.world)this.patch({world:{...this.state.world,people:[...this.state.world.people]}})
+ }
  setMode(mode:Mode){const target=this.routeTarget;if(target)void this.route(target.fromId,target.toId,mode);else this.patch({mode})}
  propose(){if(this.state.world?.state==='mock'&&this.state.route&&!this.state.routing)this.patch({proposal:'review',acceptedOverCap:false})}
  acceptOverCap(value:boolean){this.patch({acceptedOverCap:value})}

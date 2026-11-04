@@ -1,5 +1,9 @@
 # Village Map UI
 
+## Fictional showcase locations
+
+The caller-scoped path includes explicit fictional display homes for the seeded showcase roster. The HOME catalog kind is used only for these fictional display records. Nearby avatars may be separated in screen space for dragging; stored coordinates and route geometry are unchanged. Both the child household sandbox marker and the fixed fictional-person roster constrain seeding. Address authorization still gates coordinates. Dragging requests a route and updates only the current map session; reloading restores the seeded display place. Showcase routes are labeled fictional, derive distance and time from their displayed geometry and mode, and never feed ride pricing. Recorded pickup ride estimates remain separate server reads. Reset restores the fictional places and associations.
+
 ## Authenticated perspectives
 
 A session with an access token always uses the live village-world reader for the selected child, regardless of `VITE_VILLAGE_MAP_LIVE`. Every request forwards the caller session and retains the server's child, member, place and coordinate authorization. Missing clients and denied reads fail closed. A child switch cannot substitute Nora's synthetic scenario. Each map lifetime owns its request cancellation, so an earlier unmount cannot cancel a replacement map's reads.

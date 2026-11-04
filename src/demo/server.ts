@@ -40,6 +40,7 @@ import {
   parseAllowedAppOrigins,
 } from './origins';
 import { routeBetween, allowRoute, RouteUnavailable, isRouteProfile } from '../village/ors';
+import {showcaseRoute} from '../village/showcaseRoute';
 import { decideRoute, type PlaceLookup } from '../village/routeRequest';
 import { dbDayTransport, isDay, readDayPlan } from '../village/dayPlaces';
 import { dbFor } from '../db';
@@ -454,6 +455,8 @@ export function createDemoLoginApp() {
     if (!decision.ok) { res.status(decision.status).json(decision.body); return; }
 
     try {
+      const showcase=await dbFor(ctx).rpc('showcase_route_allowed',{p_child:childId,p_from:fromPlaceId,p_to:toPlaceId});
+      if(!showcase.error&&showcase.data===true){res.json(showcaseRoute(profileRaw,decision.from,decision.to));return}
       const route = await routeBetween(profileRaw, fromPlaceId, toPlaceId,
         { lat: decision.from.lat, lng: decision.from.lng },
         { lat: decision.to.lat, lng: decision.to.lng });

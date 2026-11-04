@@ -5,7 +5,7 @@ import type {MapWorld,Mode,Point,RouteResult,VillageMapAdapter} from './types'
 // estimates use separate authorized graph reads; route geometry is never a price source.
 export const routingProfiles={Drive:'driving-car',Walk:'foot-walking',Bike:'cycling-regular'} as const
 export type RoutingProfile=typeof routingProfiles[Mode]
-export type RouteWire={distanceMeters:number;durationSeconds:number;geometry:{type:'LineString';coordinates:Point[]};source:'openrouteservice';cached:boolean;disclaimer:'Estimated — not live traffic'}
+export type RouteWire={distanceMeters:number;durationSeconds:number;geometry:{type:'LineString';coordinates:Point[]};source:'openrouteservice'|'fictional-showcase';cached:boolean;disclaimer:'Estimated \u2014 not live traffic'|'Fictional route estimate, not live traffic'}
 export type RouteRequest={childId:string;fromPlaceId:string;toPlaceId:string;profile:RoutingProfile}
 export type RouteTransport={
  readonly supportedProfiles:readonly RoutingProfile[]
@@ -18,7 +18,7 @@ function validPoint(value:unknown):value is Point{return Array.isArray(value)&&v
 export function isRouteWire(value:unknown):value is RouteWire{
  if(!value||typeof value!=='object')return false
  const r=value as Partial<RouteWire>
- return typeof r.distanceMeters==='number'&&Number.isFinite(r.distanceMeters)&&r.distanceMeters>=0&&typeof r.durationSeconds==='number'&&Number.isFinite(r.durationSeconds)&&r.durationSeconds>=0&&r.source==='openrouteservice'&&typeof r.cached==='boolean'&&r.disclaimer==='Estimated — not live traffic'&&r.geometry?.type==='LineString'&&Array.isArray(r.geometry.coordinates)&&r.geometry.coordinates.length>=2&&r.geometry.coordinates.every(validPoint)
+ return typeof r.distanceMeters==='number'&&Number.isFinite(r.distanceMeters)&&r.distanceMeters>=0&&typeof r.durationSeconds==='number'&&Number.isFinite(r.durationSeconds)&&r.durationSeconds>=0&&((r.source==='openrouteservice'&&r.disclaimer==='Estimated \u2014 not live traffic')||(r.source==='fictional-showcase'&&r.disclaimer==='Fictional route estimate, not live traffic'))&&typeof r.cached==='boolean'&&r.geometry?.type==='LineString'&&Array.isArray(r.geometry.coordinates)&&r.geometry.coordinates.length>=2&&r.geometry.coordinates.every(validPoint)
 }
 export function createDeliveredRouteTransport(request:typeof fetch=fetch):RouteTransport{
  return {supportedProfiles:Object.values(routingProfiles),async request(input,bearer,signal){
@@ -44,6 +44,7 @@ export function createLiveMapAdapter(options:{
  const transport=options.transport??createDeliveredRouteTransport(),owner=options.getSession(),lifetime=new AbortController()
  const inflight=new Map<string,Promise<RouteWire>>()
  let world:MapWorld|null=null
+ let lastOrigin:{fromId:string;toId:string;place:MapWorld['places'][number]}|null=null
  function current(){
   const session=options.getSession()
   if(lifetime.signal.aborted||!session||session.generation!==owner?.generation||session.childId!==owner?.childId)throw aborted()
@@ -61,15 +62,20 @@ export function createLiveMapAdapter(options:{
   // parent/guardian session and the backend's separate pickupRideEstimate read.
   world={...result,childId:session.childId,canApprove:false,canReadCost:session.canReadCost===true&&result.canReadCost}
   return world
+ },placePerson(personId,placeId){
+  const place=world?.places.find(p=>p.id===placeId);if(!world||!place?.point)return false;
+  const person=world.people.find(p=>p.id===personId);if(!person)return false;
+  person.position=place.kind==='home'?{source:'home',placeId,point:place.point,label:'Session placement: '+place.name,addressRead:true}:{source:'event',placeId,label:'Session placement: '+place.name,addressRead:false};return true;
  },async route(fromId,toId,mode,signal){
   const session=current(),profile=routingProfiles[mode],combined=signalFor(signal)
   if(combined.aborted)throw aborted()
   if(!transport.supportedProfiles.includes(profile))throw Error('MODE_UNSUPPORTED')
   const from=world?.people.find(p=>p.id===fromId),placeFrom=fromId.startsWith('place:')?world?.places.find(p=>p.id===fromId.slice(6)):undefined,to=world?.places.find(p=>p.id===toId)
-  const origin=placeFrom??world?.places.find(p=>p.id===from?.position.placeId)
+  const origin=lastOrigin?.fromId===fromId&&lastOrigin.toId===toId?lastOrigin.place:placeFrom??world?.places.find(p=>p.id===from?.position.placeId)
   if(!world||(!from&&!placeFrom)||!to)throw Error('NOT_FOUND')
   if(!origin)throw Error('LOCATION_NOT_RECORDED')
   if((from&&!personPoint(from,world))||!origin.point||!to.point)throw Error('COORDINATES_WITHHELD')
+  lastOrigin={fromId,toId,place:origin}
   const input:RouteRequest={childId:session.childId,fromPlaceId:origin.id,toPlaceId:to.id,profile}
   const key=routeRequestKey(session.generation,input)
   // Explicit cancellation always gets its own flight; one caller cannot abort another.
@@ -80,7 +86,7 @@ export function createLiveMapAdapter(options:{
   }
   const result=await flight;current();if(combined.aborted)throw aborted()
   if(!isRouteWire(result))throw Error('ROUTE_UNAVAILABLE')
-  return {id:key,fromId,toId,mode,geometry:result.geometry.coordinates,distanceMiles:result.distanceMeters/1609.344,durationSeconds:result.durationSeconds,rideEstimate:null,state:'live'} satisfies RouteResult
+  return {id:key,fromId,toId,mode,geometry:result.geometry.coordinates,distanceMiles:result.distanceMeters/1609.344,durationSeconds:result.durationSeconds,rideEstimate:null,state:result.source==='fictional-showcase'?'mock':'live'} satisfies RouteResult
  },dispose(){lifetime.abort();inflight.clear();world=null}}
 }
 export function mapRouteError(error:unknown){
