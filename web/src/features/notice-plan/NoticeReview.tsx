@@ -23,6 +23,6 @@ export function NoticeReview({proposal,mode='mock',submittedText,busy,canConfirm
   })}
   {matchingAction&&!proposal.clarification&&canConfirm&&!confirmed&&<Button className="notice-control" type="button" disabled={busy||confirmDisabled} onClick={onConfirm}>Confirm {mode==='live'?'pickup request':'mock pickup request'}</Button>}
   {matchingAction&&!proposal.clarification&&!canConfirm&&!confirmed&&<p>Only this child’s parent or guardian can confirm this pickup request.</p>}
-  {confirmed&&<div role="status" className="notice-confirmed"><strong>{mode==='live'?'Pickup request created':'Mock pickup request shown'}</strong><p>{mode==='live'?'The request is ready for candidate review. Pickup is not arranged yet.':'No real record was created, and pickup is not arranged yet.'}</p><a href="#/mission-control">{mode==='live'?'Review candidates in Mission Control':'View Mission Control'}</a></div>}
+  {confirmed&&<div role="status" className="notice-confirmed"><strong>{mode==='live'?'Pickup request created':'Mock pickup request shown'}</strong><p>{mode==='live'?'The request is ready for candidate review. Pickup is not arranged yet.':'No real record was created, and pickup is not arranged yet.'}</p>{mode==='live'&&<p>Job ID: <code>{confirmed.job.id}</code></p>}<a href="#/mission-control">{mode==='live'?'Review candidates in Mission Control':'View Mission Control'}</a></div>}
  </section>
 }
