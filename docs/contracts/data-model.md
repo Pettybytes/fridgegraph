@@ -87,3 +87,15 @@ Scope table is authoritative in `docs/schema-plan.md` and must stay mirrored in 
 ## 8. `src/store.ts`
 
 **It does not exist.** It was deleted when the last subgraph moved to Postgres. Any doc, prompt or comment describing an in-memory store is stale. Reads go through a per-request Supabase client authenticated with the caller's token — the service key is never used in request handling.
+
+### Effective schedule RPC authorization (0100)
+
+`effective_schedule_for` checks its caller inside the SECURITY DEFINER function, before
+reading schedule or handoff data. A mapped identity must be a parent/guardian (`is_parent_of`),
+hold a current `schedule.read` grant, or pass `guide_reads_child` (verified guide identity and
+sandbox child). A legitimate cross-family grant remains valid; household membership alone is
+not the authorization rule. Anonymous, unmapped and unauthorized callers are refused. The
+repair grants no write permissions and preserves approved-holiday precedence over weekly care.
+
+Apply 0100 forward-only after 0099. If 0099 has not reached the shared database, rehearse and
+apply the two in sequence so its unguarded RPC is not left exposed. Never edit applied 0099.
