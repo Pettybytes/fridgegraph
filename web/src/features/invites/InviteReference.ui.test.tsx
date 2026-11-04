@@ -18,7 +18,7 @@ const fileInputOf = (c: HTMLElement) => c.querySelector('input[type="file"]') as
 it('renders the optional reference control and the no-reference dropzone', () => {
   const { container } = render(<InviteComposer childId="p_nora" childFirstName="Nora" mode="live" createInvite={vi.fn()} />)
   expect(screen.getByRole('group', { name: /Reference image/i })).toBeInTheDocument()
-  expect(screen.getByText(/remixed to match your request/i)).toBeInTheDocument()
+  expect(screen.getByText(/remixed to match your description/i)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Choose image' })).toBeInTheDocument()
   expect(fileInputOf(container).accept).toContain('image/png')
 })
@@ -62,11 +62,8 @@ it('in mock mode the control renders and honestly says the reference is ignored'
   expect(screen.getByText(/turn on live generation to remix/i)).toBeInTheDocument()
 })
 
-it('the reference is required: Prepare stays disabled until an image is chosen', async () => {
-  const { container } = render(<InviteComposer childId="p_nora" childFirstName="Nora" mode="live" createInvite={vi.fn()} />)
-  expect(screen.queryByText(/optional/i)).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /Prepare invitation/i })).toBeDisabled()
-  fireEvent.change(fileInputOf(container), { target: { files: [pngFile()] } })
-  await screen.findByAltText(/Reference: party\.png/)
+it('the reference is optional: Prepare is enabled without an image, and the control is labelled optional', () => {
+  render(<InviteComposer childId="p_nora" childFirstName="Nora" mode="live" createInvite={vi.fn()} />)
+  expect(screen.getByText(/optional/i)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /Prepare invitation/i })).toBeEnabled()
 })

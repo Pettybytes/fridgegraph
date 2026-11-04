@@ -6,15 +6,15 @@ against; any field change is posted as a diff on the PR before it is coded.
 
 A parent asks Rosina to make a party invitation **in their own words**. The art is driven by the
 parent's **creative request** (its subject, transformation, style, composition and any wording they
-ask for) — and, mandatorily (Bryan, 2026-11-03), by an **uploaded reference image** they want
-remixed, or the **prior generated result** on a revision. A request with no reference image is
-refused `400 REFERENCE_REQUIRED` after authorization, before any provider call. Rosina **also** makes a best-effort, **editable** extraction of the
-event fields (name/occasion/date/time/place) as a convenience, but those fields are **never required
-to make art, never block it, and never invented** — a missing detail becomes a non-blocking
-`suggestion`, not a gate. The app owns the event-text layer; only the parent's typed `request` and
-their uploaded reference ever reach the provider — **never** any graph-derived private data (the
-child's record, schedule, household). Default is **fixture** mode; the live Muse Image path is behind
-`INVITE_LIVE=1`.
+ask for). A reference image is **OPTIONAL** (Bryan, 2026-11-03): a description alone generates art, an
+**uploaded reference** is remixed, and a revision sends the **prior generated result** back. The
+parent fills the event details and wording (who, when, where, and the exact words) in the panel; those
+fields are **editable, never required to make art, never block it, and never invented**, and a missing
+detail becomes a non-blocking `suggestion`, not a gate. The app owns the event-text layer and composites
+it on an opaque plate, so the model paints no lettering and text never collides. Only the parent's typed
+`request` and any uploaded reference ever reach the provider, **never** any graph-derived private data
+(the child's record, schedule, household). Default is **fixture** mode; the live Muse Image path is
+behind `INVITE_LIVE=1`.
 
 > **Creative-workflow rework (this change).** Supersedes the earlier *art-only / preset-theme /
 > vision-style-extraction / schedule-required* design described in the historical sections below
@@ -29,18 +29,19 @@ POST /api/rosina/invite        Authorization: Bearer <caller jwt>
 {
   "childId": "p_nora",
   "request": "turn these into warrior unicorns in golden armor and add “Happy Birthday Sam”",
-  "referenceImage": { "mimeType": "image/png", "dataBase64": "<bytes>" },  // REQUIRED — remixed as an edit
-  "revise": false            // optional — true re-edits the PRIOR generated result (sent back as referenceImage)
+  "referenceImage": { "mimeType": "image/png", "dataBase64": "<bytes>" },  // OPTIONAL, remixed as an edit
+  "revise": false            // optional; true re-edits the PRIOR generated result (sent back as referenceImage)
 }
 ```
 
-`childId` (string, required), `request` (string, required) — the parent's own words, bounded by the
+`childId` (string, required), `request` (string, required): the parent's own words, bounded by the
 **single** shared limit `MAX_REQUEST_CHARS = 2000` (`invitePrompt.ts`). That one limit is enforced at
-the endpoint (over-length → `400`) AND shown on the web textarea (`maxLength` + a live counter) — the
-full accepted request reaches the brief, with **no separate, smaller silent truncation** (an earlier
-900-char cap is removed). `referenceImage` (required): the **only** accepted upload field —
+the endpoint (over-length returns `400`) AND shown on the web textarea (`maxLength` + a live counter),
+so the full accepted request reaches the brief, with **no separate, smaller silent truncation** (an
+earlier 900-char cap is removed). `referenceImage` (OPTIONAL): the **only** accepted upload field,
 PNG/JPEG/WebP, ≤ 5 MB, dims 16–4096 px, validated by magic bytes and **EXIF/GPS/XMP-stripped**
-server-side before it reaches the provider. Any **other** image/photo/upload key is rejected `400`
+server-side before it reaches the provider. A request with no reference generates from the description
+alone. Any **other** image/photo/upload key is rejected `400`
 (see below). `revise: true` reuses the edits path with the prior generated art as the reference, so
 the result keeps every existing element the request does not ask to change.
 
@@ -106,12 +107,12 @@ the result keeps every existing element the request does not ask to change.
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | the `referenceImage` is not a PNG/JPEG/WebP (by magic bytes) |
 
 **Additions beyond the handed list (posted as a diff on the PR; non-breaking for the web client):**
-`400 REFERENCE_REQUIRED` for a missing `referenceImage` (checked after authorization, before any
-provider call), and `400 INVALID_REQUEST` for a missing/overlong `childId`/`request`, a malformed `referenceImage`
+`400 INVALID_REQUEST` for a missing/overlong `childId`/`request`, a malformed `referenceImage`
 (bad base64 / out-of-range dimensions), or any image/photo/upload key **other** than `referenceImage`
-in the body. The optional best-effort field extraction (Muse Spark) **never fails the request** — a
-Spark error just yields empty, editable fields and a `suggestion`; only a Muse Image
-generation/edit failure produces `502 IMAGE_FAILED`.
+in the body. A missing `referenceImage` is **allowed** (it generates from the description alone). The
+optional best-effort field extraction (Muse Spark) **never fails the request**: a Spark error just
+yields empty, editable fields and a `suggestion`; only a Muse Image generation/edit failure produces
+`502 IMAGE_FAILED`.
 
 ## Live Muse Image path (behind `INVITE_LIVE=1`)
 

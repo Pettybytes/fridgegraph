@@ -1,16 +1,14 @@
 import {useEffect,useState} from 'react'
-import type {ComponentType} from 'react'
 import {Dialog} from 'radix-ui'
 import {useReducedMotion} from 'motion/react'
-import {Check,ArrowUpRight,MapPin,Clock,X,Shirt,Palette,Backpack,UserRound} from 'lucide-react'
+import {Check,ArrowUpRight,X} from 'lucide-react'
 import type {OrbitController} from './controller'
 import {useOrbitState,useOrbitPhoto} from './runtime'
 import {formatInstant} from '@/features/calendar/time'
-import {descriptorKeys} from './adapter'
-import type {Alert,DescriptorKey} from './adapter'
-import {descriptorLabels} from './OrbitPreparation'
+import type {Alert} from './adapter'
 import {portraitFor} from '@/components/fg/portraits'
 import {OrbitResolution} from './OrbitResolution'
+import {OrbitFactsCard} from './OrbitFactsCard'
 import './alert-ui.css'
 
 /**
@@ -35,11 +33,6 @@ export function lastSeenCopy(alert: Alert) {
   }
 }
 
-/** Each descriptor tile carries a real icon, never an emoji; the label states the fact in words. */
-const descriptorIcon: Record<DescriptorKey, ComponentType<{size?: number}>> = {
-  wearColor: Palette, wearGarment: Shirt, hair: UserRound, carryColor: Palette, carryItem: Backpack,
-}
-
 export function FoundSafe({controller,recipient=false,childName}:{controller:OrbitController;recipient?:boolean;childName?:string}){
  const state=useOrbitState(controller),reduced=useReducedMotion(),[celebrate,setCelebrate]=useState(false)
  useEffect(()=>{if(!controller.consumeCelebration())return;setCelebrate(true);const timer=setTimeout(()=>setCelebrate(false),3200);return()=>clearTimeout(timer)},[controller,state.celebrationKey])
@@ -60,7 +53,6 @@ export function AlertTakeover({controller,childName}:{controller:OrbitController
  // Full-bleed background behind the ACTIVE overlay: the shared photo, else the child's portrait,
  // else a branded wash — never an empty box. The found screen is sanitized and stays photo-free.
  const backdropUrl=active?(image.url??portraitFor({personId:controller.scope.childId})):undefined
- const descriptors=alert?descriptorKeys.filter(key=>alert.share[key]).slice(0,2):[]
  return <Dialog.Root open onOpenChange={open=>{if(!open)location.hash='#/today'}}><Dialog.Portal><Dialog.Overlay className="orbit-takeover-backdrop"/><Dialog.Content className={`orbit-takeover ${found?'is-found':'is-alert'}`} data-state={stateKey}>
   {active&&<div className={`orbit-takeover-photo${backdropUrl?'':' is-fallback'}`} style={backdropUrl?{backgroundImage:`url("${backdropUrl}")`}:undefined} aria-hidden="true"/>}
   <header><span>{found?'Simulated · recorded close':'Simulated · recorded active alert'}</span><Dialog.Title>Orbit Alert</Dialog.Title><Dialog.Close aria-label="Leave alert view"><X size={24}/></Dialog.Close></header>
@@ -68,18 +60,7 @@ export function AlertTakeover({controller,childName}:{controller:OrbitController
   {found?<FoundSafe controller={controller} recipient childName={childName}/>
   :<>
    <div className="orbit-glass-heading"><p>Recorded active alert</p><h2>Orbit active.</h2><p>You can respond to the alert shared with you. Only your own response is shown here.</p></div>
-   <div className="orbit-facts-card">
-    <div className="orbit-facts-top"><p className="orbit-facts-eyebrow">Orbit Alert</p><button type="button" className="orbit-facts-link" aria-label={`Open the Orbit page for ${childName}`} onClick={()=>{location.hash='#/orbit'}}><ArrowUpRight size={20}/></button></div>
-    <div className="orbit-facts-photo">{image.url?<img src={image.url} alt="Photo shared by the parent" onError={image.onError}/>:<p className="orbit-photo-unavailable">{image.failed?"Photo isn't available to this view.":'Photo not recorded.'}</p>}</div>
-    <h2 className="orbit-facts-name">{childName}</h2>
-    <dl className="orbit-facts-tiles">
-     {lastSeen?.placeText
-       ?<><div className="orbit-tile"><MapPin size={16}/><dt>Last seen place</dt><dd>{lastSeen.placeText}</dd></div>
-         <div className="orbit-tile"><Clock size={16}/><dt>Last seen time</dt><dd>{lastSeen.timeText??'Time not recorded.'}</dd>{lastSeen.timeText&&lastSeen.recorded&&<span className="orbit-provenance">recorded by a parent</span>}</div></>
-       :<div className="orbit-tile orbit-tile-wide"><MapPin size={16}/><dt>Last seen</dt><dd>{lastSeen?.missingText}</dd></div>}
-     {descriptors.map(key=>{const Icon=descriptorIcon[key];return <div className="orbit-tile" key={key}><Icon size={16}/><dt>{descriptorLabels[key]}</dt><dd>{alert!.share[key]!.replaceAll('_',' ')}</dd></div>})}
-    </dl>
-   </div>
+   <OrbitFactsCard childName={childName} lastSeen={lastSeen!} share={alert!.share} image={image} photoAlt="Photo shared by the parent" missingPhotoText="Photo not recorded." failedPhotoText="Photo isn't available to this view." onOpen={()=>{location.hash='#/orbit'}}/>
    <details className="orbit-shared-message"><summary>Shared message</summary><blockquote>{alert!.message??'Message not recorded.'}</blockquote></details>
    <div className="orbit-alert-actions"><button aria-pressed={ownResponse?.response==='ON_WAY'} disabled={!!state.busy} onClick={()=>void controller.respond('ON_WAY')}><ArrowUpRight/>I'm on my way</button><button aria-pressed={ownResponse?.response==='WITH_ME'} disabled={!!state.busy} onClick={()=>void controller.respond('WITH_ME')}><Check/>She's with me</button><button aria-pressed={ownResponse?.response==='CANNOT_HELP'} disabled={!!state.busy} onClick={()=>void controller.respond('CANNOT_HELP')}><X/>Can't help</button></div>
    {ownResponse&&<p className="orbit-response-confirmation" role="status"><Check size={22}/>{ownResponse.response==='ON_WAY'?"You’re on your way. Your response is recorded.":ownResponse.response==='WITH_ME'?"You reported they’re with you. The parent still closes the alert.":"You can’t help. Your response is recorded."}</p>}
