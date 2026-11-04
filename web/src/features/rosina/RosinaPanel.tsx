@@ -87,6 +87,13 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     if (session && dataAdapter) dataAdapter.readVillage(session.scope).then(data => { if (current) setPeople(new Set(data.nodes.map(node => node.person.id))) }, () => { if (current) setPeople(new Set()) })
     return () => { current = false }
   }, [session, dataAdapter])
+  // Warm Rosina on page load (latency playbook 6): primes the caller's context + lens caches and
+  // the model connection so the FIRST question streams fast. Fire-and-forget, auth'd, read-only.
+  useEffect(() => {
+    const token = session?.accessToken
+    if (adapter.mode !== 'live' || !token) return
+    void fetch('/api/rosina/warm', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+  }, [adapter.mode, session?.generation, session?.accessToken])
   useEffect(() => {
     if (threadRef.current && (messages.length > 0 || busy)) threadRef.current.scrollTop = threadRef.current.scrollHeight
   }, [messages, busy, liveStream])

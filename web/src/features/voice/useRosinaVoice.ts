@@ -38,7 +38,9 @@ export type LevelMeter = { level(): number; stop(): void }
 export type AudioLike = { play(): Promise<void> | void; pause(): void; currentTime: number; onended: (() => void) | null }
 
 export type VadConfig = { speechThreshold: number; silenceMs: number; minMs: number; maxMs: number }
-const DEFAULT_VAD: VadConfig = { speechThreshold: 0.08, silenceMs: 1200, minMs: 500, maxMs: 15000 }
+// silenceMs 350: end-of-speech detection near the 0.2-0.3s playbook band (a little headroom for
+// consumer mics), so the turn starts fast instead of waiting out a long pause.
+const DEFAULT_VAD: VadConfig = { speechThreshold: 0.08, silenceMs: 350, minMs: 500, maxMs: 15000 }
 
 export type VoiceDeps = {
   /** Reads the CURRENT in-memory session bearer, never a captured one. */
@@ -168,8 +170,13 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const autoStopRef = useRef(false) // true when VAD/duration-cap stopped the turn, false for a manual tap
   const acquiringRef = useRef(false) // true only while getUserMedia is pending — single-flight guard
   const capTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null) // timer-independent recording cap
+  // Conversation resilience: one failed turn re-arms after a short pause instead of killing the
+  // conversation; only consecutive failures (or a terminal error kind) end it.
+  const consecutiveFailsRef = useRef(0)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearCapTimer = useCallback(() => { if (capTimerRef.current != null) { clearTimeout(capTimerRef.current); capTimerRef.current = null } }, [])
+  const clearRetryTimer = useCallback(() => { if (retryTimerRef.current != null) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null } }, [])
   const stopMeter = useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
@@ -189,6 +196,8 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const teardown = useCallback((reset: boolean) => {
     epochRef.current += 1
     stoppingRef.current = false
+    clearRetryTimer()
+    consecutiveFailsRef.current = 0
     abortRef.current?.abort(); abortRef.current = null
     stopMeter(); releaseAudio()
     if (recorderRef.current && recorderRef.current.state !== 'inactive') { try { recorderRef.current.stop() } catch { /* noop */ } }
@@ -198,7 +207,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
       setConversation(false)
       setState('idle'); setTranscript(null); setReply(null); replyRef.current = null; setActions([]); setModels(null); setError(null); setTimings(null)
     }
-  }, [stopMeter, releaseAudio, releaseStream])
+  }, [stopMeter, releaseAudio, releaseStream, clearRetryTimer])
 
   const authed = useCallback(async (path: string, init: RequestInit): Promise<{ res: Response } | { err: VoiceError }> => {
     const token = await deps.getAccessToken()
@@ -237,6 +246,26 @@ export function useRosinaVoice(deps: VoiceDeps) {
     else setState('idle')
   }, [])
 
+  /** A failed turn in conversation mode re-arms after a short pause (longer when rate limited)
+   * instead of ending the conversation; terminal kinds and a third consecutive failure stop it.
+   * The error stays visible until the next listening turn clears it. */
+  const failTurn = useCallback((err: VoiceError) => {
+    setError(err)
+    setState('error')
+    const terminal = err.kind === 'sign-in' || err.kind === 'mic-denied' || err.kind === 'mic-unavailable' || err.kind === 'unsupported'
+    if (!conversationRef.current) { consecutiveFailsRef.current = 0; return }
+    if (terminal) { consecutiveFailsRef.current = 0; conversationRef.current = false; setConversation(false); return }
+    consecutiveFailsRef.current += 1
+    if (consecutiveFailsRef.current >= 3) { conversationRef.current = false; setConversation(false); return }
+    const epoch = epochRef.current
+    clearRetryTimer()
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null
+      if (epochRef.current !== epoch || !conversationRef.current) return
+      armNext.current()
+    }, err.kind === 'rate-limited' ? 4000 : 1500)
+  }, [clearRetryTimer])
+
   const runTurn = useCallback(async (clip: Blob) => {
     const epoch = epochRef.current
     const controller = new AbortController(); abortRef.current = controller
@@ -247,12 +276,13 @@ export function useRosinaVoice(deps: VoiceDeps) {
     if (historyHeader) headers['X-Rosina-History'] = historyHeader
     const out = await authed('/voice/turn', { method: 'POST', headers, body: clip, signal: controller.signal })
     if (stale()) return
-    if ('err' in out) { setError(out.err); setState('error'); return }
+    if ('err' in out) { failTurn(out.err); return }
     const u = (await out.res.json().catch(() => null)) as
       | { transcript?: unknown; reply?: unknown; actions?: unknown; models?: VoiceModels; audioBase64?: unknown; mimeType?: unknown; ttsError?: unknown; timings?: VoiceTimings } | null
     if (stale()) return
-    if (!u || typeof u.transcript !== 'string' || !u.transcript.trim() || typeof u.reply !== 'string') { setError(SERVER_ERROR); setState('error'); return }
+    if (!u || typeof u.transcript !== 'string' || !u.transcript.trim() || typeof u.reply !== 'string') { failTurn(SERVER_ERROR); return }
 
+    consecutiveFailsRef.current = 0
     const text = u.transcript.trim(), rep = u.reply
     const acts = Array.isArray(u.actions) ? u.actions : []
     setTranscript(text); setReply(rep); replyRef.current = rep; setActions(acts); setModels(u.models ?? null)
@@ -272,7 +302,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
       // offer a speech-only retry. Do NOT auto re-arm (no playback completed).
       setState('audio-unavailable')
     }
-  }, [authed, createAudio, playStored, onPlaybackEnded, now])
+  }, [authed, createAudio, playStored, onPlaybackEnded, now, failTurn])
 
   // Finish the current listening turn: send the clip only if real speech was captured; otherwise do
   // not send silence (re-arm in conversation mode, else go idle).
@@ -373,6 +403,8 @@ export function useRosinaVoice(deps: VoiceDeps) {
 
   const startConversation = useCallback(() => {
     setConversation(true); conversationRef.current = true
+    consecutiveFailsRef.current = 0
+    clearRetryTimer()
     // One explicit transition, by current state:
     //  - listening: ADOPT the recording already in flight (do not start a second one).
     //  - processing: a turn is mid-flight; the post-turn re-arm will start listening (conversation now on).
@@ -381,7 +413,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
     if (state === 'listening' || state === 'processing') return
     if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') releaseAudio()
     void beginListening()
-  }, [state, beginListening, releaseAudio])
+  }, [state, beginListening, releaseAudio, clearRetryTimer])
   const endConversation = useCallback(() => { teardown(true) }, [teardown])
 
   const stopAudio = useCallback(() => {
