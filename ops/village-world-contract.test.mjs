@@ -69,10 +69,11 @@ test('people are a narrow ref: no contacts, grants or capabilities', () => {
   }
 });
 
-test('per-person association fields are null-and-documented, never guessed', () => {
+test('person homes come only from the authorized fictional association read; other fields are never guessed', () => {
   const body = subgraph.slice(subgraph.indexOf('villageWorld: async'));
   const block = body.slice(body.indexOf('relationship: rel?.type'), body.indexOf('// Places:'));
-  assert.match(block, /homePlaceId: null/);
+  assert.match(body, /rpc\('showcase_person_places_for_child'/);
+  assert.match(block, /homePlaceId: placeForPerson.get\(id\) \?\? null/);
   assert.match(block, /areaLabel: null/);
   assert.match(block, /scheduledEventId: null/);
   assert.match(block, /scheduledPlaceId: null/);

@@ -32,9 +32,9 @@ export function MapCanvas({controller,state,theme,compact=false,bottom=0,onExpan
  useEffect(()=>{if(!ready||!state.playing||state.progress!==0||!state.following||reduced)return;ref.current?.easeTo({pitch:35,duration:700})},[state.playing])
  if(!world)return null
  const markers=[...world.places.flatMap(p=>p.point?[{id:`place:${p.id}`,kind:'place' as const,record:p,point:p.point}]:[]),...world.people.flatMap(p=>{const point=personPoint(p,world);return point?[{id:`person:${p.id}`,kind:'person' as const,record:p,point}]:[]})]
- const groups=ready?unclutter(markers,item=>{const p=ref.current?.project(item.point);return p?[p.x,p.y]:[0,0]},compact?40:64):[]
+ const groups=ready?[...unclutter(markers.filter(m=>m.kind==='place'&&!(m.record.kind==='home'&&world.people.some(p=>p.position.placeId===m.record.id))),item=>{const p=ref.current?.project(item.point);return p?[p.x,p.y]:[0,0]},compact?40:64),...markers.filter(m=>m.kind==='person').map(m=>[m])]:[]
  const select=(marker:typeof markers[number])=>{controller.select({kind:marker.kind,id:marker.record.id});setCluster(null)}
- function drop(personId:string,place:Place){if(world?.people.some(p=>p.id===personId))void controller.route(personId,place.id)}
+ function drop(personId:string,place:Place){if(world?.people.some(p=>p.id===personId))void controller.place(personId,place.id)}
  function dragged(personId:string,point:Point){const projected=ref.current?.project(point);if(projected){const target=world?.places.find(place=>{if(!place.point)return false;const q=ref.current!.project(place.point);return Math.hypot(projected.x-q.x,projected.y-q.y)<55});if(target)drop(personId,target)}setDragEpoch(e=>e+1)}
  const line=(coordinates:Point[])=>({type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}})
  const selectedEvent=state.selection?.kind==='event'?world.events.find(e=>e.id===state.selection!.id):null

@@ -99,3 +99,16 @@ it('switching modes during a pending route never renders the old result under th
  await vi.waitFor(()=>expect(c.getSnapshot().route).toMatchObject({mode:'Walk',durationSeconds:1800}))
  expect(c.getSnapshot().proposal).toBe('none');c.dispose()
 })
+
+it('placement stays in this map session and mode changes retain the requested route origin',async()=>{
+ const request=vi.fn<RouteTransport['request']>(async()=>wire)
+ const {adapter}=setup({supportedProfiles:Object.values(routingProfiles),request})
+ const first=await adapter.readWorld();const controller=new MapController(adapter);await controller.load()
+ await controller.place('person-a','rp_destination')
+ expect(personPoint(controller.getSnapshot().world!.people[0],controller.getSnapshot().world!)).toEqual([-83.1,42.1])
+ await adapter.route('person-a','rp_destination','Walk')
+ expect(request.mock.calls[1][0].fromPlaceId).toBe('rp_origin')
+ expect(first.people[0].position.placeId).toBe('rp_origin')
+ expect(adapter.placePerson?.('foreign','rp_destination')).toBe(false)
+ controller.dispose()
+})

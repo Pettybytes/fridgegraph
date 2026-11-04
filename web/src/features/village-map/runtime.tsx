@@ -26,7 +26,7 @@ export function VillageMapProvider({children}:{children:ReactNode}){
   const live=!!session.accessToken
   if(live&&!client)return new MapController({mode:'live',readWorld:async()=>{throw Error('WORLD_READ_UNAVAILABLE')},route:async()=>{throw Error('WORLD_READ_UNAVAILABLE')}})
   if(live&&client){
-   const getSession=()=>{const current=getCurrentSession();return current&&selectedRef.current?{generation:current.generation,childId:selectedRef.current,accessToken:current.accessToken,canReadCost:(current.persona.parent||current.persona.guardian===true)&&current.marks?.demoGuide!==true,parentName:current.persona.name}:null}
+   const getSession=()=>{const current=getCurrentSession();return current&&selectedRef.current?{generation:current.generation,childId:selectedRef.current,accessToken:current.accessToken,canReadCost:(current.persona.parent||current.persona.guardian===true||current.marks?.demoGuide===true),parentName:current.persona.name}:null}
    return new MapController(createLiveMapAdapter({getSession,readWorld:createVillageWorldReader(client,runRead)}))
   }
   // The synthetic scenario describes Nora only. A different focused child never inherits it.

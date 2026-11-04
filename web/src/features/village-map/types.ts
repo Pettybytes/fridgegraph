@@ -10,6 +10,7 @@ export type MapWorld = {childId?:string;state:'mock'|'live';people:MapPerson[];p
 export type RideEstimate = {amountUsd:number;capUsd:number;distanceMiles:number;basis:string;paidRidePath:true;candidateId:string;state:'mock'|'live'}
 export type RouteResult = {id:string;fromId:string;toId:string;mode:Mode;geometry:Point[];distanceMiles:number;durationSeconds:number;rideEstimate:RideEstimate|null;state:'mock'|'live'}
 export interface VillageMapAdapter {
+ placePerson?(personId:string,placeId:string):boolean
  dispose?():void
  readonly mode:'mock'|'live'
  readWorld(signal?:AbortSignal):Promise<MapWorld>

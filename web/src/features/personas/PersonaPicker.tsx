@@ -132,5 +132,5 @@ export function PersonaPicker() {
 export function SessionChip() {
   const { session, switchPerson, authMode } = useSession()
   if (!session) return null
-  return <div className="session-chip"><span>{authMode === 'live' ? 'Exploring as' : 'Signed in as'} {session.persona.name}</span><button type="button" onClick={() => { void switchPerson() }}>Switch {authMode === 'live' ? 'perspective' : 'person'}</button>{authMode === 'live' && <button type="button" onClick={() => { void switchPerson() }}>Leave perspective</button>}{session.marks?.demoGuide && <span>Fictional showcase</span>}<GuideChildSelector /><ResetDemoControl /></div>
+  return <div className="session-chip"><span>{authMode === 'live' ? 'Exploring as' : 'Signed in as'} {session.persona.name}{session.persona.parent&&<small> ({session.persona.role})</small>}</span><button type="button" onClick={() => { void switchPerson() }}>Switch {authMode === 'live' ? 'perspective' : 'person'}</button>{authMode === 'live' && <button type="button" onClick={() => { void switchPerson() }}>Leave perspective</button>}{session.marks?.demoGuide && <span>Fictional showcase</span>}<GuideChildSelector /><ResetDemoControl /></div>
 }

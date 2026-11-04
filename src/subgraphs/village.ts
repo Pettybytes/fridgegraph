@@ -505,6 +505,8 @@ const resolvers = {
       const grantRows = await rows(dbFor(ctx).from('grants').select('actor_id').eq('child_id', childId));
       for (const g of grantRows) peopleIds.add(String(g.actor_id));
 
+      const displayPlaces = await rows(dbFor(ctx).rpc('showcase_person_places_for_child', {p_child:childId}));
+      const placeForPerson = new Map(displayPlaces.map(r=>[String(r.person_id),String(r.place_id)]));
       const people: Array<Record<string, unknown>> = [];
       for (const id of peopleIds) {
         const p = await personRow(ctx, id);
@@ -515,7 +517,7 @@ const resolvers = {
           relationship: rel?.type == null ? null : String(rel.type),
           // Not derived: a home is a private address and needs the address gate, and an event link
           // is a place association the caller must be able to see. Null means "not stated", never "unknown user".
-          homePlaceId: null,
+          homePlaceId: placeForPerson.get(id) ?? null,
           areaLabel: null,
           scheduledEventId: null,
           scheduledPlaceId: null,
