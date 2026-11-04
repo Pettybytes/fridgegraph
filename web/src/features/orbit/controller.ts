@@ -138,6 +138,30 @@ export class OrbitController{
   this.patch({preview:null,revision:this.state.revision+1,phase:'editing',busy:'upload',error:''})
   try{const photoId=await this.adapter.upload(this.scope.childId,file,this.mediaAbort.signal);this.patch({photoId})}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
  }
+ // Optional photo for the simple START screen: it never blocks the send, and it marks the draft
+ // started so a subsequent sendAlert reuses the uploaded photoId.
+ async uploadPhoto(file:File){
+  if(!this.canPrepare())return
+  ++this.operation
+  this.patch({started:true,photoFlow:false,phase:'editing',preview:null,busy:'upload',error:''})
+  try{const photoId=await this.adapter.upload(this.scope.childId,file,this.mediaAbort.signal);if(this.current())this.patch({photoId})}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
+ }
+ // One Send: draft the extracted description plus the recorded place/time (now), preview it, and
+ // activate in one step. No manual review page; the controlled-vocabulary and provenance checks are
+ // unchanged (review/activate enforce them). An already-active alert is refused, not duplicated.
+ async sendAlert(input:{values?:Descriptors;lastSeenPlaceId?:string;lastSeenAt?:string}){
+  if(!this.canPrepare())return
+  if(this.state.alert?.status==='ACTIVE'){this.patch({error:'An Orbit alert is already active. Refresh to see its recorded state.'});return}
+  const values:Descriptors={};for(const key of descriptorKeys){const v=input.values?.[key];if(v!==undefined)values[key]=v}
+  if(!this.valid(values)){this.patch({error:'Choose a description from the available options.'});return}
+  const lastSeen:LastSeen={}
+  if(input.lastSeenPlaceId&&this.state.places.some(p=>p.id===input.lastSeenPlaceId))lastSeen.lastSeenPlaceId=input.lastSeenPlaceId
+  if(input.lastSeenAt&&Number.isFinite(Date.parse(input.lastSeenAt)))lastSeen.lastSeenAt=input.lastSeenAt
+  ++this.operation
+  this.patch({started:true,photoFlow:false,values,lastSeen,preview:null,phase:'editing',revision:this.state.revision+1,error:''})
+  await this.review()
+  if(this.confirmable())await this.activate()
+ }
  consumeCelebration(){const key=this.state.celebrationKey;if(!key||this.consumedCelebrations.has(key))return false;this.consumedCelebrations.add(key);return true}
  setLastSeen(key:keyof LastSeen,value:string){
   if(!this.state.started||!this.state.authority||this.scope.readOnly||this.state.busy)return

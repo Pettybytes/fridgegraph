@@ -22,14 +22,18 @@ function SessionReady({children}:{children:ReactNode}){return useSession().sessi
 function Wrapper({controller,children}:{controller:OrbitController;children:ReactNode}){return <SessionProvider adapter={createMockAuthAdapter()}><Login/><SignedInTest controller={controller}>{children}</SignedInTest></SessionProvider>}
 const initialImplemented=catalog.prepareOrbitAlert.implemented
 afterEach(()=>{catalog.prepareOrbitAlert.implemented=initialImplemented;vi.unstubAllGlobals();vi.restoreAllMocks()})
-it('card receipt/rendering never mutates; only its click prepares, and activation still needs confirmation',async()=>{
+it('the Ask Rosina Orbit card only deep-links to the Orbit screen and never renders Orbit UI or mutates in the panel',async()=>{
  catalog.prepareOrbitAlert.implemented=true
+ const before=location.hash
  const {adapter,controller}=fixture(),service={mode:'live' as const,send:vi.fn(async()=>({reply:'Review your Orbit message.',actions:[{id:'prepareOrbitAlert',args:{childId:'p_nora',wearColor:'red'}}]}))}
- render(<Wrapper controller={controller}><RosinaPanel service={service}/><OrbitView controller={controller}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'));await waitFor(()=>expect(controller.canPrepare()).toBe(true))
+ render(<Wrapper controller={controller}><RosinaPanel service={service}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'));await waitFor(()=>expect(controller.canPrepare()).toBe(true))
  fireEvent.change(screen.getByLabelText('Message Rosina'),{target:{value:'Prepare an Orbit message'}});fireEvent.submit(screen.getByLabelText('Message Rosina').closest('form')!);await screen.findByText('I can prepare an Orbit message for you to review. Nothing has been activated.')
- expect(adapter.draft).not.toHaveBeenCalled();expect(adapter.preview).not.toHaveBeenCalled();const card=await screen.findByRole('button',{name:'Prepare Orbit alert'});fireEvent.click(card)
- await screen.findByText('Exact returned message. No changes.');expect(screen.getByRole('region',{name:'Message preview'}).querySelector('blockquote')?.textContent).toBe('Exact returned message.\nNo changes.');expect(adapter.draft).toHaveBeenCalledTimes(1);expect(adapter.preview).toHaveBeenCalledTimes(1);expect(adapter.activate).not.toHaveBeenCalled();expect(screen.getByText('Your approved village (3 people) will be notified.')).toBeVisible();expect(screen.getByText(guidance)).toBeVisible()
- fireEvent.change(screen.getByLabelText('Clothing color'),{target:{value:''}});expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeDisabled();expect(adapter.preview).toHaveBeenCalledTimes(1);expect(adapter.activate).not.toHaveBeenCalled()
+ const card=await screen.findByRole('button',{name:'Prepare Orbit alert'});fireEvent.click(card)
+ expect(location.hash).toBe('#/orbit')
+ // Clicking the card never drafts, previews or renders any Orbit form inside Ask Rosina.
+ expect(adapter.draft).not.toHaveBeenCalled();expect(adapter.preview).not.toHaveBeenCalled();expect(adapter.activate).not.toHaveBeenCalled()
+ expect(screen.queryByLabelText('Clothing color')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Confirm and activate Orbit'})).not.toBeInTheDocument();expect(screen.queryByText('Choose photo')).not.toBeInTheDocument()
+ location.hash=before
 })
 it('unimplemented metadata prevents usable preparation cards',async()=>{
  catalog.prepareOrbitAlert.implemented=false
@@ -70,27 +74,23 @@ it('confirmed reset unmounts the real Rosina thread and photo, disposes Orbit an
  expect(screen.queryByAltText('Shared photo')).not.toBeInTheDocument();expect(screen.queryByText('Private reset test answer')).not.toBeInTheDocument();expect(screen.queryByText('Private reset question')).not.toBeInTheDocument();expect(revoke).toHaveBeenCalledWith('temporary-reset-private-handle');expect(controller.current()).toBe(false)
 })
 
-it('retains an early preparation card disabled until authority and vocabulary finish, without trusting model preview claims',async()=>{
+it('the Ask Rosina Orbit card stays disabled until authority and vocabulary finish, then only deep-links',async()=>{
  catalog.prepareOrbitAlert.implemented=true
  const {adapter,controller}=fixture();let finish!:Awaited<ReturnType<OrbitAdapter['vocabulary']>> extends infer V?(v:V)=>void:never
  vi.mocked(adapter.vocabulary).mockImplementation(()=>new Promise(r=>{finish=r}))
  const service={mode:'live' as const,send:vi.fn(async()=>({reply:"Here's the exact preview. I've prepared it already.",actions:[{id:'prepareOrbitAlert',args:{childId:'p_nora',wearColor:'red'}}]}))}
- render(<Wrapper controller={controller}><RosinaPanel service={service}/><OrbitView controller={controller}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'))
+ render(<Wrapper controller={controller}><RosinaPanel service={service}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'))
  fireEvent.change(await screen.findByLabelText('Message Rosina'),{target:{value:'Prepare'}});fireEvent.submit(screen.getByLabelText('Message Rosina').closest('form')!)
  const card=await screen.findByRole('button',{name:'Prepare Orbit alert'});expect(card).toBeDisabled();expect(screen.getByText('Loading shared Orbit records…')).toBeVisible();expect(screen.queryByText(/prepared it already/)).not.toBeInTheDocument();fireEvent.click(card);expect(adapter.draft).not.toHaveBeenCalled()
- await act(async()=>finish([{kind:'WEAR_COLOR',value:'red',version:1}]));await waitFor(()=>expect(card).toBeEnabled());expect(adapter.draft).not.toHaveBeenCalled();fireEvent.click(card);await screen.findByText("Here's the exact preview");expect(adapter.activate).not.toHaveBeenCalled()
+ await act(async()=>finish([{kind:'WEAR_COLOR',value:'red',version:1}]));await waitFor(()=>expect(card).toBeEnabled())
+ const before=location.hash;fireEvent.click(card);expect(location.hash).toBe('#/orbit');expect(adapter.draft).not.toHaveBeenCalled();expect(adapter.activate).not.toHaveBeenCalled();location.hash=before
 })
-it('labels only a matching successful preview as exact; stale in-flight input cannot enable confirmation',async()=>{
- const {adapter,controller}=fixture();let finish!:(v:Awaited<ReturnType<OrbitAdapter['preview']>>)=>void
- vi.mocked(adapter.preview).mockImplementation(()=>new Promise(r=>{finish=r}))
- render(<Wrapper controller={controller}><OrbitView controller={controller}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'));await waitFor(()=>expect(controller.canPrepare()).toBe(true))
- let pending!:Promise<void>;act(()=>{pending=controller.prepare({childId:'p_nora',wearColor:'red'})});await waitFor(()=>expect(adapter.preview).toHaveBeenCalledTimes(1));expect(screen.getByText('Preparing…')).toBeVisible();expect(screen.queryByText("Here's the exact preview")).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeDisabled()
- act(()=>controller.edit('wearColor',''));await act(async()=>{finish({draftId:'oa_test',draftVersion:1,message:'Late old input',messageHash:'old-binding',audienceSize:3,guidance});await pending});expect(screen.queryByText('Late old input')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeDisabled();expect(adapter.activate).not.toHaveBeenCalled()
- vi.mocked(adapter.preview).mockResolvedValue({draftId:'oa_test',draftVersion:1,message:'Current exact text',messageHash:'current-binding',audienceSize:3,guidance});await act(async()=>controller.review());expect(screen.getByText("Here's the exact preview")).toBeVisible();expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeEnabled();expect(adapter.activate).not.toHaveBeenCalled();act(()=>controller.edit('wearColor','red'));expect(screen.queryByText("Here's the exact preview")).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeDisabled()
-})
-it('rejects a preview returned for a different draft version even without a local edit',async()=>{
+it('review rejects a preview returned for a different draft version; it never becomes confirmable',async()=>{
  const {adapter,controller}=fixture();vi.mocked(adapter.preview).mockResolvedValue({draftId:'oa_test',draftVersion:2,message:'Mismatched preview',messageHash:'wrong-version-binding',audienceSize:3,guidance})
- render(<Wrapper controller={controller}><OrbitView controller={controller}/></Wrapper>);fireEvent.click(screen.getByText('Enter test perspective'));await waitFor(()=>expect(controller.canPrepare()).toBe(true));await act(async()=>controller.prepare({childId:'p_nora'}));expect(screen.getByRole('alert')).toBeVisible();expect(screen.queryByText('Mismatched preview')).not.toBeInTheDocument();expect(screen.queryByText("Here's the exact preview")).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Confirm and activate Orbit'})).toBeDisabled();expect(adapter.activate).not.toHaveBeenCalled()
+ await controller.load();expect(controller.canPrepare()).toBe(true)
+ await controller.prepare({childId:'p_nora'})
+ expect(controller.confirmable()).toBe(false);expect(controller.getSnapshot().preview).toBeNull();expect(controller.getSnapshot().error).toBeTruthy()
+ await controller.activate();expect(adapter.activate).not.toHaveBeenCalled()
 })
 
 it('names the closer only after this perspective receives a successful close result',async()=>{

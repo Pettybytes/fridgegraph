@@ -1,4 +1,4 @@
-import {OrbitPreparation} from './OrbitPreparation'
+import {OrbitStart} from './OrbitStart'
 import {AlertTakeover,FoundSafe,lastSeenCopy} from './AlertTakeover'
 import {OrbitFactsCard} from './OrbitFactsCard'
 import {Portrait} from '@/components/signature/Portrait'
@@ -18,7 +18,6 @@ import './alert-ui.css'
 // itself rather than relying on OrbitConstellation's import, which this view no longer uses.
 import '@/components/signature/signature.css'
 const responses:Record<ResponseChoice,string>={WITH_ME:'With me',ON_WAY:'On my way',CANNOT_HELP:"Can't help"}
-const askEvent=(childName:string)=>{location.hash='#/ask-rosina';window.dispatchEvent(new CustomEvent('orbit:ask',{detail:`Help me prepare an Orbit message for ${childName}.`}))}
 export function OrbitCheckInCard(){const controller=useOrbit();return controller?<CheckInCard controller={controller}/>:null}
 function CheckInCard({controller}:{controller:OrbitController}){
  const state=useOrbitState(controller),{session}=useSession()
@@ -35,7 +34,6 @@ export function OrbitView({controller}:{controller:OrbitController}){
  const lastSeen=state.alert?lastSeenCopy(state.alert):null,childFullName=session?.scope.childName??'Name not shared'
  const parentPhoto=image.url??portraitFor({personId:controller.scope.childId})
  if(!parent&&!controller.scope.readOnly&&state.alert?.audience.some(member=>member.person.id===controller.scope.personId&&member.eligible)&&(active||(closed&&state.alert.closeOutcome==='FOUND_SAFE')))return <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>
- const name=session?.scope.childName.split(' ')[0]??'Your child'
  return <section className={`orbit-page ${active&&parent?'orbit-page-active':''}`} aria-label="Orbit" data-state="live">
   <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>{parent&&<FoundSafe controller={controller} childName={childFullName} closerName={session?.scope.parentName}/>}
   <div className="orbit-context"><span className="orbit-simulation">Simulated notification</span>{controller.scope.readOnly&&<span>Demo guide is read-only</span>}<button type="button" className="sg-refresh" disabled={!!state.busy} onClick={()=>{void controller.refresh()}} aria-label="Refresh Orbit"><RefreshCw size={16}/></button></div>
@@ -44,8 +42,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
    {state.error&&<div className="orbit-error" role="alert"><p>{state.error}</p><button type="button" onClick={()=>{void(state.phase==='unavailable'?controller.load():controller.refresh())}}><RefreshCw size={15}/> Refresh recorded state</button></div>}
    {!state.error&&(parent||state.alert)&&!(parent&&(active||closed))&&<figure className="orbit-subject"><Portrait name={session?.scope.childName??'Name not shared'} src={session?.scope.childName?portraitFor({personId:controller.scope.childId}):undefined}/><figcaption><span>Orbit for</span><strong>{session?.scope.childName??'Name not shared'}</strong></figcaption></figure>}
    {parent&&!state.error&&<ol className="orbit-steps" aria-label="Orbit progress">{['Prepare','Review','Active','Closed'].map((label,i)=>{const step=closed?3:active?2:state.preview?1:0;return <li key={label} aria-current={i===step?'step':undefined}><span>{i<step?<Check size={13}/>:i+1}</span>{label}</li>})}</ol>}
-   {parent&&!state.error&&!state.started&&!active&&!closed&&<div className="orbit-entry"><h2>{controller.checkInOverdue()?`${name}'s ${formatTime(state.check!.dueAt!)} check-in hasn't been recorded.`:state.check?.text??'Your shared check-in records'}</h2><p>Rosina can help you prepare a message for your approved village. You review it before anything is activated.</p><button className="orbit-primary" onClick={()=>askEvent(name)}>Ask Rosina to prepare a message <ArrowRight size={17}/></button></div>}
-   {parent&&state.started&&!active&&!closed&&<OrbitPreparation controller={controller}/>}
+   {parent&&!state.error&&!active&&!closed&&<OrbitStart controller={controller} childName={session?.scope.childName??'Name not shared'}/>}
    {active&&parent&&state.alert&&<div className="orbit-parent-alert" data-state="active">
     <div className={`orbit-takeover-photo${parentPhoto?'':' is-fallback'}`} style={parentPhoto?{backgroundImage:`url("${parentPhoto}")`}:undefined} aria-hidden="true"/>
     <div className="orbit-takeover-stage" key="parent-active">
