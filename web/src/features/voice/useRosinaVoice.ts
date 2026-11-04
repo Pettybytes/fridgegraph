@@ -35,7 +35,7 @@ export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
 export type RecorderLike = { start(): void; stop(): void; state: string }
 export type LevelMeter = { level(): number; stop(): void }
-export type AudioLike = { play(): Promise<void> | void; pause(): void; currentTime: number; onended: (() => void) | null }
+export type AudioLike = { play(): Promise<void> | void; pause(): void; currentTime: number; onended: (() => void) | null; src?: string }
 
 export type VadConfig = { speechThreshold: number; silenceMs: number; minMs: number; maxMs: number }
 // silenceMs 350: end-of-speech detection near the 0.2-0.3s playbook band (a little headroom for
@@ -174,6 +174,23 @@ export function useRosinaVoice(deps: VoiceDeps) {
   // conversation; only consecutive failures (or a terminal error kind) end it.
   const consecutiveFailsRef = useRef(0)
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Autoplay unlock: Chrome's transient user activation expires seconds after the mic tap, so a
+  // reply arriving 10-20s later cannot start a FRESH Audio element (Wonder measured 0/10 voice
+  // turns producing audio). An element played once INSIDE the gesture stays playable, so we
+  // unlock one on the tap and reuse it for every reply. Real browser only: injected test audio
+  // drives playback explicitly and must not see an extra play().
+  const unlockedAudioRef = useRef<AudioLike | null>(null)
+  const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='
+  const unlockAudio = useCallback(() => {
+    if (unlockedAudioRef.current || deps.createAudio) return
+    try {
+      const audio = createAudio(SILENT_WAV)
+      const played = audio.play()
+      if (played && typeof (played as Promise<void>).then === 'function') void (played as Promise<void>).then(() => audio.pause(), () => { /* still reusable after a user gesture */ })
+      else audio.pause()
+      unlockedAudioRef.current = audio
+    } catch { /* unlock is best-effort; needs-play remains the fallback */ }
+  }, [createAudio, deps.createAudio])
 
   const clearCapTimer = useCallback(() => { if (capTimerRef.current != null) { clearTimeout(capTimerRef.current); capTimerRef.current = null } }, [])
   const clearRetryTimer = useCallback(() => { if (retryTimerRef.current != null) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null } }, [])
@@ -293,7 +310,13 @@ export function useRosinaVoice(deps: VoiceDeps) {
 
     if (!voiceRepliesRef.current) { setState('idle'); if (conversationRef.current) armNext.current(); return }
     if (typeof u.audioBase64 === 'string' && u.audioBase64 && typeof u.mimeType === 'string') {
-      const audio = createAudio(`data:${u.mimeType};base64,${u.audioBase64}`)
+      const url = `data:${u.mimeType};base64,${u.audioBase64}`
+      // Reuse the gesture-unlocked element when present (autoplay survives the wait); a fresh
+      // element is the fallback and may land in needs-play under a strict autoplay policy.
+      const unlocked = unlockedAudioRef.current
+      let audio: AudioLike
+      if (unlocked) { unlocked.pause(); unlocked.src = url; unlocked.currentTime = 0; audio = unlocked }
+      else audio = createAudio(url)
       audioRef.current = audio
       audio.onended = () => onPlaybackEnded(epoch)
       await playStored(epoch)
@@ -382,8 +405,9 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const start = useCallback(async () => {
     if (state === 'listening' || state === 'processing') return
     if (state === 'speaking') return // use interrupt() to barge in
+    unlockAudio() // inside the user gesture, so the reply can actually play later
     await beginListening()
-  }, [state, beginListening])
+  }, [state, beginListening, unlockAudio])
 
   /** Tap again: stop and send the current turn. */
   const stop = useCallback(() => {
@@ -396,15 +420,17 @@ export function useRosinaVoice(deps: VoiceDeps) {
 
   /** Tap the primary control: start/stop in a single turn, or interrupt speech to talk again. */
   const toggle = useCallback(() => {
+    unlockAudio() // every tap is a gesture; keep the reply element playable
     if (state === 'listening') stop()
     else if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') { releaseAudio(); void beginListening() }
     else void start()
-  }, [state, stop, start, beginListening, releaseAudio])
+  }, [state, stop, start, beginListening, releaseAudio, unlockAudio])
 
   const startConversation = useCallback(() => {
     setConversation(true); conversationRef.current = true
     consecutiveFailsRef.current = 0
     clearRetryTimer()
+    unlockAudio() // user gesture: keep replies playable for the whole conversation
     // One explicit transition, by current state:
     //  - listening: ADOPT the recording already in flight (do not start a second one).
     //  - processing: a turn is mid-flight; the post-turn re-arm will start listening (conversation now on).
