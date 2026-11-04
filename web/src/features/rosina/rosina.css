@@ -4,13 +4,13 @@
 .rosina-panel.is-open { display: flex; }
 .rosina-panel header { display: flex; justify-content: space-between; align-items: start; padding: 1.25rem 1.2rem .75rem; }
 .rosina-panel header h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.025em; }
-.rosina-panel header p, .rosina-source { font-size: .73rem; line-height: 1.5; color: #62708a; }
+.rosina-panel header p, .rosina-source { font-size: .75rem; line-height: 1.5; color: #62708a; }
 .rosina-panel header button { padding: .3rem; }
 .rosina-source { padding: 0 1.2rem .85rem; border-bottom: 1px solid var(--fg-border); }
 .rosina-thread { flex: 1; overflow: auto; padding: 1.1rem; min-height: 6rem; }
 .rosina-welcome { margin-top: 1.8rem; }
 .rosina-welcome > svg { color: var(--fg-primary); margin-bottom: .9rem; }
-.rosina-welcome h3 { font-size: 1.4rem; letter-spacing: -.03em; line-height: 1.25; max-width: 13rem; margin-bottom: .8rem; }
+.rosina-welcome h3 { text-wrap: balance; font-size: 1.4rem; letter-spacing: -.03em; line-height: 1.25; max-width: 13rem; margin-bottom: .8rem; }
 .rosina-welcome p, .rosina-message p { font-size: .85rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rosina-welcome p { color: #62708a; }
 .rosina-welcome button { margin-top: 1rem; color: var(--fg-primary); text-decoration: underline; }
@@ -89,7 +89,7 @@ body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
 .rosina-panel .rosina-welcome>svg,.rosina-panel .rosina-welcome button{color:var(--fg-primary)}
 .rosina-panel .rosina-source,.rosina-panel form{border-color:var(--fg-border)}
 .rosina-panel .mode-live{color:var(--fg-real);background:color-mix(in oklch,var(--fg-real) 8%,var(--fg-surface));border-color:var(--fg-real)}
-.rosina-panel .mode-mock{color:var(--fg-primary);background:var(--fg-selection);border-color:var(--fg-primary)}
+.rosina-panel .mode-mock{color:var(--fg-ink);background:var(--fg-selection);border-color:var(--fg-primary)}
 .rosina-panel .rosina-error{color:var(--fg-attention)}
 .rosina-confirm{background:var(--fg-surface);color:var(--fg-ink)}
 .rosina-school-report{margin-top:16px;padding:18px;border:1px solid var(--fg-border);border-radius:var(--radius-card,16px);background:var(--fg-surface);color:var(--fg-ink);box-shadow:var(--shadow-card,0 8px 24px #20203a12)}
