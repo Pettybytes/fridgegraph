@@ -1,6 +1,10 @@
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react'
 import {expect,it,vi} from 'vitest'
 import App from '@/App'
+import {SessionProvider,useSession} from '@/features/personas/Session'
+import {createMockAdapter} from '@/lib/frontendData/mockAdapter'
+import {RosinaPanel} from './RosinaPanel'
+import type {FrontendAdapter} from '@/lib/frontendData/types'
 import {createMockAuthAdapter} from '@/features/personas/auth'
 import {LIVE_FALLBACK} from './liveAdapter'
 async function enter(live=true){
@@ -97,5 +101,78 @@ it('a streamed validated proposal renders its card before the reply finishes',as
  expect(screen.getByText('Ready for your review. Nothing happens until you confirm.')).toBeVisible()
  await act(async()=>{push('event: final\ndata: {"reply":"Opening the village view.","actions":[{"id":"open-screen","args":{"screen":"village"}}]}\n\n');close()})
  expect(await screen.findByText('Opening the village view.')).toBeVisible()
+ vi.unstubAllGlobals()
+})
+
+const pickupProposal={id:'start-pickup',args:{childId:'p_nora',date:'2026-11-05',window:'afternoon'}}
+function ProposalPanel({data}:{data:FrontendAdapter}){
+ const {session,switchPerson}=useSession()
+ return <><button onClick={()=>void switchPerson('kendra')}>Pick Kendra</button><button onClick={()=>void switchPerson()}>Switch person</button><span>{session?.persona.name}</span><RosinaPanel dataAdapter={data}/></>
+}
+async function streamedPickup(){
+ const base=createMockAuthAdapter()
+ const auth={...base,signInAsPersona:async(id:Parameters<typeof base.signInAsPersona>[0])=>({...await base.signInAsPersona(id),accessToken:'test-only-browser-session'})}
+ const write=vi.fn(async()=>({id:'fixture-pickup',status:'pending'}))
+ const data={...createMockAdapter(),requestPickup:write}
+ const streams:ReadableStreamDefaultController<Uint8Array>[]=[]
+ vi.stubGlobal('fetch',vi.fn<typeof fetch>(async url=>url==='/api/rosina/warm'?new Response('{"ok":true}'):new Response(new ReadableStream<Uint8Array>({start(c){streams.push(c)}}),{headers:{'content-type':'text/event-stream'}})))
+ window.location.hash='#/ask-rosina';render(<SessionProvider adapter={auth}><ProposalPanel data={data}/></SessionProvider>);fireEvent.click(screen.getByRole('button',{name:'Pick Kendra'}));await screen.findByText('Kendra');send()
+ await waitFor(()=>expect(streams).toHaveLength(1))
+ const emit=async(type:string,payload:unknown,turn=0)=>{await act(async()=>{streams[turn].enqueue(new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`))})}
+ await emit('action',{action:pickupProposal})
+ return {emit,streams,write}
+}
+it('shares execution identity between early and final cards, but not between turns',async()=>{
+ const {emit,streams,write}=await streamedPickup()
+ fireEvent.click(await screen.findByRole('button',{name:/Review pickup request/}))
+ fireEvent.click(screen.getByRole('button',{name:'Confirm pickup request'}))
+ await waitFor(()=>expect(write).toHaveBeenCalledTimes(1))
+ await emit('final',{reply:'Final pickup proposal',actions:[pickupProposal]})
+ expect(screen.getByRole('button',{name:/Review pickup request/})).toBeDisabled()
+ send('Another pickup please');await waitFor(()=>expect(streams).toHaveLength(2))
+ await emit('action',{action:pickupProposal},1)
+ const cards=screen.getAllByRole('button',{name:/Review pickup request/})
+ expect(cards[1]).toBeEnabled();expect(write).toHaveBeenCalledTimes(1)
+ fireEvent.click(cards[1]);expect(screen.getByRole('dialog')).toBeVisible();fireEvent.click(screen.getByRole('button',{name:'Confirm pickup request'}));await waitFor(()=>expect(write).toHaveBeenCalledTimes(2))
+ vi.unstubAllGlobals()
+})
+for(const ending of ['replace','final'] as const)it(`${ending} withdraws the early card and its open confirmation`,async()=>{
+ const {emit,write}=await streamedPickup()
+ fireEvent.click(await screen.findByRole('button',{name:/Review pickup request/}))
+ const staleConfirm=screen.getByRole('button',{name:'Confirm pickup request'})
+ await emit(ending,ending==='final'?{reply:'No proposal is available',actions:[]}: {})
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+ expect(screen.queryByRole('button',{name:/Review pickup request/})).not.toBeInTheDocument()
+ fireEvent.click(staleConfirm)
+ expect(write).not.toHaveBeenCalled()
+ vi.unstubAllGlobals()
+})
+for(const ending of ['cancel','persona'] as const)it(`${ending} removes an open provisional confirmation and rejects late stream actions`,async()=>{
+ const {emit,write}=await streamedPickup()
+ fireEvent.click(await screen.findByRole('button',{name:/Review pickup request/}))
+ expect(screen.getByRole('dialog')).toBeVisible()
+ // A persona change can also arrive from another app control while the modal is open.
+ if(ending==='persona')fireEvent.click(screen.getByText('Switch person'))
+ else act(()=>window.dispatchEvent(new Event('rosina:close')))
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+ await emit('action',{action:pickupProposal})
+ await emit('final',{reply:'Late proposal',actions:[pickupProposal]})
+ expect(screen.queryByRole('button',{name:/Review pickup request/})).not.toBeInTheDocument()
+ expect(screen.queryByText('Late proposal')).not.toBeInTheDocument()
+ expect(write).not.toHaveBeenCalled()
+ vi.unstubAllGlobals()
+})
+it('deduplicates streamed proposals and preserves execution through replacement and reordered final arguments',async()=>{
+ const {emit,write}=await streamedPickup()
+ await emit('action',{action:pickupProposal})
+ expect(screen.getAllByRole('button',{name:/Review pickup request/})).toHaveLength(1)
+ fireEvent.click(screen.getByRole('button',{name:/Review pickup request/}))
+ const confirm=screen.getByRole('button',{name:'Confirm pickup request'})
+ fireEvent.click(confirm);fireEvent.click(confirm)
+ await waitFor(()=>expect(write).toHaveBeenCalledTimes(1))
+ await emit('replace',{})
+ await emit('final',{reply:'Final reordered proposal',actions:[{id:'start-pickup',args:{window:'afternoon',date:'2026-11-05',childId:'p_nora'}}]})
+ expect(screen.getByRole('button',{name:/Review pickup request/})).toBeDisabled()
+ expect(write).toHaveBeenCalledTimes(1)
  vi.unstubAllGlobals()
 })

@@ -8,13 +8,13 @@ type Options={
  onProgress?:(phase:RosinaProgress)=>void
  /** Streaming callbacks. Token text is PROVISIONAL: the resolved RosinaResponse is authoritative
   * and the panel swaps it in at the end (identical text in the normal case). */
- onToken?:(text:string)=>void
- onStatus?:(label:string)=>void
- onReplace?:()=>void
+ onToken?:(text:string,turnId?:number)=>void
+ onStatus?:(label:string,turnId?:number)=>void
+ onReplace?:(turnId?:number)=>void
  /** A server-validated action proposal streamed mid-turn, so the confirmation card can render a
   * full model round before the closing text. Provisional like tokens: the resolved response's
   * actions stay authoritative, and a `replace` event discards what was streamed. */
- onAction?:(action:{id:string;args:Record<string,unknown>})=>void
+ onAction?:(action:{id:string;args:Record<string,unknown>},turnId?:number)=>void
  getGeneration?:()=>number|null
  request?:typeof fetch
  timeoutMs?:number
@@ -75,11 +75,11 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
        if(!line.startsWith('data:'))continue
        let payload:unknown
        try{payload=JSON.parse(line.slice(5).trim())}catch{continue}
-       if(cancelled())continue
-       if(eventType==='token'&&payload&&typeof payload==='object'&&typeof (payload as {text?:unknown}).text==='string')onToken?.((payload as {text:string}).text)
-       else if(eventType==='status'&&payload&&typeof payload==='object'&&typeof (payload as {label?:unknown}).label==='string')onStatus?.((payload as {label:string}).label)
-       else if(eventType==='replace')onReplace?.()
-       else if(eventType==='action'&&payload&&typeof payload==='object'){const action=(payload as {action?:unknown}).action;if(action&&typeof action==='object'&&typeof (action as {id?:unknown}).id==='string')onAction?.(action as {id:string;args:Record<string,unknown>})}
+       if(cancelled()||controller.signal.aborted)continue
+       if(eventType==='token'&&payload&&typeof payload==='object'&&typeof (payload as {text?:unknown}).text==='string')onToken?.((payload as {text:string}).text,input.turnId)
+       else if(eventType==='status'&&payload&&typeof payload==='object'&&typeof (payload as {label?:unknown}).label==='string')onStatus?.((payload as {label:string}).label,input.turnId)
+       else if(eventType==='replace')onReplace?.(input.turnId)
+       else if(eventType==='action'&&payload&&typeof payload==='object'){const action=(payload as {action?:unknown}).action;if(action&&typeof action==='object'&&typeof (action as {id?:unknown}).id==='string')onAction?.(action as {id:string;args:Record<string,unknown>},input.turnId)}
        else if(eventType==='final'){final=parseFinal(payload);break readLoop}
       }
      }
