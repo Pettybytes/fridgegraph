@@ -49,10 +49,11 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(origin).hostname)) thr
 async function query(bearer, document, variables = {}) {
   try {
     const response = await fetch(`${origin}/graphql`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${bearer}` }, body: JSON.stringify({ query: document, variables }) });
+    if (!response.ok) return { state: [401, 403].includes(response.status) ? 'refused' : 'failed', http: response.status };
     const body = await response.json();
     if (body.errors?.length) {
       const errors = body.errors.map(e => ({ code: e.extensions?.code ?? 'UNKNOWN', message: e.message }));
-      return { state: errors.some(e => /UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|AUTH_ERROR/.test(e.code)) ? 'refused' : 'failed', http: response.status, errors };
+      return { state: errors.some(e => /UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|AUTH_ERROR/i.test(`${e.code} ${e.message}`)) ? 'refused' : 'failed', http: response.status, errors };
     }
     return body.data && Object.keys(body.data).length ? { state: 'ready', http: response.status, data: body.data } : { state: 'failed', http: response.status };
   } catch { return { state: 'failed', reason: 'Transport or non-JSON response' }; }
