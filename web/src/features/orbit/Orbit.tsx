@@ -40,10 +40,12 @@ export function OrbitView({controller}:{controller:OrbitController}){
   <div className="orbit-context"><span className="orbit-simulation">Simulated notification</span>{controller.scope.readOnly&&<span>Viewing another showcase family</span>}<button type="button" className="sg-refresh" disabled={!!state.busy} onClick={()=>{void controller.refresh()}} aria-label="Refresh Orbit"><RefreshCw size={16}/></button></div>
   {state.guidance&&<p className="orbit-guidance" role="note">{state.guidance}</p>}
   {state.phase==='loading'?<p role="status">Loading the records shared with you…</p>:<>
-   {state.error&&<div className="orbit-error" role="alert"><p>{state.error}</p><button type="button" onClick={()=>{void(state.phase==='unavailable'?controller.load():controller.refresh())}}><RefreshCw size={15}/> Refresh recorded state</button></div>}
+   {/* Only a load failure takes over the page; a failed Send keeps the start screen so the parent can
+       retry (the error shows inline there), never a dead-end on the error-only view. */}
+   {state.error&&(state.phase==='unavailable'||!parent)&&<div className="orbit-error" role="alert"><p>{state.error}</p><button type="button" onClick={()=>{void(state.phase==='unavailable'?controller.load():controller.refresh())}}><RefreshCw size={15}/> Refresh recorded state</button></div>}
    {!state.error&&(parent||state.alert)&&!(parent&&(active||closed))&&<figure className="orbit-subject"><Portrait name={session?.scope.childName??'Name not shared'} src={session?.scope.childName?portraitFor({personId:controller.scope.childId}):undefined}/><figcaption><span>Orbit for</span><strong>{session?.scope.childName??'Name not shared'}</strong></figcaption></figure>}
    {parent&&!state.error&&<ol className="orbit-steps" aria-label="Orbit progress">{['Prepare','Review','Active','Closed'].map((label,i)=>{const step=closed?3:active?2:state.preview?1:0;return <li key={label} aria-current={i===step?'step':undefined}><span>{i<step?<Check size={13}/>:i+1}</span>{label}</li>})}</ol>}
-   {parent&&!state.error&&!active&&!closed&&<OrbitStart controller={controller} childName={session?.scope.childName??'Name not shared'}/>}
+   {parent&&state.phase!=='unavailable'&&!active&&!closed&&<OrbitStart controller={controller} childName={session?.scope.childName??'Name not shared'}/>}
    {active&&parent&&state.alert&&<div className="orbit-parent-alert" data-state="active">
     <div className={`orbit-takeover-photo${parentPhoto?'':' is-fallback'}`} style={parentPhoto?{backgroundImage:`url("${parentPhoto}")`}:undefined} aria-hidden="true"/>
     <div className="orbit-takeover-stage" key="parent-active">

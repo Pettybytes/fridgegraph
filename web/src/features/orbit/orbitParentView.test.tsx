@@ -63,3 +63,17 @@ it('reduced motion closes without confetti and still reaches the closed card',as
  expect(document.querySelector('.orbit-confetti')).toBeNull()
  expect(document.querySelector('.orbit-facts-safe')).not.toBeNull()
 })
+
+it('a failed Send keeps the start screen with an inline error, never an error-only dead-end',async()=>{
+ const adapter:OrbitAdapter={check:vi.fn(async()=>({recorded:false,label:'c',text:'t',dueAt:null,guidance})),vocabulary:vi.fn(async()=>[{kind:'WEAR_COLOR',value:'red',version:1}]),places:vi.fn(async()=>[{id:'rp',kind:'PARK',label:'Lincoln Park'}]),status:vi.fn(async()=>({alertId:null,status:null,audienceCount:1,notifiedCount:1,latestResponses:[],guidance})),alert:vi.fn(async()=>null),draft:vi.fn(async()=>({draftId:'d',draftVersion:1,status:'PENDING_ACTIVATION',guidance})),preview:vi.fn(async()=>({draftId:'d',draftVersion:1,message:'m',messageHash:'h',audienceSize:1,guidance})),activate:vi.fn(async()=>{throw Error('ACTION_UNAVAILABLE')}),respond:vi.fn(),close:vi.fn(),upload:vi.fn(),photo:vi.fn(async()=>new Blob())}
+ const controller=new OrbitController(adapter,{childId:'p_nora',personId:'p_mom',parent:true,readOnly:false,generation:1},()=>1)
+ render(<Wrapper controller={controller}/>);fireEvent.click(screen.getByText('Enter'))
+ fireEvent.change(await screen.findByRole('textbox'),{target:{value:'Nora, red jacket, last seen a little while ago.'}})
+ fireEvent.click(screen.getByRole('button',{name:/Send Orbit alert/}))
+ await screen.findByText(/Couldn.t complete this just now/i)
+ // The start screen stays (parent can retry); no error-only takeover replaces it.
+ expect(document.querySelector('.orbit-start')).not.toBeNull()
+ expect(screen.getByRole('textbox')).toBeVisible()
+ expect(document.querySelector('.orbit-error')).toBeNull()
+ expect(adapter.activate).toHaveBeenCalled()
+})
