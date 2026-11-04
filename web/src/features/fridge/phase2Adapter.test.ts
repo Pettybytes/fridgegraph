@@ -54,7 +54,8 @@ it('sends exact content and separate explicit sharing operations through the exi
  const adapter=createPhase2Service({mutate} as unknown as ApolloClient,run,()=>true).adapter
  await adapter.postFridgeNote({childId:'c',text:'Note',paperColor:'PINK',audience:'PARENTS_ONLY'})
  expect(mutate.mock.calls[0][0].variables).toEqual({childId:'c',text:'Note',paperColor:'PINK',audience:'PARENTS_ONLY'})
- expect(print(mutate.mock.calls[0][0].mutation)).not.toMatch(/authorId|attachmentRef/)
+ expect(print(mutate.mock.calls[0][0].mutation)).not.toMatch(/authorId/)
+ expect(print(mutate.mock.calls[0][0].mutation)).toContain('attachmentRef: $attachmentRef')
  await adapter.setFridgeNoteAudience({id:'n',audience:'SHARED'})
  expect(mutate.mock.calls[1][0].variables).toEqual({id:'n',audience:'SHARED'})
 })

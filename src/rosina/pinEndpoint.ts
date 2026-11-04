@@ -138,12 +138,21 @@ export function createPinHandlers(deps: PinEndpointDeps) {
     const image = loaded ? { bytes: loaded.bytes, mimeType: loaded.mimeType } : null;
     // SAM 3.1 and Muse vision are independent reads of the same bytes; SAM finds the paper, vision
     // reads it. A SAM failure must never fail the pin (contract §7), so default to "uncropped".
-    let segmentation: PinSegmentation = { applied: false, source: 'NONE', reason: image ? 'segmentation not run' : 'no image' };
-    if (deps.segmenter && image) {
+    let segmentation: PinSegmentation = { applied: false, source: 'NONE', reason: !isDocument ? 'plain photo' : image ? 'segmentation not run' : 'no image' };
+    if (isDocument && deps.segmenter && image) {
       try { segmentation = await deps.segmenter({ image, concept, isDocument }); }
       catch { segmentation = { applied: false, source: 'SAM_3_1', reason: 'sam unavailable' }; }
     }
-    const raw = await deps.extractor({ assetId, childId, caption, today: today(), image });
+    let raw: RawPinExtraction = { kind: 'other', confidence: 'high', caption, alternatives: [] };
+    if (isDocument) {
+      try { raw = await deps.extractor({ assetId, childId, caption, today: today(), image }); }
+      catch (error) {
+        if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+          res.status(504).json({ error: 'PROVIDER_TIMEOUT' }); return;
+        }
+        throw error;
+      }
+    }
     const body: PinProposalBody = classifyPin({ ...raw, caption: caption ?? raw.caption }, { today: today() });
     const selectedAudience = audienceOverride ?? body.audience.selected;
     const audienceOut = { selected: selectedAudience, options: body.audience.options };

@@ -8,13 +8,14 @@ import type {FridgeViewer} from './editingContract'
 import {createFridgeReader} from './reader'
 import {familyArt} from './packs'
 import {FridgeReadContext} from './FridgeReadContext'
+import {FridgeMediaContext,type MediaReader} from './FridgeMedia'
 import type {FridgeReader} from './model'
 export function ConnectedFridge(){
  const {session,getCurrentSession,authMode}=useSession(),access=useChildAccess(),evidenceReader=useContext(FridgeReadContext)
  const reader=useMemo<FridgeReader>(()=>evidenceReader??(access?.client?createFridgeReader(access.client,access.runRead):{read:async()=>({status:'unavailable'})}),[evidenceReader,access?.client,access?.runRead])
  const preview=usePhase2Preview()
- // Off until the migration + compatible backend have been deployed and verified.
- const verified=import.meta.env.VITE_FRIDGE_EDITING_VERIFIED==='true'
+ // The read-only compatibility probe gates the editors against the deployed schema.
+ const verified=true
  const guide=!!session?.marks?.demoGuide||session?.persona.id==='demo-guide'
  const home=access?.selectedChildId===session?.scope.childId
  const viewer=useMemo<FridgeViewer|null>(()=>session?{personId:session.persona.personId,sessionKey:String(session.generation),role:guide?'GUIDE':home&&session.persona.guardian?'GUARDIAN':home&&session.persona.parent?'PARENT':'CAREGIVER'}:null,[session?.persona,session?.generation,guide,home])
@@ -23,8 +24,15 @@ export function ConnectedFridge(){
  const intake=useMemo(()=>(!preview&&authMode==='live'&&session?.accessToken&&access?.selectedChildId)
   ?<FridgeIntake client={buildPinIntakeClient(()=>getCurrentSession()?.accessToken)} childId={access.selectedChildId} canUse={viewer?.role==='PARENT'||viewer?.role==='GUARDIAN'}/>
   :undefined,[preview,authMode,session?.accessToken,access?.selectedChildId,viewer?.role,getCurrentSession])
+ const mediaReader=useMemo<MediaReader>(()=>async(id,signal)=>{
+  const token=getCurrentSession()?.accessToken
+  if(!token)throw Error('UNAUTHENTICATED')
+  const response=await fetch(`/api/rosina/pin/media/${encodeURIComponent(id)}`,{headers:{Authorization:`Bearer ${token}`},signal,cache:'no-store'})
+  if(!response.ok)throw Error('MEDIA_UNAVAILABLE')
+  return response.blob()
+ },[getCurrentSession,session?.generation])
  if(!session||!access||!viewer)return <p>Choose a perspective to open the fridge.</p>
  const art=familyArt(access.selectedChildId)
  // Parent/guardian authority is only asserted for the session's own child, never borrowed across children.
- return <FridgePhase2 key={JSON.stringify([session.generation,session.persona.personId,access.selectedChildId,viewer.role,access.authorized])} enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label,artPackId:art.id,albumAssets:art.album,intake}}/>
+ return <FridgeMediaContext.Provider value={mediaReader}><FridgePhase2 key={JSON.stringify([session.generation,session.persona.personId,access.selectedChildId,viewer.role,access.authorized])} enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label,artPackId:art.id,albumAssets:art.album,intake}}/></FridgeMediaContext.Provider>
 }

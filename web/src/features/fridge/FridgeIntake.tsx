@@ -1,13 +1,13 @@
 import {useEffect,useId,useRef,useState} from 'react'
-import {Upload,Image as ImageIcon,Check,X} from 'lucide-react'
-import {Button} from '@/components/ui/button'
+import {Upload,Image as ImageIcon,Check} from 'lucide-react'
+import {FgButton as Button} from '@/components/fg/primitives'
 import {createPinIntakeClient,pinErrorMessage,sampleSlipFile,type PinIntakeClient,type PinPrepareResult,type PinAudience,type PinnedResult} from './pinIntake'
 
-type Phase={kind:'idle'}|{kind:'uploading'}|{kind:'review';result:PinPrepareResult}|{kind:'pinning';result:PinPrepareResult}|{kind:'pinned';pinned:PinnedResult}
+type Phase={kind:'idle'}|{kind:'uploading'}|{kind:'photo'}|{kind:'review';result:PinPrepareResult}|{kind:'pinning';result:PinPrepareResult}|{kind:'pinned';pinned:PinnedResult}
 
 /** Readiness-driven pin intake. Default OFF: until the backend readiness probe reports ready (which
  *  needs the operator to enable it after verifying the live path end to end), this shows the exact
- *  honest "unavailable" state — the same copy the fridge has always shown. It flips to the real
+ *  honest "unavailable" state : the same copy the fridge has always shown. It flips to the real
  *  "+ Add image and upload" flow only when the real path works. The browser holds no credential; it
  *  forwards the caller's bearer through the client and renders the server's typed proposal to confirm. */
 export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeClient|null;childId:string;canUse:boolean;onPinned?:(pin:PinnedResult['pin'])=>void}){
@@ -15,8 +15,11 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
  const [phase,setPhase]=useState<Phase>({kind:'idle'})
  const [caption,setCaption]=useState('')
  const [audience,setAudience]=useState<PinAudience>('PARENTS_ONLY')
- const [plainPhoto,setPlainPhoto]=useState(false)
+ const [plainPhoto,setPlainPhoto]=useState(true)
  const [error,setError]=useState('')
+ const [assetId,setAssetId]=useState<string|null>(null)
+ const [saving,setSaving]=useState(false)
+ const [preparedFor,setPreparedFor]=useState('')
  const [previewUrl,setPreviewUrl]=useState<string|null>(null)
  const inputRef=useRef<HTMLInputElement>(null),abort=useRef<AbortController|null>(null),alive=useRef(true),id=useId()
 
@@ -34,12 +37,12 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
  function reset(keepFile=false){
   abort.current?.abort()
   setPhase({kind:'idle'});setError('')
-  if(!keepFile){setCaption('');setAudience('PARENTS_ONLY');setPlainPhoto(false);if(previewUrl){URL.revokeObjectURL(previewUrl);setPreviewUrl(null)}if(inputRef.current)inputRef.current.value=''}
+  if(!keepFile){setCaption('');setAudience('PARENTS_ONLY');setPlainPhoto(true);setAssetId(null);if(previewUrl){URL.revokeObjectURL(previewUrl);setPreviewUrl(null)}if(inputRef.current)inputRef.current.value=''}
  }
 
- async function choose(file:File|undefined){
+ async function choose(file:File|undefined,document=!plainPhoto){
   if(!file||!client)return
-  reset(true)
+  reset(true);setAssetId(null)
   if(previewUrl)URL.revokeObjectURL(previewUrl)
   const url=URL.createObjectURL(file);setPreviewUrl(url)
   const controller=new AbortController();abort.current=controller
@@ -47,7 +50,10 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
   try{
    const {assetId}=await client.upload({childId,file},controller.signal)
    if(controller.signal.aborted||!alive.current)return
-   const result=await client.prepare({childId,assetId,caption:caption.trim()||undefined,audience,document:!plainPhoto,concept:plainPhoto?undefined:'sheet of paper'},controller.signal)
+   setAssetId(assetId)
+   if(!document){setPhase({kind:'photo'});return}
+   const result=await client.prepare({childId,assetId,caption:caption.trim()||undefined,audience,document:true,concept:'sheet of paper'},controller.signal)
+   setPreparedFor(JSON.stringify([caption.trim(),audience]))
    if(controller.signal.aborted||!alive.current)return
    setPhase({kind:'review',result})
   }catch(e){if(!controller.signal.aborted&&alive.current){setError(pinErrorMessage(e));setPhase({kind:'idle'})}}
@@ -56,24 +62,33 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
  async function loadSample(){
   if(!client||phase.kind==='uploading')return
   setError('')
-  try{const file=await sampleSlipFile();await choose(file)}
+  try{const file=await sampleSlipFile();setPlainPhoto(false);await choose(file,true)}
   catch(e){if(alive.current)setError(pinErrorMessage(e))}
  }
 
  async function confirm(){
-  if(phase.kind!=='review'||!client)return
-  const result=phase.result,proposal=result.proposal
-  if(!proposal)return
+  if(saving||!client||!assetId||(phase.kind!=='photo'&&phase.kind!=='review'))return
+  const prior=phase
+  setSaving(true)
   const controller=new AbortController();abort.current=controller
-  setPhase({kind:'pinning',result});setError('')
+  setPhase({kind:'uploading'});setError('')
   try{
-   const pinned=await client.confirm({proposal,caption:result.extracted.caption,extracted:result.extracted},controller.signal)
+   let result=prior.kind==='review'?prior.result:null
+   if(!result||preparedFor!==JSON.stringify([caption.trim(),audience])){
+    result=await client.prepare({childId,assetId,caption:caption.trim()||(plainPhoto?'Family photo':undefined),audience,document:!plainPhoto,concept:plainPhoto?undefined:'sheet of paper'},controller.signal)
+    if(controller.signal.aborted||!alive.current)return
+    setPreparedFor(JSON.stringify([caption.trim(),audience]))
+    if(!plainPhoto){setPhase({kind:'review',result});return}
+   }
+   if(!result.proposal){setPhase({kind:'review',result});return}
+   setPhase({kind:'pinning',result})
+   const pinned=await client.confirm({proposal:result.proposal,caption:result.extracted.caption,extracted:result.extracted},controller.signal)
    if(controller.signal.aborted||!alive.current)return
    setPhase({kind:'pinned',pinned});onPinned?.(pinned.pin)
-  }catch(e){if(!controller.signal.aborted&&alive.current){setError(pinErrorMessage(e));setPhase({kind:'review',result})}}
+  }catch(e){if(!controller.signal.aborted&&alive.current){setError(pinErrorMessage(e));setPhase(prior)}}finally{if(alive.current)setSaving(false)}
  }
 
- // Honest unavailable state — preserved verbatim from the original fridge intake.
+ // Honest unavailable state : preserved verbatim from the original fridge intake.
  if(ready!=='ready'){
   return <div className="fridge-intake-state">
    <button disabled aria-describedby={`${id}-reason`}>+ Add photo or paper</button>
@@ -86,20 +101,32 @@ export function FridgeIntake({client,childId,canUse,onPinned}:{client:PinIntakeC
  return <div className="fridge-intake" aria-label="Pin a photo or paper to the fridge">
   {phase.kind==='pinned'?<div className="fridge-intake-done" role="status">
     <Check size={18} aria-hidden="true"/><span>Pinned to the fridge{phase.pinned.created?'':' (already there)'}.</span>
-    <Button type="button" variant="outline" className="fridge-intake-btn" onClick={()=>reset()}>Pin another</Button>
+    <Button type="button" variant="secondary" className="fridge-intake-btn" onClick={()=>reset()}>Pin another</Button>
    </div>
+  :phase.kind==='photo'?<section className="fridge-intake-review" aria-label="Review photo">
+    {previewUrl&&<div className="fridge-intake-preview"><img src={previewUrl} alt="The photo you chose, shown for review"/></div>}
+   </section>
   :phase.kind==='review'||phase.kind==='pinning'?<PinReview
-    result={phase.result} previewUrl={previewUrl} audience={audience} onAudience={setAudience}
-    busy={phase.kind==='pinning'} onConfirm={()=>void confirm()} onBack={()=>reset(true)} canConfirm={!!phase.result.proposal}/>
+    result={phase.result} previewUrl={previewUrl}/>
   :<div className="fridge-intake-compose">
     <Button type="button" className="fridge-intake-btn" disabled={phase.kind==='uploading'} onClick={()=>inputRef.current?.click()}><ImageIcon size={18} aria-hidden="true"/>+ Add image and upload</Button>
     <input ref={inputRef} id={`${id}-file`} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="Choose a photo or paper to pin" onChange={e=>void choose(e.target.files?.[0])}/>
-    <label className="fridge-intake-field"><span>Caption (optional)</span><input type="text" value={caption} maxLength={120} placeholder="e.g. Field trip slip" onChange={e=>setCaption(e.target.value)}/></label>
-    <label className="fridge-intake-check"><input type="checkbox" checked={plainPhoto} onChange={e=>setPlainPhoto(e.target.checked)}/><span>This is a plain photo, not a document (skip cropping)</span></label>
-    <p className="fridge-intake-note"><Upload size={14} aria-hidden="true"/> PNG, JPEG or WebP up to 10 MB. The photo is stripped of location data, read privately, and pinned only after you confirm.</p>
+    <label className="fridge-intake-check"><input type="checkbox" disabled={phase.kind==='uploading'} checked={!plainPhoto} onChange={e=>setPlainPhoto(!e.target.checked)}/><span>This is a document</span></label>
+    <p className="fridge-intake-note"><Upload size={14} aria-hidden="true"/> PNG, JPEG or WebP up to 10 MB. Location data is removed. Rosina reads documents only when you choose that option.</p>
     <button type="button" className="fridge-intake-sample" disabled={phase.kind==='uploading'} onClick={()=>void loadSample()}>Try a sample: a Lincoln Elementary permission slip, photographed on the counter</button>
    </div>}
-  {phase.kind==='uploading'&&<p role="status">Reading your photo privately…</p>}
+  {phase.kind!=='pinned'&&<>
+   <label className="fridge-intake-field"><span>Caption (optional)</span><input type="text" value={caption} maxLength={300} placeholder="A family moment" disabled={saving} onChange={e=>setCaption(e.target.value)}/></label>
+   {<fieldset className="fridge-intake-audience" disabled={phase.kind==='pinning'||phase.kind==='uploading'}><legend>Who can see it</legend>
+    <label><input type="radio" name={`${id}-audience`} checked={audience==='PARENTS_ONLY'} onChange={()=>setAudience('PARENTS_ONLY')}/>Parents only</label>
+    <label><input type="radio" name={`${id}-audience`} checked={audience==='SHARED'} onChange={()=>setAudience('SHARED')}/>Shared with granted readers</label>
+   </fieldset>}
+   {(phase.kind==='photo'||phase.kind==='review'||phase.kind==='pinning')&&<div className="fridge-intake-actions">
+    <Button type="button" className="fridge-intake-btn" disabled={phase.kind==='pinning'} onClick={()=>void confirm()}>{phase.kind==='pinning'?'Adding…':'Add to fridge'}</Button>
+    <Button type="button" variant="ghost" disabled={phase.kind==='pinning'} onClick={()=>reset()}>Choose another</Button>
+   </div>}
+  </>}
+  {phase.kind==='uploading'&&<p role="status">{plainPhoto?'Preparing your photo…':'Reading your document…'}</p>}
   {error&&<p role="alert" className="fridge-intake-error">{error}</p>}
  </div>
 }
@@ -118,7 +145,7 @@ function fieldRows(e:PinPrepareResult['extracted']):{label:string;value:string}[
 }
 const KIND_LABEL:Record<string,string>={drawing:'Drawing',permission_slip:'Permission slip',report_card:'Report card',appointment_card:'Appointment card',other:'Paper'}
 
-function PinReview({result,previewUrl,audience,onAudience,busy,onConfirm,onBack,canConfirm}:{result:PinPrepareResult;previewUrl:string|null;audience:PinAudience;onAudience:(a:PinAudience)=>void;busy:boolean;onConfirm:()=>void;onBack:()=>void;canConfirm:boolean}){
+function PinReview({result,previewUrl}:{result:PinPrepareResult;previewUrl:string|null}){
  const seg=result.segmentation,rows=fieldRows(result.extracted)
  const cropStyle=seg.applied?{left:`${seg.crop.x*100}%`,top:`${seg.crop.y*100}%`,width:`${seg.crop.width*100}%`,height:`${seg.crop.height*100}%`,transform:`rotate(${seg.rotationDeg}deg)`}:undefined
  return <section className="fridge-intake-review" aria-label="Review before pinning">
@@ -134,14 +161,7 @@ function PinReview({result,previewUrl,audience,onAudience,busy,onConfirm,onBack,
    {rows.map(r=><div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}
   </dl>
   {result.status==='NEEDS_CLARIFICATION'&&result.clarification&&<p className="fridge-intake-clarify" role="status">{result.clarification.question} Add it to the caption and review again.</p>}
-  <fieldset className="fridge-intake-audience"><legend>Who can see it</legend>
-   {result.audience.options.map(opt=><label key={opt}><input type="radio" name="pin-audience" checked={audience===opt} onChange={()=>onAudience(opt)}/><span>{opt==='PARENTS_ONLY'?'Parents only':'Shared with granted readers'}</span></label>)}
-  </fieldset>
-  <div className="fridge-intake-actions">
-   <Button type="button" className="fridge-intake-btn" disabled={busy||!canConfirm} onClick={onConfirm}>{busy?'Pinning…':'Pin it to the fridge'}</Button>
-   <Button type="button" variant="ghost" className="fridge-intake-btn" disabled={busy} onClick={onBack}><X size={16} aria-hidden="true"/>Choose another</Button>
-  </div>
-  {!canConfirm&&<p role="status">Add a short caption so this has a label, then review again.</p>}
+
  </section>
 }
 

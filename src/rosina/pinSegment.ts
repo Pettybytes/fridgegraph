@@ -88,7 +88,7 @@ export function createFixtureSegmenter(result?: Partial<Extract<PinSegmentation,
 
 /** Live SAM 3.1 over the Meta Model API Responses endpoint. Honest fallback: any transport/HTTP error
  *  or a no-paper-found result becomes { applied:false, reason } so the caller places it uncropped. */
-export function createSamSegmenter(cfg: { provider: ProviderConfig; model?: string; fetchFn?: typeof fetch; log?: (p: SegmentProvenance) => void }): PinSegmenter {
+export function createSamSegmenter(cfg: { provider: ProviderConfig; model?: string; timeoutMs?: number; fetchFn?: typeof fetch; log?: (p: SegmentProvenance) => void }): PinSegmenter {
   const base = cfg.provider.baseUrl.replace(/\/$/, '');
   const model = cfg.model ?? 'sam-3.1';
   const doFetch = cfg.fetchFn ?? fetch;
@@ -99,6 +99,7 @@ export function createSamSegmenter(cfg: { provider: ProviderConfig; model?: stri
     try {
       const res = await doFetch(`${base}/responses`, {
         method: 'POST',
+      signal: AbortSignal.timeout(cfg.timeoutMs ?? 20_000),
         headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.provider.apiKey}` },
         body: JSON.stringify({
           model,

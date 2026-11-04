@@ -12,27 +12,28 @@ it('clears dialogs on a child or persona change and discards late results',async
 it('stores only layout geometry per person, validates malformed storage and tidies it',async()=>{saveLayout('parent',{'sample-sofa':{x:.25,y:.2,width:.16,rotation:2}});expect(loadLayout('other')).toEqual({});render(<Fridge {...props}/>);fireEvent.click(screen.getByRole('button',{name:'Tidy up'}));expect(loadLayout('parent')).toEqual({});localStorage.setItem('fridge-layout:parent','not json');expect(loadLayout('parent')).toEqual({})})
 it('supports keyboard movement only in explicit Arrange mode',()=>{render(<Fridge {...props}/>);const photo=screen.getByRole('button',{name:'A quiet afternoon'});fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Arrange items'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')['sample-sofa'].x).toBeCloseTo(.220)})
 it('keeps author marker ink stable and unknown authors neutral',()=>{expect(authorInk(null)).toBe('#263a4a');expect(authorInk('recorded-author')).toBe(authorInk('recorded-author'));expect(authorInk('a')).not.toBe(authorInk('b'))})
-it('lets a parent edit a per-item caption that persists across a remount, and hides the editor for a read-only view',async()=>{
+it('saves captions explicitly through the server adapter, reloads its record, and never stores caption text in the browser',async()=>{
  const {within}=await import('@testing-library/react')
- const open=()=>{fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}));fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}))}
- render(<Fridge {...props}/>)
+ const open=()=>{fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}))}
+ const saveCaption=vi.fn(async()=>true)
+ render(<Fridge {...props} saveCaption={saveCaption}/>)
  open()
  fireEvent.change(within(screen.getByRole('dialog')).getByRole('textbox',{name:'Edit caption for A quiet afternoon'}),{target:{value:'Our trip to the lake'}})
- expect(JSON.parse(localStorage.getItem('fridge-captions:parent') as string)['sample-sofa']).toBe('Our trip to the lake')
+ expect(saveCaption).not.toHaveBeenCalled()
+ fireEvent.click(screen.getByRole('button',{name:/^Save$/}))
+ expect(await screen.findByText('Saved.')).toBeInTheDocument()
+ expect(saveCaption).toHaveBeenCalledWith(expect.objectContaining({id:'sample-sofa'}),'Our trip to the lake')
+ expect(localStorage.getItem('fridge-captions:parent')).toBeNull()
  cleanup()
- // Remount (a refresh): the saved caption is loaded and shown.
- render(<Fridge {...props}/>)
+ const record={id:'caption-note',text:'Our trip to the lake',attachmentRef:'fridge-art:sample-sofa',author:{id:'parent',displayName:'Parent'},paperColor:'WHITE' as const,audience:'PARENTS_ONLY' as const,createdAt:'',updatedAt:'',revision:1}
+ render(<Fridge {...props} captionNotes={[record]} saveCaption={saveCaption}/>)
  open()
- const dialog=screen.getByRole('dialog')
- expect(within(dialog).getByRole('textbox',{name:'Edit caption for A quiet afternoon'})).toHaveValue('Our trip to the lake')
+ expect(within(screen.getByRole('dialog')).getByRole('textbox',{name:/Edit caption/})).toHaveValue('Our trip to the lake')
  cleanup()
- // Read-only perspective: the saved caption shows, but there is no editor.
- render(<Fridge {...props} readOnly/>)
+ render(<Fridge {...props} captionNotes={[record]} readOnly/>)
  open()
- const ro=screen.getByRole('dialog')
- expect(within(ro).getByText('Our trip to the lake')).toBeInTheDocument()
- expect(within(ro).queryByRole('textbox',{name:/Edit caption/})).not.toBeInTheDocument()
- localStorage.clear()
+ expect(within(screen.getByRole('dialog')).getByText('Our trip to the lake')).toBeInTheDocument()
+ expect(screen.queryByRole('textbox',{name:/Edit caption/})).not.toBeInTheDocument()
 })
 it('lets a parent pick a per-goal marker colour + font that persists, and hides the picker for read-only',async()=>{
  const goalsReader:FridgeReader={read:async source=>source==='goals'?{status:'ready',value:[{id:'g1',title:'Practice together',horizon:null,status:'PROPOSED'}]}:{status:'empty'}}
@@ -53,3 +54,15 @@ it('lets a parent pick a per-goal marker colour + font that persists, and hides 
  localStorage.clear()
 })
 it('shows a not-connected state, not a load failure, when a source is unavailable offline',async()=>{render(<Fridge {...props} reader={{read:async()=>({status:'unavailable'})}}/>);expect(await screen.findByText('Not connected in this view.')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Open goals door'}));expect(screen.getByText('These notes aren’t connected in this view.')).toBeInTheDocument();expect(screen.queryByRole('button',{name:/Retry/})).not.toBeInTheDocument();expect(screen.queryByRole('alert')).not.toBeInTheDocument()})
+it('fills an untouched caption when server notes arrive after opening, but preserves a typed draft',()=>{
+ const saveCaption=vi.fn(async()=>true)
+ const view=render(<Fridge {...props} saveCaption={saveCaption}/>)
+ fireEvent.click(screen.getByRole('button',{name:'Open collage door'}))
+ fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}))
+ const record={id:'late',text:'Server caption',attachmentRef:'fridge-art:sample-sofa',author:{id:'parent',displayName:'Parent'},paperColor:'WHITE' as const,audience:'PARENTS_ONLY' as const,createdAt:'',updatedAt:'',revision:1}
+ view.rerender(<Fridge {...props} captionNotes={[record]} saveCaption={saveCaption}/>)
+ expect(screen.getByRole('textbox',{name:/Edit caption/})).toHaveValue('Server caption')
+ fireEvent.change(screen.getByRole('textbox',{name:/Edit caption/}),{target:{value:'My unfinished draft'}})
+ view.rerender(<Fridge {...props} captionNotes={[{...record,text:'New server caption'}]} saveCaption={saveCaption}/>)
+ expect(screen.getByRole('textbox',{name:/Edit caption/})).toHaveValue('My unfinished draft')
+})

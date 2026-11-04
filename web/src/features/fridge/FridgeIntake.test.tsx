@@ -48,6 +48,7 @@ it('parent flow: upload -> review (SAM crop + read fields) -> confirm -> pinned'
  expect(add).toBeEnabled()
  // The Lincoln Elementary sample is offered so a parent can demo SAM on a known slip.
  expect(screen.getByRole('button',{name:/Lincoln Elementary permission slip/})).toBeInTheDocument()
+ fireEvent.click(screen.getByRole('checkbox',{name:'This is a document'}))
  const input=document.querySelector('input[type=file]') as HTMLInputElement
  fireEvent.change(input,{target:{files:[png()]}})
  // review appears
@@ -57,7 +58,7 @@ it('parent flow: upload -> review (SAM crop + read fields) -> confirm -> pinned'
  expect(within(review).getByText(/Cropped to the paper with Segment Anything 3.1/)).toBeInTheDocument()
  expect(within(review).getByText('Permission slip')).toBeInTheDocument()
  expect(within(review).getByText('Lincoln Elementary')).toBeInTheDocument()
- fireEvent.click(within(review).getByRole('button',{name:'Pin it to the fridge'}))
+ fireEvent.click(screen.getByRole('button',{name:'Add to fridge'}))
  expect(await screen.findByText(/Pinned to the fridge/)).toBeInTheDocument()
  expect(onPinned).toHaveBeenCalledWith(pinned.pin)
 })
@@ -66,6 +67,7 @@ it('an uncropped SAM result is shown honestly, never faked as cropped',async()=>
  const client=mockClient({ready:true,prepare:vi.fn(async():Promise<PinPrepareResult>=>({...readyProposal,segmentation:{applied:false,source:'SAM_3_1',reason:'no paper found'}}))})
  render(<FridgeIntake client={client} childId="p_nora" canUse/>)
  await screen.findByRole('button',{name:'+ Add image and upload'})
+ fireEvent.click(screen.getByRole('checkbox',{name:'This is a document'}))
  fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement,{target:{files:[png()]}})
  expect(await screen.findByText(/Shown uncropped/)).toBeInTheDocument()
 })
@@ -78,4 +80,18 @@ it('surfaces a refusal from the server as a plain alert, stays on compose',async
  fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement,{target:{files:[png()]}})
  expect(await screen.findByRole('alert')).toHaveTextContent(/parent or guardian/i)
  expect(screen.getByRole('button',{name:'+ Add image and upload'})).toBeInTheDocument()
+})
+
+it('a photo previews without a document read and keeps its caption editable through save',async()=>{
+ const client=mockClient()
+ render(<FridgeIntake client={client} childId="p_nora" canUse/>)
+ await screen.findByRole('button',{name:'+ Add image and upload'})
+ fireEvent.change(screen.getByLabelText('Choose a photo or paper to pin'),{target:{files:[png()]}})
+ const add=await screen.findByRole('button',{name:'Add to fridge'})
+ expect(add).toBeEnabled()
+ expect(client.prepare).not.toHaveBeenCalled()
+ fireEvent.change(screen.getByRole('textbox',{name:/Caption/}),{target:{value:'Oscar misses you'}})
+ fireEvent.click(add)
+ await screen.findByText(/Pinned to the fridge/)
+ expect(client.prepare).toHaveBeenCalledWith(expect.objectContaining({document:false,caption:'Oscar misses you',audience:'PARENTS_ONLY'}),expect.any(AbortSignal))
 })

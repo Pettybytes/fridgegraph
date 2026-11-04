@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react'
 import {Dialog,Popover} from 'radix-ui'
-import {authorInk,doors,loadCaptions,loadLayout,loadMarkers,MARKER_INK,notePositions,saveCaptions,saveLayout,saveMarkers,samples,type FridgeReader,type Goal,type MarkerColor,type MarkerFont,type MarkerStyle,type Position,type Slot,type Read} from './model'
+import {authorInk,doors,loadLayout,loadMarkers,MARKER_INK,notePositions,saveLayout,saveMarkers,samples,type FridgeReader,type Goal,type MarkerColor,type MarkerFont,type MarkerStyle,type Position,type Slot,type Read} from './model'
 import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
 import type {FridgeNoteRecord} from './editingContract'
@@ -10,20 +10,29 @@ import type {AlbumAsset} from './packs'
 import './fridge.css'
 
 type Door='notes'|'goals'|null
-type Props={personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void;boardEditor?:ReactNode;noteCreateControl?:ReactNode;artPackId?:string|null;albumAssets?:AlbumAsset[];intake?:ReactNode}
+type Props={mediaUrls?:Record<string,string>;captionNotes?:FridgeNoteRecord[];saveCaption?:(slot:Slot,text:string)=>Promise<boolean>;personId:string;childId:string;generation:number;reader:FridgeReader;readOnly?:boolean;sampleSlots?:Slot[];artLabel?:string; editingControls?:ReactNode;goalsOverride?:Read<Goal[]>;boardReadOnly?:boolean;postedNotes?:FridgeNoteRecord[];openPostedNotes?:()=>void;boardEditor?:ReactNode;noteCreateControl?:ReactNode;artPackId?:string|null;albumAssets?:AlbumAsset[];intake?:ReactNode}
 const hashDoor=():Door=>location.hash==='#/fridge/notes'?'notes':location.hash==='#/fridge/goals'?'goals':null
 const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*100}%`,width:`${p.width*100}%`,'--turn':`${p.rotation}deg`} as CSSProperties)
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[],intake}:Props){
+function FridgeContext({mediaUrls={},captionNotes=[],saveCaption,personId,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[],intake}:Props){
  const viewport=useFridgeViewport()
  const [arrange,setArrange]=useState(false)
  const [door,setDoor]=useState<Door>(hashDoor)
  const appliedHash=useRef<string|null>(null)
  const [layout,setLayout]=useState(()=>loadLayout(personId)),[selected,setSelected]=useState<Slot|null>(null)
- const [captions,setCaptions]=useState(()=>loadCaptions(personId))
- const storeCaption=(id:string,text:string)=>setCaptions(old=>{const value={...old,[id]:text};saveCaptions(personId,value);return value})
+ const [captionDraft,setCaptionDraft]=useState(''),[captionStatus,setCaptionStatus]=useState(''),[savingCaption,setSavingCaption]=useState(false)
+ const captionDirty=useRef(false)
+ const captions=Object.fromEntries(captionNotes.map(note=>[note.attachmentRef!.slice('fridge-art:'.length),note.text]))
+ useEffect(()=>{if(selected&&!captionDirty.current)setCaptionDraft(captions[selected.id]??selected.caption)},[selected,captions[selected?.id??'']])
+ const selectSlot=(slot:Slot)=>{captionDirty.current=false;setSelected(slot);setCaptionDraft(captions[slot.id]??slot.caption);setCaptionStatus('')}
+ const commitCaption=async()=>{
+  if(!selected||!saveCaption||savingCaption||!captionDraft.trim())return
+  setSavingCaption(true);setCaptionStatus('')
+  const saved=await saveCaption(selected,captionDraft.trim())
+  setSavingCaption(false);setCaptionStatus(saved?'Saved.':'Couldn’t save this caption. Try again.')
+ }
  const [markers,setMarkers]=useState(()=>loadMarkers(personId))
  const storeMarker=(id:string,patch:Partial<MarkerStyle>)=>setMarkers(old=>{const cur=old[id]??{color:'black' as MarkerColor,font:'kalam' as MarkerFont};const value={...old,[id]:{...cur,...patch}};saveMarkers(personId,value);return value})
  const care=useFridgeSource(reader,childId,'care'),goals=useFridgeSource(reader,childId,'goals')
@@ -74,12 +83,12 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
   const position=(target:HTMLElement):Position=>{const box=target.getBoundingClientRect(),base=scene.current!.getBoundingClientRect();return placed??{x:(box.left-base.left)/base.width,y:(box.top-base.top)/base.height,width:box.width/base.width,rotation:0}}
   return <button key={note.id} className={`fridge-posted-paper ${placed?'is-arranged':''}`} style={placed?positionStyle(placed):undefined} data-paper={note.paperColor} data-note-id={note.id}
    onKeyDown={e=>{if(!arrange||!e.altKey||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const p=position(e.currentTarget);storePosition(note.id,movedPosition(p,e.key==='ArrowLeft'?-.005:e.key==='ArrowRight'?.005:0,e.key==='ArrowUp'?-.005:e.key==='ArrowDown'?.005:0));requestAnimationFrame(()=>{Array.from(scene.current?.querySelectorAll<HTMLButtonElement>('[data-note-id]')??[]).find(el=>el.dataset.noteId===note.id)?.focus()})}}
-   onPointerDown={e=>{if(!arrange||e.button!==0)return;const p=position(e.currentTarget);drag.current={id:note.id,x:e.clientX,y:e.clientY,position:p,moved:false,next:p};e.currentTarget.setPointerCapture(e.pointerId)}}
+   onPointerDown={e=>{if(readOnly||e.button!==0)return;const p=position(e.currentTarget);drag.current={id:note.id,x:e.clientX,y:e.clientY,position:p,moved:false,next:p};e.currentTarget.setPointerCapture?.(e.pointerId)}}
    onPointerMove={e=>{const d=drag.current;if(!d||d.id!==note.id||!scene.current)return;const box=scene.current.getBoundingClientRect();if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>6)d.moved=true;if(d.moved){d.next=movedPosition(d.position,(e.clientX-d.x)/box.width,(e.clientY-d.y)/box.height);e.currentTarget.style.transform=`translate(${(d.next.x-d.position.x)*box.width/viewport.view.scale}px, ${(d.next.y-d.position.y)*box.height/viewport.view.scale}px)`}}}
    onPointerUp={e=>{if(drag.current?.id===note.id&&drag.current.moved){e.currentTarget.style.transform='';storePosition(note.id,drag.current.next);viewport.suppress.current=true}}}
    onPointerCancel={e=>{drag.current=null;e.currentTarget.style.transform=''}}
    onClick={e=>{if(drag.current?.moved){drag.current=null;return}activate(e.detail,()=>openPostedNotes?.())}} aria-label={`Open posted note: ${note.text}`}>
-    <Magnet kind="star"/><span className="fridge-note-source">{note.audience==='PARENTS_ONLY'?'Parents only':'Shared with granted readers'}</span><span className="fridge-paper-text">{note.text}</span><span className="fridge-note-author">{note.author.displayName?`By ${note.author.displayName}`:'Author not shared'}</span>
+    <Magnet kind="star"/>{note.attachmentRef&&mediaUrls[note.attachmentRef]&&<img draggable={false} src={mediaUrls[note.attachmentRef]} alt={note.text}/>}<span className="fridge-note-source">{note.audience==='PARENTS_ONLY'?'Parents only':'Shared with granted readers'}</span><span className="fridge-paper-text">{note.text}</span><span className="fridge-note-author">{note.author.displayName?`By ${note.author.displayName}`:'Author not shared'}</span>
    </button>
  }
  const goalFeedback=()=>board.status==='ready'?null:<p className="fridge-read" role={board.status==='failed'?'alert':'status'}>{board.status==='loading'?'Loading shared goals…':board.status==='empty'?'Nothing posted here yet.':board.status==='refused'?"These notes aren't shared with this perspective.":board.status==='unavailable'?'These notes aren’t connected in this view.':"Couldn't load these notes"}{board.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
@@ -96,10 +105,10 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
   <nav className="fridge-view-controls" aria-label="Fridge view controls">
    {viewport.view.scale>1&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}
    <button onClick={()=>viewport.zoom(1.25)}>Zoom in</button><button disabled={viewport.view.scale===1} onClick={()=>viewport.zoom(.8)}>Zoom out</button><button onClick={()=>navigate(null)}>Reset view</button>
-   <button aria-pressed={arrange} disabled={viewport.view.scale===1} onClick={()=>setArrange(value=>!value)}>Arrange items</button>
+   <button aria-pressed={arrange} disabled={readOnly} onClick={()=>setArrange(value=>!value)}>Arrange items</button>
    <button onClick={()=>{setLayout({});saveLayout(personId,{})}}>Tidy up</button>
   </nav>
-  <div ref={viewport.ref} className={`fridge-viewport ${viewport.view.scale>1?'is-focused':''}`} data-view={door??'overview'} data-scale={viewport.view.scale} data-arrange={arrange} tabIndex={0} role="region" aria-label="Fridge viewer"
+  <div ref={viewport.ref} className={`fridge-viewport ${viewport.view.scale>1?'is-focused':''}`} data-view={door??'overview'} data-scale={viewport.view.scale} data-arrange={arrange} data-editable={!readOnly} tabIndex={0} role="region" aria-label="Fridge viewer"
    onFocusCapture={e=>{
     if(e.target===e.currentTarget||viewport.view.scale===1)return
     const r=e.currentTarget.getBoundingClientRect(),t=e.target.getBoundingClientRect()
@@ -109,7 +118,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     if(dx||dy)viewport.apply({...viewport.view,x:viewport.view.x+dx/r.width,y:viewport.view.y+dy/r.height})
    }}
    onDoubleClick={()=>{if(openTimer.current)clearTimeout(openTimer.current);setSelected(null);navigate(null)}}
-   onPointerDownCapture={e=>{drag.current=null;viewport.down(e,arrange)}} onPointerMove={viewport.move} onPointerUp={viewport.up} onPointerCancel={viewport.up}
+   onPointerDownCapture={e=>{drag.current=null;viewport.down(e,!readOnly)}} onPointerMove={viewport.move} onPointerUp={viewport.up} onPointerCancel={viewport.up}
    onClickCapture={e=>{
     if(e.detail>=2){if(openTimer.current)clearTimeout(openTimer.current);e.preventDefault();e.stopPropagation();setSelected(null);navigate(null);return}
     if(viewport.suppress.current){e.preventDefault();e.stopPropagation();viewport.suppress.current=false;drag.current=null;return}
@@ -124,10 +133,10 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
       const p=layout[slot.id]??slot.position
       return <button key={slot.id} className={`fridge-object ${slot.kind} paper-${slot.paper??0} ${slot.variant??''}`} style={{...positionStyle(p),color:authorInk(slot.owner)}} aria-label={slot.text} tabIndex={door==='goals'?-1:0}
        onKeyDown={e=>{if(!arrange||!e.altKey||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();storePosition(slot.id,movedPosition(p,e.key==='ArrowLeft'?-.005:e.key==='ArrowRight'?.005:0,e.key==='ArrowUp'?-.005:e.key==='ArrowDown'?.005:0))}}
-       onPointerDown={e=>{if(!arrange||e.button!==0)return;drag.current={id:slot.id,x:e.clientX,y:e.clientY,position:p,moved:false,next:p};e.currentTarget.setPointerCapture(e.pointerId)}}
-       onPointerMove={e=>{const d=drag.current;if(!d||d.id!==slot.id||!scene.current)return;const box=scene.current.getBoundingClientRect();if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>6)d.moved=true;if(d.moved){d.next=movedPosition(d.position,(e.clientX-d.x)/box.width,(e.clientY-d.y)/box.height);setLayout(old=>({...old,[slot.id]:d.next}))}}}
-       onPointerUp={()=>{if(drag.current?.moved)storePosition(slot.id,drag.current.next)}} onPointerCancel={()=>{drag.current=null}}
-       onClick={e=>{if(drag.current?.moved){drag.current=null;return}drag.current=null;activate(e.detail,()=>{if(slot.destination)location.hash=slot.destination;else setSelected(slot)})}}>
+       onPointerDown={e=>{if(readOnly||e.button!==0)return;drag.current={id:slot.id,x:e.clientX,y:e.clientY,position:p,moved:false,next:p};e.currentTarget.setPointerCapture?.(e.pointerId)}}
+       onPointerMove={e=>{const d=drag.current;if(!d||d.id!==slot.id||!scene.current)return;const box=scene.current.getBoundingClientRect();if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>6)d.moved=true;if(d.moved){d.next=movedPosition(d.position,(e.clientX-d.x)/box.width,(e.clientY-d.y)/box.height);e.currentTarget.style.transform=`translate(${(d.next.x-d.position.x)*box.width/viewport.view.scale}px, ${(d.next.y-d.position.y)*box.height/viewport.view.scale}px) rotate(${p.rotation}deg)`}}}
+       onPointerUp={e=>{if(drag.current?.moved){e.currentTarget.style.transform='';storePosition(slot.id,drag.current.next);viewport.suppress.current=true}}} onPointerCancel={e=>{drag.current=null;e.currentTarget.style.transform=''}}
+       onClick={e=>{if(drag.current?.moved){drag.current=null;return}drag.current=null;activate(e.detail,()=>{if(slot.destination)location.hash=slot.destination;else selectSlot(slot)})}}>
        <Magnet kind={slot.magnet??'apple'}/>
        {(slot.asset||slot.image)&&<img draggable={false} src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} srcSet={slot.image?.srcSet??(slot.asset?`/fridge/samples/${slot.asset}-360.webp 360w, /fridge/samples/${slot.asset}-720.webp 720w, /fridge/samples/${slot.asset}-1440.webp 1440w`:undefined)} sizes={viewport.view.scale>1?'(max-width:600px) 45vw, 500px':'(max-width:600px) 18vw, 220px'} alt={slot.image?.alt??''}/>}
        {(slot.kind==='note'||slot.kind==='form')&&<span className="fridge-note-source">{slot.heading??(slot.source==='sample'?'':'Shared note')}</span>}
@@ -152,7 +161,7 @@ function FridgeContext({personId,childId,reader,readOnly,sampleSlots=samples,art
     </section>
    </div>
   </div>
-  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Decorative papers">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open decorative ${slot.text}`} onClick={()=>setSelected(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><strong>{slot.text}</strong></button>)}</div>}
-  <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{(selected&&(captions[selected.id]||selected.caption))||''}</Dialog.Description>{selected&&!readOnly&&<label className="fridge-caption-edit"><span>Your caption</span><textarea value={captions[selected.id]??''} maxLength={300} rows={2} placeholder={selected.caption} aria-label={`Edit caption for ${selected.text}`} onChange={e=>storeCaption(selected.id,e.target.value)}/><small>Saved in this browser.</small></label>}<Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
+  {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Decorative papers">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open decorative ${slot.text}`} onClick={()=>selectSlot(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><strong>{slot.text}</strong></button>)}</div>}
+  <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{(selected&&(captions[selected.id]||selected.caption))||''}</Dialog.Description>{selected&&!readOnly&&saveCaption&&<div className="fridge-caption-edit"><label><span>Your caption</span><textarea value={captionDraft} disabled={savingCaption} maxLength={300} rows={2} aria-label={`Edit caption for ${selected.text}`} onChange={e=>{captionDirty.current=true;setCaptionDraft(e.target.value);setCaptionStatus('')}}/></label><button type="button" disabled={savingCaption||!captionDraft.trim()} onClick={()=>void commitCaption()}>{savingCaption?'Saving…':'Save'}</button>{captionStatus&&<p role="status">{captionStatus}</p>}<small>Manage who can see this item in Family notes.</small></div>}<Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }
