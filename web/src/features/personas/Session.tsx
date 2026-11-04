@@ -5,6 +5,7 @@ import {flushSync} from 'react-dom'
 import type {AuthAdapter,AuthSession,DemoFamily,DemoFamilyInput,PersonaId} from './auth'
 import {canResetDemo} from './auth'
 import {BUSY,PerspectiveError} from './liveAuth'
+import {clearRememberedPerspective,rememberPerspective,rememberedPerspective} from './perspectiveMemory'
 import {retryReadOnce} from './renewal'
 import {validDay} from '@/features/calendar/time'
 type Cleanup=()=>void|Promise<unknown>
@@ -31,17 +32,32 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
  const getSessionGeneration=useCallback(()=>generation.current,[]),getCurrentSession=useCallback(()=>currentSession.current,[])
  const registerPrivateCleanup=useCallback((clear:Cleanup)=>{cleanups.current.add(clear);return()=>{cleanups.current.delete(clear)}},[])
  useEffect(()=>{mounted.current=true;const signal=new AbortController();if(adapter.unavailablePersonas)void adapter.unavailablePersonas(signal.signal).then(ids=>{if(!signal.signal.aborted)setUnavailable(new Set(ids))});return()=>{mounted.current=false;signal.abort();++generation.current;transitionAbort.current?.abort();renewAbort.current?.abort();resetAbort.current?.abort();currentSession.current=null;flight.current=null;resetFlight.current=null}},[adapter])
+ // A reload re-runs the server-side persona pick for the remembered perspective (the server
+ // mints the session; browser storage holds only the persona id). A failed re-pick falls
+ // through to the picker exactly like a failed manual pick.
+ useEffect(()=>{
+  const id=rememberedPerspective()
+  if(!id)return
+  // Deferred out of the effect flush: transition uses flushSync, which cannot run while
+  // React is still committing. The picker renders for that tick, as during any sign-in.
+  const timer=setTimeout(()=>{if(!currentSession.current)void transition(id,true)},0)
+  return()=>clearTimeout(timer)
+ },[adapter])
  function discard(){
   ++generation.current;transitionAbort.current?.abort();renewAbort.current?.abort();resetAbort.current?.abort();resetFlight.current=null;flight.current=null;currentSession.current=null;backoff.current=0;notBefore.current=0
   const pending=[...cleanups.current];cleanups.current.clear();return pending
  }
  const expire=useCallback(()=>{
+  // An ended session returns to the picker; it must not silently re-pick on reload.
+  clearRememberedPerspective()
   calendarDayForNextPerspective.current=null
   const pending=discard();setSession(null);setSwitching(false);setFamilies([]);setError('Your session ended, choose a perspective again')
   void Promise.allSettled(pending.map(clear=>clear()))
  },[])
- async function transition(id?:PersonaId){
+ async function transition(id?:PersonaId,restore=false){
   if(id&&(retryAt[id]??0)>Date.now()){setError(BUSY);return}
+  // Switching or leaving a perspective forgets it; only an explicit new pick is remembered.
+  if(!id)clearRememberedPerspective()
   if(!id&&currentSession.current){
    const day=location.hash.startsWith('#/calendar?')?new URLSearchParams(location.hash.split('?')[1]??'').get('day'):null
    calendarDayForNextPerspective.current=validDay(day)?day:null
@@ -54,12 +70,14 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
    if(owner!==generation.current)return
    const next=id?await adapter.signInAsPersona(id,controller.signal):null
    if(owner!==generation.current||controller.signal.aborted||!mounted.current)return
-   if(next?.persona.initialRoute){
+   // A restore keeps the route the reload arrived on; initialRoute only fills an empty hash.
+   if(next?.persona.initialRoute&&!(restore&&location.hash.length>2)){
     const day=next.persona.initialRoute==='calendar'?calendarDayForNextPerspective.current:null
     window.history.replaceState(null,'',`${location.pathname}${location.search}#/${next.persona.initialRoute}${day?`?day=${day}`:''}`)
    }
    if(id)calendarDayForNextPerspective.current=null
    const value=next?{...next,generation:owner}:null;currentSession.current=value;setSession(value)
+   if(id&&value)rememberPerspective(id)
   }catch(failure){if(owner===generation.current&&!controller.signal.aborted&&mounted.current){
    if(failure instanceof PerspectiveError&&failure.terminal&&id)setUnavailable(items=>new Set([...items,id]))
    if(failure instanceof PerspectiveError&&failure.retryAfterMs&&id)setRetryAt(items=>({...items,[id]:Date.now()+failure.retryAfterMs}))
@@ -85,6 +103,8 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
   if(Date.now()<resetRetryAt)return Promise.resolve(false)
   const controller=new AbortController();resetAbort.current=controller;setResetting(true);setResetError('')
   function refreshAfterReset(replacement?:{accessToken:string;expiresAt:number}|null){
+   // A reset returns the demo to its start state: the next reload offers the picker.
+   clearRememberedPerspective()
    ++generation.current;transitionAbort.current?.abort();renewAbort.current?.abort();flight.current=null;backoff.current=0;notBefore.current=0
    const pending=[...cleanups.current],latest=currentSession.current??original;cleanups.current.clear()
    // Install the fresh bearer before a new generation can issue any reads.
