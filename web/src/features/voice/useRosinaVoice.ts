@@ -22,6 +22,8 @@
  * conversation is still active. A tap during speech interrupts and starts a fresh listening turn.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createStreamPlayer, voiceStreamEvents, type StreamPlayer } from './streamPlayback'
+import { pcmRecorder } from './pcmRecorder'
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking' | 'needs-play' | 'audio-unavailable' | 'error'
 export type VoiceErrorKind =
@@ -30,7 +32,7 @@ export type VoiceErrorKind =
   | 'rate-limited' | 'sign-in' | 'server'
 export type VoiceError = { kind: VoiceErrorKind; message: string }
 export type VoiceModels = { asr: string | null; tts: string | null; voice: string | null; rosina: string | null } | null
-export type VoiceTimings = { asrMs?: number; rosinaMs?: number; ttsMs?: number; serverTotalMs?: number; speechEndToReplyMs?: number; speechEndToAudioMs?: number }
+export type VoiceTimings = { asrMs?: number; rosinaMs?: number; ttsMs?: number; serverTotalMs?: number; speechEndToReplyMs?: number; speechEndToAudioMs?: number; recorderFlushMs?: number }
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
 export type RecorderLike = { start(): void; stop(): void; state: string }
@@ -45,16 +47,19 @@ const DEFAULT_VAD: VadConfig = { speechThreshold: 0.08, silenceMs: 350, minMs: 5
 export type VoiceDeps = {
   /** Reads the CURRENT in-memory session bearer, never a captured one. */
   getAccessToken: () => string | null | undefined | Promise<string | null | undefined>
+  getSelectedChildId?: () => string | null | undefined
+  stream?: boolean
+  createStreamPlayer?: typeof createStreamPlayer
   /** Changing this (persona/child/generation) tears everything down and discards late results. */
   resetKey?: unknown
   /** The bounded conversation history to send with each turn (same thread as text turns). */
   getHistory?: () => HistoryMessage[]
   /** The server's transcript + reply are reported here to insert into the live conversation. */
   onTranscript?: (text: string) => void
-  onReply?: (reply: string, actions: unknown[]) => void
+  onReply?: (reply: string, actions: unknown[], response?: Record<string, unknown>) => void
   request?: typeof fetch
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
-  createRecorder?: (stream: MediaStream, onData: (blob: Blob) => void) => RecorderLike
+  createRecorder?: (stream: MediaStream, onData: (blob: Blob) => void, onPrefix?: (blob: Blob) => void) => RecorderLike
   createMeter?: (stream: MediaStream) => LevelMeter
   createAudio?: (url: string) => AudioLike
   vad?: Partial<VadConfig>
@@ -88,18 +93,21 @@ function defaultRecorder(stream: MediaStream, onData: (b: Blob) => void): Record
   rec.onstop = () => { onData(new Blob(chunks, { type: rec.mimeType || 'audio/webm' })); stream.getTracks().forEach((t) => t.stop()) }
   return { start: () => rec.start(), stop: () => rec.stop(), get state() { return rec.state } }
 }
-function defaultMeter(stream: MediaStream): LevelMeter {
+function defaultMeter(stream: MediaStream, timeDomain = false): LevelMeter {
   const Ctx: typeof AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
   const ctx = new Ctx()
   const src = ctx.createMediaStreamSource(stream)
   const analyser = ctx.createAnalyser(); analyser.fftSize = 512
+  if (timeDomain) analyser.smoothingTimeConstant = 0
   src.connect(analyser)
   const buf = new Uint8Array(analyser.frequencyBinCount)
+  const samples = new Float32Array(analyser.fftSize)
   return {
-    level() { analyser.getByteFrequencyData(buf); let sum = 0; for (const v of buf) sum += v * v; return Math.min(1, Math.sqrt(sum / buf.length) / 128) },
+    level() { if (timeDomain) { analyser.getFloatTimeDomainData(samples); let sum = 0; for (const v of samples) sum += v * v; return Math.sqrt(sum / samples.length) } analyser.getByteFrequencyData(buf); let sum = 0; for (const v of buf) sum += v * v; return Math.min(1, Math.sqrt(sum / buf.length) / 128) },
     stop() { src.disconnect(); void ctx.close() },
   }
 }
+function streamMeter(stream: MediaStream) { return defaultMeter(stream, true) }
 function defaultAudio(url: string): AudioLike { return new Audio(url) as unknown as AudioLike }
 
 // Bound the history header by ENCODED UTF-8 BYTES, not characters, so a multilingual history (CJK /
@@ -132,11 +140,13 @@ export function encodeHistoryHeader(history: HistoryMessage[]): string | null {
 export function useRosinaVoice(deps: VoiceDeps) {
   const request = deps.request ?? fetch
   const getUserMedia = deps.getUserMedia ?? defaultGetUserMedia
-  const createRecorder = deps.createRecorder ?? defaultRecorder
-  const createMeter = deps.createMeter ?? defaultMeter
+  const createRecorder = deps.createRecorder ?? (deps.stream ? pcmRecorder : defaultRecorder)
+  const createMeter = deps.createMeter ?? (deps.stream ? streamMeter : defaultMeter)
   const createAudio = deps.createAudio ?? defaultAudio
   const now = deps.now ?? (() => Date.now())
-  const vad: VadConfig = { ...DEFAULT_VAD, ...deps.vad }
+  // The 300ms experiment clipped a normal within-sentence pause. Keep a 600ms endpoint
+  // for the guarded lab candidate; report the latency tradeoff instead of truncating speech.
+  const vad: VadConfig = { ...DEFAULT_VAD, ...(deps.stream ? { silenceMs: 600, speechThreshold: 0.015 } : {}), ...deps.vad }
 
   const [state, setState] = useState<VoiceState>('idle')
   const [conversation, setConversation] = useState(false)
@@ -153,6 +163,10 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const meterRef = useRef<LevelMeter | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioRef = useRef<AudioLike | null>(null)
+  const streamPlayerRef = useRef<Promise<StreamPlayer> | null>(null)
+  const prefixControllersRef = useRef(new Set<AbortController>())
+  const recorderStoppedAtRef = useRef(0)
+  const recorderFlushMsRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const epochRef = useRef(0) // bumped on every teardown; late results from an old epoch are dropped
@@ -182,6 +196,16 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const unlockedAudioRef = useRef<AudioLike | null>(null)
   const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='
   const unlockAudio = useCallback(() => {
+    if (deps.stream) {
+      const epoch = epochRef.current
+      if (!streamPlayerRef.current) streamPlayerRef.current = (deps.createStreamPlayer ?? createStreamPlayer)(() => {
+        if (epochRef.current !== epoch) return
+        performance.mark('voice-lab:first-speech')
+        setState('speaking')
+        setTimings(t => ({ ...(t ?? {}), speechEndToAudioMs: now() - speechEndAtRef.current }))
+      })
+      return
+    }
     if (unlockedAudioRef.current || deps.createAudio) return
     try {
       const audio = createAudio(SILENT_WAV)
@@ -190,7 +214,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
       else audio.pause()
       unlockedAudioRef.current = audio
     } catch { /* unlock is best-effort; needs-play remains the fallback */ }
-  }, [createAudio, deps.createAudio])
+  }, [createAudio, deps.createAudio, deps.stream, deps.createStreamPlayer, now])
 
   const clearCapTimer = useCallback(() => { if (capTimerRef.current != null) { clearTimeout(capTimerRef.current); capTimerRef.current = null } }, [])
   const clearRetryTimer = useCallback(() => { if (retryTimerRef.current != null) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null } }, [])
@@ -206,6 +230,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
     if (streamRef.current) { try { streamRef.current.getTracks().forEach((t) => t.stop()) } catch { /* noop */ } streamRef.current = null }
   }, [])
   const releaseAudio = useCallback(() => {
+    if (streamPlayerRef.current) { void streamPlayerRef.current.then(p => p.stop()).catch(() => {}); streamPlayerRef.current = null }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.onended = null; audioRef.current = null }
   }, [])
 
@@ -216,6 +241,8 @@ export function useRosinaVoice(deps: VoiceDeps) {
     clearRetryTimer()
     consecutiveFailsRef.current = 0
     abortRef.current?.abort(); abortRef.current = null
+    for (const controller of prefixControllersRef.current) controller.abort()
+    prefixControllersRef.current.clear()
     stopMeter(); releaseAudio()
     if (recorderRef.current && recorderRef.current.state !== 'inactive') { try { recorderRef.current.stop() } catch { /* noop */ } }
     recorderRef.current = null
@@ -290,10 +317,43 @@ export function useRosinaVoice(deps: VoiceDeps) {
     setState('processing')
     const historyHeader = encodeHistoryHeader(cbRef.current.getHistory?.() ?? [])
     const headers: Record<string, string> = { 'Content-Type': clip.type || 'audio/webm' }
+    const selectedChildId = deps.getSelectedChildId?.()
+    if (selectedChildId) headers['X-Rosina-Child'] = selectedChildId
     if (historyHeader) headers['X-Rosina-History'] = historyHeader
-    const out = await authed('/voice/turn', { method: 'POST', headers, body: clip, signal: controller.signal })
+    if (deps.stream) performance.mark('voice-lab:fetch-start')
+    const out = await authed(deps.stream ? '/voice/stream' : '/voice/turn', { method: 'POST', headers, body: clip, signal: controller.signal })
     if (stale()) return
     if ('err' in out) { failTurn(out.err); return }
+    if (deps.stream) {
+      let hasFinal = false
+      try {
+        const player = await streamPlayerRef.current
+        for await (const event of voiceStreamEvents(out.res)) {
+          if (stale()) return
+          if (event.type === 'transcript' && typeof event.text === 'string') { setTranscript(event.text); cbRef.current.onTranscript?.(event.text) }
+          if (event.type === 'final' && event.data && typeof event.data === 'object') {
+            const data = event.data as { reply: string; actions?: unknown[] }
+            hasFinal = true
+            setReply(data.reply); replyRef.current = data.reply; setActions(data.actions ?? [])
+            cbRef.current.onReply?.(data.reply, data.actions ?? [], event.data as Record<string, unknown>)
+          }
+          if (event.type === 'audio' && typeof event.audioBase64 === 'string' && voiceRepliesRef.current) player?.push(event.audioBase64, typeof event.phrase === 'number' ? event.phrase : undefined)
+          if (event.type === 'done') setTimings(t => ({ ...t, ...(event.timings as VoiceTimings), recorderFlushMs: recorderFlushMsRef.current }))
+          if (event.type === 'error') throw new Error('VOICE_STREAM_FAILED')
+        }
+        await player?.finish()
+        if (stale()) return
+        streamPlayerRef.current = null
+        onPlaybackEnded(epoch)
+      } catch {
+        if (!stale()) {
+          releaseAudio()
+          if (hasFinal) { setError(null); setState('audio-unavailable') }
+          else failTurn(SERVER_ERROR)
+        }
+      }
+      return
+    }
     const u = (await out.res.json().catch(() => null)) as
       | { transcript?: unknown; reply?: unknown; actions?: unknown; models?: VoiceModels; audioBase64?: unknown; mimeType?: unknown; ttsError?: unknown; timings?: VoiceTimings } | null
     if (stale()) return
@@ -332,6 +392,8 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const finishTurn = useCallback((clip: Blob, epoch: number) => {
     if (epochRef.current !== epoch) return // the turn was torn down; drop the clip, never send it
     recorderRef.current = null
+    if (deps.stream) performance.mark('voice-lab:recorder-flush')
+    recorderFlushMsRef.current = recorderStoppedAtRef.current ? now() - recorderStoppedAtRef.current : 0
     stopMeter(); releaseStream()
     // speechEndAt was stamped at the moment end-of-speech was DECIDED (VAD silence / cap / manual tap),
     // so the measured interval includes recorder finalization + transport, not just the network.
@@ -343,6 +405,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
 
   const beginListening = useCallback(async () => {
     if (acquiringRef.current) return // single-flight: a stream is already being acquired (rapid taps)
+    if (deps.stream) unlockAudio()
     setError(null)
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       if (deps.getUserMedia == null) { setError(UNSUPPORTED); setState('error'); return }
@@ -372,18 +435,32 @@ export function useRosinaVoice(deps: VoiceDeps) {
       const lvl = meterRef.current.level()
       setLevel(lvl)
       const t = now()
-      if (lvl >= vad.speechThreshold) { sawSpeechRef.current = true; lastLoudAtRef.current = t }
+      // Hysteresis retains quieter syllables after speech begins, without letting background
+      // noise alone start a turn. The buffered production detector keeps its existing threshold.
+      const threshold = deps.stream && sawSpeechRef.current ? Math.min(vad.speechThreshold, 0.004) : vad.speechThreshold
+      if (lvl >= threshold) { sawSpeechRef.current = true; lastLoudAtRef.current = t }
       const elapsed = t - startedAtRef.current
       const silentFor = t - lastLoudAtRef.current
       // Real end-of-speech: speech seen, then a bounded silence. (The hard cap is a timer, below.)
       if (sawSpeechRef.current && silentFor >= vad.silenceMs && elapsed >= vad.minMs) {
-        stoppingRef.current = true; autoStopRef.current = true; speechEndAtRef.current = now()
+        stoppingRef.current = true; autoStopRef.current = true; recorderStoppedAtRef.current = now(); speechEndAtRef.current = deps.stream ? lastLoudAtRef.current : now()
+        if (deps.stream) performance.mark('voice-lab:vad-stop')
         recorderRef.current?.stop() // → finishTurn
         return
       }
       rafRef.current = requestAnimationFrame(tick)
     }
-    recorderRef.current = createRecorder(stream, (clip) => finishTurn(clip, epoch))
+    recorderRef.current = createRecorder(stream, (clip) => finishTurn(clip, epoch), deps.stream ? (prefix) => {
+      // Observation only: prefix recognition never inserts a user message, invokes Rosina or executes an action.
+      const controller = new AbortController()
+      prefixControllersRef.current.add(controller)
+      performance.mark('voice-lab:prefix-start')
+      void authed('/voice/transcribe-prefix', { method: 'POST', headers: { 'Content-Type': prefix.type }, body: prefix, signal: controller.signal }).then(out => {
+        if (epochRef.current !== epoch || 'err' in out) return
+        performance.mark('voice-lab:prefix-ready')
+        return out.res.json()
+      }).catch(() => {}).finally(() => prefixControllersRef.current.delete(controller))
+    } : undefined)
     recorderRef.current.start()
     setState('listening')
     rafRef.current = requestAnimationFrame(tick)
@@ -413,6 +490,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const stop = useCallback(() => {
     if (state !== 'listening') return
     stoppingRef.current = true; autoStopRef.current = false // manual send
+    recorderStoppedAtRef.current = now()
     speechEndAtRef.current = now() // end-of-speech is the tap; finalization + transport are measured after
     stopMeter()
     recorderRef.current?.stop() // → finishTurn
@@ -422,7 +500,7 @@ export function useRosinaVoice(deps: VoiceDeps) {
   const toggle = useCallback(() => {
     unlockAudio() // every tap is a gesture; keep the reply element playable
     if (state === 'listening') stop()
-    else if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') { releaseAudio(); void beginListening() }
+    else if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') { if (deps.stream) teardown(false); else releaseAudio(); void beginListening() }
     else void start()
   }, [state, stop, start, beginListening, releaseAudio, unlockAudio])
 
@@ -437,16 +515,17 @@ export function useRosinaVoice(deps: VoiceDeps) {
     //  - speaking / needs-play / audio-unavailable: interrupt playback into a fresh listening turn.
     //  - idle / error: begin listening.
     if (state === 'listening' || state === 'processing') return
-    if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') releaseAudio()
+    if (state === 'speaking' || state === 'needs-play' || state === 'audio-unavailable') { if (deps.stream) teardown(false); else releaseAudio() }
     void beginListening()
   }, [state, beginListening, releaseAudio, clearRetryTimer])
   const endConversation = useCallback(() => { teardown(true) }, [teardown])
 
   const stopAudio = useCallback(() => {
-    releaseAudio()
+    if (deps.stream) teardown(false)
+    else releaseAudio()
     if (conversationRef.current) armNext.current() // keep the conversation going
     else setState('idle')
-  }, [releaseAudio])
+  }, [releaseAudio, deps.stream, teardown])
 
   /** Speech-only retry after a TTS failure — re-synthesize the SAME reply; never re-runs Rosina. */
   const retrySpeak = useCallback(async () => {

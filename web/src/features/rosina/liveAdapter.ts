@@ -43,7 +43,7 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
     if(cancelled()||controller.signal.aborted)throw new RosinaCancelled()
     if(!token)return {reply:'Please sign in again',actions:[],notice:'sign-in' as const}
     onProgress?.('sending')
-    const pending=request('/api/rosina',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'text/event-stream, application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({message:input.message,currentRoute:input.currentRoute,history:input.history.slice(-40).map(item=>({role:item.role,content:item.content.slice(0,4000)}))})})
+    const pending=request('/api/rosina',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'text/event-stream, application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({message:input.message,currentRoute:input.currentRoute,selectedChildId:input.selectedChildId,history:input.history.slice(-40).map(item=>({role:item.role,content:item.content.slice(0,4000)}))})})
     onProgress?.('waiting')
     const response=await pending
     if(!cancelled())onProgress?.('reading')

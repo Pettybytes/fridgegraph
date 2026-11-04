@@ -209,6 +209,26 @@ it('auto-sends on end-of-speech (silence after speech); silence alone is never s
   }
 })
 
+it('stream endpointing preserves a quiet final word and a 450ms pause after speech starts', async () => {
+  const frames: FrameRequestCallback[] = []
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frames.push(cb); return frames.length })
+  vi.stubGlobal('cancelAnimationFrame', () => {})
+  let clock = 0, level = 0.1
+  const { deps, recorder } = makeDeps({ now: () => clock, createMeter: () => ({ level: () => level, stop: vi.fn() }) })
+  const player = { push: vi.fn(), finish: async () => {}, stop: vi.fn() }
+  const hook = renderHook(() => useRosinaVoice({ ...deps, stream: true, createStreamPlayer: async () => player }))
+  try {
+    await act(async () => { await hook.result.current.start() })
+    const tick = (at: number, rms: number) => { clock = at; level = rms; act(() => frames.shift()?.(clock)) }
+    tick(50, 0.1); tick(300, 0); tick(500, 0); tick(510, 0.006); tick(760, 0.006)
+    expect(recorder.stop).not.toHaveBeenCalled()
+    tick(1320, 0)
+    expect(recorder.stop).not.toHaveBeenCalled()
+    tick(1390, 0)
+    expect(recorder.stop).toHaveBeenCalledTimes(1)
+  } finally { hook.unmount(); vi.unstubAllGlobals() }
+})
+
 it('a persona/child change discards an in-flight late result and resets', async () => {
   let resolveTurn!: (r: unknown) => void
   const pending = new Promise((r) => { resolveTurn = r })
@@ -340,4 +360,58 @@ it('three consecutive failed turns end the conversation instead of looping the m
     expect(result.current.state).toBe('error')
     expect((request as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3)
   } finally { vi.useRealTimers() }
+})
+
+it('voice forwards the current selected child without treating it as authority', async () => {
+  const { deps } = makeDeps()
+  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+    expect(new Headers(init.headers).get('X-Rosina-Child')).toBe('p_nora')
+    return { ok: true, status: 200, json: async () => TURN_OK } as Response
+  })
+  const { result } = renderHook(() => useRosinaVoice({ ...deps, getSelectedChildId: () => 'p_nora', request: fetchMock as typeof fetch }))
+  await act(async () => { await result.current.start() })
+  await act(async () => { result.current.stop() })
+  await waitFor(() => expect(result.current.state).toBe('speaking'))
+})
+
+it('stream interruption aborts the old turn and rejects late audio/proposals', async () => {
+  let speech: () => void = () => {}, body!: ReadableStreamDefaultController<Uint8Array>, requestSignal: AbortSignal | undefined
+  const pushed: string[] = [], stopped = vi.fn(), onReply = vi.fn()
+  const response = new Response(new ReadableStream<Uint8Array>({ start(c) { body = c } }), { headers: { 'content-type': 'application/x-ndjson' } })
+  const { deps } = makeDeps({ stream: true, onReply,
+    createStreamPlayer: async (onSpeech) => { speech = onSpeech; return { push: (s) => { pushed.push(s); speech() }, finish: async () => {}, stop: stopped } },
+    request: (async (_url, init) => { requestSignal = init?.signal as AbortSignal; return response }) as typeof fetch,
+  })
+  const { result } = renderHook(() => useRosinaVoice(deps))
+  await act(async () => { await result.current.start(); result.current.stop() })
+  // stop() sees the current render's state, so stop after the listening update.
+  if (result.current.state === 'listening') await act(async () => { result.current.stop() })
+  const send = (e: unknown) => body.enqueue(new TextEncoder().encode(JSON.stringify(e) + '\n'))
+  await act(async () => { send({ type: 'final', data: { reply: 'Ready for review.', actions: [], calendarProposal: { id: 'proposal-only' } } }); send({ type: 'audio', audioBase64: 'QUJD' }) })
+  await waitFor(() => expect(result.current.state).toBe('speaking'))
+  expect(onReply.mock.calls[0][2].calendarProposal).toEqual({ id: 'proposal-only' })
+  act(() => result.current.stopAudio())
+  expect(requestSignal?.aborted).toBe(true)
+  await act(async () => { send({ type: 'audio', audioBase64: 'REVG' }) })
+  expect(pushed).toEqual(['QUJD'])
+  expect(stopped).toHaveBeenCalled()
+  expect(onReply).toHaveBeenCalledTimes(1)
+})
+
+it('a streaming TTS failure retains the validated answer and retries speech without another model turn', async () => {
+  const onReply = vi.fn(), calls: string[] = []
+  const events = [{ type: 'final', data: { reply: 'Ready for review.', actions: [] } }, { type: 'error', error: 'TTS_HTTP_502' }]
+  const { deps } = makeDeps({ stream: true, onReply, createStreamPlayer: async () => ({ push: vi.fn(), finish: async () => {}, stop: vi.fn() }),
+    request: (async (url) => { calls.push(String(url)); return url === '/voice/stream'
+      ? new Response(events.map(e => JSON.stringify(e)).join('\n') + '\n')
+      : new Response(JSON.stringify({ audioBase64: 'QUJD', mimeType: 'audio/mpeg' })) }) as typeof fetch,
+  })
+  const { result } = renderHook(() => useRosinaVoice(deps))
+  await act(async () => { await result.current.start() })
+  await act(async () => { result.current.stop() })
+  await waitFor(() => expect(result.current.state).toBe('audio-unavailable'))
+  expect(result.current.reply).toBe('Ready for review.')
+  await act(async () => { await result.current.retrySpeak() })
+  expect(calls).toEqual(['/voice/stream', '/voice/speak'])
+  expect(onReply).toHaveBeenCalledTimes(1)
 })

@@ -14,10 +14,11 @@ import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
 import { bearerKey, type TtlCache } from './turnCache';
 import { buildFamilyLens, type FamilyLens } from './lens';
 import { localizeTimestamps, detroitToday, resolveVillagerValidFrom } from './localTime';
-import { applyOutputGuard, createStreamGuard, sanitizeReplyText } from './outputGuard';
+import { applyOutputGuard, createStreamGuard, sanitizeReplyText, SCOPED_REFUSAL } from './outputGuard';
 import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 import { runCaregiverBriefing } from './briefingTool';
+import { isPickupStatusQuestion, pickupStatusReply } from './pickupStatus';
 
 /** The local "caregiver briefing" tool: a composed, read-only answer built ONLY from what the
  * signed-in caller may read for one child and day (src/rosina/briefing*.ts). It is neither an MCP
@@ -57,6 +58,7 @@ export type McpClientLike = Pick<McpToolClient, 'initialize' | 'listTools' | 'ca
 export type RosinaTurnOptions = {
   message: string;
   currentRoute: string;
+  selectedChildId?: string;
   history: HistoryMessage[];
   bearer: string;
   /** The caller's own verified identity (src/auth/verify.ts) — used ONLY to resolve this
@@ -531,6 +533,18 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     };
   }
   const childAccessById = new Map(childList.map((c) => [c.id, c]));
+  // UI context is a hint, never authority. Guide reads retain their backend-enforced sandbox gate.
+  let selectedDenied = Boolean(options.selectedChildId && !options.isGuide && !childAccessById.has(options.selectedChildId));
+  if (options.selectedChildId && options.isGuide) {
+    const probe = await mcp.callTool('ChildEvents', { childId: options.selectedChildId, from: detroitToday(), to: detroitToday() }).catch(() => null);
+    selectedDenied = !probe || probe.isError;
+  }
+  if (selectedDenied) return {
+    reply: SCOPED_REFUSAL, actions: [], schoolReportProposal: null, addVillagerProposal: null,
+    provider: options.provider, model: config.model, rounds: 0, toolCalls: [],
+    usage: { prompt: 0, completion: 0, total: 0 }, latencyMs: Date.now() - started,
+    firstAnswerMs: null, stages: { lensMs: 0, modelMs: 0, toolsMs: 0 }, outputGuardTriggered: true,
+  };
 
   // Tool DEFINITIONS are identical for every caller (authorization happens per call, below),
   // so the list is cacheable by MCP URL without touching any auth boundary.
@@ -546,15 +560,15 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   let lensMs = 0;
   if (options.graphqlUrl && childList.length > 0) {
     const lensKey = bearerKey(options.bearer);
-    lens = options.lensCache?.get(lensKey) ?? null;
+    lens = isPickupStatusQuestion(options.message) ? null : options.lensCache?.get(lensKey) ?? null;
     if (!lens) {
       const lensStart = Date.now();
       const pending = buildFamilyLens(options.graphqlUrl, options.bearer, childList, options.lensRequest);
       void pending.then((built) => { if (built) options.lensCache?.set(lensKey, built); }).catch(() => {});
-      lens = await Promise.race([
+      lens = await (isPickupStatusQuestion(options.message) ? pending : Promise.race([
         pending,
         new Promise<null>((resolve) => setTimeout(() => resolve(null), options.lensWaitMs ?? 700)),
-      ]);
+      ]));
       lensMs = Date.now() - lensStart;
     }
   }
@@ -567,6 +581,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     // The lens rides in its OWN system message AFTER the stable prompt, so the long instruction
     // prefix stays byte-identical across turns (provider prompt caching, playbook 7).
     ...(lens ? [lensSystemMessage(lens)] : []),
+    ...(options.selectedChildId ? [{ role: 'system' as const, content: `SELECTED CHILD: ${options.selectedChildId}. Use this authorized UI context when the question omits a child. Do not ask which child when this context is unambiguous. An explicit request for another authorized child overrides this default; never narrow or expand permissions from this hint.` }] : []),
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     // Date rides at the END of the user turn (playbook 1) so the cacheable prefix never changes
     // mid-day and relative dates resolve against the real clock without a clarifying question.
@@ -879,6 +894,14 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     { prompt: 0, completion: 0, total: 0 },
   );
 
+  const groundedPickupReply = lens ? pickupStatusReply(options.message, options.selectedChildId, childList, lens.text) : null;
+  if (groundedPickupReply) {
+    if (onEvent) onEvent({ kind: 'replace' });
+    finalContent = groundedPickupReply;
+  } else if (options.graphqlUrl && isPickupStatusQuestion(options.message) && !lens) {
+    if (onEvent) onEvent({ kind: 'replace' });
+    finalContent = "I couldn't check the current pickup state just now.";
+  }
   const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", toolResultTexts.join('\n'));
   // Streamed tokens are provisional; when the guard rewrote the reply the client must not keep them.
   if (guarded.triggered) onEvent?.({ kind: 'replace' });
