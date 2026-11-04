@@ -1,14 +1,13 @@
 -- Forward-only: confirmed calendar writes reuse the manual mutation path.
 begin;
 
--- A guide may edit only the ten canonical showcase children, and only while their
--- household is still marked sandbox. Roster: src/fixtures.ts createShowcaseCalendar. No grants or general guide write rights change.
+-- Calendar confirmation uses the same trusted Ellison showcase tenant authority
+-- as other guide actions. Ordinary parent/guardian access is unchanged.
 create or replace function assert_calendar_parent(p_child text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if current_person() is null or not coalesce(case when current_person()='p_demo_guide'
-    then is_demo_guide() and is_sandbox_child(p_child)
-      and p_child = any(array['p_nora','p_leo','p_max','p_jax','p_malik','p_emma','p_skye','p_taylor','p_avery','p_micah'])
+    then guide_can_manage_child(p_child)
     else is_parent_of(p_child) end,false) then
     raise exception 'FORBIDDEN' using errcode = '42501';
   end if;

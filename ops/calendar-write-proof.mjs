@@ -35,6 +35,7 @@ try {
  const deleteKey=randomUUID();await Promise.all(Array.from({length:3},()=>write('p_mom','delete',deleteKey,{p_id:moved.id})));
  assert.equal((await db.admin.query("select count(*)::int n from village_event where payload->>'eventId'=$1",[moved.id])).rows[0].n,3);
  const guide=await write('p_demo_guide','create',randomUUID(),args);assert.ok(guide.id);
+ await assert.rejects(write('p_demo_guide','create',randomUUID(),{...args,p_child:'p_jax'}),/FORBIDDEN/);
  await db.admin.query("update households set sandbox=false where id in(select household_id from household_members where person_id='p_nora')");
  await assert.rejects(write('p_demo_guide','create',randomUUID(),args),/FORBIDDEN/);
  await db.admin.query('select restore_demo_snapshot($1,$2,$3,$4)',['calendar-write-proof',randomUUID(),JSON.stringify(snapshot.fixtures),JSON.stringify(snapshot.cast)]);

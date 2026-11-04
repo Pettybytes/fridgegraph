@@ -60,9 +60,10 @@ Documented so nobody re-discovers them the hard way.
 3. The change was exercised in a browser through `playwright-cli`, and you said what you saw.
 4. No secret, no `VITE_` server value, no copied code with an unread licence.
 
-### Demo guide calendar exception
+### Confirmed Demo guide calendar actions
 
-The guide remains read-only except for explicitly confirmed calendar add, move and cancel
-actions in Ask Rosina on the ten canonical showcase children. The server verifies both the
-guide identity and sandbox family. Pickup, outreach, Orbit, invitations, grants and reset retain
-their existing refusals. Calendar proposals never authorize a mutation by themselves.
+Calendar add, move and cancel in Ask Rosina require explicit confirmation and the
+trusted Ellison showcase tenant authority established in `showcase-actions.md`.
+The guide can browse other showcase calendars but cannot write their events.
+Calendar proposals never authorize a mutation by themselves; confirmation uses
+the same application mutations and server permissions as manual calendar edits.
