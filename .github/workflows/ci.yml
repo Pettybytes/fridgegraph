@@ -144,6 +144,9 @@ jobs:
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx src/features/orbit/controller.test.ts src/features/village-map/guideBoundary.test.tsx src/features/village-map/perspectiveBoundary.test.tsx src/features/village-map/readerLifetime.test.ts src/features/personas/careInformation.test.tsx --maxWorkers=1
 
+      - name: Rosina proposal lifecycle regressions
+        run: npm --prefix web test -- --no-file-parallelism src/features/rosina/livePanel.test.tsx src/features/rosina/liveAdapter.test.ts src/features/rosina/RosinaPanel.test.tsx
+
       - name: Reset perspective and recovery regressions
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
