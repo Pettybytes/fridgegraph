@@ -9,7 +9,7 @@
  * The local proxy applies the SAME exact path allowlist as the public edge — not broad prefixes:
  *   /graphql -> 4010 (rewritten to the router root)
  *   /api/rosina (exact) | /invite | /pin | /pin/upload | /pin/confirm | /pin/readiness | /pin/media/*
- *   /api/demo/login|health|reset (exact) -> 4008
+ *   /api/demo/login|health|reset (exact), GET /api/demo/reset/<UUIDv4> -> 4008
  *   /api/village/day|route (exact) -> 4008
  *   /api/orbit/photo/* -> 4008
  * Everything else under /api/*, /graphql and /voice is 404 — never the SPA shell — so a refused
@@ -22,6 +22,7 @@
 import { createServer, request as httpRequest } from 'node:http';
 import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
+import { demoProxyAllowed, resetStatusMethodAllowed } from './demo-proxy-routes.mjs';
 
 const PORT = Number(process.env.PORT ?? 5189);
 const ROOT_ENV = process.env.WEB_ROOT;
@@ -74,13 +75,12 @@ const ROSINA_EXACT = new Set([
   '/api/rosina/pin/confirm',
   '/api/rosina/pin/readiness',
 ]);
-const DEMO_EXACT = new Set(['/api/demo/login', '/api/demo/health', '/api/demo/reset']);
 const VILLAGE_EXACT = new Set(['/api/village/day', '/api/village/route']);
 
 const PROXY = [
   { match: (p) => p === '/graphql', port: 4010, name: 'graphql' },
   { match: (p) => ROSINA_EXACT.has(p) || p.startsWith('/api/rosina/pin/media/'), port: 4200, name: 'rosina' },
-  { match: (p) => DEMO_EXACT.has(p), port: 4008, name: 'demo' },
+  { match: demoProxyAllowed, port: 4008, name: 'demo' },
   { match: (p) => VILLAGE_EXACT.has(p), port: 4008, name: 'village' },
   { match: (p) => p.startsWith('/api/orbit/photo/'), port: 4008, name: 'orbit' },
 ];
@@ -172,6 +172,10 @@ const handler = (req, res) => {
   const target = proxyTarget(path);
 
   if (target) {
+    if (!resetStatusMethodAllowed(path,req.method)) {
+      res.writeHead(405, {Allow:'GET','Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+      res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;
+    }
     proxy(req, res, target);
     return;
   }

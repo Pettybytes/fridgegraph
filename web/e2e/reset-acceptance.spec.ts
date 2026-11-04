@@ -3,6 +3,8 @@ import {expect,test} from '@playwright/test'
 // This restores the SHARED demo. Deliberately opt in, never run as an automatic read-only sweep.
 test.skip(process.env.RESET_ALLOW_SHARED!=='1','Set RESET_ALLOW_SHARED=1 only for the coordinated reset rehearsal.')
 test('one public reset commits under2s and keeps Kendra in the same perspective',async({page},info)=>{
+ const statusRead=await page.request.get('/api/demo/reset/dc880956-a6db-413e-85dc-d912b3ebd76b')
+ expect(statusRead.status(),'Public edge must route the protected run-status URL to auth, never the SPA').toBe(401)
  await page.goto('/#/mission-control')
  await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
  await expect(page.locator('.session-chip')).toContainText('Kendra',{timeout:20_000})

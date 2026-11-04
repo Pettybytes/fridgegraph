@@ -54,3 +54,10 @@ RESET_ALLOW_SHARED=1 RESET_BASE_URL=https://fridgegraph.loomz.stream npx playwri
 ```
 
 Claude owns final served acceptance. The queued five-second live analytics work is a separate slice.
+
+The static server and any edge path allowlist must forward GET `/api/demo/reset/<UUIDv4>` to the
+same demo backend on4008. Only that UUID-shaped status path is added; arbitrary demo API prefixes
+stay closed, and non-GET methods on a status path return405. Before the shared reset, the served
+acceptance gate checks that an unauthenticated status read reaches the backend and returns401.
+Old loaded clients with no runId get a definite no-write failure rather than an ambiguous response
+that their older UI would translate into a sign-out; use a fresh page entry for the new protocol.

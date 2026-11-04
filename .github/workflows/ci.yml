@@ -80,6 +80,9 @@ jobs:
       - name: Reset admission (shared lock)
         run: node --import tsx --test src/demo/reset-admission.test.ts
 
+      - name: Public reset status proxy allowlist
+        run: node --test ops/demo-reset-proxy.test.mjs
+
       - name: Fast reset receipt and cleanup regressions
         run: node --import tsx --test src/demo/reset.test.ts src/demo/resetOperation.test.ts src/demo/family-reset-race.test.ts
 
