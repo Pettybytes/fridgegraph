@@ -140,9 +140,10 @@ test('a never-discovered id stays rejected across rounds until a tool actually h
   assert.equal(result.toolCalls.filter((t) => t.errorCodes.includes('OUT_OF_SCOPE_ID')).length, 2);
 });
 
-test('an empty ChildEvents result for a permitted id is "no records", not "nothing happened" (prompt wording)', () => {
+test('an empty authorized answer names WHAT was checked; the banned empty-copy phrasing is forbidden (prompt wording, Bryan 2026-11-03)', () => {
   const prompt = buildSystemPrompt([{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }], false, 'p_mom');
-  assert.match(prompt, /No records are available to this view/);
+  assert.match(prompt, /say in\s+your own words WHAT you checked/);
+  assert.match(prompt, /NEVER use the phrases "No records are available"/);
   assert.match(prompt, /I couldn't check that just now/);
 });
 

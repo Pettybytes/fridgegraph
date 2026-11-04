@@ -70,6 +70,50 @@ export type OutputGuardResult = {
  * genuinely came back from the caller's own authorized read is never a leak. This is now the
  * ONLY grounding source (TASK R-MYCHILDREN removed the static roster allow-list).
  */
+/** Release-gate style backstop (Bryan 2026-11-03): an em-dash must never render in a reply.
+ * The system prompt forbids it; this makes it deterministic. Applied to every released stream
+ * chunk and to the final reply. */
+export function sanitizeReplyText(text: string): string {
+  return text.replace(/\s?[—–]\s?/g, ', ');
+}
+
+/**
+ * Pre-stream validation (Bryan 2026-11-03: "validate answer text before it streams to the
+ * browser"). Streamed deltas are buffered and only released up to a whitespace boundary AFTER
+ * the released prefix passes the same name check applyOutputGuard runs on the full reply, so an
+ * ungrounded name can never reach the wire, even partially: the incomplete tail word is always
+ * held back until it completes. Once tripped, nothing further is ever released; the turn's
+ * final (authoritative) guard pass decides the replacement reply.
+ */
+export type StreamGuard = { push(delta: string): string | null; flush(): string | null; readonly tripped: boolean };
+
+export function createStreamGuard(grounded: () => string): StreamGuard {
+  let buffer = '';
+  let released = 0;
+  let tripped = false;
+  const releaseUpTo = (limit: number): string | null => {
+    if (tripped || limit <= released) return null;
+    const guard = applyOutputGuard(buffer.slice(0, limit), grounded());
+    if (guard.triggered) { tripped = true; return null; }
+    const out = buffer.slice(released, limit);
+    released = limit;
+    return out ? sanitizeReplyText(out) : null;
+  };
+  return {
+    get tripped() { return tripped; },
+    push(delta: string) {
+      if (tripped) return null;
+      buffer += delta;
+      const boundary = Math.max(buffer.lastIndexOf(' '), buffer.lastIndexOf('\n'));
+      if (boundary < released) return null;
+      return releaseUpTo(boundary + 1);
+    },
+    flush() {
+      return releaseUpTo(buffer.length);
+    },
+  };
+}
+
 export function applyOutputGuard(reply: string, toolResultText: string): OutputGuardResult {
   for (const entry of DEMO_NAME_UNIVERSE) {
     for (const candidate of entry.first ? [entry.full, entry.first] : [entry.full]) {
