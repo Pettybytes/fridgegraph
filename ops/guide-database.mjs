@@ -44,7 +44,7 @@ export async function guideDatabase({before=false,beforeShowcase=false}={}) {
     const files = readdirSync('supabase/migrations').filter(f => /^\d+.*\.sql$/.test(f)).sort();
     for (const file of files) {
       if(before&&file.startsWith('0098'))continue;
-      if(beforeShowcase&&/^(0100|0101)/.test(file))continue;
+      if(beforeShowcase&&/showcase_(parent_grant|reset)\.sql$/.test(file))continue;
       if (file.startsWith('0040')) {
         for(const [table,rows] of Object.entries(createCastV2())) await insertRows(admin,table,rows);
       }
