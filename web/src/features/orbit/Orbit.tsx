@@ -1,8 +1,8 @@
 import {OrbitPreparation} from './OrbitPreparation'
-import {AlertTakeover,FoundSafe} from './AlertTakeover'
+import {AlertTakeover,FoundSafe,lastSeenCopy} from './AlertTakeover'
+import {OrbitFactsCard} from './OrbitFactsCard'
 import {Portrait} from '@/components/signature/Portrait'
 import {portraitFor} from '@/components/fg/portraits'
-import {OrbitConstellation} from './OrbitConstellation'
 import {useActivePolling} from './useActivePolling'
 import {useEffect} from 'react'
 import {Dialog} from 'radix-ui'
@@ -13,6 +13,10 @@ import type {ResponseChoice} from './adapter'
 import type {OrbitController} from './controller'
 import {useOrbit,useOrbitState,useOrbitPhoto} from './runtime'
 import './orbit.css'
+import './alert-ui.css'
+// Orbit renders Portrait directly (response rows, subject), so it must carry the signature styles
+// itself rather than relying on OrbitConstellation's import, which this view no longer uses.
+import '@/components/signature/signature.css'
 const responses:Record<ResponseChoice,string>={WITH_ME:'With me',ON_WAY:'On my way',CANNOT_HELP:"Can't help"}
 const askEvent=(childName:string)=>{location.hash='#/ask-rosina';window.dispatchEvent(new CustomEvent('orbit:ask',{detail:`Help me prepare an Orbit message for ${childName}.`}))}
 export function OrbitCheckInCard(){const controller=useOrbit();return controller?<CheckInCard controller={controller}/>:null}
@@ -28,6 +32,8 @@ export function OrbitView({controller}:{controller:OrbitController}){
  useEffect(()=>{const alertId=()=>new URLSearchParams(location.hash.split('?')[1]??'').get('alertId')??undefined;const refresh=()=>{const phase=controller.getSnapshot().phase;if(!['loading','editing','preparing','preview','activating'].includes(phase))void controller.refresh(alertId())};if(alertId())refresh();window.addEventListener('hashchange',refresh);return()=>{window.removeEventListener('hashchange',refresh)}},[controller,state.phase])
  useActivePolling(controller,active)
  const visibleResponses=(state.alert?.responses??[]).filter(response=>parent||response.person.id===controller.scope.personId)
+ const lastSeen=state.alert?lastSeenCopy(state.alert):null,childFullName=session?.scope.childName??'Name not shared'
+ const parentPhoto=image.url??portraitFor({personId:controller.scope.childId})
  if(!parent&&!controller.scope.readOnly&&state.alert?.audience.some(member=>member.person.id===controller.scope.personId&&member.eligible)&&(active||(closed&&state.alert.closeOutcome==='FOUND_SAFE')))return <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>
  const name=session?.scope.childName.split(' ')[0]??'Your child'
  return <section className={`orbit-page ${active&&parent?'orbit-page-active':''}`} aria-label="Orbit" data-state="live">
@@ -40,8 +46,19 @@ export function OrbitView({controller}:{controller:OrbitController}){
    {parent&&!state.error&&<ol className="orbit-steps" aria-label="Orbit progress">{['Prepare','Review','Active','Closed'].map((label,i)=>{const step=closed?3:active?2:state.preview?1:0;return <li key={label} aria-current={i===step?'step':undefined}><span>{i<step?<Check size={13}/>:i+1}</span>{label}</li>})}</ol>}
    {parent&&!state.error&&!state.started&&!active&&!closed&&<div className="orbit-entry"><h2>{controller.checkInOverdue()?`${name}'s ${formatTime(state.check!.dueAt!)} check-in hasn't been recorded.`:state.check?.text??'Your shared check-in records'}</h2><p>Rosina can help you prepare a message for your approved village. You review it before anything is activated.</p><button className="orbit-primary" onClick={()=>askEvent(name)}>Ask Rosina to prepare a message <ArrowRight size={17}/></button></div>}
    {parent&&state.started&&!active&&!closed&&<OrbitPreparation controller={controller}/>}
-   {(active||closed)&&state.alert&&<>
-    {active&&parent&&<div className="orbit-glass-scene"><div className="orbit-glass-heading"><p>Simulated notification · recorded active alert</p><h2>Orbit active.</h2><p>Your approved village can respond. A response is recorded only when someone sends one.</p></div><OrbitConstellation alert={state.alert} childName={session?.scope.childName??'Child'} childPortrait={image.url??portraitFor({personId:controller.scope.childId})} parent viewerId={controller.scope.personId} portraitFor={id=>portraitFor({personId:id})}/></div>}
+   {active&&parent&&state.alert&&<div className="orbit-parent-alert" data-state="active">
+    <div className={`orbit-takeover-photo${parentPhoto?'':' is-fallback'}`} style={parentPhoto?{backgroundImage:`url("${parentPhoto}")`}:undefined} aria-hidden="true"/>
+    <div className="orbit-takeover-stage" key="parent-active">
+     <div className="orbit-glass-heading"><p>Simulated notification · recorded active alert</p><h2>Orbit active.</h2><p>Your approved village can respond. A response is recorded only when someone sends one.</p></div>
+     <OrbitFactsCard childName={childFullName} lastSeen={lastSeen!} share={state.alert.share} image={image} photoAlt="Photo you shared" missingPhotoText="Photo not recorded." failedPhotoText="Couldn't display the shared photo." onOpen={()=>{location.hash='#/orbit'}}/>
+     <details className="orbit-shared-message"><summary>Shared message</summary><blockquote>{state.alert.message??'Message not recorded.'}</blockquote></details>
+     <section className="orbit-vresponses" aria-label="Recorded responses"><h3>Recorded responses</h3>
+      {visibleResponses.length?<ol>{visibleResponses.map(response=><li className="orbit-vrow" key={`${response.person.id}:${response.respondedAt}:${response.response}`}><span className="orbit-vrow-portrait"><Portrait name={response.person.displayName} src={portraitFor({personId:response.person.id})}/></span><div><strong>{response.person.displayName}</strong><p>{responses[response.response as ResponseChoice]??'Response not recognized'}</p></div><time dateTime={response.respondedAt}>{formatInstant(response.respondedAt)}</time></li>)}</ol>:<p className="orbit-vempty">No responses have been recorded.</p>}
+     </section>
+     <div className="orbit-close"><p>Responses do not close Orbit. You decide when to close it.</p><button className="orbit-primary" disabled={!!state.busy} onClick={()=>controller.requestClose()}>Found safe</button></div>
+    </div>
+   </div>}
+   {(closed||(active&&!parent))&&state.alert&&<>
     <section className="orbit-record"><div className="orbit-record-heading"><div><p>{closed?'Closed':'Active'}</p><h2>{closed?(state.acknowledgedClosure?.alertId===state.alert.id&&state.acknowledgedClosure.personId===session?.persona.personId?`Closed by ${session.scope.parentName}`:'Your village’s responses are recorded.'):'Your village can respond.'}</h2></div><span className={`orbit-status ${closed?'is-closed':''}`}>{closed?'Closed':'Active'}</span></div>
      {state.alert.message?<blockquote>{state.alert.message}</blockquote>:<p>Message not recorded.</p>}
      {active&&image.url&&<img className="orbit-photo" src={image.url} alt="Shared photo" onError={image.onError}/>}{active&&image.failed&&<p>Couldn't display the shared photo.</p>}
@@ -52,7 +69,6 @@ export function OrbitView({controller}:{controller:OrbitController}){
     <section className="orbit-responses" aria-label="Recorded responses"><header><h2>{parent||controller.scope.readOnly?'Recorded responses':'Your recorded responses'}</h2><button onClick={()=>{void controller.refresh()}} disabled={!!state.busy} aria-label="Refresh Orbit responses"><RefreshCw size={17}/></button></header>
      {visibleResponses.length?<ol>{visibleResponses.map(response=><li className="orbit-response" key={`${response.person.id}:${response.respondedAt}:${response.response}`}><span className="orbit-response-portrait"><Portrait name={response.person.displayName} src={portraitFor({personId:response.person.id})}/></span><div><strong>{response.person.displayName} responded</strong><p>“{responses[response.response as ResponseChoice]??'Response not recognized'}”</p><time dateTime={response.respondedAt}>{formatInstant(response.respondedAt)}</time></div></li>)}</ol>:<p>No responses have been recorded.</p>}
     </section>
-    {parent&&active&&<div className="orbit-close"><p>Responses do not close Orbit. You decide when to close it.</p><button className="orbit-primary" disabled={!!state.busy} onClick={()=>controller.requestClose()}>Found safe</button></div>}
    </>}
    {!parent&&!state.error&&!active&&!closed&&<section className="orbit-empty"><h2>No Orbit message is shared with this view.</h2><p>Only records you have permission to read appear here.</p><button type="button" className="orbit-primary" onClick={()=>{void controller.refresh()}}>Refresh recorded state</button></section>}
    {parent&&closed&&<p className="orbit-final">Closed alerts keep the responses that were recorded.</p>}
