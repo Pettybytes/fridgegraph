@@ -630,6 +630,11 @@ const resolvers = {
       const callerId = requireCaller(ctx);
       // HouseholdPolicy caregiver_approval = ANY_PARENT: any parent of this child may grant.
       if (!(await isParentOf(ctx, childId))) throw deny();
+      if (isShowcaseGuide(ctx)) {
+        const {data,error}=await dbFor(ctx).rpc('showcase_grant_access',{p_actor:actorId,p_child:childId,p_scopes:scopes,p_from:validFrom??null,p_until:validUntil??null});
+        if(error||!data)throw deny();
+        return toGrant(Array.isArray(data)?data[0]:data);
+      }
       const id = `g_${randomUUID()}`;
       const inserted = await one(
         dbFor(ctx)
@@ -658,6 +663,11 @@ const resolvers = {
       );
       if (!existing) return false;
       if (!(await isParentOf(ctx, String(existing.child_id)))) throw deny();
+      if (isShowcaseGuide(ctx)) {
+        const {data,error}=await dbFor(ctx).rpc('showcase_revoke_grant',{p_grant:id});
+        if(error)throw deny();
+        return data===true;
+      }
       const deleted = await rows(dbFor(ctx).from('grants').delete().eq('id', id).select('id'));
       if (deleted.length === 0) return false;
       await recordApproval(ctx, id, 'REVOKED');

@@ -1,0 +1,9 @@
+.care-plan-edit { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+.care-plan-edit label, .care-plan-edit p { flex-basis: 100%; }
+.care-plan-edit label { display: grid; gap: .5rem; font-weight: 600; }
+.care-plan-edit textarea {
+  width: 100%; min-height: 8rem; resize: vertical; padding: .75rem;
+  border: 1px solid var(--fg-border); border-radius: .5rem;
+  background: var(--fg-surface); color: var(--fg-ink); font: inherit; line-height: 1.5;
+}
+.care-plan-edit textarea:focus-visible { outline: 2px solid var(--fg-primary); outline-offset: 2px; }

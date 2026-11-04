@@ -1,6 +1,8 @@
 import { gql, type ApolloClient } from '@apollo/client'
 import { useCallback, useState } from 'react'
 import { useCachedResource, storeResource, invalidateResources } from '@/lib/frontendData/resourceCache'
+import {FgButton} from '@/components/fg/primitives'
+import './care-plan-edit.css'
 import { RouteSkeleton } from '@/app/RouteSkeleton'
 import { useChildAccess } from './childContext'
 import { useSession } from './Session'
@@ -60,12 +62,12 @@ function LiveCareInformation({childId,childName,client,runRead}:{childId:string;
   if(state.status==='error')return <section className="care-information" role="alert">Couldn't load this just now.</section>
   if(state.status==='empty'&&!canEdit)return <section className="care-information" data-state="empty">No records are available to this view.</section>
   return <section className="care-information" aria-label="Care information" data-state="live" data-source="live"><h2>Care information for {firstName}</h2><p>{state.text}</p>{!!state.facts?.length&&<dl>{state.facts.map(fact=><div key={fact.id}><dt>{fact.key.replaceAll('_',' ')}</dt><dd>{fact.value}<p>Source: {fact.source.kind.replaceAll('_',' ')} · {fact.source.ref}</p></dd></div>)}</dl>}<p>{sourceCitation(`${firstName}'s care plan`)}</p>
-    {canEdit&&(editing?<form onSubmit={event=>{event.preventDefault();void save()}}>
+    {canEdit&&(editing?<form className="care-plan-edit" onSubmit={event=>{event.preventDefault();void save()}}>
       <label>Care plan<textarea value={draft} maxLength={10000} required onChange={event=>setDraft(event.target.value)} disabled={saving}/></label>
       <p>Saving replaces the care plan shared with this child's authorized caregivers.</p>
-      <button type="submit" disabled={saving||!draft.trim()}>{saving?'Saving…':'Save care plan'}</button>
-      <button type="button" disabled={saving} onClick={()=>setEditing(false)}>Cancel</button>
-    </form>:<button type="button" onClick={()=>{setDraft(state.text??'');setEditing(true);setSaveMessage('')}}>Edit care plan</button>)}
+      <FgButton type="submit" disabled={saving||!draft.trim()}>{saving?'Saving…':'Save care plan'}</FgButton>
+      <FgButton type="button" variant="secondary" disabled={saving} onClick={()=>setEditing(false)}>Cancel</FgButton>
+    </form>:<FgButton type="button" onClick={()=>{setDraft(state.text??'');setEditing(true);setSaveMessage('')}}>Edit care plan</FgButton>)}
     <p role="status">{saveMessage}</p>
   </section>
 }

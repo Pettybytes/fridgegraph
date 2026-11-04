@@ -137,6 +137,8 @@ jobs:
         run: npm --prefix web run build
         env:
           VITE_VILLAGE_MAP_LIVE: "true"
+          VITE_NOTICE_PLAN_LIVE: "true"
+          VITE_ADD_VILLAGER_LIVE: "true"
 
       - name: Mission Control exact-record drilldowns
         if: steps.detect.outputs.present == 'true'

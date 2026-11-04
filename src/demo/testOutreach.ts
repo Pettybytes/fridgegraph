@@ -31,7 +31,7 @@ export type TestOutreachDeps = {
   now?: () => number;
 };
 
-type JobRow = { id: string; child_id: string; status: string; request_version: number };
+type JobRow = { id: string; child_id: string; status: string; request_version: number; sandbox?: boolean };
 
 async function readJson<T>(response: Response): Promise<T | null> {
   try { return await response.json() as T; } catch { return null; }
@@ -45,14 +45,14 @@ export async function runTestOutreach(
   if (!jobId || jobId.length > 80 || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
     return { status: 400, body: { error: 'INVALID_REQUEST' } };
   }
-  const jobRes = await deps.service(`/rest/v1/coordination_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,child_id,status,request_version`);
+  const jobRes = await deps.service(`/rest/v1/coordination_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,child_id,status,request_version,sandbox`);
   const jobs = await readJson<JobRow[]>(jobRes);
   const job = jobs?.[0];
   if (!job) return { status: 404, body: { error: 'NOT_FOUND' } };
 
   // Parent gate: the caller's verified person id must be a DEMO parent persona of this child.
   const callerIsParent = deps.authorizeChild ? await deps.authorizeChild(job.child_id) : DEMO_PERSONAS.some((p) => p.parent && p.personId === callerPersonId && p.childId === job.child_id);
-  if (!callerIsParent) return { status: 403, body: { error: 'UNAUTHORIZED' } };
+  if (!callerIsParent || (callerPersonId === 'p_demo_guide' && job.sandbox !== true)) return { status: 403, body: { error: 'UNAUTHORIZED' } };
 
   if (job.status !== 'discovering') return { status: 409, body: { error: 'JOB_NOT_DISCOVERING', jobStatus: job.status } };
 

@@ -6,6 +6,12 @@ const db=await guideDatabase({beforeShowcase:process.argv.includes('--before-sho
 const caller=new pg.Client(db.options);
 try {
  await caller.connect();
+ for(const child of ['p_nora','p_jax']){
+  const id='approval_proof_'+child;
+  await db.admin.query("insert into coordination_jobs(id,idempotency_key,type,child_id,status,as_of,sandbox) values($1,$1,'PICKUP',$2,'awaiting_approval',current_date,true)",[id,child]);
+  await db.admin.query("insert into candidate_evaluations(id,job_id,candidate_id,reason_code,available) values($1,$1,'p_mom','APPROVAL_PENDING',true)",[id]);
+ }
+
  for(const [person,guide] of [['p_demo_guide',true],['p_mom',false],['p_dana',false]]){
   const id=randomUUID();
   await db.admin.query('insert into identity_map(user_id,person_id) values($1,$2)',[id,person]);
@@ -21,6 +27,29 @@ try {
    await caller.query('rollback to savepoint action');
   }
   if(guide){
+   for(const child of ['p_nora','p_jax']){
+    await caller.query('savepoint grant_change');
+    const grant=()=>caller.query("select * from showcase_grant_access('p_mom',$1,array['schedule.read'])",[child]);
+    if(child==='p_nora'){
+     const row=(await grant()).rows[0];
+     assert.equal(row.granted_by,'p_demo_guide');
+     assert.equal((await caller.query('select count(*)::int as n from approvals where subject_id=$1',[row.id])).rows[0].n,1);
+     await caller.query('select showcase_revoke_grant($1)',[row.id]);
+     assert.equal((await caller.query('select count(*)::int as n from grants where id=$1',[row.id])).rows[0].n,0);
+     assert.equal((await caller.query('select count(*)::int as n from approvals where subject_id=$1',[row.id])).rows[0].n,2);
+    }else await assert.rejects(grant(),/UNAUTHORIZED/);
+    await caller.query('rollback to savepoint grant_change');
+   }
+   for(const child of ['p_nora','p_jax']){
+    await caller.query('savepoint approval');
+    const approve=()=>caller.query("select approve_pickup($1,1,1,'APPROVED',null,false)",['approval_proof_'+child]);
+    if(child==='p_nora'){
+     await approve();
+     assert.equal((await caller.query('select approved_by from confirmations where job_id=$1',['approval_proof_'+child])).rows[0].approved_by,'p_demo_guide');
+    }else await assert.rejects(approve(),/UNAUTHORIZED/);
+    await caller.query('rollback to savepoint approval');
+   }
+
    for(const child of ['p_nora','p_jax']){
     await caller.query('savepoint scoped');
     const save=()=>caller.query("insert into care_plans(child_id,text) values($1,'Judge care plan') on conflict(child_id) do update set text=excluded.text returning child_id",[child]);
@@ -38,5 +67,5 @@ try {
   }
   await caller.query('rollback');
  }
- console.log('Guide write proof: 12 authority decisions and 12 calendar writes/refusals, care/Fridge isolation and 120-write cap passed');
+ console.log('Guide write proof: 12 authority decisions and 12 calendar writes/refusals, care/Fridge isolation, attributed pickup approval/refusal and 120-write cap passed');
 }finally{await caller.end();await db.close()}

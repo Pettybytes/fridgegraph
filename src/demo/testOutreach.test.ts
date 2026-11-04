@@ -11,7 +11,7 @@ import { runTestOutreach, type ServiceFetch } from './testOutreach';
 type Call = { path: string; body?: unknown };
 
 function stubService(rows: {
-  job?: { id: string; child_id: string; status: string; request_version: number } | null;
+  job?: { id: string; child_id: string; status: string; request_version: number; sandbox?: boolean } | null;
   openAttempts?: { id: string }[];
   evaluations?: { candidate_id: string }[];
   vehicles?: { owner_id: string }[];
@@ -30,7 +30,7 @@ function stubService(rows: {
   return { service, calls };
 }
 
-const JOB = { id: 'job_x', child_id: 'p_nora', status: 'discovering', request_version: 1 };
+const JOB = { id: 'job_x', child_id: 'p_nora', status: 'discovering', request_version: 1, sandbox: true };
 
 test('refuses a caller who is not a demo parent of the job\'s child', async () => {
   const { service } = stubService({ job: JOB });
@@ -88,4 +88,11 @@ test('showcase outreach consumes explicit child authority and keeps the TEST ros
   assert.equal(calls.some(call=>call.path==='/rest/v1/attempts'),allowed);
   if(allowed){assert.equal(result.body.candidateId,'p_tasha');assert.equal(result.body.simulated,true)}
  }
+});
+
+test('showcase outreach refuses unmarked jobs even with child authority',async()=>{
+ const {service,calls}=stubService({job:{...JOB,sandbox:false},evaluations:[{candidate_id:'p_tasha'}]});
+ const result=await runTestOutreach({service,authorizeChild:async()=>true},'p_demo_guide',JOB.id);
+ assert.equal(result.status,403);
+ assert.ok(!calls.some(call=>call.path==='/rest/v1/attempts'));
 });

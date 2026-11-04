@@ -719,6 +719,11 @@ const resolvers = {
       refuseDemoGuideWrite(ctx);
       const callerId = requireCaller(ctx);
       const client = dbFor(ctx);
+      if (ctx.demoGuide) {
+        const {data,error}=await client.rpc('showcase_approve_relationship',{p_id:relationshipId});
+        if(error||!data)throw deny();
+        return toRelationship(Array.isArray(data)?data[0]:data);
+      }
 
       // Authorization before existence: a caller who is not a parent of any child may not approve
       // anything, whether or not the id exists. RLS alone would return zero rows for both cases

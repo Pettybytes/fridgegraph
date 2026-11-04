@@ -49,6 +49,10 @@ begin
   end loop;
   restored:=restored||jsonb_build_object(t,n);
  end loop;
+ for fixture_row in select value from jsonb_array_elements(coalesce(p_snapshot->'relationships','[]')) where value->>'to_id'=any(children) loop
+  update public.relationships r set status=fixture_row->>'status',history=fixture_row->'history'
+   where r.id=fixture_row->>'id' and r.to_id=any(children);
+ end loop;
  receipt:=jsonb_build_object('restored',restored,'cleared',cleared,'demoDecisionsCleared',0,'createdFamiliesRemoved',0,'familyRows','[]'::jsonb);
  insert into demo_reset_runs(run_id,actor,report) values(p_run_id,p_actor,receipt);
  return receipt;

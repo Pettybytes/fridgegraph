@@ -20,6 +20,18 @@ import transport from '../src/subgraphs/transport';
 import activities from '../src/subgraphs/activities';
 import { showcaseSnapshot } from '../src/demo/reset';
 import { createPinPreferencesHandler } from '../src/rosina/pinPreferences';
+import {createPinHandlers,createInMemoryMediaStore} from '../src/rosina/pinEndpoint';
+import {createFixturePinExtractor} from '../src/rosina/pinVision';
+import {createFridgeNotePinStore} from '../src/rosina/pinPersistence';
+import {createNoticePlanHandlers} from '../src/rosina/noticeEndpoint';
+import {buildScheduleReader,buildPickupRequester} from '../src/rosina/noticeDeps';
+import {createRateLimiter} from '../src/rosina/rateLimit';
+import {runTestOutreach} from '../src/demo/testOutreach';
+import {createInviteHandler} from '../src/rosina/inviteEndpoint';
+import {buildInviteParentAuthorizer} from '../src/rosina/inviteDeps';
+import {createFixtureImageGenerator} from '../src/rosina/inviteImage';
+import {createInviteRateLimiter} from '../src/rosina/inviteBudget';
+import {createInviteDedup} from '../src/rosina/inviteDedup';
 // PostgREST returns SQL dates as YYYY-MM-DD strings, not JavaScript Date objects.
 pg.types.setTypeParser(1082, value => value);
 const db = await guideDatabase();
@@ -84,7 +96,7 @@ function transportFor(client:pg.PoolClient){
   async rpc(name:string,args:Record<string,unknown>={}){try{const result=await client.query(`select * from ${quoted(name)}(${Object.keys(args).map((key,i)=>`${quoted(key)} => $${i+1}`).join(',')})`,Object.values(args));const scalar=result.fields.length===1&&result.fields[0].name===name;return {data:scalar?result.rows[0]?.[name]:result.rows,error:null}}catch(error){return {data:null,error}}},
  };
 }
-const app=express();app.use(express.json());
+const app=express();app.use(express.json({limit:'16mb'}));
 const personaFor=(header?:string)=>DEMO_PERSONAS.find(p=>header===`Bearer fixture-${p.id}`);
 app.get('/api/demo/health',(_req,res)=>res.json({personas:DEMO_PERSONAS.map(p=>({personaId:p.id,ready:true}))}));
 app.get('/api/demo/families',(_req,res)=>res.json({families:[]}));
@@ -107,6 +119,79 @@ app.all('/api/rosina/pin/preferences',createPinPreferencesHandler({
  verify:async header=>{const p=personaFor(header);return p?{ok:true,personId:p.personId,sub:ids.get(p.id)!,demo:true,demoGuide:p.id==='demo-guide'}:{ok:false,reason:'invalid'}},
  rpc:async(bearer,name,args)=>{const p=personaFor(`Bearer ${bearer}`);if(!p)return {data:null,error:{code:'42501'}};return withCaller(p,client=>transportFor(client).rpc(name,args)) as any},
 }));
+// External model/media dependencies are deterministic fixtures here. Production
+// handlers, explicit graph authority, database persistence and rate limits are exercised.
+const verify=async(header?:string)=>{const p=personaFor(header);return p?{ok:true as const,personId:p.personId,demoGuide:p.id==='demo-guide'}:{ok:false as const}};
+const authorizeParent=buildInviteParentAuthorizer({graphqlUrl:'http://127.0.0.1:5196/graphql'});
+const media=createInMemoryMediaStore(),bytes=new Map<string,{bytes:Uint8Array;mimeType:string}>();
+const mediaLoad=async(input:{assetId:string;personId:string;bearer:string})=>{
+ const access=await media.access(input),body=bytes.get(input.assetId);
+ return access.ok&&body?{...body,access:'PARENT'}:null;
+};
+const pin=createPinHandlers({verify,authorizeParent,
+ media:{access:input=>media.access(input),put:async input=>{const result=await media.put(input);if(result.ok)bytes.set(result.assetId,{bytes:input.bytes,mimeType:input.mimeType});return result}},
+ mediaLoad,extractor:createFixturePinExtractor({kind:'artwork',confidence:'high'}),
+ signingKey:randomUUID(),readiness:()=>({ready:true,reasons:[]}),
+ pinStore:createFridgeNotePinStore({writer:async(bearer,note)=>{
+  const p=personaFor(`Bearer ${bearer}`);if(!p)throw Error('UNAUTHENTICATED');
+  return withCaller(p,async client=>{
+   const result=await client.query('insert into fridge_notes(id,child_id,author_id,text,audience,attachment_ref,sandbox) values($1,$2,$3,$4,$5,$6,true) on conflict(id) do nothing returning id',[note.id,note.childId,note.authorId,note.text,note.audience,note.attachmentRef]);
+   return result.rows.length?'CREATED':'EXISTS';
+  });
+ }}),
+});
+app.get('/api/rosina/pin/readiness',pin.readiness);
+app.post('/api/rosina/pin/upload',pin.upload);
+app.post('/api/rosina/pin',pin.prepare);
+app.post('/api/rosina/pin/confirm',pin.confirm);
+app.get('/api/rosina/pin/media/:id',pin.download);
+app.post('/api/rosina/invite',createInviteHandler({verify,authorizeParent,
+ extractor:async()=>({childFirstName:'Nora',occasion:'Birthday party',date:'2026-11-15',startTime:'14:00',endTime:'16:00',placeLabel:'Maple Hall'}),
+ image:createFixtureImageGenerator(),rateLimiter:createInviteRateLimiter(6),dedup:createInviteDedup(),source:'FIXTURE',
+ ledgerBudget:new Proxy({} as any,{get:()=>()=>{throw Error('Fixture must never spend a live generation budget')}}),
+}));
+const notice=createNoticePlanHandlers({verify,rateLimiter:createRateLimiter(20),
+ scheduleReader:buildScheduleReader({graphqlUrl:'http://127.0.0.1:5196/graphql'}),
+ requestPickup:buildPickupRequester({graphqlUrl:'http://127.0.0.1:5196/graphql'}),
+ signingKey:randomUUID(),scenarioDate:'2026-10-26',
+ extractor:async({notice})=>({modelId:'fixture-no-model',processingSource:notice.kind==='text'?'text':'image',facts:[{
+  kind:'early_dismissal',dates:['2026-10-26'],times:[{label:'dismissal',time:'12:30'}],appliesTo:'all students',
+  ...(notice.kind==='text'?{quote:'early dismissal at 12:30 PM'}:{transcription:'Early dismissal at 12:30 PM on October 26, 2026',ref:'image'}),
+ }]}),
+});
+app.post('/api/rosina/notice-plan',notice.prepare);
+app.post('/api/rosina/notice-plan/confirm',notice.confirm);
+app.post('/api/demo/test-outreach',async(req,res)=>{
+ const persona=personaFor(req.headers.authorization);if(!persona){res.sendStatus(401);return}
+ const result=await runTestOutreach({replyDelayMs:50,
+  authorizeChild:childId=>withCaller(persona,async client=>(await client.query('select is_parent_of($1) as allowed',[childId])).rows[0].allowed),
+  service:async(path,init)=>{
+   const url=new URL(path,'http://local.invalid'),table=url.pathname.split('/').at(-1)!;
+   let data:unknown;
+   if(url.pathname.includes('/rpc/')){
+    if(table!=='accept_pickup_webhook')throw Error('Unsupported fixture RPC');
+    const args=JSON.parse(String(init?.body));
+    data=await db.admin.query(`select ${quoted(table)}(${Object.keys(args).map((key,i)=>`${quoted(key)} => $${i+1}`).join(',')})`,Object.values(args));
+   }else if(init?.method==='POST'){
+    if(table!=='attempts')throw Error('Unsupported fixture write');
+    await insertRows(db.admin,table,JSON.parse(String(init.body)));data=[];
+   }else{
+    if(!['coordination_jobs','attempts','candidate_evaluations','vehicles'].includes(table))throw Error('Unsupported fixture table');
+    const columns=(url.searchParams.get('select')??'*').split(',').map(quoted).join(','),conditions:string[]=[],values:unknown[]=[];
+    for(const [key,value] of url.searchParams){
+     if(key==='select')continue;
+     if(value==='is.null'){conditions.push(`${quoted(key)} is null`);continue}
+     if(value.startsWith('eq.')){values.push(value.slice(3));conditions.push(`${quoted(key)}=$${values.length}`)}
+     else if(value.startsWith('in.(')){values.push(JSON.parse('['+value.slice(4,-1)+']'));conditions.push(`${quoted(key)}=any($${values.length})`)}
+     else throw Error('Unsupported fixture filter');
+    }
+    data=(await db.admin.query(`select ${columns} from ${quoted(table)} where ${conditions.join(' and ')}`,values)).rows;
+   }
+   return new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json'}});
+  },
+ },persona.personId,req.body.jobId);
+ res.status(result.status).json(result.body);
+});
 app.use(express.static('web/dist'));
 const port = Number(process.env.GUIDE_PORT ?? 5196);
 const server=app.listen(port,'127.0.0.1',()=>console.log(`Guide served build ready at http://127.0.0.1:${port}`));

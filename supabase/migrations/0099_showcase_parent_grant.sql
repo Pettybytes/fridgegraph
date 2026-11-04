@@ -30,6 +30,14 @@ language sql stable security definer set search_path=public as $$
    and caller_m.person_id=current_person() and caller_m.role in ('parent','guardian')
  )
 $$;
+-- Explicit approval capability for the fictional showcase. Real callers still follow
+-- the effective parenting schedule, including agreed holiday arrangements.
+create or replace function public._is_approver_for(p_child text,p_as_of date)
+returns boolean language sql stable security definer set search_path=public as $$
+ select public.guide_can_manage_child(p_child) or exists (
+  select 1 from effective_schedule_for(p_child,p_as_of) e where e.parent_id=current_person()
+ )
+$$;
 -- Direct table writes remain constrained on both old and new rows. All other
 -- tables retain their guide-no-write policy. Definer RPCs still check parent authority.
 do $$
@@ -42,6 +50,12 @@ begin
   execute format('alter policy %I on public.%I using (%s)',t||'_guide_no_delete',t,rule);
  end loop;
 end $$;
+create policy goals_showcase_read on public.goals as restrictive for select to authenticated
+ using (not public.is_demo_guide() or sandbox);
+create policy jobs_showcase_read on public.coordination_jobs as restrictive for select to authenticated
+ using (not public.is_demo_guide() or sandbox);
+create policy attempts_showcase_read on public.attempts as restrictive for select to authenticated
+ using (not public.is_demo_guide() or sandbox);
 -- Fridge rows did not exist when the blanket guide restrictions were introduced.
 create policy fridge_notes_showcase_insert on public.fridge_notes as restrictive for insert to authenticated
  with check (not public.is_demo_guide() or (public.guide_can_manage_child(child_id) and sandbox));
@@ -64,7 +78,7 @@ declare v_caller text; v_row school_report_proposals;
 begin
   v_caller := current_person();
   if v_caller is null then raise exception 'UNAUTHENTICATED'; end if;
-  if not has_scope(p_child, 'school.report') then raise exception 'UNAUTHORIZED' using errcode = '42501'; end if;
+  if not (has_scope(p_child, 'school.report') or public.guide_can_manage_child(p_child)) then raise exception 'UNAUTHORIZED' using errcode = '42501'; end if;
   if p_kind is null or length(trim(p_kind)) = 0 then raise exception 'SCHOOL_REPORT_KIND_REQUIRED' using errcode = '22023'; end if;
   if p_text is null or length(trim(p_text)) = 0 then raise exception 'SCHOOL_REPORT_TEXT_REQUIRED' using errcode = '22023'; end if;
 
@@ -117,7 +131,7 @@ begin
   end if;
 
   -- Re-checked here, not just at propose time: authority is the live grant, not a snapshot.
-  if not has_scope(v_prop.child_id, 'school.report') then raise exception 'UNAUTHORIZED' using errcode = '42501'; end if;
+  if not (has_scope(v_prop.child_id, 'school.report') or public.guide_can_manage_child(v_prop.child_id)) then raise exception 'UNAUTHORIZED' using errcode = '42501'; end if;
   if v_prop.expires_at < now() then raise exception 'PROPOSAL_EXPIRED' using errcode = '22023'; end if;
   if v_prop.version <> p_version then raise exception 'PROPOSAL_STALE' using errcode = '40001'; end if;
 
@@ -298,7 +312,16 @@ begin
  -- Check both sides of an update, including child reassignment and sandbox provenance.
  foreach r in array case when tg_op='UPDATE' then array[to_jsonb(old),to_jsonb(new)]
   when tg_op='DELETE' then array[to_jsonb(old)] else array[to_jsonb(new)] end loop
-  c:=r->>'child_id';
+  c:=coalesce(r->>'child_id',case when tg_table_name='relationships' then r->>'to_id' end);
+  if c is null and r ? 'job_id' then
+   select j.child_id into c from public.coordination_jobs j where j.id=r->>'job_id' and j.sandbox;
+  end if;
+  if c is null and r ? 'orbit_alert_id' then
+   select a.child_id into c from public.orbit_alerts a where a.id=r->>'orbit_alert_id' and a.sandbox;
+  end if;
+  if c is null and tg_table_name='shared_statuses' and r->>'person_id'=public.current_person() then
+   select g.child_id into c from public.showcase_parent_grants g where public.guide_can_manage_child(g.child_id) order by g.child_id limit 1;
+  end if;
   if c is null or not public.guide_can_manage_child(c) or r->>'sandbox'='false' then
    raise exception 'SHOWCASE_WRITE_REFUSED' using errcode='42501';
   end if;
@@ -316,8 +339,53 @@ declare t text;
 begin
  foreach t in array array['goals','care_plans','events','school_reports','permission_slips',
   'coordination_jobs','conversation_state','fridge_notes','fridge_item_preferences',
-  'school_report_proposals','villager_proposals','orbit_alerts','grants'] loop
+  'school_report_proposals','villager_proposals','orbit_alerts','grants','relationships',
+  'attempts','confirmations','candidate_evaluations','information_requests','voice_notes',
+  'pin_media','orbit_audience_members','orbit_responses','shared_statuses'] loop
   execute format('create trigger showcase_write_guard before insert or update or delete on public.%I for each row execute function public.guard_showcase_write()',t);
  end loop;
 end $$;
+
+-- Guide grant changes and their audit receipts commit together. The normal
+-- parent paths and all restrictive direct-table audit policies remain intact.
+create function public.showcase_grant_access(p_actor text,p_child text,p_scopes text[],p_from date default null,p_until date default null)
+returns public.grants language plpgsql security definer set search_path=public as $$
+declare r public.grants;
+begin
+ if not public.guide_can_manage_child(p_child) or not public.is_sandbox_person(p_actor) then
+  raise exception 'UNAUTHORIZED' using errcode='42501';
+ end if;
+ insert into grants(id,actor_id,child_id,scopes,valid_from,valid_until,granted_by)
+ values('g_'||gen_random_uuid()::text,p_actor,p_child,p_scopes,p_from,p_until,current_person()) returning * into r;
+ insert into approvals(id,approver_id,subject_type,subject_id,decision,at)
+ values('ap_'||gen_random_uuid()::text,current_person(),'Grant',r.id,'GRANTED',local_today());
+ return r;
+end $$;
+create function public.showcase_revoke_grant(p_grant text) returns boolean
+language plpgsql security definer set search_path=public as $$
+declare r public.grants;
+begin
+ select * into r from grants where id=p_grant for update;
+ if not found or not public.guide_can_manage_child(r.child_id) then raise exception 'UNAUTHORIZED' using errcode='42501'; end if;
+ delete from grants where id=r.id;
+ insert into approvals(id,approver_id,subject_type,subject_id,decision,at)
+ values('ap_'||gen_random_uuid()::text,current_person(),'Grant',r.id,'REVOKED',local_today());
+ return true;
+end $$;
+revoke all on function public.showcase_grant_access(text,text,text[],date,date), public.showcase_revoke_grant(text) from public,anon,service_role;
+grant execute on function public.showcase_grant_access(text,text,text[],date,date), public.showcase_revoke_grant(text) to authenticated;
+
+create function public.showcase_approve_relationship(p_id text) returns public.relationships
+language plpgsql security definer set search_path=public as $$
+declare r public.relationships;
+begin
+ select * into r from relationships where id=p_id for update;
+ if not found or not public.guide_can_manage_child(r.to_id) or not public.is_sandbox_person(r.from_id) then raise exception 'UNAUTHORIZED' using errcode='42501'; end if;
+ update relationships set status='ACTIVE',history=history||jsonb_build_array(jsonb_build_object('at',local_today(),'event','APPROVED by showcase guide')) where id=r.id returning * into r;
+ insert into approvals(id,approver_id,subject_type,subject_id,decision,at)
+ values('ap_'||gen_random_uuid()::text,current_person(),'Relationship',r.id,'APPROVED',local_today());
+ return r;
+end $$;
+revoke all on function public.showcase_approve_relationship(text) from public,anon,service_role;
+grant execute on function public.showcase_approve_relationship(text) to authenticated;
 commit;

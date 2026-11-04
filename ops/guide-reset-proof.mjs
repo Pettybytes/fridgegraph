@@ -26,5 +26,15 @@ try{
  assert.equal((await db.admin.query("select text from care_plans where child_id='p_nora'")).rows[0].text,snapshot.care_plans.find(r=>r.child_id==='p_nora').text);
  assert.deepEqual((await reset()).rows[0].report,first,'same run is idempotent');
  await assert.rejects(db.admin.query('select restore_showcase_snapshot($1,$2,$3::jsonb)',['p_dana',randomUUID(),JSON.stringify(snapshot)]),/ACTOR_REFUSED/);
- console.log('Scoped reset: canonical care restored, other families/unmarked rows unchanged, idempotency and actor refusal passed');
+ const failedRun=randomUUID();
+ await db.admin.query("update care_plans set text='Must survive failed Reset' where child_id='p_nora'");
+ const invalid={...snapshot,goals:[{id:'invalid_goal',child_id:'p_nora',title:null}]};
+ await assert.rejects(db.admin.query('select restore_showcase_snapshot($1,$2,$3::jsonb)',['p_demo_guide',failedRun,JSON.stringify(invalid)]),/null value/);
+ assert.equal((await db.admin.query("select text from care_plans where child_id='p_nora'")).rows[0].text,'Must survive failed Reset');
+ assert.equal((await db.admin.query('select count(*)::int as n from demo_reset_runs where run_id=$1',[failedRun])).rows[0].n,0);
+ assert.equal(await unrelated(),before);
+ await db.admin.query('begin');await db.admin.query('set local role authenticated');
+ await assert.rejects(db.admin.query('select restore_showcase_snapshot($1,$2,$3::jsonb)',['p_demo_guide',randomUUID(),JSON.stringify(snapshot)]),/permission denied/);
+ await db.admin.query('rollback');
+ console.log('Scoped reset: canonical care restored, other families/unmarked rows unchanged, idempotency, actor refusal, failed-restore rollback and direct-RPC refusal passed');
 }finally{await db.close()}
