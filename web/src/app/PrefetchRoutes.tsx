@@ -18,8 +18,8 @@ export function PrefetchRoutes({ client, calendar }: { client: ApolloClient | nu
     const current = () => !cancelled && generation === getSessionGeneration()
     const parent = session.marks?.demoGuide || session.persona.parent || session.persona.guardian
     const jobs: (() => Promise<unknown>)[] = [
-      async () => { preloadRoute('today'); return surfaceClient.query({ query: SNAPSHOT, variables: { scope, surface: 'mission-control' }, fetchPolicy: 'cache-first' }) },
-      async () => { preloadRoute('mission-control') },
+      async () => { preloadRoute('today'); return surfaceClient.query({ query: SNAPSHOT, variables: { scope, surface: 'village' }, fetchPolicy: 'cache-first' }) },
+      async () => { preloadRoute('mission-control'); return surfaceClient.query({ query: SNAPSHOT, variables: { scope, surface: 'mission-control' }, fetchPolicy: 'cache-first' }) },
       async () => { preloadRoute('activity'); if (parent) { const { loadActivity } = await import('@/features/activity/Activity'); if(current()) await refreshResource(client, `activity:${childId}`, () => loadActivity(client, adapter, scope, runRead)) } },
       async () => { preloadRoute('calendar'); const from = weekStart(localDay(Date.now())); if(calendar) await calendar.readWindow({ childId, from, to: addDays(from, 6), includeCancelled: false }) },
       async () => { preloadRoute('care-information'); const { readCareInformation } = await import('@/features/personas/careInformation'); if(current()) await refreshResource(client, `care:${childId}`, () => readCareInformation(client,childId,runRead)) },
