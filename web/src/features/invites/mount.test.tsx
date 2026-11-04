@@ -17,7 +17,7 @@ it('mounts the fictional invitation composer only for a parent and clears it on 
   expect(composer).toHaveAttribute('data-mode', 'mock')
   expect(composer).toHaveTextContent('Sample preview')
   expect(composer).toHaveTextContent('no image model or invitation record is called')
-  fireEvent.change(screen.getByRole('textbox', { name: 'Your invitation request' }), { target: { value: 'Private draft for Nora' } })
+  fireEvent.change(screen.getByRole('textbox', { name: 'Describe the invitation art' }), { target: { value: 'Private draft for Nora' } })
   fireEvent.click(screen.getByRole('button', { name: 'Switch person', hidden: true }))
   expect(screen.queryByText('Private draft for Nora')).not.toBeInTheDocument()
   await waitFor(() => expect(screen.getByRole('button', { name: 'Explore as Priya' })).toBeEnabled())

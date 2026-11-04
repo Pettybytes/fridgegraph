@@ -98,11 +98,11 @@ test('1. generate an invitation from a creative text request (no schedule requir
   const image = spyImage();
   const h = createInviteHandler(deps({ image, extractor: async () => ({}) /* nothing extracted — still generates */ }));
   const res = fakeRes();
-  await h(fakeReq(auth, { childId: 'p_nora', request: 'a cosmic watercolor rocket party, dreamy and bright', referenceImage: refField(png()) }), res);
+  await h(fakeReq(auth, { childId: 'p_nora', request: 'a cosmic watercolor rocket party, dreamy and bright' }), res);
   assert.equal(res.code, 200);
   assert.equal(res.payload.status, 'READY');
   assert.match(image.calls[0].prompt, /cosmic watercolor rocket party/); // the request drives the art
-  assert.equal(image.calls[0].images?.length, 1); // the mandatory reference drives the edit
+  assert.equal(image.calls[0].images, undefined); // description-only: a generation, not an edit
   assert.ok(res.payload.suggestion); // missing details are suggested, not invented
   assert.equal(res.payload.event.date, null);
 });
@@ -184,7 +184,7 @@ test('privacy: the provider never receives graph data — only the parent reques
   assert.match(image.calls[0].prompt, /starry night party/);
 });
 
-// ---- invitations polish: no model lettering, bottom-third band, mandatory reference ----
+// ---- invitations polish: no model lettering, bottom-third band, optional reference ----
 test('the brief forbids rendered lettering and reserves an empty lower third for app text', () => {
   const brief = buildCreativeBrief('warrior unicorns with the words Happy Birthday Sam in big letters');
   assert.match(brief, /do not render any text/i);
@@ -198,12 +198,13 @@ test('the quiet area is the bottom third of the actual image', () => {
   assert.ok(q.y + q.h <= 1500);
 });
 
-test('a fresh prepare without a reference image is refused before any provider call', async () => {
+test('a fresh prepare with no reference generates from the description alone (reference is optional)', async () => {
   const image = spyImage();
   const h = createInviteHandler(deps({ image }));
   const res = fakeRes();
-  await h(fakeReq(auth, { childId: 'p_nora', request: 'warrior unicorns' }), res);
-  assert.equal(res.code, 400);
-  assert.equal((res.payload as { error?: string }).error, 'REFERENCE_REQUIRED');
-  assert.equal(image.calls.length, 0);
+  await h(fakeReq(auth, { childId: 'p_nora', request: 'a cosmic rocket party' }), res);
+  assert.equal(res.code, 200);
+  assert.equal((res.payload as { status?: string }).status, 'READY');
+  assert.equal(image.calls.length, 1); // the provider WAS called
+  assert.equal(image.calls[0].images, undefined); // a generation, not an edit (no reference sent)
 });
