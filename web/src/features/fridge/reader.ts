@@ -5,7 +5,7 @@ const queries={goals:gql`query FridgeGoals($childId:ID!){goals(childId:$childId)
 // Each source is an independent caller-authorized read; decorative art is never queried.
 export function createFridgeReader(client:ApolloClient,runRead:<T>(fn:()=>Promise<T>)=>Promise<T>):FridgeReader{
  return {async read(source:Source,childId,signal){try{
-  const result=await runRead(()=>client.query<{goals?:Goal[];carePlan?:{text:string}|null}>({query:queries[source],variables:{childId},fetchPolicy:'no-cache',context:{fetchOptions:{signal}}}))
+  const result=await runRead(()=>client.query<{goals?:Goal[];carePlan?:{text:string}|null}>({query:queries[source],variables:{childId},fetchPolicy:'no-cache',context:{queryDeduplication:false,fetchOptions:{signal}}}))
   if(!result.data)throw Error('UNAVAILABLE')
   if(source==='goals'){if(!result.data.goals)throw Error('UNAVAILABLE');return result.data.goals.length?{status:'ready',value:result.data.goals}:{status:'empty'}}
   if(result.data.carePlan===undefined)throw Error('UNAVAILABLE')

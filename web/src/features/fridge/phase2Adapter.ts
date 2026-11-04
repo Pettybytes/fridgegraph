@@ -13,7 +13,7 @@ export const FRIDGE_COMPATIBILITY=gql`query FridgePhase2Compatibility($childId:I
  fridgeNotes(childId:$childId){id text paperColor audience revision createdAt updatedAt author{id displayName}}
 }`
 const goal='id title horizon status period completedAt'
-const note='id text paperColor audience createdAt updatedAt revision author{id displayName}'
+const note='id text attachmentRef paperColor audience createdAt updatedAt revision author{id displayName}'
 export const phase2Operations={
  readGoals:gql`query FridgeEditableGoals($childId:ID!){goals(childId:$childId){${goal}}}`,
  readNotes:gql`query FridgePostedNotes($childId:ID!){fridgeNotes(childId:$childId){${note}}}`,
@@ -22,7 +22,7 @@ export const phase2Operations={
  completeGoal:gql`mutation FridgeCompleteGoal($id:ID!){completeGoal(id:$id){${goal}}}`,
  uncompleteGoal:gql`mutation FridgeReopenGoal($id:ID!){uncompleteGoal(id:$id){${goal}}}`,
  deleteGoal:gql`mutation FridgeDeleteGoal($id:ID!){deleteGoal(id:$id)}`,
- postFridgeNote:gql`mutation FridgePostNote($childId:ID!,$text:String!,$paperColor:PaperColor,$audience:FridgeNoteAudience){postFridgeNote(childId:$childId,text:$text,paperColor:$paperColor,audience:$audience){${note}}}`,
+ postFridgeNote:gql`mutation FridgePostNote($childId:ID!,$text:String!,$paperColor:PaperColor,$audience:FridgeNoteAudience,$attachmentRef:String){postFridgeNote(childId:$childId,text:$text,paperColor:$paperColor,audience:$audience,attachmentRef:$attachmentRef){${note}}}`,
  updateFridgeNote:gql`mutation FridgeUpdateNote($id:ID!,$text:String,$paperColor:PaperColor){updateFridgeNote(id:$id,text:$text,paperColor:$paperColor){${note}}}`,
  setFridgeNoteAudience:gql`mutation FridgeShareNote($id:ID!,$audience:FridgeNoteAudience!){setFridgeNoteAudience(id:$id,audience:$audience){${note}}}`,
  removeFridgeNote:gql`mutation FridgeRemoveNote($id:ID!){removeFridgeNote(id:$id)}`,
@@ -53,7 +53,7 @@ export const phase2Message:Record<Phase2Failure,string>={authentication:'Your pe
 export type Phase2Service={check(childId:string,signal:AbortSignal):Promise<Compatibility>;adapter:FridgeEditingAdapter}
 export function createPhase2Service(client:ApolloClient,runRead:<T>(read:()=>Promise<T>)=>Promise<T>,writesEnabled:()=>boolean):Phase2Service{
  const read=async<T,>(query:DocumentNode,variables:Record<string,unknown>,field:string,signal:AbortSignal):Promise<T>=>{
-  try{const result=await runRead(()=>client.query<Record<string,T>>({query,variables,fetchPolicy:'no-cache',errorPolicy:'none',context:{fetchOptions:{signal}}}));if(!result.data||result.data[field]==null)throw Error('NO_DATA');return result.data[field]}
+  try{const result=await runRead(()=>client.query<Record<string,T>>({query,variables,fetchPolicy:'no-cache',errorPolicy:'none',context:{queryDeduplication:false,fetchOptions:{signal}}}));if(!result.data||result.data[field]==null)throw Error('NO_DATA');return result.data[field]}
   catch(error){if(signal.aborted)throw error;throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',server:'SERVER_ERROR',failed:'READ_FAILED'} as const)[phase2Failure(error)])}
  }
  const write=async<T,>(name:keyof typeof phase2Operations,args:object):Promise<T>=>{
@@ -62,7 +62,7 @@ export function createPhase2Service(client:ApolloClient,runRead:<T>(read:()=>Pro
   catch(error){throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',server:'SERVER_ERROR',failed:'WRITE_FAILED'} as const)[phase2Failure(error)])}
  }
  return {async check(childId,signal){try{
-  const result=await runRead(()=>client.query({query:FRIDGE_COMPATIBILITY,variables:{childId},fetchPolicy:'no-cache',errorPolicy:'none',context:{fetchOptions:{signal}}}))
+  const result=await runRead(()=>client.query({query:FRIDGE_COMPATIBILITY,variables:{childId},fetchPolicy:'no-cache',errorPolicy:'none',context:{queryDeduplication:false,fetchOptions:{signal}}}))
   if(signal.aborted)throw Error('ABORTED')
   const data=result.data as {__typename?:unknown;goals?:unknown;fridgeNotes?:unknown}|null|undefined
   // Success needs the whole shape: both collections resolved to arrays (empty is valid).

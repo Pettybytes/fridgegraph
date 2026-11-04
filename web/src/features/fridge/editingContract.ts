@@ -18,6 +18,7 @@ export type FridgeNoteRecord = {
   id: string
   author: { id: string; displayName: string | null }
   text: string
+  attachmentRef?: string | null
   paperColor: PaperColor
   audience: NoteAudience
   createdAt: string
@@ -37,7 +38,7 @@ export interface FridgeEditingAdapter {
   completeGoal(args: { id: string }): Promise<GoalRecord>
   uncompleteGoal(args: { id: string }): Promise<GoalRecord>
   deleteGoal(args: { id: string }): Promise<boolean>
-  postFridgeNote(args: { childId: string; text: string; paperColor: PaperColor; audience: 'PARENTS_ONLY' }): Promise<FridgeNoteRecord>
+  postFridgeNote(args: { childId: string; text: string; paperColor: PaperColor; audience: 'PARENTS_ONLY'; attachmentRef?: string }): Promise<FridgeNoteRecord>
   updateFridgeNote(args: { id: string } & NoteFields): Promise<FridgeNoteRecord>
   setFridgeNoteAudience(args: { id: string; audience: NoteAudience }): Promise<FridgeNoteRecord>
   removeFridgeNote(args: { id: string }): Promise<boolean>

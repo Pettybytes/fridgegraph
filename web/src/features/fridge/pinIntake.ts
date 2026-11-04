@@ -40,15 +40,16 @@ export type PinnedResult = { status: 'PINNED'; created: boolean; pin: { id: stri
 
 export type PinErrorCode =
   | 'UNAUTHENTICATED' | 'UNAUTHORIZED' | 'INVALID_REQUEST' | 'UNSUPPORTED_MEDIA_TYPE' | 'PAYLOAD_TOO_LARGE'
-  | 'INVALID_PROPOSAL' | 'PROPOSAL_EXPIRED' | 'ASSET_CHANGED' | 'CAPTION_REQUIRED' | 'PERSIST_FAILED' | 'NETWORK' | 'UNAVAILABLE'
+  | 'PROVIDER_TIMEOUT' | 'INVALID_PROPOSAL' | 'PROPOSAL_EXPIRED' | 'ASSET_CHANGED' | 'CAPTION_REQUIRED' | 'PERSIST_FAILED' | 'NETWORK' | 'UNAVAILABLE'
 export class PinError extends Error {
   code: PinErrorCode
   constructor(code: PinErrorCode) { super(code); this.name = 'PinError'; this.code = code }
 }
 
-const KNOWN = new Set<PinErrorCode>(['UNAUTHENTICATED', 'UNAUTHORIZED', 'INVALID_REQUEST', 'UNSUPPORTED_MEDIA_TYPE', 'PAYLOAD_TOO_LARGE', 'INVALID_PROPOSAL', 'PROPOSAL_EXPIRED', 'ASSET_CHANGED', 'CAPTION_REQUIRED', 'PERSIST_FAILED'])
+const KNOWN = new Set<PinErrorCode>(['PROVIDER_TIMEOUT','UNAUTHENTICATED', 'UNAUTHORIZED', 'INVALID_REQUEST', 'UNSUPPORTED_MEDIA_TYPE', 'PAYLOAD_TOO_LARGE', 'INVALID_PROPOSAL', 'PROPOSAL_EXPIRED', 'ASSET_CHANGED', 'CAPTION_REQUIRED', 'PERSIST_FAILED'])
 
 export const PIN_MESSAGE: Record<PinErrorCode, string> = {
+  PROVIDER_TIMEOUT: 'The document reader timed out. Your caption is still here. Try again.',
   UNAUTHENTICATED: 'Your perspective needs a fresh session. Choose a perspective again.',
   UNAUTHORIZED: 'Only a parent or guardian of this child can pin to their fridge.',
   INVALID_REQUEST: 'That didn’t look like a photo I can read. Try another image.',

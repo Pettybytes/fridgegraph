@@ -235,3 +235,20 @@ test('end to end: a captionless confirm is refused 422 (fridge_notes.text is req
   assert.equal(cf.code, 422);
   assert.equal((cf.payload as { error: string }).error, 'CAPTION_REQUIRED');
 });
+
+test('media access rejects a shared reference attached to another child', async () => {
+ const dir=mkdtempSync(join(tmpdir(),'pin-child-'));
+ const {writeFileSync}=await import('node:fs');
+ writeFileSync(join(dir,'private.png'),PNG);
+ let noteChild='p_other';
+ const dbForFn=(()=>({
+  rpc:async()=>({data:[{access:'SHARED',storage_path:'private.png',child_id:'p_nora',mime_type:'image/png'}],error:null}),
+  from:()=>({select:async()=>({data:[{child_id:noteChild,attachment_ref:'pm_private',audience:'SHARED'}],error:null})}),
+ })) as Parameters<typeof buildPinMediaStore>[0]['dbForFn'];
+ const store=buildPinMediaStore({mediaDir:dir,dbForFn});
+ const input={assetId:'pm_private',personId:'p_reader',bearer:'reader'};
+ assert.equal(await store.load(input),null);
+ assert.deepEqual(await store.access(input),{ok:false});
+ noteChild='p_nora';
+ assert.ok(await store.load(input));
+});

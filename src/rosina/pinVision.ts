@@ -46,7 +46,7 @@ export function createFixturePinExtractor(result?: Partial<RawPinExtraction>, lo
 }
 
 /** The live Muse Spark vision extractor. */
-export function createMuseVisionPinExtractor(cfg: { provider: ProviderConfig; model?: string; fetchFn?: typeof fetch; log?: (p: PinVisionProvenance) => void }): PinExtractor {
+export function createMuseVisionPinExtractor(cfg: { provider: ProviderConfig; model?: string; timeoutMs?: number; fetchFn?: typeof fetch; log?: (p: PinVisionProvenance) => void }): PinExtractor {
   const base = cfg.provider.baseUrl.replace(/\/$/, '');
   const model = cfg.model ?? cfg.provider.model;
   const doFetch = cfg.fetchFn ?? fetch;
@@ -58,6 +58,7 @@ export function createMuseVisionPinExtractor(cfg: { provider: ProviderConfig; mo
     const dataUrl = `data:${image.mimeType};base64,${Buffer.from(image.bytes).toString('base64')}`;
     const res = await doFetch(`${base}/chat/completions`, {
       method: 'POST',
+      signal: AbortSignal.timeout(cfg.timeoutMs ?? 20_000),
       headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.provider.apiKey}` },
       body: JSON.stringify({
         model,

@@ -213,3 +213,27 @@ test('upload enforces MIME + auth: 415 unsupported, 403 demo guide', async () =>
     .upload(fakeReq(auth, { childId: 'p_nora', mimeType: 'image/png', dataBase64: Buffer.from([1]).toString('base64') }), r2);
   assert.equal(r2.code, 403);
 });
+
+test('plain photos never call document providers, even when those providers refuse photos', async () => {
+  const media = createInMemoryMediaStore();
+  const assetId = await seedAsset(media);
+  let reads = 0;
+  const handlers = createPinHandlers(deps(media, async () => {
+    reads++;
+    return { clarification: 'No document is visible.' };
+  }, { segmenter: async () => { reads++; throw Error('document only'); } }));
+  const res = fakeRes();
+  await handlers.prepare(fakeReq(auth, { childId: 'p_nora', assetId, document: false, caption: 'Oscar misses you' }), res);
+  assert.equal(reads, 0);
+  assert.equal(res.payload.status, 'READY');
+  assert.equal(res.payload.extracted.caption, 'Oscar misses you');
+  assert.ok(res.payload.proposal);
+});
+
+test('document provider deadline returns a bounded timeout response', async () => {
+ const media=createInMemoryMediaStore(),assetId=await seedAsset(media),res=fakeRes();
+ await createPinHandlers(deps(media,async()=>{throw Object.assign(Error('deadline'),{name:'TimeoutError'})})).prepare(
+  fakeReq(auth,{childId:'p_nora',assetId,document:true,caption:'Keep this caption'}),res);
+ assert.equal(res.code,504);
+ assert.deepEqual(res.payload,{error:'PROVIDER_TIMEOUT'});
+});
