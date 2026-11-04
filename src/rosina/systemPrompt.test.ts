@@ -24,3 +24,9 @@ test('Rosina may say she can PREPARE, and only that a preview is READY after it 
   assert.match(toolText, /PREPARE a preview/);
   assert.match(toolText, /READY once the app has actually returned it/);
 });
+
+test('"who is picking up" leads with the schedule, never with "no one is confirmed"', () => {
+  assert.match(prompt, /answered by the effective schedule FIRST/);
+  assert.match(prompt, /Never open with "no one is confirmed" when the schedule names/);
+  assert.match(prompt, /coordination request is a secondary note/i);
+});
