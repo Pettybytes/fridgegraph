@@ -13,3 +13,4 @@ var/
 
 # Composed supergraph is a BUILD PRODUCT — compose it, never commit it.
 /supergraph.graphql
+.playwright-cli/

@@ -147,9 +147,9 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
     <div className="sr-inner">
       <div className="sr-heading">
         <div>
-          <p className="sr-eyebrow">Demo story replay · fictional people</p>
+          <p className="sr-eyebrow">Demo replay · fictional people</p>
           <h2 id="sr-title">One plan, three perspectives</h2>
-          <p>Nora’s pickup replayed end to end: Kendra’s phone, the call chain under the hood, and the village outcome.</p>
+          <p>Nora’s pickup replayed end to end: Kendra’s phone, the call chain under the hood, and the real Village map, narrated in Rosina’s own voice.</p>
         </div>
         <div className="sr-player" aria-label="Replay playback">
           <RosinaAvatar state={speaking ? 'speaking' : 'ready'} size={44} />
@@ -180,8 +180,8 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
           <figcaption><strong>Village</strong><span aria-hidden="true"> · </span>Route, Activity, Mission Control</figcaption>
         </figure>
       </div>
-      {narration && <audio ref={audioRef} src={narration.src} preload="auto" aria-label="Replay narration" />}
-      <p className="sr-footnote">A replay of the demo flow with fictional people. Rosina’s narration is synthesized; Loretta’s reply is the recorded illustrative clip. Loretta’s offer and Kendra’s confirmation are separate decisions, and pickup completion is not recorded.</p>
+      {narration && <audio ref={audioRef} src={narration.src} preload="auto" aria-label="Rosina’s narration" />}
+      <p className="sr-footnote">A replay of the demo flow with fictional people. The narration is Rosina’s real ElevenLabs voice, recorded once through the app’s own voice path; the Village map is the real OpenFreeMap-based map this app uses. The phones reconstruct the real steps of the journey. Loretta’s reply and Kendra’s confirmation are separate decisions, and no pickup is actually arranged.</p>
     </div>
   </section>
 }

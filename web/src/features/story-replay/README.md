@@ -1,42 +1,42 @@
-# Three-phone story replay
+# Demo replay — "One plan, three perspectives"
 
 An **illustrative public fixture**, separate from authenticated family records: no API calls, no
-reads, every id fictional (`child_nora`, `job_01`, `att_01`). It replays demo journey A on the
-Mission Control page as "One plan, three perspectives", honestly labeled as a replay.
+reads, every id fictional (`child_nora`, `job_01`, `att_01`). It replays demo journey A and lives on
+its **own "Demo replay" nav tab, visible only in the Demo guide perspective** (gated in
+`app/SignedInVillage.tsx`; Mission Control no longer carries it). Honestly labeled a replay.
 
-The three phones share one master clock (`story.ts` holds every beat):
+The three phones share one master clock (`story.ts` holds every beat, keyed to the measured
+narration segments in `assets/rosina-narration.json`):
 
-1. **Parent (Kendra)** starts on the app home screen, then walks Nora's whole path in one feed:
-   notice posted, Rosina's proposal, Kendra approves the outreach, the request goes to Loretta
-   (a test caregiver, `TEST_RESPONDER`), her reply, Kendra's separate confirmation, the confirmed
-   plan. Approval precedes outreach; pickup completion is never claimed.
-2. **Under the hood** is a dark trace panel that types the real call chain in sync: Muse (Meta
-   model) -> Rosina agent -> MCP tools (`MyChildren`, `ChildEvents`, `PickupCandidates`,
-   `JobTimeline` from `ops/*.graphql`) -> Apollo Router -> coordination subgraph operations
-   (`requestPickup`, `acceptPickup`, `approvePickup`). Operation and field names mirror the real
-   schema; ids and timestamps are fictional, and no secret, token or credential ever appears
-   (guarded by a test).
-3. **Village** draws the pickup route on a small map (Loretta -> school -> Nora's home), then the
-   new Activity entry, then the Mission Control metric update.
+1. **Parent (Kendra)** starts on the app home screen at t=0, then walks Nora's whole path: notice
+   posted, Rosina's proposal, Kendra approves the outreach, the request goes to Loretta (a test
+   caregiver, `TEST_RESPONDER`), her reply, Kendra's separate confirmation, the confirmed plan.
+2. **Under the hood** types the real call chain in sync: Muse (Meta model) → Rosina agent → MCP
+   tools (`MyChildren`, `ChildEvents`, `PickupCandidates`, `JobTimeline` from `ops/*.graphql`) →
+   Apollo Router → coordination operations (`requestPickup`, `acceptPickup`, `approvePickup`). Ids
+   are fictional; a test asserts no secret/token/credential pattern can appear.
+3. **Village** shows the **real Village map** (`assets/village-map-real.webp` — real OpenFreeMap
+   positron tiles captured from this app's own MapLibre map page, credited on screen) with the
+   pickup route animating over real streets, then the Activity entry, then the Mission Control
+   metric.
 
-**Audio** is one preloaded element for the whole replay (`narration.ts`). Rosina's narration is
-synthesized locally (macOS `say`, voice Samantha, labeled on the page); segment s4 splices the
-verbatim `voice_three_phone_loretta` illustrative clip (ElevenLabs stock voice) unchanged, so the
-caregiver reply is the same recorded audio the demo has always used. Rebuild with
-`web/scripts/build-replay-narration.sh`; measured segment times live in
-`assets/replay-narration.json` and key the visual beats. Sound is off until a user gesture; the
-first pointer gesture also unlocks the element, a rejected `play()` shows a visible fallback, and
-the clip is paused and rewound on every loop so clips never overlap. The Rosina avatar next to the
-player uses the shared `RosinaAvatar` `speaking` state only while her audio is really playing.
+**Audio** is one preloaded element playing **Rosina's real ElevenLabs voice**. The five narration
+lines were generated once through the app's own voice path (`POST /voice/speak`, authenticated as
+the fictional Kendra demo persona) and committed as `assets/rosina-narration.mp3` — the same
+server-configured voice the live app uses; no key or token is stored (see the json's `provenance`).
+Sound is off until a user gesture; the first pointer gesture unlocks the element; a real
+`NotAllowedError` shows a visible fallback; `AbortError` races retry; the element is paused and
+rewound on each loop so nothing overlaps. The Rosina avatar beside the player uses the shared
+`speaking` state only while her audio is actually playing.
 
-The component is lazy-loaded from `App.tsx` on the Mission Control route. Reduced motion renders
-the finished story as a static frame with a user-initiated replay. On mobile, one phone shows at a
-time behind perspective tabs; all three are populated from the first frame.
+Lazy-loaded; reduced motion renders the finished story statically with a user-initiated replay.
+Mobile shows one phone behind perspective tabs; all three are populated from the first frame. Total
+added weight: a ~280 KB mp3 + ~16 KB map webp, well under budget.
 
-Source art: the sky backdrop derivatives documented in the repo (no remote images, no branded
-device artwork; the phone frame is our own CSS). The legacy `voice-three-phone-loretta.*` assets
-stay as the provenance source for the spliced clip and the reply waveform peaks
-(`web/scripts/sync-story-voice.mjs` still regenerates them).
+Regenerate the narration with `web/scripts/build-replay-narration.sh` **after** re-fetching the
+ElevenLabs lines through `/voice/speak` (the script normalizes and concatenates committed per-line
+audio; it never contacts a provider or holds a key). Capture a fresh real-map image from the live
+map page at 390×844 when the map styling changes.
 
 Standalone export: from `web/`, `npx vite build --config vite.story-replay.config.ts` rebuilds
 `story-replay-export/` (offline static bundle for local hosting, embedding, or capture).

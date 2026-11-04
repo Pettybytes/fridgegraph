@@ -5,6 +5,7 @@ import {
   type JourneyEvent, type JourneyKind, type TraceTag,
 } from './story'
 import { LORETTA_PEAKS } from './narration'
+import mapUrl from './assets/village-map-real.webp'
 import '@/components/fg/cards.css'
 
 /** Journey kind → design-v2 card type (docs/contracts/design.md §12) for the accent bar. */
@@ -98,10 +99,14 @@ export const TracePhone = memo(function TracePhone({ elapsed }: { elapsed: numbe
   </PhoneShell>
 })
 
-/** The pickup route as a fixed polyline: Loretta’s place -> school -> Nora’s home. */
+/**
+ * The pickup route as a fixed polyline over the REAL captured Village map
+ * (assets/village-map-real.webp, intrinsic 390x440). Loretta -> school -> Nora's home,
+ * following streets on the real map. Coordinates are in the image's own space.
+ */
 const ROUTE_POINTS: readonly (readonly [number, number])[] = [
-  [52, 288], [52, 196], [96, 196], [96, 104], [148, 104], [148, 60], [196, 60],
-  [196, 132], [232, 132], [232, 236], [196, 236], [196, 312],
+  [66, 252], [120, 250], [122, 168], [196, 164], [202, 112],
+  [204, 164], [214, 210], [214, 258], [214, 300],
 ]
 const ROUTE_PATH = ROUTE_POINTS.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')
 const SEGMENT_LENGTHS = ROUTE_POINTS.slice(1).map((point, index) => Math.hypot(point[0] - ROUTE_POINTS[index][0], point[1] - ROUTE_POINTS[index][1]))
@@ -132,25 +137,18 @@ export const OutcomePhone = memo(function OutcomePhone({ elapsed }: { elapsed: n
   const status = showActivity ? null : confirmed ? 'Plan confirmed · tracing the pickup route' : requested ? 'Request with Loretta · waiting on replies' : 'Pickup route · waiting for a plan'
   return <PhoneShell label="Village" surface="Village map · pickup">
     <div className="sr-screen-body sr-outcome">
-      <svg className="sr-map" viewBox="0 0 280 372" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Village map replay: the pickup route from Loretta’s place to school to Nora’s home">
-        <rect className="sr-map-ground" x="0" y="0" width="280" height="372" />
-        <path className="sr-map-street" d="M52 20 L52 352" />
-        <path className="sr-map-street" d="M148 20 L148 352" />
-        <path className="sr-map-street" d="M232 20 L232 352" />
-        <path className="sr-map-street" d="M12 104 L268 104" />
-        <path className="sr-map-street" d="M12 196 L268 196" />
-        <path className="sr-map-street" d="M12 312 L268 312" />
-        <ellipse className="sr-map-park" cx="110" cy="260" rx="34" ry="24" />
+      <img className="sr-map-base" src={mapUrl} alt="" aria-hidden="true" />
+      <svg className="sr-map" viewBox="0 0 390 440" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Replay over the real Village map: the pickup route from Loretta’s place to school to Nora’s home">
         {progress > 0 && <path className="sr-route" d={ROUTE_PATH} pathLength={1} style={{ strokeDashoffset: 1 - progress }} />}
-        {progress > 0 && progress < 1 && <circle className="sr-route-dot" cx={dotX} cy={dotY} r="6" />}
-        <g className="sr-pin" data-fgc-type="pickup" transform="translate(52 288)" data-active={requested || undefined}>
-          <circle r="9" /><text y="26">Loretta</text>
+        {progress > 0 && progress < 1 && <circle className="sr-route-dot" cx={dotX} cy={dotY} r="7" />}
+        <g className="sr-pin" data-fgc-type="pickup" transform={`translate(${ROUTE_POINTS[0][0]} ${ROUTE_POINTS[0][1]})`} data-active={requested || undefined}>
+          <circle r="9" /><text y="25">Loretta</text>
         </g>
-        <g className="sr-pin" data-fgc-type="school" transform="translate(196 60)">
-          <circle r="9" /><text y="26">School</text>
+        <g className="sr-pin" data-fgc-type="school" transform="translate(202 112)">
+          <circle r="9" /><text y="25">School</text>
         </g>
-        <g className="sr-pin" data-fgc-type="safe" transform="translate(196 312)" data-active={progress >= 1 || undefined}>
-          <circle r="9" /><text y="26">Nora’s home</text>
+        <g className="sr-pin" data-fgc-type="safe" transform="translate(214 300)" data-active={progress >= 1 || undefined}>
+          <circle r="9" /><text y="25">Nora’s home</text>
         </g>
       </svg>
       <div className="sr-outcome-cards">
@@ -166,6 +164,7 @@ export const OutcomePhone = memo(function OutcomePhone({ elapsed }: { elapsed: n
           <small>Updated from the recorded confirmation</small>
         </article>}
       </div>
+      <span className="sr-map-credit" aria-hidden="true">Real Village map · © OpenFreeMap · © OpenStreetMap</span>
     </div>
   </PhoneShell>
 })

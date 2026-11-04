@@ -34,4 +34,15 @@ describe('app shell', () => {
     await screen.findByText('Signed in as Kendra')
     expect(screen.getByRole('link', { name: 'Go to Mission Control' })).toBeVisible()
   })
+  it('shows the Demo replay tab only when showDemoReplay is set', () => {
+    render(<DataProvider adapter={createMockAdapter()} scope={demoScope}><Shell showDemoReplay slots={{ 'demo-replay': <p>Demo replay slot</p> }} /></DataProvider>)
+    expect(screen.getByRole('link', { name: 'Demo replay' })).toBeVisible()
+  })
+  it('hides the Demo replay tab and route without showDemoReplay', () => {
+    window.location.hash = '#/demo-replay'
+    render(<DataProvider adapter={createMockAdapter()} scope={demoScope}><Shell slots={{ 'demo-replay': <p>Demo replay slot</p> }} /></DataProvider>)
+    expect(screen.queryByRole('link', { name: 'Demo replay' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Demo replay slot')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to Mission Control' })).toBeVisible()
+  })
 })
