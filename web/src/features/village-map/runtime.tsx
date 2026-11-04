@@ -22,9 +22,6 @@ export function VillageMapProvider({children}:{children:ReactNode}){
  const controller=useMemo(()=>{
   if(!session||!selectedChildId)return null
   const live=import.meta.env.VITE_VILLAGE_MAP_LIVE==='true'&&!!session.accessToken
-  // The guide's ecosystem directory is read-only, but it does not grant the
-  // child-specific geographic map. Refuse before requesting or rendering it.
-  if(live&&session.marks?.demoGuide===true)return new MapController({mode:'live',readWorld:async()=>{throw Error('UNAUTHORIZED')},route:async()=>{throw Error('UNAUTHORIZED')}})
   if(live&&!client)return new MapController({mode:'live',readWorld:async()=>{throw Error('WORLD_READ_UNAVAILABLE')},route:async()=>{throw Error('WORLD_READ_UNAVAILABLE')}})
   if(live&&client){
    const getSession=()=>{const current=getCurrentSession();return current&&selectedRef.current?{generation:current.generation,childId:selectedRef.current,accessToken:current.accessToken,canReadCost:(current.persona.parent||current.persona.guardian===true)&&current.marks?.demoGuide!==true,parentName:current.persona.name}:null}

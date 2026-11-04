@@ -1,6 +1,6 @@
 import { parse } from 'graphql';
 import { GraphQLError } from 'graphql';
-import { requireCaller, refuseDemoGuideWrite, isParentOf, authorizeChild, householdIdsOfChild, SCOPE, type Ctx } from '../authz';
+import { requireCaller, refuseDemoGuideWrite, isParentOf, guideCanReadChild, authorizeChild, householdIdsOfChild, SCOPE, type Ctx } from '../authz';
 import { prewarmForPickupRequest, trackRidePrewarm, awaitRidePrewarm, type PrewarmReport } from '../village/ridePrewarm';
 import { dbFor, rows } from '../db';
 
@@ -677,7 +677,7 @@ const resolvers = {
       const childId = String(jobRows[0].child_id);
 
       const parent = await isParentOf(ctx, childId);
-      if (!parent && ctx.demoGuide !== true) {
+      if (!parent && !(await guideCanReadChild(ctx, childId))) {
         throw new GraphQLError('UNAUTHORIZED', { extensions: { code: 'UNAUTHORIZED' } });
       }
 
@@ -794,7 +794,7 @@ const resolvers = {
       requireCaller(ctx);
       // Parent view only. A stranger (or a nonexistent child) gets the same denial.
       const level = await authorizeChild(ctx, childId, SCOPE.schedule);
-      if (level !== 'parent') {
+      if (level !== 'parent' && level !== 'guide') {
         throw new GraphQLError('UNAUTHORIZED', { extensions: { code: 'UNAUTHORIZED' } });
       }
       const { data, error } = await dbFor(ctx).rpc('checkin_status_for', {
@@ -836,7 +836,7 @@ const resolvers = {
       // narrows the rows to her family, and the household filter narrows them again to the
       // households this child actually belongs to.
       const parent = await isParentOf(ctx, childId);
-      if (!parent) return [];
+      if (!parent && !(await guideCanReadChild(ctx, childId))) return [];
       const households = await householdIdsOfChild(ctx, childId);
       if (!households.length) return [];
       const list = await rows(

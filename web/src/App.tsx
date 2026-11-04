@@ -35,7 +35,7 @@ import { createMockCalendarAdapter } from '@/features/calendar/mockAdapter'
 import { CareInformation } from '@/features/personas/careInformation'
 import { PersonaAccessState } from '@/features/personas/PersonaAccessState'
 import { Today } from '@/features/today/Today'
-import { ChildAccessProvider } from '@/features/personas/childContext'
+import { GuideDirectory, PageChildAccess } from '@/features/personas/GuideDirectory'
 import { SignatureVillageRoute } from '@/components/signature'
 import { Activity } from '@/features/activity/Activity'
 import { InvitesPanel } from '@/features/invites/InvitesPanel'
@@ -73,7 +73,7 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
     <VoiceProvider getAccessToken={() => getCurrentSession()?.accessToken ?? null} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope}>
-      <ChildAccessProvider client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
+      <PageChildAccess client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
       <VillageMapProvider><ApolloSessionCleanup clearAdapter={adapter.clearStore} />
       <Shell sessionChip={<SessionChip />} slots={{
         map: <VillageMap/>,
@@ -94,12 +94,12 @@ function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
       }} />
       <RosinaPanel dataAdapter={adapter} contextCard={<MapRosinaContext/>} />
       </VillageMapProvider>
-      </ChildAccessProvider>
+      </PageChildAccess>
     </DataProvider></LiveCalendarContext.Provider></OrbitProvider>
     </VoiceProvider>
   </div>
 }
 export default function App({authAdapter,orbitNow=Date.now}:{authAdapter?:AuthAdapter;orbitNow?:()=>number}={}) {
   const auth = useMemo(() => authAdapter ?? (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH==='true'?createMockAuthAdapter():createLiveAuthAdapter()), [authAdapter])
-  return <SessionProvider adapter={auth}><SandboxBanner /><SignedInVillage orbitNow={orbitNow} /></SessionProvider>
+  return <SessionProvider adapter={auth}><SandboxBanner /><GuideDirectory><SignedInVillage orbitNow={orbitNow} /></GuideDirectory></SessionProvider>
 }

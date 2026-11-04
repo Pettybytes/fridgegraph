@@ -7,6 +7,7 @@ import {
   householdIdsOfChild,
   inWindow,
   isParentOf,
+  guideCanReadChild,
   ownGrants,
   personRow,
   refuseDemoGuideWrite,
@@ -588,7 +589,7 @@ const resolvers = {
     },
     households: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       requireCaller(ctx);
-      if (!(await isParentOf(ctx, childId))) throw deny();
+      if (!(await isParentOf(ctx, childId)) && !(await guideCanReadChild(ctx, childId))) throw deny();
       const ids = await householdIdsOfChild(ctx, childId);
       if (ids.length === 0) return [];
       const data = await rows(dbFor(ctx).from('households').select('id,village_id').in('id', ids));
@@ -596,7 +597,7 @@ const resolvers = {
     },
     householdMembers: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       requireCaller(ctx);
-      if (!(await isParentOf(ctx, childId))) throw deny();
+      if (!(await isParentOf(ctx, childId)) && !(await guideCanReadChild(ctx, childId))) throw deny();
       const ids = await householdIdsOfChild(ctx, childId);
       if (ids.length === 0) return [];
       const data = await rows(
@@ -610,7 +611,7 @@ const resolvers = {
     },
     relationships: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
       requireCaller(ctx);
-      if (!(await isParentOf(ctx, childId))) throw deny();
+      if (!(await isParentOf(ctx, childId)) && !(await guideCanReadChild(ctx, childId))) throw deny();
       const data = await rows(
         dbFor(ctx)
           .from('relationships')
@@ -674,9 +675,7 @@ const resolvers = {
         dbFor(ctx).from('goals').select(GOAL_COLUMNS).eq('child_id', childId),
       );
       const mapped = data.map(toGoal);
-      // The existing demo_guide_goals RLS policy limits this verified guide to sandbox children.
-      if (ctx.demoGuide) return mapped;
-      if (await isParentOf(ctx, childId)) return mapped;
+      if (await isParentOf(ctx, childId) || await guideCanReadChild(ctx, childId)) return mapped;
       // A grant holder sees approved goals only; a PROPOSED goal is for parents. Unchanged.
       const grants = await ownGrants(ctx, childId);
       if (grants.some((g) => g.scopes.includes(SCOPE.goals) && inWindow(g, ctx.today))) {

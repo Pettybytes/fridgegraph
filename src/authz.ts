@@ -188,7 +188,7 @@ export type AccessLevel = 'parent' | 'grant' | 'guide';
  * only) decides the answer. A non-guide never reaches this call.
  */
 async function guideCanReadChildImpl(ctx: Ctx, childId: string): Promise<boolean> {
-  if (ctx.demoGuide !== true) return false;
+  if (!isShowcaseGuide(ctx)) return false;
   const data = await memo(ctx, `guide:child:${childId}`, async () =>
     rows(
       dbFor(ctx)
@@ -198,7 +198,23 @@ async function guideCanReadChildImpl(ctx: Ctx, childId: string): Promise<boolean
         .eq('role', 'child'),
     ),
   );
-  return data.length > 0;
+  if (!data.length) return false;
+  const fictional = await rows(dbFor(ctx).from('households').select('id')
+    .in('id', data.map(row => String(row.household_id))).eq('sandbox', true));
+  return fictional.length > 0;
+}
+
+/** The server-issued showcase identity is distinct from every family member. */
+export function isShowcaseGuide(ctx: Ctx): boolean {
+  return ctx.callerId === 'p_demo_guide' && ctx.demoGuide === true;
+}
+
+/** A read grant for a fictional person's records, evaluated through the caller's RLS client. */
+export async function guideCanReadPerson(ctx: Ctx, personId: string): Promise<boolean> {
+  if (!isShowcaseGuide(ctx)) return false;
+  const { data, error } = await dbFor(ctx).rpc('is_sandbox_person', { p_person: personId });
+  if (error) throw error;
+  return data === true;
 }
 
 /**
@@ -215,7 +231,8 @@ export async function authorizeChild(ctx: Ctx, childId: string, scope: string): 
   if (await isParentOf(ctx, childId)) return 'parent';
   // Read-only: the guide's level never authorizes a mutation. Every mutation refuses it explicitly
   // (refuseDemoGuideWrite), and the database refuses it again with restrictive policies.
-  if (await guideCanReadChild(ctx, childId)) return 'guide';
+  if (new Set<string>([SCOPE.schedule, SCOPE.transport, SCOPE.goals, SCOPE.careplan, SCOPE.school,
+    SCOPE.contacts, SCOPE.fridgeRead]).has(scope) && await guideCanReadChild(ctx, childId)) return 'guide';
   if (await hasScope(ctx, childId, scope, ctx.today)) return 'grant';
   throw deny();
 }

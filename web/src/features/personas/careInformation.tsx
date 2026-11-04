@@ -27,8 +27,8 @@ export function CareInformation() {
   return <section className="care-information" aria-label="Care information" data-state="derived" data-source="mock"><h2>Care information for {childName}</h2><p>{sample.text}</p><p>{sourceCitation(sample.source)}</p></section>
 }
 
-const CARE_PLAN = gql`query WebCareInformation($childId: ID!) { carePlan(childId: $childId) { text } }`
-type CarePlanState = {status:'loading'|'ready'|'empty'|'refused'|'error'; text?:string}
+const CARE_PLAN = gql`query WebCareInformation($childId: ID!) { carePlan(childId: $childId) { text } careFacts(childId: $childId) { id key value source { kind ref } } }`
+type CarePlanState = {status:'loading'|'ready'|'empty'|'refused'|'error'; text?:string; facts?:{id:string;key:string;value:string;source:{kind:string;ref:string}}[]}
 function LiveCareInformation({childId,childName,client,runRead}:{childId:string;childName:string;client:ApolloClient|null;runRead?:<T>(read:()=>Promise<T>)=>Promise<T>}) {
   const [state,setState]=useState<CarePlanState>({status:'loading'})
   useEffect(()=>{
@@ -36,9 +36,9 @@ function LiveCareInformation({childId,childName,client,runRead}:{childId:string;
     let current=true
     const controller=new AbortController()
     void runRead(async()=>{
-      const result=await client.query<{carePlan:{text:string}|null}>({query:CARE_PLAN,variables:{childId},fetchPolicy:'no-cache',context:{fetchOptions:{signal:controller.signal}}})
-      return result.data?.carePlan ?? null
-    }).then(plan=>{if(current)setState(plan?{status:'ready',text:plan.text}:{status:'empty'})},error=>{
+      const result=await client.query<{carePlan:{text:string}|null;careFacts?:NonNullable<CarePlanState['facts']>}>({query:CARE_PLAN,variables:{childId},fetchPolicy:'no-cache',context:{fetchOptions:{signal:controller.signal}}})
+      return {plan:result.data?.carePlan ?? null,facts:result.data?.careFacts??[]}
+    }).then(({plan,facts})=>{if(current)setState(plan||facts.length?{status:'ready',text:plan?.text,facts}:{status:'empty'})},error=>{
       if(!current||controller.signal.aborted)return
       setState({status:/UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|AUTH_ERROR/.test(error instanceof Error?error.message:'')?'refused':'error'})
     })
@@ -49,5 +49,5 @@ function LiveCareInformation({childId,childName,client,runRead}:{childId:string;
   if(state.status==='refused')return <section className="care-information" role="alert">This isn't shared with you.</section>
   if(state.status==='error')return <section className="care-information" role="alert">Couldn't load this just now.</section>
   if(state.status==='empty')return <section className="care-information" data-state="empty">No records are available to this view.</section>
-  return <section className="care-information" aria-label="Care information" data-state="live" data-source="live"><h2>Care information for {firstName}</h2><p>{state.text}</p><p>{sourceCitation(`${firstName}'s care plan`)}</p></section>
+  return <section className="care-information" aria-label="Care information" data-state="live" data-source="live"><h2>Care information for {firstName}</h2><p>{state.text}</p>{!!state.facts?.length&&<dl>{state.facts.map(fact=><div key={fact.id}><dt>{fact.key.replaceAll('_',' ')}</dt><dd>{fact.value}<p>Source: {fact.source.kind.replaceAll('_',' ')} · {fact.source.ref}</p></dd></div>)}</dl>}<p>{sourceCitation(`${firstName}'s care plan`)}</p></section>
 }

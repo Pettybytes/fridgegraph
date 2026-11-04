@@ -24,7 +24,7 @@ export class OrbitController{
   if(this.loadFlight)return this.loadFlight
   this.loadFlight=(async()=>{
    try{
-    const [statusResult,checkResult,vocabularyResult,placesResult]=await Promise.allSettled([this.adapter.status(this.scope.childId),this.scope.parent&&!this.scope.readOnly?this.adapter.check(this.scope.childId):Promise.resolve(null),this.scope.parent&&!this.scope.readOnly?this.adapter.vocabulary():Promise.resolve([]),this.scope.parent&&!this.scope.readOnly&&this.adapter.places?this.adapter.places(this.scope.childId):Promise.resolve([])])
+    const [statusResult,checkResult,vocabularyResult,placesResult]=await Promise.allSettled([this.adapter.status(this.scope.childId),(this.scope.parent||this.scope.readOnly)?this.adapter.check(this.scope.childId):Promise.resolve(null),this.scope.parent&&!this.scope.readOnly?this.adapter.vocabulary():Promise.resolve([]),this.scope.parent&&!this.scope.readOnly&&this.adapter.places?this.adapter.places(this.scope.childId):Promise.resolve([])])
     if(!this.current())return
     const check=checkResult.status==='fulfilled'?checkResult.value:null
     const guidance=check?.guidance||(statusResult.status==='fulfilled'?statusResult.value.guidance:'')
@@ -42,13 +42,13 @@ export class OrbitController{
  private record(alert:Alert|null){
   if(!this.current())return
   if(alert&&alert.child.id!==this.scope.childId){this.patch({alert:null,photoId:undefined,phase:'unavailable',error:"This isn't shared with you."});return}
-  if(alert&&!this.state.authority){
+  if(alert&&!this.state.authority&&!this.scope.readOnly){
    const closure=this.recipientClosures.get(alert.id)
    if(closure)alert={...alert,status:'CLOSED',closedAt:closure.closedAt??alert.closedAt,closeOutcome:closure.closeOutcome??alert.closeOutcome,thankyou:closure.thankyou??alert.thankyou}
    if(alert.status==='CLOSED')this.recipientClosures.set(alert.id,{closedAt:alert.closedAt,closeOutcome:alert.closeOutcome,thankyou:alert.thankyou})
   }
   // Closed recipient reads must never retain sensitive ACTIVE payloads, even if a stale cache returns them.
-  if(alert?.status==='CLOSED'&&!this.state.authority){
+  if(alert?.status==='CLOSED'&&!this.state.authority&&!this.scope.readOnly){
    const own=(entry:{person:{id:string}})=>entry.person.id===this.scope.personId
    alert={...alert,message:null,share:{photoId:null},lastSeenPlace:null,lastSeenAt:null,audience:alert.audience.filter(own),responses:alert.responses.filter(own),latestResponses:alert.latestResponses.filter(own),guidance:''}
    this.patch({values:{},lastSeen:{},photoId:undefined,preview:null,suggestionNotice:'',guidance:'',status:this.state.status?{...this.state.status,latestResponses:this.state.status.latestResponses.filter(own),guidance:''}:null})

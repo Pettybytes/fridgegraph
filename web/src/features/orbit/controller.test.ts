@@ -76,3 +76,16 @@ describe('Orbit state machine',()=>{
  })
 
 })
+
+it('guide reads check-in and closed responses without gaining action authority',async()=>{
+ const {adapter}=fixture()
+ adapter.status.mockResolvedValue({alertId:alert.id,status:'CLOSED',audienceCount:1,notifiedCount:1,latestResponses:[response],guidance})
+ adapter.alert.mockResolvedValue({...alert,status:'CLOSED',responses:[response],latestResponses:[response]})
+ const guide=new OrbitController(adapter,{childId:'p_nora',personId:'p_demo_guide',parent:false,readOnly:true,generation:1},()=>1)
+ await guide.load()
+ expect(adapter.check).toHaveBeenCalled()
+ expect(guide.getSnapshot().alert?.responses).toEqual([response])
+ expect(guide.canPrepare()).toBe(false)
+ await guide.prepare({childId:'p_nora'});await guide.respond('ON_WAY');await guide.activate()
+ expect(adapter.draft).not.toHaveBeenCalled();expect(adapter.respond).not.toHaveBeenCalled();expect(adapter.activate).not.toHaveBeenCalled()
+})

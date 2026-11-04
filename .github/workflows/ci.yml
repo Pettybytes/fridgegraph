@@ -86,8 +86,8 @@ jobs:
       - name: Fast reset receipt and cleanup regressions
         run: node --import tsx --test src/demo/reset.test.ts src/demo/resetOperation.test.ts src/demo/family-reset-race.test.ts
 
-      - name: Guide reads (myChildren)
-        run: node --import tsx --test src/subgraphs/guide-my-children.test.ts
+      - name: Guide reads and write refusals
+        run: node --import tsx --test src/subgraphs/guide-my-children.test.ts src/subgraphs/guide-scope.test.ts src/rosina/pinPreferences.test.ts
 
       - name: Launcher offline compose
         run: npm run test:launcher-compose
@@ -122,6 +122,9 @@ jobs:
             echo "web/ not present on this branch — skipping build."
           fi
 
+      - name: Install resolver test dependencies
+        run: npm ci
+
       - name: Install web
         if: steps.detect.outputs.present == 'true'
         run: npm ci --prefix web
@@ -129,14 +132,42 @@ jobs:
       - name: Build web
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web run build
+        env:
+          VITE_VILLAGE_MAP_LIVE: "true"
 
       - name: Mission Control exact-record drilldowns
         if: steps.detect.outputs.present == 'true'
-        run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx
+        run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx src/features/orbit/controller.test.ts src/features/village-map/guideBoundary.test.tsx src/features/personas/careInformation.test.tsx --maxWorkers=1
 
       - name: Reset perspective and recovery regressions
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
+
+      - name: Guide database read and isolation proof
+        run: node --import tsx ops/guide-database-proof.mjs
+
+      - name: Install browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Guide served-build regression (desktop and mobile)
+        shell: bash
+        run: |
+          node --import tsx ops/guide-served-build.ts > /tmp/guide-stack.log 2>&1 &
+          guide_pid=$!
+          trap 'kill -INT "$guide_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 300); do
+            if curl --fail --silent http://127.0.0.1:5196/api/demo/health > /dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$guide_pid" 2>/dev/null; then cat /tmp/guide-stack.log; exit 1; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/guide-stack.log; exit 1; fi
+          cd web
+          npx playwright test -c playwright.guide.config.ts
 
   reset-database:
     name: isolated reset transaction proof

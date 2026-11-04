@@ -1,5 +1,5 @@
 import { parse } from 'graphql';
-import { SCOPE, authorizeChild, deny, isParentOf, requireCaller, type Ctx } from '../authz';
+import { SCOPE, authorizeChild, deny, isParentOf, guideCanReadChild, requireCaller, type Ctx } from '../authz';
 import { dbFor, rows } from '../db';
 
 const typeDefs = parse(`
@@ -76,7 +76,7 @@ const resolvers = {
       const isMember = memberIds.includes(callerId);
       let isParentOfMember = false;
       for (const id of memberIds) {
-        if (await isParentOf(ctx, id)) {
+        if (await isParentOf(ctx, id) || await guideCanReadChild(ctx, id)) {
           isParentOfMember = true;
           break;
         }
