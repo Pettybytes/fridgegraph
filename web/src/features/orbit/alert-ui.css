@@ -133,11 +133,18 @@
 .orbit-takeover-photo.is-fallback{background:radial-gradient(circle at 50% 26%,rgba(255,96,120,.5),#280310 72%)}
 .orbit-takeover-photo.is-fallback:before{display:none}
 /* The warp stage keeps its own centred width; the card is the hero over the photo. */
-.orbit-facts-card{max-width:520px;margin:0 auto;padding:20px 20px 22px;border-radius:28px;color:#fff;background:rgba(38,5,21,.5);backdrop-filter:blur(26px) saturate(1.2);-webkit-backdrop-filter:blur(26px) saturate(1.2);border:1px solid rgba(255,230,235,.4);box-shadow:0 26px 64px rgba(16,0,7,.42),inset 0 1px rgba(255,255,255,.14)}
+.orbit-facts-card{position:relative;isolation:isolate;max-width:520px;margin:0 auto;padding:20px 20px 22px;border-radius:28px;color:#fff;background:rgba(38,5,21,.5);backdrop-filter:blur(26px) saturate(1.2);-webkit-backdrop-filter:blur(26px) saturate(1.2);border:1px solid rgba(255,230,235,.4);box-shadow:0 26px 64px rgba(16,0,7,.42),inset 0 1px rgba(255,255,255,.14)}
+/* ACTIVE pulse: a soft red wash fades in and out at ~1 Hz with glowing edges, over the warp
+   entrance. It is one shared flash layer, well under three flashes/second. Reduced motion holds a
+   static red tint and never pulses. Blend keeps the type readable while the edges glow. */
+.orbit-facts-card::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:4;mix-blend-mode:screen;background:radial-gradient(130% 120% at 50% 38%,transparent 44%,rgba(255,60,86,.26));box-shadow:inset 0 0 44px rgba(255,92,116,.55),0 0 26px rgba(255,60,86,.38);animation:orbit-card-flash 1.05s ease-in-out infinite}
+@keyframes orbit-card-flash{0%,100%{opacity:.22}50%{opacity:.85}}
+@media(prefers-reduced-motion:reduce){.orbit-facts-card::after{animation:none;opacity:.4}}
 .orbit-facts-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .orbit-facts-eyebrow{margin:0;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#ffd4dc}
-.orbit-facts-link{flex:none;width:46px;height:46px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;transition:background 140ms ease,transform 140ms cubic-bezier(.23,1,.32,1)}
-.orbit-facts-link:hover{background:rgba(255,255,255,.26)}
+/* Round dark button with a bright arrow, the deep-link affordance to the Orbit page. */
+.orbit-facts-link{position:relative;z-index:5;flex:none;width:46px;height:46px;display:grid;place-items:center;border-radius:50%;background:rgba(0,0,0,.42);color:#c8f24d;transition:background 140ms ease,transform 140ms cubic-bezier(.23,1,.32,1)}
+.orbit-facts-link:hover{background:rgba(0,0,0,.55)}
 .orbit-facts-link:active{transform:scale(.94)}
 .orbit-facts-link:focus-visible{outline:3px solid #fff;outline-offset:3px}
 .orbit-facts-photo{margin:14px auto 4px;max-width:300px;aspect-ratio:4/3;border-radius:20px;overflow:hidden;display:grid;place-items:center;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12)}
@@ -147,12 +154,15 @@
 .orbit-facts-photo .orbit-photo-unavailable{min-height:0;padding:16px;text-align:center;font-size:14px;color:#ffe2e7}
 .orbit-facts-name{text-align:center;margin:10px 0 18px;font-size:clamp(28px,4vw,40px);font-weight:720;letter-spacing:-.03em;line-height:1.05;overflow-wrap:anywhere}
 .orbit-facts-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0}
-.orbit-tile{display:grid;grid-template-columns:auto 1fr;grid-template-areas:'icon label' 'value value';align-items:center;gap:3px 8px;min-width:0;padding:13px 14px;border-radius:16px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1)}
+.orbit-tile{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-areas:'icon label' 'value value';align-items:center;gap:3px 8px;min-width:0;padding:13px 14px;border-radius:16px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1)}
 .orbit-tile>svg{grid-area:icon;opacity:.8}
 .orbit-tile dt{grid-area:label;font-size:12px;font-weight:600;color:#ffd9e0}
 .orbit-tile dd{grid-area:value;margin:4px 0 0;font-size:18px;font-weight:650;line-height:1.2;overflow-wrap:anywhere}
 .orbit-tile .orbit-provenance{grid-column:1/-1;justify-self:start;margin-top:6px}
 .orbit-tile-wide{grid-column:1/-1}
+/* A tile flagged for attention: a soft amber ring and a dot in the top-right corner. */
+.orbit-tile-attn{border-color:rgba(255,196,110,.5)}
+.orbit-tile-dot{position:absolute;top:11px;right:12px;width:9px;height:9px;border-radius:50%;background:#ffb44d;box-shadow:0 0 0 3px rgba(255,180,77,.22),0 0 8px rgba(255,180,77,.6)}
 @media(max-width:600px){
  .orbit-facts-card{padding:16px 16px 18px;border-radius:24px}
  .orbit-facts-photo{max-width:240px;margin-top:10px}
@@ -167,6 +177,11 @@
 .orbit-takeover .orbit-found[data-celebrating]{animation:none}
 @keyframes orbit-found-warp{from{opacity:0;transform:perspective(1400px) rotateX(12deg) scale(.86) translateY(34px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.orbit-found[data-celebrating]{animation:none}}
+/* FOUND SAFE: a green transparent flash with glowing edges washes the payoff as the check draws,
+   then settles. One-shot only; reduced motion shows no flash. */
+.orbit-found[data-celebrating]::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:1;mix-blend-mode:screen;background:radial-gradient(130% 120% at 50% 35%,transparent 46%,rgba(66,230,152,.3));box-shadow:inset 0 0 52px rgba(96,240,174,.5);animation:orbit-found-flash 1.5s ease-in-out both}
+@keyframes orbit-found-flash{0%{opacity:0}18%{opacity:.85}44%{opacity:.22}68%{opacity:.6}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.orbit-found[data-celebrating]::after{animation:none;opacity:0}}
 
 /* ---- Parent Orbit page, active state ----------------------------------------------------------
    One design across roles: the parent active page gets the same full-bleed photo, red scrim, warp

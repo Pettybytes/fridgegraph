@@ -35,8 +35,10 @@ export function OrbitFactsCard({childName, lastSeen, share, image, photoAlt, mis
     <dl className="orbit-facts-tiles">
      {lastSeen.placeText
        ? <><div className="orbit-tile"><MapPin size={16}/><dt>Last seen place</dt><dd>{lastSeen.placeText}</dd></div>
-           <div className="orbit-tile"><Clock size={16}/><dt>Last seen time</dt><dd>{lastSeen.timeText ?? 'Time not recorded.'}</dd>{lastSeen.timeText && lastSeen.recorded && <span className="orbit-provenance">recorded by a parent</span>}</div></>
-       : <div className="orbit-tile orbit-tile-wide"><MapPin size={16}/><dt>Last seen</dt><dd>{lastSeen.missingText}</dd></div>}
+           {/* The attention dot flags a fact that needs a second look: a time with no recorded
+               provenance, or none recorded at all. A verified time shows the provenance chip instead. */}
+           <div className={`orbit-tile${lastSeen.timeText && lastSeen.recorded ? '' : ' orbit-tile-attn'}`}><Clock size={16}/><dt>Last seen time</dt><dd>{lastSeen.timeText ?? 'Time not recorded.'}</dd>{lastSeen.timeText && lastSeen.recorded ? <span className="orbit-provenance">recorded by a parent</span> : <span className="orbit-tile-dot" title="Needs attention" aria-hidden="true"/>}</div></>
+       : <div className="orbit-tile orbit-tile-wide orbit-tile-attn"><MapPin size={16}/><dt>Last seen</dt><dd>{lastSeen.missingText}</dd><span className="orbit-tile-dot" title="Needs attention" aria-hidden="true"/></div>}
      {descriptors.map(key => {const Icon = descriptorIcon[key]; return <div className="orbit-tile" key={key}><Icon size={16}/><dt>{descriptorLabels[key]}</dt><dd>{share[key]!.replaceAll('_', ' ')}</dd></div>})}
     </dl>
   </div>
