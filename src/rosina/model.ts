@@ -371,6 +371,87 @@ function harvestIds(value: unknown, into: Set<string>): void {
   }
 }
 
+/** Built in exactly one place so the warm-up request and the real turn can never drift apart by
+ * a byte — the model host's prompt-prefix cache only matches identical prefixes. */
+function lensSystemMessage(lens: FamilyLens): ModelMessage {
+  return {
+    role: 'system',
+    content: `FAMILY LENS, a fresh authorized snapshot of THIS caller's own records (read with their access moments ago; names in it are grounded):\n${lens.text}\nWhen the lens carries the answer, reply from it IMMEDIATELY with zero tool calls; do not call a tool to re-check or confirm what the lens already shows (it was read moments ago with the same access as your tools). Call a tool only for a record the lens does not carry at all, or when the person explicitly asks for something newer than this snapshot.`,
+  };
+}
+
+export type WarmOptions = Pick<RosinaTurnOptions,
+  'bearer' | 'personId' | 'isGuide' | 'provider' | 'mcpUrl' | 'chatFn' | 'myChildrenCache' |
+  'toolListCache' | 'graphqlUrl' | 'lensCache' | 'lensRequest' | 'modelParams' |
+  'mcpClientFactory' | 'providerConfig'>;
+
+export type WarmResult = {
+  ok: boolean;
+  primed: { children: boolean; tools: boolean; lens: boolean; model: boolean };
+  modelMs: number;
+};
+
+/** Everything a COLD first turn would otherwise pay, paid ahead of it (playbook 6): this
+ * caller's MyChildren and lens caches, the shared tool-list cache, and one tiny real completion
+ * whose prompt prefix (stable system message, lens message, tool definitions) is byte-identical
+ * to a real turn's — priming the model host's TLS session and its automatic prompt-prefix cache.
+ * Read-only as the caller; the completion's output is discarded unread; never throws. */
+export async function warmRosinaTurn(options: WarmOptions): Promise<WarmResult> {
+  const primed = { children: false, tools: false, lens: false, model: false };
+  let modelMs = 0;
+  try {
+    const config = options.providerConfig ?? resolveProvider(options.provider);
+    const chatImpl = options.chatFn ?? chat;
+    const mcp: McpClientLike = options.mcpClientFactory
+      ? options.mcpClientFactory(options.mcpUrl, options.bearer)
+      : new McpToolClient(options.mcpUrl, options.bearer);
+    await mcp.initialize();
+
+    const cacheKey = options.myChildrenCache ? bearerKey(options.bearer) : null;
+    let childList = cacheKey ? options.myChildrenCache!.get(cacheKey) : null;
+    if (!childList) {
+      const result = await mcp.callTool('MyChildren', {});
+      childList = result.isError ? null : parseMyChildren(result.data);
+      if (childList && cacheKey) options.myChildrenCache!.set(cacheKey, childList);
+    }
+    if (childList === null) return { ok: false, primed, modelMs };
+    primed.children = true;
+    const childAccessById = new Map(childList.map((c) => [c.id, c]));
+
+    const cachedTools = options.toolListCache?.get(options.mcpUrl) ?? null;
+    const mcpTools = cachedTools ?? await mcp.listTools();
+    if (!cachedTools && mcpTools.length > 0) options.toolListCache?.set(options.mcpUrl, mcpTools);
+    primed.tools = mcpTools.length > 0;
+
+    let lens: FamilyLens | null = null;
+    if (options.graphqlUrl && childList.length > 0) {
+      const lensKey = bearerKey(options.bearer);
+      lens = options.lensCache?.get(lensKey) ?? null;
+      if (!lens) {
+        // No 700ms race here: warm-up runs in the background, so the full build is affordable
+        // and the NEXT real turn reads the cache instead of paying it.
+        lens = await buildFamilyLens(options.graphqlUrl, options.bearer, childList, options.lensRequest);
+        if (lens) options.lensCache?.set(lensKey, lens);
+      }
+    }
+    primed.lens = Boolean(lens);
+
+    const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS];
+    const messages: ModelMessage[] = [
+      { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId, detroitToday()) },
+      ...(lens ? [lensSystemMessage(lens)] : []),
+      { role: 'user', content: 'Connection warm-up. Reply with the single word: ready' },
+    ];
+    const modelStart = Date.now();
+    await chatImpl(config, messages, tools, { maxTokens: 16, timeoutMs: 20_000, extraBody: options.modelParams });
+    modelMs = Date.now() - modelStart;
+    primed.model = true;
+    return { ok: true, primed, modelMs };
+  } catch {
+    return { ok: false, primed, modelMs };
+  }
+}
+
 export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaTurnResult> {
   const config = options.providerConfig ?? resolveProvider(options.provider);
   const chatImpl = options.chatFn ?? chat;
@@ -485,10 +566,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId, today) },
     // The lens rides in its OWN system message AFTER the stable prompt, so the long instruction
     // prefix stays byte-identical across turns (provider prompt caching, playbook 7).
-    ...(lens ? [{
-      role: 'system' as const,
-      content: `FAMILY LENS, a fresh authorized snapshot of THIS caller's own records (read with their access moments ago; names in it are grounded):\n${lens.text}\nWhen the lens carries the answer, reply from it IMMEDIATELY with zero tool calls; do not call a tool to re-check or confirm what the lens already shows (it was read moments ago with the same access as your tools). Call a tool only for a record the lens does not carry at all, or when the person explicitly asks for something newer than this snapshot.`,
-    }] : []),
+    ...(lens ? [lensSystemMessage(lens)] : []),
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     // Date rides at the END of the user turn (playbook 1) so the cacheable prefix never changes
     // mid-day and relative dates resolve against the real clock without a clarifying question.

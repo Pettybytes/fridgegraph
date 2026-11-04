@@ -12,7 +12,7 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { chatStream, type ChatResult, type ChatStreamOptions, type ModelMessage, type ModelTool, type ProviderConfig } from '../muse/providers';
 import type { McpTool, McpToolCall } from '../muse/mcp';
-import { runRosinaTurn, type McpClientLike, type TurnEvent } from './model';
+import { runRosinaTurn, warmRosinaTurn, type McpClientLike, type TurnEvent } from './model';
 import { createTtlCache, bearerKey } from './turnCache';
 import type { ChildAccess } from './childAccess';
 import { createStreamGuard, sanitizeReplyText, SCOPED_REFUSAL } from './outputGuard';
@@ -278,4 +278,54 @@ test('runRosinaTurn: two gate-approved reads in one round run concurrently', asy
   const result = await runRosinaTurn({ ...baseOptions, chatFn, mcpClientFactory: () => mcp });
   assert.equal(result.reply, 'done');
   assert.deepEqual(mcp.calls, ['MyChildren', 'ChildEvents', 'EffectiveSchedule']);
+});
+
+// ---- warmRosinaTurn (playbook 6, cold-start) ------------------------------------------------
+
+test('warmRosinaTurn: the warm prompt prefix is byte-identical to a real turn (system message, lens message, tools)', async () => {
+  const myChildrenCache = createTtlCache<ChildAccess[]>(30_000);
+  const toolListCache = createTtlCache<McpTool[]>(300_000);
+  const lensCache = createTtlCache<{ text: string; builtAtMs: number }>(60_000);
+  lensCache.set(bearerKey('test-token-a'), { text: 'LENS: Nora has school 08:30', builtAtMs: Date.now() });
+  const shared = { myChildrenCache, toolListCache, lensCache, graphqlUrl: 'http://unused/graphql' };
+
+  let warmMessages: ModelMessage[] = [], warmTools: ModelTool[] | undefined;
+  const warm = await warmRosinaTurn({ ...baseOptions, ...shared, mcpClientFactory: () => stubMcp(), chatFn: async (_c, m, t) => { warmMessages = m; warmTools = t; return chatResult({ content: 'ready' }); } });
+  assert.equal(warm.ok, true);
+  assert.deepEqual(warm.primed, { children: true, tools: true, lens: true, model: true });
+
+  let turnMessages: ModelMessage[] = [], turnTools: ModelTool[] | undefined;
+  await runRosinaTurn({ ...baseOptions, ...shared, mcpClientFactory: () => stubMcp(), chatFn: async (_c, m, t) => { turnMessages = m; turnTools = t; return chatResult({ content: 'hello' }); } });
+
+  // The prefix cache matches from the start forward: system message and lens message must be
+  // byte-identical, and the tool definitions must serialize identically.
+  assert.equal(warmMessages[0].role, 'system');
+  assert.equal(warmMessages[0].content, turnMessages[0].content, 'stable system prompt drifted between warm and turn');
+  assert.equal(warmMessages[1].content, turnMessages[1].content, 'lens system message drifted between warm and turn');
+  assert.equal(JSON.stringify(warmTools), JSON.stringify(turnTools), 'tool definitions drifted between warm and turn');
+});
+
+test('warmRosinaTurn: primes the MyChildren, tool-list and lens caches for the next real turn', async () => {
+  const myChildrenCache = createTtlCache<ChildAccess[]>(30_000);
+  const toolListCache = createTtlCache<McpTool[]>(300_000);
+  const first = stubMcp();
+  const warm = await warmRosinaTurn({ ...baseOptions, myChildrenCache, toolListCache, mcpClientFactory: () => first, chatFn: async () => chatResult({ content: 'ready' }) });
+  assert.equal(warm.ok, true);
+  assert.deepEqual(first.calls, ['MyChildren']);
+  assert.equal(first.listToolsCalls, 1);
+
+  // The real turn after a warm needs zero discovery round trips.
+  const second = stubMcp();
+  await runRosinaTurn({ ...baseOptions, myChildrenCache, toolListCache, mcpClientFactory: () => second, chatFn: async () => chatResult({ content: 'hi' }) });
+  assert.deepEqual(second.calls, [], 'warm already primed MyChildren');
+  assert.equal(second.listToolsCalls, 0, 'warm already primed the tool list');
+});
+
+test('warmRosinaTurn: a failing model call never throws and reports what it still primed', async () => {
+  const myChildrenCache = createTtlCache<ChildAccess[]>(30_000);
+  const result = await warmRosinaTurn({ ...baseOptions, myChildrenCache, mcpClientFactory: () => stubMcp(), chatFn: async () => { throw new Error('MODEL_HTTP_503'); } });
+  assert.equal(result.ok, false);
+  assert.equal(result.primed.children, true, 'children cache still primed before the model failure');
+  assert.equal(result.primed.model, false);
+  assert.ok(myChildrenCache.get(bearerKey('test-token-a')), 'cache survives the model failure');
 });

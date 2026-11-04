@@ -16,7 +16,7 @@ import express, { type Request, type Response } from 'express';
 import { loadEnv } from '../env';
 import { verifyBearer } from '../auth/verify';
 import { scenarioNowFrom } from '../context';
-import { runRosinaTurn, type HistoryMessage, type TurnEvent } from './model';
+import { runRosinaTurn, warmRosinaTurn, type HistoryMessage, type TurnEvent } from './model';
 import { createRateLimiter } from './rateLimit';
 import { createTtlCache, bearerKey } from './turnCache';
 import { buildFamilyLens, type FamilyLens } from './lens';
@@ -248,37 +248,35 @@ export function createRosinaApp() {
     if (err instanceof SyntaxError) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     next(err);
   });
-  // WARM (playbook 6): primes this caller's MyChildren and lens caches plus the model host's TLS
-  // session on page load, so the first real turn pays none of the fixed setup cost. Auth required;
-  // read-only; never returns data.
+  // WARM (playbook 6, cold-start): primes this caller's MyChildren + lens caches, the shared
+  // tool-list cache, AND the model host's prompt-prefix cache with one tiny byte-identical
+  // completion (warmRosinaTurn), so the FIRST real turn runs as fast as a warm one. Auth
+  // required; read-only as the caller; never returns data. The web fires it on sign-in, when
+  // Ask Rosina opens, and every ~60s while the tab is visible — the per-session cooldown below
+  // bounds the model cost to at most one tiny completion per ~45s however many surfaces fire.
+  const warmCooldown = createTtlCache<number>(45_000);
   app.post('/api/rosina/warm', (req, res) => {
     void (async () => {
       const identity = await verifyBearer(req.header('authorization'));
       if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
       const bearer = (req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
       const key = bearerKey(bearer);
-      const primeCaches = async () => {
-        if (!myChildrenCache.get(key)) {
-          const mcp = new McpToolClient(MCP_URL, bearer);
-          await mcp.initialize();
-          const result = await mcp.callTool('MyChildren', {});
-          const children = result.isError ? null : parseMyChildren(result.data);
-          if (children) myChildrenCache.set(key, children);
-        }
-        const children = myChildrenCache.get(key);
-        if (children && children.length > 0 && NOTICE_GRAPHQL_URL && !lensCache.get(key)) {
-          const lens = await buildFamilyLens(NOTICE_GRAPHQL_URL, bearer, children);
-          if (lens) lensCache.set(key, lens);
-        }
-      };
-      const warmModelTls = (async () => {
-        try {
-          const c = resolveProvider(PROVIDER);
-          await fetch(c.baseUrl, { method: 'HEAD' }).catch(() => { /* reachability is the point */ });
-        } catch { /* provider unconfigured: nothing to warm */ }
-      })();
-      await Promise.allSettled([primeCaches().catch(() => {}), warmModelTls]);
-      res.status(200).json({ ok: true });
+      if (warmCooldown.get(key)) { res.status(200).json({ ok: true }); return; }
+      warmCooldown.set(key, Date.now());
+      const result = await warmRosinaTurn({
+        bearer,
+        personId: identity.personId,
+        isGuide: identity.demoGuide,
+        provider: PROVIDER,
+        mcpUrl: MCP_URL,
+        myChildrenCache,
+        toolListCache,
+        graphqlUrl: NOTICE_GRAPHQL_URL || undefined,
+        lensCache,
+        modelParams: MODEL_PARAMS,
+      });
+      console.log(`[rosina] warm person=${identity.personId} ok=${result.ok} children=${result.primed.children} tools=${result.primed.tools} lens=${result.primed.lens} model=${result.primed.model} modelMs=${result.modelMs}`);
+      res.status(200).json({ ok: result.ok });
     })().catch(() => { if (!res.headersSent) res.status(200).json({ ok: false }); });
   });
 
