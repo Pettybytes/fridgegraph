@@ -1,3 +1,4 @@
+import { CalendarLegend } from './CalendarLegend'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from 'radix-ui'
 import { CalendarDays, X } from 'lucide-react'
@@ -15,7 +16,7 @@ import { CaregiverLanes } from './CaregiverLanes'
 import './calendar.css'
 type Selection = { kind: 'event'; record: CalendarEvent } | { kind: 'care'; band: CareBand; day: string } | { kind: 'busy'; record: BusyWindow } | { kind: 'arrangement'; record: HolidayArrangement }
 type Loaded = { adapter: CalendarAdapter; key: string; snapshot: CalendarSnapshot; children: CalendarChild[]; day: string }
-type IlamyView = 'month' | 'week' | 'day'
+type IlamyView = 'month' | 'week' | 'day' | 'year'
 function params(hash: string) { return new URLSearchParams(hash.split('?')[1] ?? '') }
 // Sample data has no save channel, so a parent's drag is shown, then reverted and
 // surfaced honestly - never a silent fake save (see docs/contracts/design.md copy rules).
@@ -30,7 +31,7 @@ export function FamilyCalendar({ adapter }: { adapter: CalendarAdapter }) {
   const [lanes, setLanes] = useState(false)
   const api = useRef<IlamyCalendarApi>(null)
   const query = useMemo(() => params(route), [route])
-  const view: IlamyView = query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
+  const view: IlamyView = query.get('view') === 'year' ? 'year' : query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
   const current = loaded?.adapter === adapter && loaded.key === route ? loaded : null
   const selected = selection?.adapter === adapter && selection.key === route && current ? selection.value : null
   const error = failure?.adapter === adapter && failure.key === route ? failure.message : null
@@ -100,6 +101,7 @@ export function FamilyCalendar({ adapter }: { adapter: CalendarAdapter }) {
     </div>
     <p className="cal-explainer">{name}'s plans and scheduled care · Detroit time. A care schedule describes responsibility, not a confirmed location.</p>
     {notSaved && <p className="cal-notsaved" role="status">{notSaved}</p>}
+    {!lanes && <CalendarLegend />}
     {lanes
       ? (() => { const data = mockLaneData(snapshot, from); return <CaregiverLanes from={from} resources={data.resources} events={data.events} emptyLabel="No care schedule is recorded for this week." onEventClick={event => { const click = event.data as MockLaneClick | undefined; if (click?.kind === 'care') open({ kind: 'care', band: click.band, day: click.careDay }); else if (click?.kind === 'arrangement') open({ kind: 'arrangement', record: click.record }) }} /> })()
       : <div className="cal-grid-host">
@@ -119,7 +121,7 @@ export function FamilyCalendar({ adapter }: { adapter: CalendarAdapter }) {
             renderEvent={(event: IlamyEvent, segment: EventSegment) => <CalendarEventPill event={event} segment={segment} />}
             onEventClick={(event: IlamyEvent) => { const original = event.data?.original as CalendarEvent | undefined; if (original) open({ kind: 'event', record: original }) }}
             onDateChange={date => { const nextDay = localDay(date.valueOf()); if (nextDay !== day) navigate(nextDay, snapshot.child.id) }}
-            onViewChange={next => { const v = next === 'month' || next === 'day' ? next : 'week'; if (v !== view) navigate(day, snapshot.child.id, v) }}
+            onViewChange={next => { const v = next === 'month' || next === 'day' || next === 'year' ? next : 'week'; if (v !== view) navigate(day, snapshot.child.id, v) }}
             onEventsChange={(change: EventsChange) => { change.revert(); setNotSaved(MOCK_NOT_SAVED) }}
           />
         </div>}

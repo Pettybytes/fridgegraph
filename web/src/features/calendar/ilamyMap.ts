@@ -1,20 +1,17 @@
-// Maps FridgeGraph calendar records onto @ilamy/calendar's event input, and
-// FridgeGraph event categories onto the design-v2 type colors (docs/design.md
-// §2). The colors are applied by class in renderEvent (see calendar.css); we do
-// not pass ilamy's `color`/`backgroundColor`, which would hardcode a hue outside
-// the theme. The original record is carried in `data.original` so the click
-// handler can open our own privacy-aware detail sheet unchanged.
+// Map calendar records without changing their recorded instants or authority.
+// Colors are shared by the custom pill and built-in event renderers.
 import type { CalendarEvent as IlamyEvent, Resource } from '@ilamy/calendar'
 import type { CalendarEvent, CalendarSnapshot, EventCategory, HolidayArrangement } from './types'
 import type { EffectiveCare, LiveEvent, ReadOutcome } from './liveAdapter'
 import type { CareBand } from './model'
 import { careBand } from './model'
 import { addDays } from './time'
+import { EVENT_COLORS, eventTone, eventInk } from './eventColors'
 
 // Design-v2 type colors (the vibrant --type-* palette): pickup/transport = amber,
 // school = blue, activity = green, care = teal, celebration = violet-pink. Live
-// events carry no category, so they read neutral gray (the detail sheet already
-// says "Category not recorded").
+// events carry no category. CalendarEventPill uses a title-based display hint
+// without claiming a recorded category.
 export type CalType = 'amber' | 'blue' | 'green' | 'teal' | 'violet' | 'neutral'
 
 export const categoryType: Record<EventCategory, CalType> = {
@@ -45,6 +42,8 @@ export type IlamyInputEvent = {
   end: string
   allDay?: boolean
   editable?: boolean
+  backgroundColor: string
+  color: string
   data: {
     kind: 'mock' | 'live'
     type: CalType
@@ -60,14 +59,15 @@ function normalizeStatus(status: string): string {
 }
 
 // Only a parent may drag; a cancelled event is never draggable even for a
-// parent. The grid still has no persistence path (see liveAdapter: reads only),
-// so a committed drag is reverted and surfaced as "not saved" by the host.
+// parent. Each host owns its persistence and confirmation behavior.
 function eventEditable(canEdit: boolean, status: string): boolean {
   return canEdit && normalizeStatus(status) !== 'cancelled'
 }
 
 export function mockToIlamy(event: CalendarEvent, canEdit: boolean): IlamyInputEvent {
+  const fill = EVENT_COLORS[eventTone(event.title, event.category)].color
   return {
+    backgroundColor: fill, color: eventInk(fill),
     id: event.id,
     title: event.title,
     start: event.start,
@@ -84,7 +84,9 @@ export function mockToIlamy(event: CalendarEvent, canEdit: boolean): IlamyInputE
 }
 
 export function liveToIlamy(event: LiveEvent, canEdit: boolean): IlamyInputEvent {
+  const fill = event.color || EVENT_COLORS[eventTone(event.title)].color
   return {
+    backgroundColor: fill, color: eventInk(fill),
     id: event.id,
     title: event.title,
     start: event.start,
@@ -94,7 +96,7 @@ export function liveToIlamy(event: LiveEvent, canEdit: boolean): IlamyInputEvent
       kind: 'live',
       type: calTypeOf(null),
       category: null,
-      color: event.color ?? undefined, // a parent-chosen colour overrides the neutral default
+      color: event.color ?? undefined, // a parent-chosen colour overrides the display hint
       status: normalizeStatus(event.status),
       original: event,
     },
