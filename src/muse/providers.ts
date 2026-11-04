@@ -111,6 +111,10 @@ const REASONING_FIELDS = ['reasoning_content', 'reasoning', 'thinking'] as const
 export type ChatStreamOptions = {
   maxTokens?: number;
   timeoutMs?: number;
+  /** Operator latency knobs merged into the request body (e.g. a reasoning-effort setting).
+   * A 400 with extras present retries once without them, so an unsupported knob degrades
+   * gracefully instead of failing the turn. */
+  extraBody?: Record<string, unknown>;
   /** Fires for ANSWER text deltas only. Reasoning deltas never reach it. */
   onDelta?: (text: string) => void;
   /** Fires once, on the first reasoning delta, so a caller can show a thinking state. */
@@ -144,7 +148,7 @@ export async function chatStream(
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 90_000);
 
   try {
-    const res = await fetch(url, {
+    const request = (withExtra: boolean) => fetch(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -157,9 +161,14 @@ export async function chatStream(
         temperature: 0,
         max_tokens: options.maxTokens ?? 2000,
         stream: true,
+        ...(withExtra ? options.extraBody ?? {} : {}),
       }),
       signal: controller.signal,
     });
+    let res = await request(Boolean(options.extraBody && Object.keys(options.extraBody).length));
+    if (res.status === 400 && options.extraBody && Object.keys(options.extraBody).length) {
+      res = await request(false);
+    }
 
     if (!res.ok || !res.body) {
       // Error bodies are JSON, not SSE. Never echo them (they can quote auth material).
@@ -263,7 +272,7 @@ export async function chat(
   config: ProviderConfig,
   messages: ModelMessage[],
   tools?: ModelTool[],
-  options: { maxTokens?: number; timeoutMs?: number } = {},
+  options: { maxTokens?: number; timeoutMs?: number; extraBody?: Record<string, unknown> } = {},
 ): Promise<ChatResult> {
   const url = `${config.baseUrl}/chat/completions`;
   const started = Date.now();
@@ -274,7 +283,7 @@ export async function chat(
   let res: Response;
   let text: string;
   try {
-    res = await fetch(url, {
+    const request = (withExtra: boolean) => fetch(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -289,9 +298,16 @@ export async function chat(
         // cap truncates the answer mid-thought (finish_reason: "length"). 2000 leaves room for
         // the reasoning block plus a short grounded answer.
         max_tokens: options.maxTokens ?? 2000,
+        // Operator-supplied latency knobs (e.g. a reasoning-effort setting). Unknown params can
+        // 400 on some hosts, so a 400 WITH extras retries once without them (below).
+        ...(withExtra ? options.extraBody ?? {} : {}),
       }),
       signal: controller.signal,
     });
+    res = await request(Boolean(options.extraBody && Object.keys(options.extraBody).length));
+    if (res.status === 400 && options.extraBody && Object.keys(options.extraBody).length) {
+      res = await request(false);
+    }
     text = await res.text();
   } finally {
     clearTimeout(timeout);

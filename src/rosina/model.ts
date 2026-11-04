@@ -90,6 +90,9 @@ export type RosinaTurnOptions = {
   lensWaitMs?: number;
   /** Injectable for tests. */
   lensRequest?: typeof fetch;
+  /** Operator latency knobs merged into every model request body (e.g. a reasoning-effort
+   * setting). Unsupported knobs degrade gracefully: a 400 retries once without them. */
+  modelParams?: Record<string, unknown>;
   /** Scenario instant for time-of-day questions (overdue check-ins), set only under DEMO_CLOCK=1.
    *  Never used for authentication — token expiry always uses the real clock. */
   scenarioNow?: Date;
@@ -381,7 +384,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   let groundedText: () => string = () => '';
   let firstAnswerAt: number | null = null;
   const runChat = async (msgs: ModelMessage[], tls: ModelTool[] | undefined, maxTokens: number): Promise<ChatResult> => {
-    if (!streamImpl) return chatImpl(config, msgs, tls, { maxTokens });
+    if (!streamImpl) return chatImpl(config, msgs, tls, { maxTokens, extraBody: options.modelParams });
     const gate = createStreamGuard(groundedText);
     let releasedTokens = false;
     const release = (text: string | null) => {
@@ -392,6 +395,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     };
     const result = await streamImpl(config, msgs, tls, {
       maxTokens,
+      extraBody: options.modelParams,
       onDelta: (text) => release(gate.push(text)),
       onReasoning: () => onEvent?.({ kind: 'status', label: 'Thinking it through' }),
     });
