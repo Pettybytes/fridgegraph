@@ -37,7 +37,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
  if(!parent&&!controller.scope.readOnly&&state.alert?.audience.some(member=>member.person.id===controller.scope.personId&&member.eligible)&&(active||(closed&&state.alert.closeOutcome==='FOUND_SAFE')))return <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>
  const name=session?.scope.childName.split(' ')[0]??'Your child'
  return <section className={`orbit-page ${active&&parent?'orbit-page-active':''}`} aria-label="Orbit" data-state="live">
-  <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>{parent&&<FoundSafe controller={controller}/>}
+  <AlertTakeover controller={controller} childName={session?.scope.childName??'Name not shared'}/>{parent&&<FoundSafe controller={controller} childName={childFullName} closerName={session?.scope.parentName}/>}
   <div className="orbit-context"><span className="orbit-simulation">Simulated notification</span>{controller.scope.readOnly&&<span>Demo guide is read-only</span>}<button type="button" className="sg-refresh" disabled={!!state.busy} onClick={()=>{void controller.refresh()}} aria-label="Refresh Orbit"><RefreshCw size={16}/></button></div>
   {state.guidance&&<p className="orbit-guidance" role="note">{state.guidance}</p>}
   {state.phase==='loading'?<p role="status">Loading the records shared with you…</p>:<>
@@ -58,7 +58,9 @@ export function OrbitView({controller}:{controller:OrbitController}){
      <div className="orbit-close"><p>Responses do not close Orbit. You decide when to close it.</p><button className="orbit-primary" disabled={!!state.busy} onClick={()=>controller.requestClose()}>Found safe</button></div>
     </div>
    </div>}
-   {(closed||(active&&!parent))&&state.alert&&<>
+   {/* The parent found-safe close is the green glass card above; the plain record card stays for the
+       read-only guide and for any non found-safe closure. */}
+   {((active&&!parent)||(closed&&!(parent&&state.alert?.closeOutcome==='FOUND_SAFE')))&&state.alert&&<>
     <section className="orbit-record"><div className="orbit-record-heading"><div><p>{closed?'Closed':'Active'}</p><h2>{closed?(state.acknowledgedClosure?.alertId===state.alert.id&&state.acknowledgedClosure.personId===session?.persona.personId?`Closed by ${session.scope.parentName}`:'Your village’s responses are recorded.'):'Your village can respond.'}</h2></div><span className={`orbit-status ${closed?'is-closed':''}`}>{closed?'Closed':'Active'}</span></div>
      {state.alert.message?<blockquote>{state.alert.message}</blockquote>:<p>Message not recorded.</p>}
      {active&&image.url&&<img className="orbit-photo" src={image.url} alt="Shared photo" onError={image.onError}/>}{active&&image.failed&&<p>Couldn't display the shared photo.</p>}
@@ -73,6 +75,6 @@ export function OrbitView({controller}:{controller:OrbitController}){
    {!parent&&!state.error&&!active&&!closed&&<section className="orbit-empty"><h2>No Orbit message is shared with this view.</h2><p>Only records you have permission to read appear here.</p><button type="button" className="orbit-primary" onClick={()=>{void controller.refresh()}}>Refresh recorded state</button></section>}
    {parent&&closed&&<p className="orbit-final">Closed alerts keep the responses that were recorded.</p>}
   </>}
-  <Dialog.Root open={state.closeConfirm} onOpenChange={open=>{if(!open)controller.cancelClose()}}><Dialog.Portal><Dialog.Overlay className="orbit-confirm-backdrop"/><Dialog.Content className="orbit-confirm fg-glass"><Dialog.Title>Confirm found safe?</Dialog.Title><Dialog.Description>Confirm that the child has been found safe. This closes the alert and sends the recorded thank-you to the approved audience.</Dialog.Description><button className="orbit-primary" onClick={()=>{void controller.close()}}>Confirm found safe</button><Dialog.Close>Keep open</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
+  <Dialog.Root open={state.closeConfirm} onOpenChange={open=>{if(!open)controller.cancelClose()}}><Dialog.Portal><Dialog.Overlay className="orbit-confirm-backdrop"/><Dialog.Content className="orbit-confirm"><Dialog.Title>Confirm found safe?</Dialog.Title><Dialog.Description>Confirm that the child has been found safe. This closes the alert and sends the recorded thank-you to the approved audience.</Dialog.Description><button className="orbit-primary" onClick={()=>{void controller.close()}}>Confirm found safe</button><Dialog.Close>Keep open</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }

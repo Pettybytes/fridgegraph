@@ -36,16 +36,22 @@ it('parent active page uses the glass facts card over a photo layer, not the old
  expect(screen.getByText(/recorded by a parent/i)).toBeVisible()
 })
 
-it('parent closes Found safe: green payoff with a drawn check and confetti, then the closed card',async()=>{
+it('parent closes Found safe: green payoff with check and confetti, then the green glass closed card',async()=>{
  const {controller,adapter}=fixture();render(<Wrapper controller={controller}/>);fireEvent.click(screen.getByText('Enter'))
  fireEvent.click(await screen.findByRole('button',{name:'Found safe'}))
  fireEvent.click(screen.getByRole('button',{name:'Confirm found safe'}))
- await screen.findByRole('heading',{name:'Closed by Kendra'})
+ await screen.findByText(/Closed by Kendra/)
  expect(adapter.close).toHaveBeenCalledExactlyOnceWith('oa1','FOUND_SAFE')
  expect(document.querySelector('.orbit-found')).not.toBeNull()
  expect(document.querySelector('.orbit-safe-check')).not.toBeNull()
  expect(document.querySelector('.orbit-confetti')).not.toBeNull()
  expect(screen.getByText('Nora was found safe. Thank you.')).toBeVisible()
+ // The closed state keeps the glass facts card (green) with the recorded tiles, not a plain text card.
+ expect(document.querySelector('.orbit-found .orbit-facts-card.orbit-facts-safe')).not.toBeNull()
+ expect(screen.getByText('Lincoln Park')).toBeVisible();expect(screen.getByText('Last seen place')).toBeVisible()
+ expect(screen.getByRole('heading',{name:'Found safe'})).toBeVisible()
+ // The plain white record card is not used for a parent found-safe close.
+ expect(document.querySelector('.orbit-record')).toBeNull()
 })
 
 it('reduced motion closes without confetti and still reaches the closed card',async()=>{
@@ -53,6 +59,7 @@ it('reduced motion closes without confetti and still reaches the closed card',as
  const {controller}=fixture();render(<Wrapper controller={controller}/>);fireEvent.click(screen.getByText('Enter'))
  fireEvent.click(await screen.findByRole('button',{name:'Found safe'}))
  fireEvent.click(screen.getByRole('button',{name:'Confirm found safe'}))
- await screen.findByRole('heading',{name:'Closed by Kendra'})
+ await screen.findByText(/Closed by Kendra/)
  expect(document.querySelector('.orbit-confetti')).toBeNull()
+ expect(document.querySelector('.orbit-facts-safe')).not.toBeNull()
 })
