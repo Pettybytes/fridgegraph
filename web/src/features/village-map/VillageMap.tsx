@@ -15,6 +15,7 @@ export function MapView({controller}:{controller:MapController}){
  const [shellTop,setShellTop]=useState(0)
  const plannerBody=useRef<HTMLDivElement>(null)
  useLayoutEffect(()=>{
+  document.body.classList.add('village-map-open')
   const chip=document.querySelector<HTMLElement>('.session-chip')
   const measure=()=>{
    const top=Math.ceil(chip?.getBoundingClientRect().bottom??0)

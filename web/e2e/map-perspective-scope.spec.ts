@@ -26,6 +26,7 @@ for(const name of parents)test(`${name} sees each authorized child's live map`,a
   expect(body.data.villageWorld.places.length).toBeGreaterThan(0)
   const map=page.getByRole('region',{name:'Village map',exact:true})
   await expect(map).toHaveAttribute('data-state','live')
+  if(test.info().project.name==='mobile')expect((await map.locator('.vm-header').boundingBox())!.y).toBeLessThan(220)
   await expect(map).not.toContainText(/isn't shared|Couldn't load|Sample data/)
   const people=body.data.villageWorld.people.map((row:{person:{id:string}})=>row.person.id)
   if(['p_jax','p_malik','p_emma','p_taylor','p_skye','p_micah','p_avery'].includes(child.id))expect(people).not.toContain('p_mom')
