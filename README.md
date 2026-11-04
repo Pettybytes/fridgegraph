@@ -17,6 +17,18 @@
 
 > **For judges:** The hosted demo needs no install. Start as Kendra or Demo guide, follow the six steps on Today, then switch perspectives to see the same village through different permissions. The public path is typed Rosina with explicit confirmation. [Launch FridgeGraph](https://fridgegraph.loomz.stream).
 
+## The text that started it
+
+On August 11, my friend Tori, a single mom, sent me a message: **“You know what would be marketable af? An assistant built specifically for single moms.”** I initially thought about the usual assistant app. The deeper problem was all the coordination a parent has to carry: a school notice in one place, a calendar in another, a caregiver who can help but lacks the right information, and a decision that still belongs to the parent.
+
+<a href="docs/assets/origin/tori-message-original.jpg"><img src="docs/assets/origin/tori-message-original.jpg" alt="Full, unaltered screenshot of Tori's August 11 text proposing an assistant for single moms, followed by Bryan's response" width="540"></a>
+
+*The original screenshot is shown in full, without cropping or retouching. It includes my reply. The app's families and children are fictional.*
+
+A family is already a distributed system. The parent becomes its human router: remembering what changed, who is allowed to know, who is available, and who must approve. Enterprise software has patterns for connecting separate owners of information. I brought those patterns into the modern family, where people are on different phones, at work, at school, in different homes, and often exhausted. **The shared fridge is the metaphor; the living village is the system.**
+
+This begins with single mothers, but it is not limited to one family shape. A child may have co-parents in separate homes, a grandparent raising a grandchild, a sitter with narrow access, a teacher reporting a change, or several trusted adults sharing care. FridgeGraph models the relationships and permissions around the child instead of assuming every household has the same structure.
+
 ## A glimpse inside the village
 
 <table>
@@ -31,18 +43,6 @@
 </table>
 
 *These are source-controlled design and browser-test captures from different builds. The [hosted app](https://fridgegraph.loomz.stream) is the source for what judges can click now; the six-step guide was verified separately on the served build.*
-
-## The text that started it
-
-On August 11, my friend Tori, a single mom, sent me a message: **“You know what would be marketable af? An assistant built specifically for single moms.”** I initially thought about the usual assistant app. The deeper problem was all the coordination a parent has to carry: a school notice in one place, a calendar in another, a caregiver who can help but lacks the right information, and a decision that still belongs to the parent.
-
-<a href="docs/assets/origin/tori-message-original.jpg"><img src="docs/assets/origin/tori-message-original.jpg" alt="Full, unaltered screenshot of Tori's August 11 text proposing an assistant for single moms, followed by Bryan's response" width="540"></a>
-
-*The original screenshot is shown in full, without cropping or retouching. It includes my reply. The app's families and children are fictional.*
-
-A family is already a distributed system. The parent becomes its human router: remembering what changed, who is allowed to know, who is available, and who must approve. Enterprise software has patterns for connecting separate owners of information. I brought those patterns into the modern family, where people are on different phones, at work, at school, in different homes, and often exhausted. **The shared fridge is the metaphor; the living village is the system.**
-
-This begins with single mothers, but it is not limited to one family shape. A child may have co-parents in separate homes, a grandparent raising a grandchild, a sitter with narrow access, a teacher reporting a change, or several trusted adults sharing care. FridgeGraph models the relationships and permissions around the child instead of assuming every household has the same structure.
 
 ## One change, visible across the village
 
