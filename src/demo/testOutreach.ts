@@ -57,9 +57,10 @@ export async function runTestOutreach(
   if (job.status !== 'discovering') return { status: 409, body: { error: 'JOB_NOT_DISCOVERING', jobStatus: job.status } };
 
   // One open test attempt per job.
-  const openRes = await deps.service(`/rest/v1/attempts?job_id=eq.${encodeURIComponent(job.id)}&closed_at=is.null&select=id`);
-  const open = await readJson<{ id: string }[]>(openRes);
-  if (open && open.length > 0) return { status: 409, body: { error: 'ATTEMPT_ALREADY_OPEN', attemptId: open[0].id } };
+  const openRes = await deps.service(`/rest/v1/attempts?job_id=eq.${encodeURIComponent(job.id)}&closed_at=is.null&select=id,candidate_id,destination_mode`);
+  const open = await readJson<{ id: string; candidate_id?: string; destination_mode?: string }[]>(openRes);
+  const reusable = job.sandbox === true ? open?.find(row => row.destination_mode === 'TEST_RESPONDER' && TEST_RESPONDER_ROSTER.some(id => id === row.candidate_id)) : undefined;
+  if (open && open.length > 0 && !reusable) return { status: 409, body: { error: 'ATTEMPT_ALREADY_OPEN', attemptId: open[0].id } };
 
   // Candidate: evaluated for THIS job, on the TEST roster, preferring a recorded vehicle.
   const evalRes = await deps.service(`/rest/v1/candidate_evaluations?job_id=eq.${encodeURIComponent(job.id)}&select=candidate_id`);
@@ -68,16 +69,19 @@ export async function runTestOutreach(
   if (!eligible.length) return { status: 409, body: { error: 'NO_TEST_CANDIDATE' } };
   const vehiclesRes = await deps.service(`/rest/v1/vehicles?owner_id=in.(${eligible.map((id) => `"${id}"`).join(',')})&select=owner_id`);
   const withVehicle = new Set(((await readJson<{ owner_id: string }[]>(vehiclesRes)) ?? []).map((row) => row.owner_id));
-  const candidateId = eligible.find((id) => withVehicle.has(id)) ?? eligible[0];
+  if (reusable && !eligible.some(id => id === reusable.candidate_id)) return { status: 409, body: { error: 'NO_TEST_CANDIDATE' } };
+  const candidateId = reusable?.candidate_id ?? eligible.find((id) => withVehicle.has(id)) ?? eligible[0];
 
-  const attemptId = `demo_att_${randomUUID().replaceAll('-', '')}`;
+  const attemptId = reusable?.id ?? `demo_att_${randomUUID().replaceAll('-', '')}`;
   const at = new Date(deps.now?.() ?? Date.now()).toISOString();
+  if (!reusable) {
   const insertRes = await deps.service('/rest/v1/attempts', {
     method: 'POST',
     headers: { 'content-type': 'application/json', prefer: 'return=minimal' },
     body: JSON.stringify([{ id: attemptId, job_id: job.id, channel: 'SMS', at, candidate_id: candidateId, destination_mode: 'TEST_RESPONDER' }]),
   });
   if (!insertRes.ok) return { status: 502, body: { error: 'ATTEMPT_WRITE_FAILED' } };
+  }
 
   // The simulated reply: a few seconds later, through the SAME webhook RPC the SMS path uses.
   // Identity is derived from the attempt row by the RPC; ranking/advancement stay in the DB.

@@ -2,16 +2,10 @@ import {gql,type ApolloClient} from '@apollo/client'
 import {relationshipGroup,relationshipLabel} from './layout'
 import type {VillageChild,VillagePerson} from './types'
 export const SIGNATURE_VILLAGE=gql`query WebSignatureVillage($childId:ID!){child(id:$childId){person{id displayName}} householdMembers(childId:$childId){person{id displayName} role} relationships(childId:$childId){id from{id displayName} to{id} type status}}`
-export const SHARED_VILLAGE=gql`query WebSharedVillage($childId:ID!){villageWorld(childId:$childId){child{id person{id displayName}} people{person{id displayName} relationship}}}`
 type Person={id:string;displayName:string}
 type VillageRead={child:{person:Person|null}|null;householdMembers:{person:Person;role:string}[];relationships:{id:string;from:Person;to:{id:string};type:string;status:string}[]}
 export type VillageScene={child:VillageChild;people:VillagePerson[]}
-export async function readSignatureVillage(client:ApolloClient,childId:string,runRead:<T>(read:()=>Promise<T>)=>Promise<T>,signal?:AbortSignal,householdView=true):Promise<VillageScene>{
- if(!householdView){
-  const data=await runRead(async()=>{const result=await client.query<{villageWorld:{child:{id:string;person:Person|null};people:{person:Person;relationship:string|null}[]}}>({query:SHARED_VILLAGE,variables:{childId},fetchPolicy:'no-cache',context:{queryDeduplication:false,fetchOptions:{signal}}});if(!result.data)throw Error('READ_UNAVAILABLE');return result.data.villageWorld})
-  if(data.child.id!==childId||!data.child.person)throw Error('UNAUTHORIZED')
-  return {child:{id:childId,name:data.child.person.displayName},people:data.people.filter(row=>row.person.id!==childId).map(row=>({id:row.person.id,name:row.person.displayName,relationship:row.relationship?relationshipLabel(row.relationship):'Shared village member',group:relationshipGroup(row.relationship??'caregiver')}))}
- }
+export async function readSignatureVillage(client:ApolloClient,childId:string,runRead:<T>(read:()=>Promise<T>)=>Promise<T>,signal?:AbortSignal):Promise<VillageScene>{
  const data=await runRead(async()=>{const result=await client.query<VillageRead>({query:SIGNATURE_VILLAGE,variables:{childId},fetchPolicy:'no-cache',context:{fetchOptions:{signal}}});if(!result.data)throw Error('READ_UNAVAILABLE');return result.data})
  if(!data.child?.person)throw Error('UNAUTHORIZED')
  const people=new Map<string,VillagePerson>()

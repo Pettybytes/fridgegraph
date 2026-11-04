@@ -8,4 +8,4 @@ Writes to unmarked goals, notes and coordination jobs remain refused. Triggers e
 
 Guide Reset calls only `restore_showcase_snapshot`, an owner-only function using versioned fixtures. It is atomic and idempotent by run ID. It preserves other families and unmarked rows; it neither creates nor deletes authentication accounts. The UI names the Ellison boundary before confirmation. This is a shared showcase with Reset, not a separate sandbox per judge. Concurrent judges using Ellison see each other's changes and resets.
 
-Deploy both forward-only migrations with the application/schema release. The guide's action UI remains disabled until the server reports its per-child action scope. No live migration or reset is performed by the offline test harness.
+Deploy forward-only migrations `0100_showcase_parent_grant.sql` and `0101_showcase_reset.sql` with the application/schema release. The guide's action UI remains disabled until the server reports its per-child action scope. No live migration or reset is performed by the offline test harness.

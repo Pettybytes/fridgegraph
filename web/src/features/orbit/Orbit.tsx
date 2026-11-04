@@ -57,7 +57,7 @@ export function OrbitView({controller}:{controller:OrbitController}){
     </div>
    </div>}
    {/* The parent found-safe close is the green glass card above; the plain record card stays for the
-       read-only guide and for any non found-safe closure. */}
+       perspectives without management access and for any non found-safe closure. */}
    {((active&&!parent)||(closed&&!(parent&&state.alert?.closeOutcome==='FOUND_SAFE')))&&state.alert&&<>
     <section className="orbit-record"><div className="orbit-record-heading"><div><p>{closed?'Closed':'Active'}</p><h2>{closed?(state.acknowledgedClosure?.alertId===state.alert.id&&state.acknowledgedClosure.personId===session?.persona.personId?`Closed by ${session.scope.parentName}`:'Your village’s responses are recorded.'):'Your village can respond.'}</h2></div><span className={`orbit-status ${closed?'is-closed':''}`}>{closed?'Closed':'Active'}</span></div>
      {state.alert.message?<blockquote>{state.alert.message}</blockquote>:<p>Message not recorded.</p>}

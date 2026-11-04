@@ -12,7 +12,7 @@ type Call = { path: string; body?: unknown };
 
 function stubService(rows: {
   job?: { id: string; child_id: string; status: string; request_version: number; sandbox?: boolean } | null;
-  openAttempts?: { id: string }[];
+  openAttempts?: { id: string; candidate_id?: string; destination_mode?: string }[];
   evaluations?: { candidate_id: string }[];
   vehicles?: { owner_id: string }[];
 }, calls: Call[] = []): { service: ServiceFetch; calls: Call[] } {
@@ -95,4 +95,20 @@ test('showcase outreach refuses unmarked jobs even with child authority',async()
  const result=await runTestOutreach({service,authorizeChild:async()=>true},'p_demo_guide',JOB.id);
  assert.equal(result.status,403);
  assert.ok(!calls.some(call=>call.path==='/rest/v1/attempts'));
+});
+
+
+test('reuses only a marked sandbox TEST roster attempt and records the simulated reply', async () => {
+ const {service,calls}=stubService({job:JOB,openAttempts:[{id:'existing',candidate_id:'p_tasha',destination_mode:'TEST_RESPONDER'}],evaluations:[{candidate_id:'p_tasha'}]});
+ const result=await runTestOutreach({service,authorizeChild:async()=>true,replyDelayMs:1},'p_demo_guide','job_x');
+ assert.equal(result.status,200);assert.equal(result.body.attemptId,'existing');
+ assert.ok(!calls.some(call=>call.path==='/rest/v1/attempts'));
+ await new Promise(resolve=>setTimeout(resolve,30));
+ assert.ok(calls.some(call=>call.path==='/rest/v1/rpc/accept_pickup_webhook'));
+});
+test('never simulates a real or non-roster open attempt',async()=>{
+ for(const [candidate_id,destination_mode] of [['p_tasha','REAL_CONSENTED'],['p_dana','TEST_RESPONDER']]){
+  const {service}=stubService({job:JOB,openAttempts:[{id:'real',candidate_id,destination_mode}]});
+  assert.equal((await runTestOutreach({service,authorizeChild:async()=>true},'p_demo_guide','job_x')).status,409);
+ }
 });
