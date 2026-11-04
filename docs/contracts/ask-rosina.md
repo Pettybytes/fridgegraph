@@ -154,3 +154,17 @@ W4a's live boundary gate is currently **FAILED**, not DONE: the service introduc
 foreign child name in a generic-family refusal. Exact output, source-tool comparison and token
 scan receipt are in web/evidence/rosina-live/README.md. This frontend slice does not modify the
 service prompt, catalog, tools, schema or backend authorization to hide or fix that regression.
+
+### Streamed proposal lifecycle
+
+Each conversation turn assigns a stable identity to each validated action and its
+arguments. Streamed and final cards share that identity, so an early confirmation
+cannot execute again when the final reply arrives. Another turn receives distinct
+identities. Repeated identical proposals within one turn are one action.
+
+A replacement discards provisional cards and their open confirmation. The final
+reply withdraws any proposal it omits. Closing a running turn or switching person
+withdraws its provisional actions; late stream events cannot restore them.
+Confirmation checks both current proposal availability and action permissions
+before calling the app's authorized write path. An already executed proposal stays
+executed even if a replacement later reoffers it within the same turn.

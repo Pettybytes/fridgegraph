@@ -16,7 +16,7 @@ import { runRosinaTurn, warmRosinaTurn, type McpClientLike, type TurnEvent } fro
 import { createTtlCache, bearerKey } from './turnCache';
 import type { ChildAccess } from './childAccess';
 import { createStreamGuard, sanitizeReplyText, SCOPED_REFUSAL } from './outputGuard';
-import { buildSystemPrompt } from './systemPrompt';
+import { ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 import { buildFamilyLens, lensQuery } from './lens';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
@@ -328,4 +328,31 @@ test('warmRosinaTurn: a failing model call never throws and reports what it stil
   assert.equal(result.primed.children, true, 'children cache still primed before the model failure');
   assert.equal(result.primed.model, false);
   assert.ok(myChildrenCache.get(bearerKey('test-token-a')), 'cache survives the model failure');
+});
+
+test('runRosinaTurn: a validated action streams as an event before the closing round text', async () => {
+  const mcp = stubMcp();
+  const events: TurnEvent[] = [];
+  const streamChatFn = scriptedStream([
+    { result: chatResult({ content: '', toolCalls: [{ id: 'a1', name: `${ACTION_TOOL_PREFIX}open-screen`, args: '{"screen":"village"}' }] }) },
+    { deltas: ['Opening the village view.'], result: chatResult({ content: 'Opening the village view.' }) },
+  ]);
+  const result = await runRosinaTurn({ ...baseOptions, streamChatFn, mcpClientFactory: () => mcp, onEvent: (e) => events.push(e) });
+  assert.deepEqual(events.filter((e) => e.kind === 'action'), [{ kind: 'action', action: { id: 'open-screen', args: { screen: 'village' } } }]);
+  const actionIndex = events.findIndex((e) => e.kind === 'action');
+  const tokenIndex = events.findIndex((e) => e.kind === 'token');
+  assert.ok(actionIndex !== -1 && actionIndex < tokenIndex, 'the card event precedes the closing text');
+  assert.deepEqual(result.actions, [{ id: 'open-screen', args: { screen: 'village' } }]);
+});
+
+test('runRosinaTurn: an invalid action proposal never streams an event', async () => {
+  const mcp = stubMcp();
+  const events: TurnEvent[] = [];
+  const streamChatFn = scriptedStream([
+    { result: chatResult({ content: '', toolCalls: [{ id: 'a1', name: `${ACTION_TOOL_PREFIX}delete-everything`, args: '{}' }] }) },
+    { deltas: ['That is not something this app offers.'], result: chatResult({ content: 'That is not something this app offers.' }) },
+  ]);
+  const result = await runRosinaTurn({ ...baseOptions, streamChatFn, mcpClientFactory: () => mcp, onEvent: (e) => events.push(e) });
+  assert.equal(events.some((e) => e.kind === 'action'), false, 'nothing validated, nothing streamed');
+  assert.deepEqual(result.actions, []);
 });

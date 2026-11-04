@@ -172,6 +172,7 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
     ? (event: TurnEvent) => {
       if (event.kind === 'token') sendEvent!('token', { text: event.text });
       else if (event.kind === 'status') sendEvent!('status', { label: event.label });
+      else if (event.kind === 'action') sendEvent!('action', { action: event.action });
       else sendEvent!('replace', {});
     }
     : undefined;

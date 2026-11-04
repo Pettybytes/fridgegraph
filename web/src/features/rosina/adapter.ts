@@ -8,7 +8,7 @@ import type { FrontendAdapter } from '@/lib/frontendData/types'
 import type { SchoolReportProposal } from './schoolReport'
 import type { AddVillagerProposal } from '@/features/add-villager/addVillager'
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
-export type RosinaRequest = { message: string; currentRoute: string; history: HistoryMessage[] }
+export type RosinaRequest = { turnId?:number; message: string; currentRoute: string; history: HistoryMessage[] }
 export type RosinaResponse = { reply: string; actions: unknown[]; notice?: 'sign-in' | 'rate-limit'; schoolReportProposal?: SchoolReportProposal | null; addVillagerProposal?: AddVillagerProposal | null }
 export interface RosinaAdapter {
   readonly mode: 'mock' | 'live'

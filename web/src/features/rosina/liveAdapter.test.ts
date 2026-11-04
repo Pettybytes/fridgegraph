@@ -80,3 +80,22 @@ it('accepts only a valid structured Add a Villager proposal, never model prose o
  expect((await service.send(input)).addVillagerProposal).toBeNull()
  expect(request).toHaveBeenCalledTimes(2)
 })
+
+it('streams a server-validated action to onAction and ignores malformed action events',async()=>{
+ const sse=[
+  'event: status\ndata: {"label":"Reading your question"}\n\n',
+  'event: action\ndata: {"action":{"id":"open-screen","args":{"screen":"village"}}}\n\n',
+  'event: action\ndata: {"action":{"args":{"missing":"id"}}}\n\n',
+  'event: action\ndata: {"noaction":true}\n\n',
+  'event: token\ndata: {"text":"Done."}\n\n',
+  'event: final\ndata: {"reply":"Done.","actions":[{"id":"open-screen","args":{"screen":"village"}}]}\n\n',
+ ].join('')
+ const request=vi.fn<typeof fetch>(async()=>new Response(sse,{status:200,headers:{'content-type':'text/event-stream'}}))
+ const actions:unknown[]=[],tokens:string[]=[]
+ const adapter=createLiveRosinaAdapter(()=>'test-session',{request,onAction:a=>actions.push(a),onToken:t=>tokens.push(t)})
+ const result=await adapter.send(input)
+ expect(actions).toEqual([{id:'open-screen',args:{screen:'village'}}])
+ expect(tokens).toEqual(['Done.'])
+ expect(result.reply).toBe('Done.')
+ expect(result.actions).toEqual([{id:'open-screen',args:{screen:'village'}}])
+})
