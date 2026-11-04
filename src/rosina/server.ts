@@ -111,13 +111,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIM
   });
 }
 
-type RosinaRequestBody = { message: string; currentRoute: string; history: HistoryMessage[] };
+type RosinaRequestBody = { message: string; currentRoute: string; selectedChildId?: string; history: HistoryMessage[] };
 
 function parseBody(body: unknown): RosinaRequestBody | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
   if (typeof b.message !== 'string' || b.message.trim() === '' || b.message.length > 4000) return null;
   if (typeof b.currentRoute !== 'string' || b.currentRoute.length > 500) return null;
+  if (b.selectedChildId !== undefined && (typeof b.selectedChildId !== 'string' || !/^p_[a-z0-9_]{1,60}$/.test(b.selectedChildId))) return null;
   if (!Array.isArray(b.history) || b.history.length > 40) return null;
   const history: HistoryMessage[] = [];
   for (const item of b.history) {
@@ -126,7 +127,7 @@ function parseBody(body: unknown): RosinaRequestBody | null {
     if ((h.role !== 'user' && h.role !== 'assistant') || typeof h.content !== 'string' || h.content.length > 4000) return null;
     history.push({ role: h.role, content: h.content });
   }
-  return { message: b.message, currentRoute: b.currentRoute, history };
+  return { message: b.message, currentRoute: b.currentRoute, history, ...(typeof b.selectedChildId === 'string' ? { selectedChildId: b.selectedChildId } : {}) };
 }
 
 async function handleRosina(req: Request, res: Response): Promise<void> {
@@ -180,6 +181,7 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
     runRosinaTurn({
       message: body.message,
       currentRoute: body.currentRoute,
+      selectedChildId: body.selectedChildId,
       history: body.history,
       bearer,
       personId: identity.personId,
