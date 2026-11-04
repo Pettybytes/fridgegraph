@@ -134,7 +134,9 @@ export function showcaseSnapshot() {
     events: base.events.map(e=>({id:e.id,child_id:e.childId,title:e.title,start_at:e.start,end_at:e.end,location:e.location})),
     relationships: base.relationships.map(r=>({id:r.id,from_id:r.fromId,to_id:r.toId,type:r.type,status:r.status,created_at:r.createdAt,history:r.history})),
     care_plans: base.carePlans.map(c=>({child_id:c.childId,text:c.text})),
-    grants: base.grants.map(g=>({id:g.id,actor_id:g.actorId,child_id:g.childId,scopes:g.scopes,valid_from:g.validFrom??null,valid_until:g.validUntil??null,granted_by:g.grantedBy})),
+    grants: [...base.grants.map(g=>({id:g.id,actor_id:g.actorId,child_id:g.childId,scopes:g.scopes,valid_from:g.validFrom??null,valid_until:g.validUntil??null,granted_by:g.grantedBy})),
+      // Canonical address grants introduced by migration 0057 are also part of the baseline.
+      ...[['gr_addr_kendra_nora','p_mom'],['gr_addr_andre_nora','p_dad']].map(([id,actor_id])=>({id,actor_id,child_id:'p_nora',scopes:['address.read'],valid_from:null,valid_until:null,granted_by:'p_mom'}))],
   };
   for(const source of [fixtures,cast]) for(const [table,rows] of Object.entries(source)) snapshot[table]=[...(snapshot[table]??[]),...rows];
   return snapshot;
