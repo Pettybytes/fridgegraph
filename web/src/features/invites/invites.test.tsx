@@ -14,7 +14,7 @@ const smallArt = { mimeType: 'image/png' as const, width: 1024, height: 1024, ba
 const event: InviteEvent = { childFirstName: 'Nora', occasion: 'Birthday party', date: '2026-11-15', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit', placeLabel: 'Maple Hall', hostName: '', message: '' }
 const provenance = { source: 'FIXTURE' as const, model: null, cached: false, promptHash: 'fixture:test' }
 const pngFile = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'party.png', { type: 'image/png' })
-/** The reference image is mandatory: choose one so Prepare is enabled, as a parent must. */
+/** The reference image is OPTIONAL; attach one only when a test needs to assert on it. */
 async function addReference(container: HTMLElement) {
   fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [pngFile()] } })
   await screen.findByAltText(/Reference: party\.png/)
@@ -135,7 +135,7 @@ describe('invitation contract and honest states', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     expect(screen.getByText(/Preparing invitation art/)).toBeVisible()
     view.rerender(<InviteComposer key="persona-b:child-b" childId="child-b" childFirstName="Leo" mode="live" createInvite={createInvite} />)
-    expect((screen.getByLabelText('Your invitation request') as HTMLTextAreaElement).value).toContain('Leo')
+    expect((screen.getByLabelText(/first name/i) as HTMLInputElement).value).toBe('Leo') // remount re-initialised for the new child
     await act(async () => resolve({ status: 'READY', event, art, provenance }))
     expect(screen.queryByRole('region', { name: 'Invitation card ready' })).not.toBeInTheDocument()
   })
@@ -174,7 +174,7 @@ describe('invitation contract and honest states', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Revise this design' }))
     await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(2))
     expect(calls[0].revise).toBe(false) // the first prepare is a fresh generation, not a revision
-    expect(calls[0].referenceImage?.mimeType).toBe('image/png') // the first prepare carries the mandatory uploaded reference
+    expect(calls[0].referenceImage?.mimeType).toBe('image/png') // this test attached a reference, so the prepare carries it
     expect(calls[1].revise).toBe(true) // the revision sends the current art back to preserve it
     expect(calls[1].referenceImage?.dataBase64).toBe('YWJj')
     expect(calls[1].referenceImage?.mimeType).toBe('image/png')
@@ -229,10 +229,40 @@ describe('invitation contract and honest states', () => {
   })
   it('enforces one visible request limit — maxLength plus a live counter — never a silent truncation', () => {
     render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={vi.fn()} />)
-    const ta = screen.getByLabelText('Your invitation request') as HTMLTextAreaElement
+    const ta = screen.getByLabelText('Describe the invitation art') as HTMLTextAreaElement
     expect(ta.maxLength).toBe(REQUEST_MAX_CHARS)
     fireEvent.change(ta, { target: { value: 'x'.repeat(50) } })
     expect(screen.getByText(`50 / ${REQUEST_MAX_CHARS}`)).toBeInTheDocument()
+  })
+  it('restores the full parent flow: description + event details + wording are present BEFORE generating, and a reference is optional', async () => {
+    const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', event, art: smallArt, provenance: MUSE })
+    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
+    // The description and every event-detail + wording field exist up front (no generation yet).
+    expect(screen.getByLabelText('Describe the invitation art')).toBeInTheDocument()
+    expect(screen.getByLabelText(/first name/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Occasion')).toBeInTheDocument()
+    expect(screen.getByLabelText('Date')).toBeInTheDocument()
+    expect(screen.getByLabelText('Start time')).toBeInTheDocument()
+    expect(screen.getByLabelText('Place')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Message printed on the card/i)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /Reference image \(optional\)/i })).toBeInTheDocument()
+    // Prepare is enabled WITHOUT a reference, and runs a description-only generation.
+    const prepare = screen.getByRole('button', { name: 'Prepare invitation' })
+    expect(prepare).toBeEnabled()
+    fireEvent.click(prepare)
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect((createInvite as ReturnType<typeof vi.fn>).mock.calls[0][0].referenceImage).toBeUndefined()
+    expect(await screen.findByRole('region', { name: 'Invitation card ready' })).toBeVisible()
+  })
+  it('carries the parent-entered event details into the first generated card (no second step needed)', async () => {
+    const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', event: { childFirstName: '', occasion: '', date: null, startTime: null, endTime: null, timezone: 'America/Detroit', placeLabel: null, hostName: '', message: '' }, art: smallArt, provenance: MUSE })
+    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
+    fireEvent.change(screen.getByLabelText('Occasion'), { target: { value: 'Superhero Bash' } })
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Rec Center' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
+    const readout = await screen.findByLabelText('Invitation text')
+    expect(readout).toHaveTextContent('Superhero Bash') // the words the parent entered BEFORE generating
+    expect(readout).toHaveTextContent('Rec Center')
   })
   it('offers an explicit Retry after a failure, which actually re-runs the request — never automatically', async () => {
     const createInvite: InviteCreator = vi.fn().mockRejectedValue({ status: 502, code: 'IMAGE_FAILED' })
