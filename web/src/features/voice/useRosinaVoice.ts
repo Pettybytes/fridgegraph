@@ -38,7 +38,9 @@ export type LevelMeter = { level(): number; stop(): void }
 export type AudioLike = { play(): Promise<void> | void; pause(): void; currentTime: number; onended: (() => void) | null }
 
 export type VadConfig = { speechThreshold: number; silenceMs: number; minMs: number; maxMs: number }
-const DEFAULT_VAD: VadConfig = { speechThreshold: 0.08, silenceMs: 1200, minMs: 500, maxMs: 15000 }
+// silenceMs 350: end-of-speech detection near the 0.2-0.3s playbook band (a little headroom for
+// consumer mics), so the turn starts fast instead of waiting out a long pause.
+const DEFAULT_VAD: VadConfig = { speechThreshold: 0.08, silenceMs: 350, minMs: 500, maxMs: 15000 }
 
 export type VoiceDeps = {
   /** Reads the CURRENT in-memory session bearer, never a captured one. */

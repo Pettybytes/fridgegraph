@@ -12,19 +12,22 @@ function send(message='Who can pick up Nora?'){fireEvent.change(screen.getByLabe
 it('selects Sample answers without a bearer and makes no readiness request',async()=>{
  const request=vi.fn();vi.stubGlobal('fetch',request);await enter(false);expect(screen.getByText('Sample answers')).toBeVisible();expect(request).not.toHaveBeenCalled();vi.unstubAllGlobals()
 })
-it('shows Live without a probe, loading, plain text and only client-validated allowed cards',async()=>{
+it('shows Live with no TURN request before send (the warm ping is fire-and-forget), loading, plain text and only client-validated allowed cards',async()=>{
  let resolve!:(response:Response)=>void
- const request=vi.fn<typeof fetch>(()=>new Promise(r=>{resolve=r}));vi.stubGlobal('fetch',request)
- await enter();expect(screen.getByText('Live')).toBeVisible();expect(request).not.toHaveBeenCalled();send();expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).toHaveTextContent('Sending your question…');await waitFor(()=>expect(request).toHaveBeenCalledTimes(1));expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).toHaveTextContent('Waiting for Rosina’s reply…');expect(screen.queryByText('Talk with Rosina')).not.toBeInTheDocument();expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).not.toHaveTextContent(/Checking .*check-in|Looking up/);
+ // The warm ping (latency playbook 6) is answered inline and must never affect the UI; turn
+ // requests are counted by exact path.
+ const request=vi.fn<typeof fetch>((url)=>url==='/api/rosina/warm'?Promise.resolve(new Response(JSON.stringify({ok:true}),{status:200})):new Promise(r=>{resolve=r}));vi.stubGlobal('fetch',request)
+ const turnCalls=()=>request.mock.calls.filter(([u])=>u==='/api/rosina')
+ await enter();expect(screen.getByText('Live')).toBeVisible();expect(turnCalls()).toHaveLength(0);send();expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).toHaveTextContent('Sending your question…');await waitFor(()=>expect(turnCalls()).toHaveLength(1));expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).toHaveTextContent('Waiting for Rosina’s reply…');expect(screen.queryByText('Talk with Rosina')).not.toBeInTheDocument();expect(within(screen.getByRole('log',{name:'Rosina conversation'})).getByRole('status')).not.toHaveTextContent(/Checking .*check-in|Looking up/);
  await act(async()=>{resolve(new Response(JSON.stringify({reply:'<img src=x onerror=bad()>Live evidence',actions:[{id:'unknown',args:{}},{id:'open-screen',args:{screen:'https://untrusted.example'}},{id:'open-person',args:{personId:'p_foreign'}},{id:'open-screen',args:{screen:'village'}}]}),{status:200}))})
  const log=screen.getByRole('log');expect(log).toHaveTextContent('<img src=x onerror=bad()>Live evidence');expect(log.querySelector('img,a,script')).toBeNull();expect(within(log).getAllByRole('button')).toHaveLength(1);expect(within(log).getByRole('button',{name:'Open Living Village'})).toBeVisible();vi.unstubAllGlobals()
 })
 it('stays live after failure, never displaying a sample allergy answer',async()=>{
  const request=vi.fn<typeof fetch>(async()=>new Response('stack trace',{status:503}));vi.stubGlobal('fetch',request);await enter();send('Can Nora have a peanut snack?');await screen.findByText(LIVE_FALLBACK)
- expect(screen.getByText('Live')).toBeVisible();expect(screen.queryByText('Sample answers')).not.toBeInTheDocument();expect(screen.getByRole('log')).not.toHaveTextContent(/Peanut allergy|stack trace|503/);expect(request).toHaveBeenCalledTimes(1);vi.unstubAllGlobals()
+ expect(screen.getByText('Live')).toBeVisible();expect(screen.queryByText('Sample answers')).not.toBeInTheDocument();expect(screen.getByRole('log')).not.toHaveTextContent(/Peanut allergy|stack trace|503/);expect(request.mock.calls.filter(([u])=>u==='/api/rosina')).toHaveLength(1);vi.unstubAllGlobals()
 })
 it('requires sign-in after 401 and never retries automatically',async()=>{
- const request=vi.fn<typeof fetch>(async()=>new Response('',{status:401}));vi.stubGlobal('fetch',request);await enter();send();await screen.findByText('Please sign in again');expect(request).toHaveBeenCalledTimes(1)
+ const request=vi.fn<typeof fetch>(async()=>new Response('',{status:401}));vi.stubGlobal('fetch',request);await enter();send();await screen.findByText('Please sign in again');expect(request.mock.calls.filter(([u])=>u==='/api/rosina')).toHaveLength(1)
  fireEvent.change(screen.getByLabelText('Message Rosina'),{target:{value:'Again'}});expect(screen.getByRole('button',{name:'Send'})).toBeDisabled();vi.unstubAllGlobals()
 })
 it('panel close aborts and suppresses a late result with no fallback or error',async()=>{
@@ -50,7 +53,12 @@ it('live data-changing proposals cannot bypass the app confirm even if the respo
 })
 it('closing via a catalog navigation card aborts another in-flight request',async()=>{
  let resolve!:(response:Response)=>void,signal:AbortSignal|undefined
- const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(JSON.stringify({reply:'Open your care screen',actions:[{id:'open-screen',args:{screen:'care-information'}}]}),{status:200})).mockImplementationOnce((_,options)=>{signal=options?.signal as AbortSignal;return new Promise(r=>{resolve=r})})
+ // URL-aware: the warm ping answers inline; the FIRST turn gets the card, the SECOND stays pending.
+ const request=vi.fn<typeof fetch>((url,options)=>{
+  if(url==='/api/rosina/warm')return Promise.resolve(new Response(JSON.stringify({ok:true}),{status:200}))
+  if(request.mock.calls.filter(([u])=>u==='/api/rosina').length<=1)return Promise.resolve(new Response(JSON.stringify({reply:'Open your care screen',actions:[{id:'open-screen',args:{screen:'care-information'}}]}),{status:200}))
+  signal=options?.signal as AbortSignal;return new Promise(r=>{resolve=r})
+ })
  vi.stubGlobal('fetch',request);await enter();send('Open care');await screen.findByText('Open your care screen');send('Another question');await waitFor(()=>expect(signal).toBeDefined())
  fireEvent.click(screen.getByRole('button',{name:'Open care information'}));expect(signal?.aborted).toBe(true)
  await act(async()=>{resolve(new Response(JSON.stringify({reply:'Late navigation response',actions:[]}),{status:200}))})

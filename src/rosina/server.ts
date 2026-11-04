@@ -18,9 +18,10 @@ import { verifyBearer } from '../auth/verify';
 import { scenarioNowFrom } from '../context';
 import { runRosinaTurn, type HistoryMessage, type TurnEvent } from './model';
 import { createRateLimiter } from './rateLimit';
-import { createTtlCache } from './turnCache';
-import type { ChildAccess } from './childAccess';
-import type { McpTool } from '../muse/mcp';
+import { createTtlCache, bearerKey } from './turnCache';
+import { buildFamilyLens, type FamilyLens } from './lens';
+import { McpToolClient, type McpTool } from '../muse/mcp';
+import { parseMyChildren, type ChildAccess } from './childAccess';
 import { MuseConfigError, resolveProvider, type ProviderId } from '../muse/providers';
 import { createPhotoDescriptorsHandler } from './photoEndpoint';
 import { createMuseVisionClient, MUSE_VISION_MODEL } from './museVision';
@@ -82,6 +83,10 @@ const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
 const MYCHILDREN_TTL_MS = Number(process.env.ROSINA_MYCHILDREN_TTL_MS ?? 30_000);
 const myChildrenCache = createTtlCache<ChildAccess[]>(MYCHILDREN_TTL_MS);
 const toolListCache = createTtlCache<McpTool[]>(300_000);
+// FAMILY LENS (playbook 3/7): batched caller-scoped snapshot, cached per bearer hash. Uses the
+// same router URL as notice-plan (ROSINA_GRAPHQL_URL); unset means lens off, tools only.
+const LENS_TTL_MS = Number(process.env.ROSINA_LENS_TTL_MS ?? 60_000);
+const lensCache = createTtlCache<FamilyLens>(LENS_TTL_MS);
 
 const TIMEOUT = Symbol('timeout');
 
@@ -174,6 +179,8 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
       onEvent,
       myChildrenCache,
       toolListCache,
+      graphqlUrl: NOTICE_GRAPHQL_URL || undefined,
+      lensCache,
     }).catch((error: unknown) => {
       console.error(`[rosina] turn failed person=${identity.personId} error=${error instanceof Error ? error.constructor.name : typeof error}: ${error instanceof Error ? error.message : 'unknown'}`);
       return null;
@@ -189,7 +196,8 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} stream=${wantsStream} firstAnswerMs=${outcome.firstAnswerMs ?? 'n/a'} latencyMs=${Date.now() - startedAt}`);
+  const totalMs = Date.now() - startedAt;
+  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} stream=${wantsStream} lensMs=${outcome.stages.lensMs} modelMs=${outcome.stages.modelMs} toolsMs=${outcome.stages.toolsMs} firstAnswerMs=${outcome.firstAnswerMs ?? 'n/a'} latencyMs=${totalMs}`);
   const payload = {
     reply: outcome.reply,
     actions: outcome.actions,
@@ -197,12 +205,13 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
     addVillagerProposal: outcome.addVillagerProposal,
   };
   if (sendEvent) {
-    // Time-to-useful-answer, measured server-side: first VALIDATED chunk, not first byte.
-    sendEvent('meta', { firstAnswerMs: outcome.firstAnswerMs, totalMs: Date.now() - startedAt });
+    // Per-stage timing (playbook 4): time-to-useful-answer is the first VALIDATED chunk.
+    sendEvent('meta', { firstAnswerMs: outcome.firstAnswerMs, totalMs, stages: outcome.stages });
     sendEvent('final', payload);
     res.end();
     return;
   }
+  res.setHeader('Server-Timing', `lens;dur=${outcome.stages.lensMs}, model;dur=${outcome.stages.modelMs}, tools;dur=${outcome.stages.toolsMs}, total;dur=${totalMs}`);
   res.status(200).json(payload);
 }
 
@@ -227,6 +236,40 @@ export function createRosinaApp() {
     if (err instanceof SyntaxError) { res.status(400).json({ error: 'INVALID_REQUEST' }); return; }
     next(err);
   });
+  // WARM (playbook 6): primes this caller's MyChildren and lens caches plus the model host's TLS
+  // session on page load, so the first real turn pays none of the fixed setup cost. Auth required;
+  // read-only; never returns data.
+  app.post('/api/rosina/warm', (req, res) => {
+    void (async () => {
+      const identity = await verifyBearer(req.header('authorization'));
+      if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+      const bearer = (req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+      const key = bearerKey(bearer);
+      const primeCaches = async () => {
+        if (!myChildrenCache.get(key)) {
+          const mcp = new McpToolClient(MCP_URL, bearer);
+          await mcp.initialize();
+          const result = await mcp.callTool('MyChildren', {});
+          const children = result.isError ? null : parseMyChildren(result.data);
+          if (children) myChildrenCache.set(key, children);
+        }
+        const children = myChildrenCache.get(key);
+        if (children && children.length > 0 && NOTICE_GRAPHQL_URL && !lensCache.get(key)) {
+          const lens = await buildFamilyLens(NOTICE_GRAPHQL_URL, bearer, children);
+          if (lens) lensCache.set(key, lens);
+        }
+      };
+      const warmModelTls = (async () => {
+        try {
+          const c = resolveProvider(PROVIDER);
+          await fetch(c.baseUrl, { method: 'HEAD' }).catch(() => { /* reachability is the point */ });
+        } catch { /* provider unconfigured: nothing to warm */ }
+      })();
+      await Promise.allSettled([primeCaches().catch(() => {}), warmModelTls]);
+      res.status(200).json({ ok: true });
+    })().catch(() => { if (!res.headersSent) res.status(200).json({ ok: false }); });
+  });
+
   app.post('/api/rosina', (req, res) => {
     handleRosina(req, res).catch((error: unknown) => {
       console.error(`[rosina] unhandled: ${error instanceof Error ? error.message : 'unknown'}`);

@@ -12,6 +12,7 @@ import { chat, chatStream, type ChatResult, type ModelMessage, type ModelTool, t
 import { catalog, validateActions, type CatalogAction } from './catalog';
 import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
 import { bearerKey, type TtlCache } from './turnCache';
+import { buildFamilyLens, type FamilyLens } from './lens';
 import { localizeTimestamps, detroitToday, resolveVillagerValidFrom } from './localTime';
 import { applyOutputGuard, createStreamGuard, sanitizeReplyText } from './outputGuard';
 import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
@@ -80,6 +81,15 @@ export type RosinaTurnOptions = {
    * of a scope change by its TTL; every real read still runs as the caller against RLS. */
   myChildrenCache?: TtlCache<ChildAccess[]>;
   toolListCache?: TtlCache<McpTool[]>;
+  /** FAMILY LENS (playbook 3/7): the router GraphQL URL to batch-read the caller's own records
+   * into the prompt, so routine turns need zero tool calls. Unset = lens off, tools only. */
+  graphqlUrl?: string;
+  lensCache?: TtlCache<FamilyLens>;
+  /** How long a cold turn waits for the lens before proceeding without it (default 700ms); the
+   * build keeps running and caches for the next turn either way. */
+  lensWaitMs?: number;
+  /** Injectable for tests. */
+  lensRequest?: typeof fetch;
   /** Scenario instant for time-of-day questions (overdue check-ins), set only under DEMO_CLOCK=1.
    *  Never used for authentication — token expiry always uses the real clock. */
   scenarioNow?: Date;
@@ -185,6 +195,8 @@ export type RosinaTurnResult = {
   /** Time-to-useful-answer: ms from turn start to the FIRST validated answer chunk released to
    * the stream (null on the non-streaming path or when nothing was released). */
   firstAnswerMs: number | null;
+  /** Per-stage latency (playbook 4): lens build wait, summed model time, summed tool time. */
+  stages: { lensMs: number; modelMs: number; toolsMs: number };
   /** True if the output guard replaced the model's reply. Safe to log as a bare boolean — never
    * log which name triggered it (src/rosina/outputGuard.ts). */
   outputGuardTriggered: boolean;
@@ -429,6 +441,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       usage: { prompt: 0, completion: 0, total: 0 },
       latencyMs: Date.now() - started,
       firstAnswerMs: null,
+      stages: { lensMs: 0, modelMs: 0, toolsMs: 0 },
       outputGuardTriggered: false,
     };
   }
@@ -441,18 +454,48 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   if (!cachedTools && mcpTools.length > 0) options.toolListCache?.set(options.mcpUrl, mcpTools);
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS];
 
+  // FAMILY LENS (playbook 3/7): served from the per-bearer cache when fresh; a cold build races a
+  // short wait so it can never hold the first token hostage (the build keeps running in the
+  // background and caches for the next turn). Grounded below like any other authorized read.
+  let lens: FamilyLens | null = null;
+  let lensMs = 0;
+  if (options.graphqlUrl && childList.length > 0) {
+    const lensKey = bearerKey(options.bearer);
+    lens = options.lensCache?.get(lensKey) ?? null;
+    if (!lens) {
+      const lensStart = Date.now();
+      const pending = buildFamilyLens(options.graphqlUrl, options.bearer, childList, options.lensRequest);
+      void pending.then((built) => { if (built) options.lensCache?.set(lensKey, built); }).catch(() => {});
+      lens = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), options.lensWaitMs ?? 700)),
+      ]);
+      lensMs = Date.now() - lensStart;
+    }
+  }
+
+  const today = detroitToday();
   const messages: ModelMessage[] = [
     // The family's REAL current Detroit date — authorization/calendar days use the real clock, never
     // the demo scenario instant (which is only for time-of-day questions and is labelled separately).
-    { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId, detroitToday()) },
+    { role: 'system', content: buildSystemPrompt([...childAccessById.values()], options.isGuide, options.personId, today) },
+    // The lens rides in its OWN system message AFTER the stable prompt, so the long instruction
+    // prefix stays byte-identical across turns (provider prompt caching, playbook 7).
+    ...(lens ? [{
+      role: 'system' as const,
+      content: `FAMILY LENS, a fresh authorized snapshot of THIS caller's own records (read with their access moments ago; names in it are grounded):\n${lens.text}\nAnswer routine schedule, care and pickup questions DIRECTLY from this lens with zero tool calls. Call tools only for records the lens does not carry, or when the person asks about something newer than this snapshot.`,
+    }] : []),
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
-    { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}]` },
+    // Date rides at the END of the user turn (playbook 1) so the cacheable prefix never changes
+    // mid-day and relative dates resolve against the real clock without a clarifying question.
+    { role: 'user', content: `${options.message}\n\n[currentRoute: ${options.currentRoute}] [today: ${today}, America/Detroit]` },
   ];
 
   const maxRounds = options.maxRounds ?? 4;
   const toolCallEvidence: ToolCallEvidence[] = [{ round: 0, kind: 'mcp', name: 'MyChildren', argsPreview: cachedChildren ? { cached: true } : {}, isError: false, errorCodes: [] }];
   const proposedActions: unknown[] = [];
   const rounds: ChatResult[] = [];
+  let toolsMs = 0;
   // Every real MCP result's raw JSON this turn — the output guard's only "this name is grounded"
   // signal now that there is no static roster at all. A displayName MyChildren itself reported
   // (TASK R-MYCHILDREN; null on the currently-deployed contract — see childAccess.ts) is pushed
@@ -463,6 +506,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     if (child.displayName) toolResultTexts.push(child.displayName);
   }
   groundedText = () => toolResultTexts.join('\n');
+  if (lens) toolResultTexts.push(lens.text);
   // Catalog presence never implies permission. The ONLY proof this service has that the caller
   // has real standing over a given child is a PickupCandidates call for that exact childId that
   // came back without error, in THIS turn. start-pickup — the one consequential, data-changing
@@ -529,6 +573,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     const actionCalls = parsedCalls.filter(({ call }) => call.name.startsWith(ACTION_TOOL_PREFIX));
 
     if (mcpCalls.length > 0) onEvent?.({ kind: 'status', label: statusLabelFor(mcpCalls.map(({ call }) => call.name)) });
+    const toolPhaseStart = Date.now();
 
     // 2026-11-03 latency amendment: when EVERY read in this round already passes its gate against
     // the current state, start the network calls concurrently and let the (unchanged) serial
@@ -734,6 +779,8 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(validated.length ? { ok: true } : { ok: false, error: refusalReason ?? 'invalid or unimplemented action' }) });
     }
 
+    toolsMs += Date.now() - toolPhaseStart;
+
     if (round === maxRounds) {
       const closing = await runChat(messages, undefined, 3000);
       rounds.push(closing);
@@ -768,6 +815,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     usage,
     latencyMs: Date.now() - started,
     firstAnswerMs: firstAnswerAt === null ? null : firstAnswerAt - started,
+    stages: { lensMs, modelMs: rounds.reduce((sum, r) => sum + r.latencyMs, 0), toolsMs },
     outputGuardTriggered: guarded.triggered,
   };
 }

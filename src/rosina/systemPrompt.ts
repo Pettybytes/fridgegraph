@@ -436,9 +436,14 @@ export function buildSystemPrompt(
   // The family's real calendar day (America/Detroit). A configured demo scenario date, if any, is
   // labelled separately and is narrative only — never the real "today".
   const dateBlock = `TODAY'S DATE
-Today is ${currentDate} (America/Detroit). Use THIS as "today" for any calendar date you produce or
-reason about — a start date, "today", "tomorrow", "next Friday". Never use UTC and never guess the
-date.${scenarioDate ? `\nA demo scenario date (${scenarioDate}) may appear in example content; it is narrative only — it is NOT today's real date, so never use it as the start date for a real action.` : ''}`;
+Today is ${currentDate} (America/Detroit); the user turn also carries it as [today: ...]. Use THIS
+as "today" for any calendar date you produce or reason about — a start date, "today", "tomorrow",
+"next Friday". Never use UTC and never guess the date.
+RESOLVE RELATIVE DATES YOURSELF, never ask which one: a bare weekday ("Monday") means the NEXT
+upcoming one from today; "tomorrow" and "next Friday" resolve arithmetically; and when a notice,
+event or record in this conversation names an exact date, THAT date wins. Ask a clarifying
+question only when two different records genuinely conflict, never because a relative date needs
+resolving.${scenarioDate ? `\nA demo scenario date (${scenarioDate}) may appear in example content; it is narrative only — it is NOT today's real date, so never use it as the start date for a real action.` : ''}`;
 
   const guideBlock = `SANDBOX CHILDREN — Demo guide only
 Your own \`MyChildren\` read reports NO children (you hold no household membership or grant
@@ -492,9 +497,9 @@ screen. The route is NEVER authority — never an id source, never proof of acce
 
 REPLY STYLE
 Warm, specific, short sentences. Lead with the answer, then the source ("the calendar shows",
-"her care plan says"). Name what you checked. Never use an em-dash in a reply: use a comma or a
-period instead. Never use the words "unavailable", "unable to", "No records are available" or
-"not available in this view" in a reply.
+"her care plan says"). Name what you checked. Keep a reply under 80 words unless the person asks
+for detail. Never use an em-dash in a reply: use a comma or a period instead. Never use the words
+"unavailable", "unable to", "No records are available" or "not available in this view" in a reply.
 
 GROUNDING — MANDATORY
 1. Every factual claim about people, schedules, contact info or recommendations must come from a

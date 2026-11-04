@@ -17,6 +17,7 @@ import { createTtlCache, bearerKey } from './turnCache';
 import type { ChildAccess } from './childAccess';
 import { createStreamGuard, sanitizeReplyText, SCOPED_REFUSAL } from './outputGuard';
 import { buildSystemPrompt } from './systemPrompt';
+import { buildFamilyLens, lensQuery } from './lens';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
 
@@ -189,6 +190,67 @@ test('runRosinaTurn: firstAnswerMs marks the first validated released chunk', as
   assert.ok(typeof result.firstAnswerMs === 'number' && result.firstAnswerMs >= 0, 'firstAnswerMs recorded');
   const noStream = await runRosinaTurn({ ...baseOptions, chatFn: async () => chatResult({ content: 'hi' }), mcpClientFactory: () => stubMcp() });
   assert.equal(noStream.firstAnswerMs, null, 'non-streaming path records no firstAnswerMs');
+});
+
+test('lensQuery: fields mirror the caller\'s own per-child scopes exactly', () => {
+  const full = lensQuery([{ id: 'p_nora', scopes: new Set(['schedule.read', 'careplan.read', 'pickup.request']), displayName: null }], '2026-11-04');
+  assert.ok(full.includes('p_nora_events: childEvents'));
+  assert.ok(full.includes('p_nora_careFacts: careFacts'));
+  assert.ok(full.includes('p_nora_pickups: coordinationJobs'));
+  const careOnly = lensQuery([{ id: 'p_malik', scopes: new Set(['careplan.read']), displayName: null }], '2026-11-04');
+  assert.ok(careOnly.includes('p_malik_careFacts'), 'care scope keeps care facts');
+  assert.ok(!careOnly.includes('childEvents'), 'no schedule scope, no calendar field');
+  assert.ok(!careOnly.includes('coordinationJobs'), 'no pickup scope, no pickup field');
+  assert.equal(lensQuery([{ id: 'p_x', scopes: new Set(), displayName: null }], '2026-11-04'), '', 'no scopes, no query');
+});
+
+test('buildFamilyLens: keeps authorized data, drops refused/empty fields, never throws', async () => {
+  const server = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: { p_nora_events: [{ title: 'Soccer practice' }], p_nora_careFacts: null, p_nora_pickups: [] } }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as AddressInfo).port;
+  try {
+    const lens = await buildFamilyLens(`http://127.0.0.1:${port}/graphql`, 'bearer-x', [{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }]);
+    assert.ok(lens, 'partial data still serves');
+    assert.ok(lens!.text.includes('Soccer practice'));
+    assert.ok(!lens!.text.includes('careFacts'), 'refused field dropped');
+    assert.ok(!lens!.text.includes('pickups'), 'empty list dropped');
+    const dead = await buildFamilyLens('http://127.0.0.1:1/graphql', 'bearer-x', [{ id: 'p_nora', scopes: new Set(['schedule.read']), displayName: null }]);
+    assert.equal(dead, null, 'unreachable router: null, never a throw');
+  } finally {
+    server.close();
+  }
+});
+
+test('runRosinaTurn: the lens rides as its own system message, and its names are grounded', async () => {
+  const mcp = stubMcp();
+  const lensRequest = (async () => ({
+    ok: true,
+    json: async () => ({ data: { p_nora_careToday: { parent: { id: 'p_gma', displayName: 'Loretta Brooks' }, source: 'WEEKLY' } } }),
+  })) as unknown as typeof fetch;
+  let seenMessages: ModelMessage[] = [];
+  const streamChatFn = async (_c: ProviderConfig, msgs: ModelMessage[], _t: ModelTool[] | undefined, opts: ChatStreamOptions = {}) => {
+    seenMessages = msgs;
+    opts.onDelta?.('Loretta Brooks is on duty today.');
+    return chatResult({ content: 'Loretta Brooks is on duty today.' });
+  };
+  const events: TurnEvent[] = [];
+  const result = await runRosinaTurn({
+    ...baseOptions,
+    streamChatFn,
+    mcpClientFactory: () => mcp,
+    onEvent: (e) => events.push(e),
+    graphqlUrl: 'http://stub/graphql',
+    lensRequest,
+  });
+  assert.equal(result.outputGuardTriggered, false, 'a name the lens itself returned is grounded');
+  assert.equal(result.reply, 'Loretta Brooks is on duty today.');
+  const lensMessage = seenMessages.find((m) => m.role === 'system' && typeof m.content === 'string' && m.content.startsWith('FAMILY LENS'));
+  assert.ok(lensMessage, 'lens in its own system message after the stable prompt');
+  assert.ok(String(seenMessages.at(-1)?.content).includes('[today:'), 'date rides at the end of the user turn');
+  assert.ok(typeof result.stages.modelMs === 'number' && result.stages.lensMs >= 0, 'stage timings recorded');
 });
 
 test('runRosinaTurn: two gate-approved reads in one round run concurrently', async () => {
