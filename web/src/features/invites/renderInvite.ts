@@ -160,11 +160,27 @@ export function drawInvitation(canvas: HTMLCanvasElement, image: HTMLImageElemen
   canvas.height = art.height
   ctx.drawImage(image, 0, 0, art.width, art.height)
   const ink = textColor(ctx, art)
-  // Composite the event block on an opaque plate over the reserved band: model-painted lettering
-  // or busy art inside the band can never show through or collide with the app's event text.
+  // A frosted surface protects every text line; its outer fade blends into the illustration.
+  const { x, y, w, h } = art.quietArea
+  const feather = Math.min(28, art.height * 0.018)
+  const panelTop = Math.max(0, y - feather), bottom = Math.min(art.height, y + h + feather)
+  const paper = ink === DARK_INK ? '245,242,238' : '37,38,56'
+  const wash = ctx.createLinearGradient(0, panelTop, 0, bottom)
+  wash.addColorStop(0, `rgba(${paper},0)`)
+  wash.addColorStop((y - panelTop) / (bottom - panelTop), `rgba(${paper},0.94)`)
+  wash.addColorStop((y + h - panelTop) / (bottom - panelTop), `rgba(${paper},0.94)`)
+  wash.addColorStop(1, `rgba(${paper},0)`)
   ctx.save()
-  ctx.fillStyle = ink === DARK_INK ? LIGHT_INK : DARK_INK
-  ctx.fillRect(art.quietArea.x, art.quietArea.y, art.quietArea.w, art.quietArea.h)
+  ctx.shadowColor = 'rgba(37,38,56,0.12)'
+  ctx.shadowBlur = art.width * 0.012
+  ctx.fillStyle = wash
+  ctx.beginPath()
+  ctx.roundRect(x, panelTop, w, bottom - panelTop, Math.min(28, w * 0.035))
+  ctx.fill()
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = ink === DARK_INK ? 'rgba(255,255,255,0.35)' : 'rgba(245,242,238,0.22)'
+  ctx.lineWidth = Math.max(1, art.width / 1024)
+  ctx.stroke()
   ctx.restore()
   const footerHeight = Math.min(64, Math.max(32, art.quietArea.h * 0.12))
   const layout = layoutInvitation(ctx, art, event, footerHeight)

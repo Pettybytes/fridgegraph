@@ -34,7 +34,7 @@ describe('invitation contract and honest states', () => {
   ])('draws the %s provenance credit into the invitation pixels', (source, expected) => {
     const fillText = vi.fn()
     const ctx = {
-      drawImage: vi.fn(), fillRect: vi.fn(), getImageData: () => ({ data: [251, 250, 246, 255] }),
+      createLinearGradient: () => ({ addColorStop: vi.fn() }), roundRect: vi.fn(), fill: vi.fn(), drawImage: vi.fn(), fillRect: vi.fn(), getImageData: () => ({ data: [251, 250, 246, 255] }),
       measureText: (text: string) => ({ width: text.length * 10 }), fillText,
       save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(),
       font: '', fillStyle: '', strokeStyle: '', lineWidth: 1, textAlign: '', textBaseline: '',
@@ -301,10 +301,14 @@ describe('invitation contract and honest states', () => {
   })
 })
 
-  it('composites the event text on an opaque plate over the quiet area, never over model art', () => {
+  it.each([
+    [[251, 250, 246, 255], '245,242,238'],
+    [[5, 5, 5, 255], '37,38,56'],
+  ])('protects text over %s art with a translucent rounded panel and soft outer fade', (pixels, paper) => {
     const fillRect = vi.fn()
+    const addColorStop = vi.fn()
     const ctx = {
-      drawImage: vi.fn(), fillRect, getImageData: () => ({ data: [251, 250, 246, 255] }),
+      createLinearGradient: () => ({ addColorStop }), roundRect: vi.fn(), fill: vi.fn(), drawImage: vi.fn(), fillRect, getImageData: () => ({ data: pixels }),
       measureText: (text: string) => ({ width: text.length * 10 }), fillText: vi.fn(),
       save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(),
       font: '', fillStyle: '', strokeStyle: '', lineWidth: 1, textAlign: '', textBaseline: '',
@@ -312,5 +316,11 @@ describe('invitation contract and honest states', () => {
     const canvas = { width: 1024, height: 1024, getContext: () => ctx } as unknown as HTMLCanvasElement
     const image = { naturalWidth: 1024, naturalHeight: 1024 } as HTMLImageElement
     drawInvitation(canvas, image, smallArt, event, provenance)
-    expect(fillRect).toHaveBeenCalledWith(96, 600, 832, 328)
+    expect(ctx.roundRect).toHaveBeenCalled()
+    expect(ctx.fill).toHaveBeenCalled()
+    expect(fillRect).not.toHaveBeenCalled()
+    expect(addColorStop).toHaveBeenNthCalledWith(1, 0, `rgba(${paper},0)`)
+    expect(addColorStop).toHaveBeenNthCalledWith(2, expect.any(Number), `rgba(${paper},0.94)`)
+    expect(addColorStop).toHaveBeenNthCalledWith(3, expect.any(Number), `rgba(${paper},0.94)`)
+    expect(addColorStop).toHaveBeenNthCalledWith(4, 1, `rgba(${paper},0)`)
   })

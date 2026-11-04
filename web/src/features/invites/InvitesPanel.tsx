@@ -257,7 +257,7 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
             onChange={e => { void acceptFile(e.target.files?.[0]); e.target.value = '' }}
           />
           <p className="invites-dropzone__label">{referenceBusy ? 'Reading image…' : 'Drag an image here, or'}</p>
-          <FgButton type="button" variant="secondary" disabled={phase === 'generating' || referenceBusy} onClick={() => fileInput.current?.click()}>Choose image</FgButton>
+          <FgButton type="button" disabled={phase === 'generating' || referenceBusy} onClick={() => fileInput.current?.click()}>Choose image</FgButton>
           <p className="invites-dropzone__meta">PNG, JPEG, or WebP · up to 5 MB</p>
         </div>
       ) : (
@@ -302,36 +302,26 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   </div>
 }
 
-/** Bryan's example card for the side panel. `EXAMPLE_ART` is wired for an optimized WebP of his
- *  warrior-unicorn invitation; until that asset is supplied the slot shows the description that
- *  would produce it, so the example stays honest without shipping a stand-in image. */
-const EXAMPLE_ART: { src: string; alt: string } | null = null
-
-const EXAMPLE_EVENT: InviteEvent = {
-  childFirstName: 'Nora', occasion: 'Birthday party',
+// Regenerate public-sample.webp with drawInvitation if these public sample details change.
+export const EXAMPLE_EVENT: InviteEvent = {
+  childFirstName: 'Lark', occasion: 'Birthday party',
   date: '2026-11-21', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit',
-  placeLabel: 'Maple Hall', hostName: 'Kendra', message: DEFAULT_INVITE_MESSAGE,
+  placeLabel: 'Willow Hall', hostName: 'Rowan', message: DEFAULT_INVITE_MESSAGE,
 }
 
 /** A finished-card example beside the form: the art slot on top, then the exact wording the form's
  *  details produce (rendered through the same lineSpecs the real card uses, so it never drifts). */
 function InviteExample() {
   return <Surface className="invites-example" role="complementary" aria-label="Example invitation">
-    <p className="invites-panel__eyebrow">Example</p>
+    <p className="invites-panel__eyebrow">Fictional sample</p>
     <h3>A finished card</h3>
     <div className="invites-example__card">
-      {EXAMPLE_ART
-        ? <img className="invites-example__art" src={EXAMPLE_ART.src} alt={EXAMPLE_ART.alt} loading="lazy" decoding="async" />
-        : <div className="invites-example__slot">
-            <Icon.sparkle />
-            <p>“A brave warrior unicorn in a sunset sky.”</p>
-            <span>Art generated from a description like this fills the top of the card.</span>
-          </div>}
+      <img className="invites-example__art" src={`${import.meta.env.BASE_URL}invites/public-sample.webp`} alt="Finished fictional birthday invitation for Lark, hosted by Rowan at Willow Hall" loading="lazy" decoding="async" />
       <div className="invites-example__wording" role="group" aria-label="Example invitation wording">
         {lineSpecs(EXAMPLE_EVENT).map(line => <p key={line.role} className={`invites-card__line invites-card__line--${line.role}`}>{line.text}</p>)}
       </div>
     </div>
-    <p className="invites-panel__hint">The wording comes from the details you type, so the picture never has to spell a name or a date.</p>
+    <p className="invites-panel__hint">Stored sample art, not a new generation. The wording comes from the details you type, so the picture never has to spell a name or a date.</p>
   </Surface>
 }
 
