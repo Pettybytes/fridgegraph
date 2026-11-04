@@ -92,8 +92,11 @@ if (shared) {
 console.log(`mode: ${context}`);
 console.log(`target database: ${identity(target)} (credentials never printed)`);
 
+// Strip EVERY top-level transaction-control statement, not just the first BEGIN and last COMMIT.
+// A migration that embeds its own COMMIT mid-file would otherwise end the rehearsal transaction and
+// make the later ROLLBACK a no-op — the exact escape this guard exists to stop.
 const strip = (file) =>
-  readFileSync(file, 'utf8').replace(/^\s*begin\s*;/i, '').replace(/commit\s*;\s*$/i, '');
+  readFileSync(file, 'utf8').replace(/^\s*(begin|commit|rollback)\s*;\s*$/gim, '');
 
 const c = new pg.Client({
   connectionString: target,
@@ -127,6 +130,14 @@ try {
   threw = e;
   check('the batch applied without error', false, e.message);
 } finally {
+  // If any COMMIT escaped, this session is no longer in a transaction and the rollback below would
+  // silently do nothing. Refuse to pretend: record it as a failed check.
+  // pg_stat_activity reports this session as 'active' while it is running the check itself, so it
+  // cannot answer "is the transaction still open". A transaction that wrote holds an assigned xid;
+  // after an escaped COMMIT the next statement is a fresh implicit transaction with no xid.
+  const tx = await c.query('select pg_current_xact_id_if_assigned() is not null as in_tx');
+  check('still inside the rehearsal transaction before rollback',
+    tx.rows[0]?.in_tx === true, String(tx.rows[0]?.in_tx));
   await c.query('rollback');
 }
 

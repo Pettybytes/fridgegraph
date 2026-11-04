@@ -2,23 +2,22 @@
 /**
  * ops/serve-web.mjs — stack-owned static server + local API proxy (P-3).
  *
- * Serves the pinned build on 127.0.0.1 and proxies the SAME ordered path rules the public edge
- * applies, so the local origin Bryan tests (127.0.0.1:5189) is a working app, not a static shell:
+ * Serves the pinned build on BOTH loopback addresses (127.0.0.1 and ::1) so a tunnel whose upstream
+ * is written as `localhost` works whichever family it resolves first. Never binds a non-loopback
+ * address.
  *
- *   /graphql                     -> 127.0.0.1:4010
- *   /api/rosina, /api/rosina/*   -> 127.0.0.1:4200
- *   /api/demo,  /api/demo/*      -> 127.0.0.1:4008
- *   /api/village, /api/village/* -> 127.0.0.1:4008
- *   /api/orbit, /api/orbit/*     -> 127.0.0.1:4008
- *   everything else              -> static (SPA fallback for extensionless paths)
+ * The local proxy applies the SAME exact path allowlist as the public edge — not broad prefixes:
+ *   /graphql -> 4010 (rewritten to the router root)
+ *   /api/rosina (exact) | /invite | /pin | /pin/upload | /pin/confirm | /pin/readiness | /pin/media/*
+ *   /api/demo/login|health|reset (exact) -> 4008
+ *   /api/village/day|route (exact) -> 4008
+ *   /api/orbit/photo/* -> 4008
+ * Everything else under /api/*, /graphql and /voice is 404 — never the SPA shell — so a refused
+ * endpoint cannot be smuggled through a catch-all route.
  *
- * Why a proxy here is safe: the server binds 127.0.0.1 only, every target is loopback, and the
- * browser talks to one origin (so no CORS surface). The public edge still owns these paths and
- * never reaches this proxy for them. `/voice/*` is refused locally (voice stays off).
- *
- * Static rules (plan §3): GET/HEAD only; decode/collapse/reject `..`, NUL, dotfiles, escapes;
- * fixed content types; /assets immutable; shell + SPA fallback no-store; extension-only missing
- * files are real 404s; no listings; SIGTERM closes cleanly.
+ * Static rules (plan §3): GET/HEAD; decode/collapse/reject `..`, NUL, dotfiles, escapes; fixed
+ * content types; /assets immutable; shell + SPA fallback no-store; extension-only missing files are
+ * real 404s; no listings; SIGTERM closes every listener.
  */
 import { createServer, request as httpRequest } from 'node:http';
 import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
@@ -67,28 +66,38 @@ const TYPES = new Map(Object.entries({
   '.webm': 'video/webm',
 }));
 
-/** Ordered local API routes — most specific first, exactly as the edge table. */
+const ROSINA_EXACT = new Set([
+  '/api/rosina',
+  '/api/rosina/invite',
+  '/api/rosina/pin',
+  '/api/rosina/pin/upload',
+  '/api/rosina/pin/confirm',
+  '/api/rosina/pin/readiness',
+]);
+const DEMO_EXACT = new Set(['/api/demo/login', '/api/demo/health', '/api/demo/reset']);
+const VILLAGE_EXACT = new Set(['/api/village/day', '/api/village/route']);
+
 const PROXY = [
   { match: (p) => p === '/graphql', port: 4010, name: 'graphql' },
-  { match: (p) => p === '/api/rosina' || p.startsWith('/api/rosina/'), port: 4200, name: 'rosina' },
-  { match: (p) => p === '/api/demo' || p.startsWith('/api/demo/'), port: 4008, name: 'demo' },
-  { match: (p) => p === '/api/village' || p.startsWith('/api/village/'), port: 4008, name: 'village' },
-  { match: (p) => p === '/api/orbit' || p.startsWith('/api/orbit/'), port: 4008, name: 'orbit' },
+  { match: (p) => ROSINA_EXACT.has(p) || p.startsWith('/api/rosina/pin/media/'), port: 4200, name: 'rosina' },
+  { match: (p) => DEMO_EXACT.has(p), port: 4008, name: 'demo' },
+  { match: (p) => VILLAGE_EXACT.has(p), port: 4008, name: 'village' },
+  { match: (p) => p.startsWith('/api/orbit/photo/'), port: 4008, name: 'orbit' },
 ];
 
-function pathOnly(url) {
-  return String(url ?? '').split('?')[0].split('#')[0];
-}
+const RESERVED = (p) =>
+  p === '/api' || p.startsWith('/api/') || p === '/graphql' || p.startsWith('/graphql/') ||
+  p === '/voice' || p.startsWith('/voice/');
+
+const pathOnly = (url) => String(url ?? '').split('?')[0].split('#')[0];
 
 function proxyTarget(path) {
-  if (path === '/voice' || path.startsWith('/voice/')) return { deny: true };
   for (const rule of PROXY) if (rule.match(path)) return rule;
   return null;
 }
 
 function proxy(req, res, rule) {
   const headers = { ...req.headers, host: `127.0.0.1:${rule.port}` };
-  // Hop-by-hop headers must not be forwarded.
   if (headers.connection) delete headers.connection;
   const upstream = httpRequest(
     { host: '127.0.0.1', port: rule.port, path: rule.name === 'graphql' ? '/' : req.url, method: req.method, headers },
@@ -97,9 +106,7 @@ function proxy(req, res, rule) {
       up.pipe(res);
     },
   );
-  upstream.setTimeout(120_000, () => {
-    upstream.destroy(new Error('upstream timeout'));
-  });
+  upstream.setTimeout(120_000, () => upstream.destroy(new Error('upstream timeout')));
   upstream.on('error', (err) => {
     process.stderr.write(`[serve-web] proxy ${rule.name} -> ${rule.port} failed: ${err.message}\n`);
     if (!res.headersSent) {
@@ -160,19 +167,18 @@ function sendFile(req, res, abs, status = 200, isFallback = false) {
   stream.pipe(res);
 }
 
-const server = createServer((req, res) => {
+const handler = (req, res) => {
   const path = pathOnly(req.url);
   const target = proxyTarget(path);
 
-  if (target?.deny) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end('Not found\n');
+  if (target) {
+    proxy(req, res, target);
     return;
   }
 
-  if (target) {
-    // API routes accept the methods the services do; the proxy forwards the method unchanged.
-    proxy(req, res, target);
+  if (RESERVED(path)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end('Not found\n');
     return;
   }
 
@@ -208,20 +214,38 @@ const server = createServer((req, res) => {
 
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end('Not found\n');
-});
+};
 
-server.on('error', (err) => {
-  process.stderr.write(`[serve-web] ${err.code === 'EADDRINUSE' ? `port ${PORT} already in use` : err.message}\n`);
-  process.exit(1);
-});
+const servers = [];
+function listen(host) {
+  const s = createServer(handler);
+  s.on('error', (err) => {
+    if (host === '::1' && (err.code === 'EADDRNOTAVAIL' || err.code === 'EAFNOSUPPORT')) {
+      process.stdout.write('[serve-web] IPv6 loopback unavailable; serving IPv4 only\n');
+      return;
+    }
+    process.stderr.write(`[serve-web] ${err.code === 'EADDRINUSE' ? `port ${PORT} already in use on ${host}` : err.message}\n`);
+    process.exit(1);
+  });
+  s.listen(PORT, host, () => {
+    process.stdout.write(`[serve-web] listening on ${host}:${PORT} root=${root} (exact allowlist proxy)\n`);
+  });
+  servers.push(s);
+  return s;
+}
 
-server.listen(PORT, '127.0.0.1', () => {
-  process.stdout.write(`[serve-web] listening on 127.0.0.1:${PORT} root=${root} (local API proxy on)\n`);
-});
+listen('127.0.0.1');
+listen('::1');
 
 function shutdown(signal) {
   process.stdout.write(`[serve-web] ${signal} received, closing\n`);
-  server.close(() => process.exit(0));
+  let open = servers.length;
+  for (const s of servers) {
+    s.close(() => {
+      open -= 1;
+      if (open === 0) process.exit(0);
+    });
+  }
   setTimeout(() => process.exit(0), 3000).unref();
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
