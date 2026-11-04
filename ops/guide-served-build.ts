@@ -8,6 +8,7 @@ import { buildASTSchema, graphql, Kind, type DocumentNode, type DefinitionNode }
 import { guideDatabase, insertRows } from './guide-database.mjs';
 import { DEMO_PERSONAS } from '../src/demo/personas';
 import { createFridgeSeed } from '../src/fixtures-fridge';
+import { resetSnapshot } from '../src/demo/reset';
 import { createDemoHistory } from '../src/fixtures-demo-history';
 import { createSimulatedPrivate, createSimulatedCoordination, createSimulatedCalendar, createSimulatedCheckIn, createSimulatedCareFacts } from '../src/fixtures-simulated';
 import village from '../src/subgraphs/village';
@@ -26,6 +27,8 @@ process.once('unhandledRejection',async error=>{console.error(error);await db.cl
 for (const source of [createSimulatedPrivate(),createSimulatedCalendar(),createSimulatedCheckIn(),createSimulatedCareFacts(),createDemoHistory(),createSimulatedCoordination(),createFridgeSeed()]) {
  for (const [table, rows] of Object.entries(source)) if (Array.isArray(rows)) await insertRows(db.admin,table,rows);
 }
+const snapshot = resetSnapshot();
+await db.admin.query('select restore_demo_snapshot($1,$2,$3,$4)', ['served-calendar', randomUUID(), JSON.stringify(snapshot.fixtures), JSON.stringify(snapshot.cast)]);
 await db.admin.query('select seed_recorded_places(); select seed_event_place_links()');
 const ids = new Map<string,string>();
 for (const persona of DEMO_PERSONAS) {
@@ -89,6 +92,7 @@ app.all('/api/rosina/pin/preferences',createPinPreferencesHandler({
  rpc:async(bearer,name,args)=>{const p=personaFor(`Bearer ${bearer}`);if(!p)return {data:null,error:{code:'42501'}};return withCaller(p,client=>transportFor(client).rpc(name,args)) as any},
 }));
 app.use(express.static('web/dist'));
-const server=app.listen(5196,'127.0.0.1',()=>console.log('Guide served build ready at http://127.0.0.1:5196'));
+const port = Number(process.env.GUIDE_PORT ?? 5196);
+const server=app.listen(port,'127.0.0.1',()=>console.log(`Guide served build ready at http://127.0.0.1:${port}`));
 async function close(){server.close();await pool.end();await db.close();process.exit(0)}
 process.once('SIGTERM',close);process.once('SIGINT',close);

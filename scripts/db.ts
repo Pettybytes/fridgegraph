@@ -14,7 +14,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { createSeed } from '../src/fixtures';
+import { createSeed, createShowcaseCalendar } from '../src/fixtures';
 import {
   createSimulatedCalendar,
   createSimulatedCareFacts,
@@ -69,7 +69,7 @@ function serviceKey(): string {
 const TABLES = [
   'villages', 'people', 'children', 'households', 'household_members', 'relationships',
   'contact_methods', 'capabilities', 'groups', 'memberships', 'goals', 'care_plans', 'grants',
-  'approvals', 'household_policies', 'parenting_schedules', 'events', 'school_reports',
+  'approvals', 'household_policies', 'parenting_schedules', 'adult_availability', 'holiday_arrangements', 'events', 'school_reports',
   'permission_slips', 'bus_rosters', 'vehicles', 'practices', 'locations', 'coordination_jobs', 'attempts',
   'information_requests', 'confirmations', 'conversation_state', 'village_event', 'routines', 'care_facts',
   'orbit_vocabulary', 'shared_statuses',
@@ -178,7 +178,7 @@ export function baseline() {
     })),
     approvals: [],
     household_policies: s.policies.map((p) => ({ household_id: p.householdId, rule: p.rule, value: p.value })),
-    parenting_schedules: s.schedules.map((p) => ({ child_id: p.childId, parent_id: p.parentId, weekdays: p.weekdays })),
+    ...createShowcaseCalendar(),
     events: s.events.map((e) => ({
       id: e.id, child_id: e.childId, title: e.title, start_at: e.start, end_at: e.end, location: e.location,
     })),
