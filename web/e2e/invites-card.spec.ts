@@ -11,7 +11,9 @@ test('sample invitation edits and exports an untainted PNG', async ({ page }, te
   await page.getByRole('button', { name: 'Show sample invitation' }).click()
   const card = page.getByRole('region', { name: 'Invitation card ready' })
   await expect(card).toBeVisible()
-  await expect(page.getByText('Sample art')).toBeVisible()
+  // The DOM honesty line (the short 'Sample art' credit moved into the exported canvas pixels,
+  // asserted below via creditPixels).
+  await expect(page.getByText('A fixed fixture illustration, not a new generation')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Download PNG' })).toBeEnabled()
   const before = await page.locator('canvas').evaluate(canvas => (canvas as HTMLCanvasElement).toDataURL('image/png'))
   await page.getByRole('textbox', { name: 'Occasion' }).fill("Nora's birthday picnic with the whole village")

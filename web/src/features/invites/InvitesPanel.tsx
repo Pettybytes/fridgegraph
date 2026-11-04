@@ -1,6 +1,6 @@
 import { RecordedInvitations } from './RecordedInvitations'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { FgButton, InlineFeedback, Surface } from '@/components/fg/primitives'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { FgButton, Icon, InlineFeedback, Surface } from '@/components/fg/primitives'
 import { useChildAccess } from '@/features/personas/childContext'
 import { useSession } from '@/features/personas/Session'
 import { createMockInvite } from './fixture'
@@ -36,13 +36,29 @@ function mergePreservingEdits(prior: InviteEvent, next: InviteEvent): InviteEven
   }
 }
 
+/** "HH:MM" ↔ minutes-after-midnight, for the end-after-start guard. */
+const toMinutes = (time: string): number => { const [h, m] = time.split(':').map(Number); return h * 60 + m }
+const toTime = (minutes: number): string => {
+  const clamped = Math.max(0, Math.min(minutes, 23 * 60 + 59))
+  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+}
+
+/** The default party date: the coming Saturday (a full week out when today is Saturday), so the
+ *  form never opens on an empty date the browser renders as a confusing today-shaped placeholder. */
+function nextSaturday(): string {
+  const day = new Date()
+  day.setDate(day.getDate() + (((6 - day.getDay() + 7) % 7) || 7))
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+}
+
 /** The editable details the parent starts from: the child's name and host are prefilled from the
- *  signed-in context; the occasion and note carry friendly defaults; the rest is theirs to fill. */
+ *  signed-in context; the occasion, note, date and times carry friendly defaults (the coming
+ *  Saturday, 2–4 PM) so no field opens on a browser placeholder; the rest is theirs to fill. */
 function makeInitialEvent(childFirstName: string, defaultHostName: string): InviteEvent {
   return {
     childFirstName: childFirstName && childFirstName !== 'Child' ? childFirstName : '',
     occasion: 'Birthday party',
-    date: null, startTime: null, endTime: null,
+    date: nextSaturday(), startTime: '14:00', endTime: '16:00',
     timezone: 'America/Detroit',
     placeLabel: null,
     hostName: defaultHostName || '',
@@ -79,7 +95,7 @@ export function InvitesPanel({ mode = 'mock', createInvite }: { mode?: 'mock' | 
 export function InviteComposer({ childId, childFirstName, mode, createInvite, defaultHostName = '' }: {
   childId: string; childFirstName: string; mode: 'mock' | 'live'; createInvite: InviteCreator | null; defaultHostName?: string
 }) {
-  const [request, setRequest] = useState('A cheerful, hand-painted birthday scene with balloons, confetti and soft colours.')
+  const [request, setRequest] = useState('A cheerful, hand-painted birthday scene with balloons, confetti and soft colors.')
   const [phase, setPhase] = useState<Phase>('idle')
   const [detail, setDetail] = useState('')
   const [result, setResult] = useState<InviteResponse | null>(null)
@@ -101,6 +117,24 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   useEffect(() => { active.current = true; return () => { active.current = false; pending.current?.abort() } }, [])
 
   const update = <K extends keyof InviteEvent>(key: K, value: InviteEvent[K]) => setEvent(current => ({ ...current, [key]: value }))
+
+  /** Changing the start keeps the planned duration (two hours when none is set), so this control
+   *  can never leave the end at or before the start. Editing the end directly is validated instead. */
+  function updateStartTime(value: string | null) {
+    setEvent(current => {
+      if (!value) return { ...current, startTime: null }
+      const hadRange = !!current.startTime && !!current.endTime && toMinutes(current.endTime) > toMinutes(current.startTime)
+      const duration = hadRange ? toMinutes(current.endTime!) - toMinutes(current.startTime!) : 120
+      const endInvalid = !current.endTime || toMinutes(current.endTime) <= toMinutes(value)
+      return { ...current, startTime: value, endTime: endInvalid ? toTime(toMinutes(value) + duration) : current.endTime }
+    })
+  }
+
+  const requestId = useId()
+  const requestHintId = useId()
+  const timeErrorId = useId()
+  const timeError = event.startTime && event.endTime && toMinutes(event.endTime) <= toMinutes(event.startTime)
+    ? 'The end time must be after the start time.' : ''
 
   async function acceptFile(file: File | undefined | null) {
     setReferenceError('')
@@ -164,37 +198,48 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
   // Retry repeats the LAST attempt exactly: same mode, reference and revision intent.
   function retry() { void execute(lastAttempt.current ?? { request: request.trim(), referenceImage: reference?.image, revise: false }) }
 
-  return <Surface className="invites-panel" role="region" aria-label="Prepare invitation" data-phase={phase} data-mode={mode}>
+  return <div className="invites-layout">
+  <Surface className="invites-panel" role="region" aria-label="Prepare invitation" data-phase={phase} data-mode={mode}>
     <div className="invites-panel__heading"><div><p className="invites-panel__eyebrow">{mode === 'mock' ? 'Sample preview' : 'Invitation'}</p><h2>Invitation card</h2></div></div>
 
-    <label className="invites-panel__request">Describe the invitation art
-      <textarea value={request} onChange={event => setRequest(event.target.value.slice(0, REQUEST_MAX_CHARS))} rows={3} maxLength={REQUEST_MAX_CHARS} disabled={phase === 'generating'} placeholder="Theme, mood, colours and style for the picture" />
-    </label>
-    <span className="invites-panel__hint">Theme, mood, colours and style for the picture. The words on the card are set below, so you do not need to include names or dates here.</span>
-    <span className="invites-panel__counter" aria-live="polite">{request.length} / {REQUEST_MAX_CHARS}</span>
+    {/* The art description: the one creative field, with an unmistakable input surface. */}
+    <div className="invites-group" role="group" aria-label="Invitation art">
+      <label className="invites-panel__request" htmlFor={requestId}>Describe the invitation art</label>
+      <div className="invites-art-input">
+        <textarea id={requestId} value={request} onChange={event => setRequest(event.target.value.slice(0, REQUEST_MAX_CHARS))} rows={3} maxLength={REQUEST_MAX_CHARS} disabled={phase === 'generating'} placeholder="Describe the art you want, e.g. a warrior unicorn in a sunset sky" aria-describedby={requestHintId} />
+        <Icon.sparkle className="invites-art-input__spark" />
+      </div>
+      <div className="invites-group__footer">
+        <span id={requestHintId} className="invites-panel__hint">Theme, mood, colors and style for the picture. The words on the card are set below, so you do not need to include names or dates here.</span>
+        <span className="invites-panel__counter" aria-live="polite">{request.length} / {REQUEST_MAX_CHARS}</span>
+      </div>
+    </div>
 
     {/* Event details and wording: filled before Prepare, editable after, and printed on the card as
         text so the picture never has to spell a name or a date. */}
-    <div className="invites-panel__details" role="group" aria-label="Invitation details and wording">
+    <div className="invites-group" role="group" aria-label="Invitation details and wording">
       <div className="invites-panel__section-head">
         <span className="invites-panel__section-title">Invitation details and wording</span>
         <span className="invites-panel__hint">Who it is for, when and where, and the exact words printed on the card.</span>
       </div>
-      <div className="invites-card__fields">
-        <label className="invites-card__field--full">Hosted by<input value={event.hostName} onChange={e => update('hostName', e.target.value)} placeholder="Add a host name" disabled={phase === 'generating'} /></label>
-        <label>Child’s first name<input value={event.childFirstName} onChange={e => update('childFirstName', e.target.value)} disabled={phase === 'generating'} /></label>
-        <label className="invites-card__field--full">Occasion<input value={event.occasion} onChange={e => update('occasion', e.target.value)} placeholder="Birthday party" disabled={phase === 'generating'} /></label>
-        <label>Date<input type="date" value={event.date ?? ''} onChange={e => update('date', e.target.value || null)} disabled={phase === 'generating'} /></label>
-        <label>Start time<input type="time" value={event.startTime ?? ''} onChange={e => update('startTime', e.target.value || null)} disabled={phase === 'generating'} /></label>
-        <label>End time<input type="time" value={event.endTime ?? ''} onChange={e => update('endTime', e.target.value || null)} disabled={phase === 'generating'} /></label>
-        <label className="invites-card__field--full">Place<input value={event.placeLabel ?? ''} onChange={e => update('placeLabel', e.target.value || null)} placeholder="Where is it?" disabled={phase === 'generating'} /></label>
-        <label className="invites-card__field--full">Message printed on the card<textarea rows={2} value={event.message} onChange={e => update('message', e.target.value)} placeholder="A short note for your guests" disabled={phase === 'generating'} /></label>
+      <div className="invites-fields">
+        <label>Hosted by<input value={event.hostName} onChange={e => update('hostName', e.target.value)} placeholder="Add a host name" disabled={phase === 'generating'} /></label>
+        <label>Child’s first name<input value={event.childFirstName} onChange={e => update('childFirstName', e.target.value)} placeholder="First name" disabled={phase === 'generating'} /></label>
+        <label className="invites-field--full">Occasion<input value={event.occasion} onChange={e => update('occasion', e.target.value)} placeholder="Birthday party" disabled={phase === 'generating'} /></label>
+        <div className="invites-fields__when">
+          <label>Date<input type="date" value={event.date ?? ''} onChange={e => update('date', e.target.value || null)} disabled={phase === 'generating'} /></label>
+          <label>Start time<input type="time" value={event.startTime ?? ''} onChange={e => updateStartTime(e.target.value || null)} disabled={phase === 'generating'} /></label>
+          <label>End time<input type="time" value={event.endTime ?? ''} onChange={e => update('endTime', e.target.value || null)} disabled={phase === 'generating'} aria-invalid={timeError ? true : undefined} aria-describedby={timeError ? timeErrorId : undefined} /></label>
+        </div>
+        {timeError && <p id={timeErrorId} className="invites-field-error" role="alert">{timeError}</p>}
+        <label className="invites-field--full">Place<input value={event.placeLabel ?? ''} onChange={e => update('placeLabel', e.target.value || null)} placeholder="Where is it?" disabled={phase === 'generating'} /></label>
+        <label className="invites-field--full">Message printed on the card<textarea rows={2} value={event.message} onChange={e => update('message', e.target.value)} placeholder="A short note for your guests" disabled={phase === 'generating'} /></label>
       </div>
       <p className="invites-card__timezone">Times are shown in America/Detroit.</p>
     </div>
 
     {/* Optional reference image: the actual image is remixed to match the request (image-to-image). */}
-    <div className="invites-panel__reference" role="group" aria-label="Reference image (optional)">
+    <div className="invites-group" role="group" aria-label="Reference image (optional)">
       <div className="invites-panel__section-head">
         <span className="invites-panel__section-title">Add a reference image <span className="invites-panel__optional">optional</span></span>
         <span className="invites-panel__hint">Your image guides the generated art and is remixed to match your description. You can also generate from the description alone.</span>
@@ -252,6 +297,41 @@ export function InviteComposer({ childId, childFirstName, mode, createInvite, de
     {/* The last successful design stays visible across every later phase; generating or a failure
         never remove a card the parent already has. */}
     {result?.art && <InvitationCard key={`${result.provenance.promptHash}:${result.art.base64.length}`} result={{ ...result, art: result.art }} event={event} mode={mode} />}
+  </Surface>
+  <InviteExample />
+  </div>
+}
+
+/** Bryan's example card for the side panel. `EXAMPLE_ART` is wired for an optimized WebP of his
+ *  warrior-unicorn invitation; until that asset is supplied the slot shows the description that
+ *  would produce it, so the example stays honest without shipping a stand-in image. */
+const EXAMPLE_ART: { src: string; alt: string } | null = null
+
+const EXAMPLE_EVENT: InviteEvent = {
+  childFirstName: 'Nora', occasion: 'Birthday party',
+  date: '2026-11-21', startTime: '14:00', endTime: '16:00', timezone: 'America/Detroit',
+  placeLabel: 'Maple Hall', hostName: 'Kendra', message: DEFAULT_INVITE_MESSAGE,
+}
+
+/** A finished-card example beside the form: the art slot on top, then the exact wording the form's
+ *  details produce (rendered through the same lineSpecs the real card uses, so it never drifts). */
+function InviteExample() {
+  return <Surface className="invites-example" role="complementary" aria-label="Example invitation">
+    <p className="invites-panel__eyebrow">Example</p>
+    <h3>A finished card</h3>
+    <div className="invites-example__card">
+      {EXAMPLE_ART
+        ? <img className="invites-example__art" src={EXAMPLE_ART.src} alt={EXAMPLE_ART.alt} loading="lazy" decoding="async" />
+        : <div className="invites-example__slot">
+            <Icon.sparkle />
+            <p>“A brave warrior unicorn in a sunset sky.”</p>
+            <span>Art generated from a description like this fills the top of the card.</span>
+          </div>}
+      <div className="invites-example__wording" role="group" aria-label="Example invitation wording">
+        {lineSpecs(EXAMPLE_EVENT).map(line => <p key={line.role} className={`invites-card__line invites-card__line--${line.role}`}>{line.text}</p>)}
+      </div>
+    </div>
+    <p className="invites-panel__hint">The wording comes from the details you type, so the picture never has to spell a name or a date.</p>
   </Surface>
 }
 

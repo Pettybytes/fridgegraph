@@ -66,6 +66,9 @@ describe('invitation contract and honest states', () => {
     const createInvite: InviteCreator = vi.fn().mockResolvedValue({ status: 'READY', clarification: null, event, art, provenance })
     const { container } = render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={createInvite} defaultHostName="Kendra" />)
     await addReference(container)
+    // The date opens prefilled (coming Saturday); the card mirrors the visible fields, so the
+    // parent's own date wins over the extraction's — set it the way a parent would.
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-15' } })
     fireEvent.click(screen.getByRole('button', { name: 'Prepare invitation' }))
     const readout = await screen.findByLabelText('Invitation text')
     expect(readout).toHaveTextContent('Hosted by Kendra')
@@ -74,6 +77,19 @@ describe('invitation contract and honest states', () => {
     expect(readout).toHaveTextContent('Sunday, November 15, 2026')
     expect(readout).toHaveTextContent('Maple Hall')
     expect(readout).toHaveTextContent('Please join us to celebrate!')
+  })
+  it('opens with a real date and 2 to 4 PM, keeps the end after a moved start, and flags a backwards end', () => {
+    render(<InviteComposer childId="child-a" childFirstName="Nora" mode="live" createInvite={vi.fn()} />)
+    const start = screen.getByLabelText('Start time') as HTMLInputElement
+    const end = screen.getByLabelText('End time') as HTMLInputElement
+    expect((screen.getByLabelText('Date') as HTMLInputElement).value).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(start.value).toBe('14:00')
+    expect(end.value).toBe('16:00')
+    fireEvent.change(start, { target: { value: '17:00' } }) // moved past the end: the two-hour plan follows
+    expect(end.value).toBe('19:00')
+    fireEvent.change(end, { target: { value: '16:30' } }) // set behind the start: flagged, never silently rewritten
+    expect(end).toHaveAccessibleDescription('The end time must be after the start time.')
+    expect(screen.getByRole('alert')).toHaveTextContent('The end time must be after the start time.')
   })
   it('says plainly that a FIXTURE card in live mode is not a new generation', async () => {
     const art = { mimeType: 'image/png' as const, width: 1024, height: 1024, base64: 'YWJj', quietArea: { x: 96, y: 600, w: 832, h: 328 } }
