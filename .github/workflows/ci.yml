@@ -150,9 +150,6 @@ jobs:
       - name: Rosina proposal lifecycle regressions
         run: npm --prefix web test -- --no-file-parallelism src/features/rosina/livePanel.test.tsx src/features/rosina/liveAdapter.test.ts src/features/rosina/RosinaPanel.test.tsx
 
-      - name: Rosina proposal lifecycle regressions
-        run: npm --prefix web test -- --no-file-parallelism src/features/rosina/livePanel.test.tsx src/features/rosina/liveAdapter.test.ts src/features/rosina/RosinaPanel.test.tsx
-
       - name: Confirmed calendar and voice regressions
         run: npm --prefix web test -- --no-file-parallelism src/features/rosina/CalendarChangeCard.test.tsx src/features/rosina/calendarPanel.test.tsx src/features/voice/useRosinaVoice.test.tsx
 
