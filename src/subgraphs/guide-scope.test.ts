@@ -43,7 +43,7 @@ function context(guide = true): Ctx {
       };
       return q;
     },
-    rpc(name: string) { if (name === 'is_sandbox_person') return Promise.resolve({data:true,error:null}); return Promise.resolve({ data: [{ recorded: true, label: 'check-in', due_at: null }], error: null }); },
+    rpc(name: string) { if (name === 'calendar_write_access') return Promise.resolve({data:true,error:null}); if (name === 'is_sandbox_person') return Promise.resolve({data:true,error:null}); return Promise.resolve({ data: [{ recorded: true, label: 'check-in', due_at: null }], error: null }); },
   } as never };
 }
 const reads = [
@@ -71,6 +71,13 @@ for (const [name, resolver, args] of reads) {
 for (const [name, subgraph] of Object.entries({ village, access, coordination, schedule, school, transport, activities })) {
   const mutations = (subgraph.resolvers as { Mutation?: Record<string, (root: unknown, args: unknown, ctx: Ctx) => unknown> }).Mutation ?? {};
   for (const [field, mutate] of Object.entries(mutations)) {
+    if(name==='schedule') {
+      test(`guide calendar write ${field} obeys database permission`,async()=>{
+        const ctx:Ctx={callerId:'p_demo_guide',demoGuide:true,today:'2026-11-03',db:{rpc:async()=>({data:null,error:{code:'42501',message:'FORBIDDEN'}})} as never};
+        await assert.rejects(async()=>mutate(null,{},ctx),/UNAUTHORIZED/);
+      });
+      continue;
+    }
     test(`guide without the verified demo action identity cannot write ${name}.${field}`, async () => {
       const ctx: Ctx = { callerId: 'p_demo_guide', demoGuide: true, today: '2026-11-03', db: new Proxy({}, { get() { throw Error('Database touched before guide refusal'); } }) as never };
       await assert.rejects(async () => mutate(null, {}, ctx), /DEMO_GUIDE_READ_ONLY/);

@@ -86,16 +86,18 @@ test('updateCalendarEvent and deleteCalendarEvent call their own functions', asy
   assert.equal(db.calls[1].fn, 'delete_calendar_event');
 });
 
-test('a demo guide is refused before any write (read-only)', async () => {
-  const db = new FakeDb({ create_calendar_event: { data: EVENT_ROW } });
-  const result = await graphql({
-    schema,
-    source: `mutation { createCalendarEvent(childId: "p_nora", title: "x", start: "2026-11-12T15:00:00", end: "2026-11-12T15:45:00") { id } }`,
-    contextValue: ctx(db, { demoGuide: true }),
-  });
-  assert.ok(result.errors && result.errors.length > 0, 'a guide must be refused');
-  assert.equal(result.errors![0].extensions?.code, 'DEMO_GUIDE_READ_ONLY');
-  assert.equal(db.calls.length, 0, 'no write may reach the database for a guide');
+test('guide showcase writes reach the same database guard and idempotency path', async () => {
+  const db = new FakeDb({ calendar_write_once: { data: EVENT_ROW } });
+  const result = await graphql({schema,source:`mutation {createCalendarEvent(childId:"p_nora",title:"Party",start:"2026-11-05T21:00:00",end:"2026-11-05T22:00:00",idempotencyKey:"a092ebeb-3cda-421d-8359-b7a891413149"){id}}`,contextValue:ctx(db,{callerId:'p_demo_guide',demoGuide:true})});
+  assert.equal(result.errors,undefined);
+  assert.equal(db.calls[0].fn,'calendar_write_once');
+  assert.equal(db.calls[0].args.p_operation,'create');
+  assert.equal(db.calls[0].args.p_request_key,'a092ebeb-3cda-421d-8359-b7a891413149');
+});
+test('database refusal still prevents guide writes outside showcase', async()=>{
+  const db=new FakeDb({calendar_write_once:{error:{code:'42501',message:'FORBIDDEN'}}});
+  const result=await graphql({schema,source:`mutation {deleteCalendarEvent(id:"private-event",idempotencyKey:"a092ebeb-3cda-421d-8359-b7a891413149")}`,contextValue:ctx(db,{callerId:'p_demo_guide',demoGuide:true})});
+  assert.equal(result.errors?.[0].extensions?.code,'UNAUTHORIZED');
 });
 
 test('a non-parent FORBIDDEN from the DB surfaces as UNAUTHORIZED, never the raw error', async () => {

@@ -43,6 +43,8 @@ directive @federation__cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_
 directive @federation__listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
 
 type Query {
+  calendarWriteAccess(childId: ID!): Boolean!
+  calendarChanges(childId: ID!): [CalendarChange!]!
   events(childId: ID!, date: String!): [Event!]!
   childEvents(childId: ID!, from: String!, to: String!, includeCancelled: Boolean = false): [CalendarEvent!]!
   adultAvailability(personId: ID!, from: String!, to: String!): [AvailabilityWindow!]!
@@ -50,6 +52,16 @@ type Query {
   scheduleConflicts(childId: ID!, from: String!, to: String!): [ScheduleConflict!]!
   _entities(representations: [_Any!]!): [_Entity]!
   _service: _Service!
+}
+
+type CalendarChange {
+  id: ID!
+  at: String!
+  actor: Person!
+  kind: String!
+  eventId: ID!
+  title: String!
+  start: String!
 }
 
 type Child @key(fields: "id") {
@@ -82,9 +94,9 @@ type CalendarEvent {
 }
 
 type Mutation {
-  createCalendarEvent(childId: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
-  updateCalendarEvent(id: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
-  deleteCalendarEvent(id: ID!): ID!
+  createCalendarEvent(childId: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String, idempotencyKey: ID): CalendarEvent!
+  updateCalendarEvent(id: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String, idempotencyKey: ID): CalendarEvent!
+  deleteCalendarEvent(id: ID!, idempotencyKey: ID): ID!
 }
 
 type AvailabilityWindow {
