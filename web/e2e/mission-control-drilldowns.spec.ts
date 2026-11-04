@@ -81,12 +81,16 @@ test('every tile, chart segment, bucket and daily count opens exact records with
     return result.sort()
   }
   const url = page.url()
+  // One memory-only sign-in covers both sizes without doubling shared demo-login traffic.
+  for (const viewport of [{ name: 'desktop', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) await test.step(viewport.name, async () => {
+  await page.setViewportSize({ width: viewport.width, height: viewport.height })
+  await expect(page.locator('.vp-mobile-nav')).toBeVisible({ visible: viewport.name === 'phone' })
   let actions = 0, slowest = 0
-  for (const panel of info.project.name === 'phone' ? [0, 1] : [0]) {
+  for (const panel of viewport.name === 'phone' ? [0, 1] : [0]) {
     if (panel) await page.getByRole('button', { name: 'Next pulse panel' }).click()
     // Opening the daily table must not reset when coming back from a record selection.
     const daily = page.locator('.vp-daily')
-    if (await daily.isVisible() && !(await daily.evaluate(element => !!element.closest('[inert]')))) await daily.locator('summary').click()
+    if (await daily.isVisible() && !(await daily.evaluate(element => !!element.closest('[inert]'))) && (await daily.getAttribute('open')) === null) await daily.locator('summary').click()
     const candidates = page.locator('.vp-overview [data-pulse-action], .vp-overview [data-pulse-tile]')
     for (let index = 0; index < await candidates.count(); index++) {
       const action = candidates.nth(index)
@@ -103,21 +107,22 @@ test('every tile, chart segment, bucket and daily count opens exact records with
       const elapsed = Date.now() - start
       expect(elapsed, 'Click to reconciled records must take under 3 seconds').toBeLessThan(3000)
       slowest = Math.max(slowest, elapsed); actions++
-      if (actions % 30 === 0) console.log(`${info.project.name}: ${actions} clicks reconciled`)
+      if (actions % 30 === 0) console.log(`${viewport.name}: ${actions} clicks reconciled`)
       if (actions === 1 && wanted.length) {
         const row = records.locator('details').first()
         await row.locator('summary').click()
         await expect(row.getByRole('region').locator('[data-pulse-moment-kind=JOB_CREATED]')).toHaveText('Pickup request recorded', { timeout: 3000 })
       }
       await records.getByRole('button', { name: 'Back to Village pulse' }).click()
-      await expect(first).toBeVisible({ visible: info.project.name !== 'phone' || panel === 0 })
+      await expect(first).toBeVisible({ visible: viewport.name !== 'phone' || panel === 0 })
       expect(page.url()).toBe(url)
-      if (info.project.name === 'phone') await expect(page.getByRole('button', { name: panel ? 'Show Weekdays and open items' : 'Show Requests and status' })).toHaveAttribute('aria-current', 'step')
+      if (viewport.name === 'phone') await expect(page.getByRole('button', { name: panel ? 'Show Weekdays and open items' : 'Show Requests and status' })).toHaveAttribute('aria-current', 'step')
       if (await daily.isVisible()) await expect(daily).toHaveAttribute('open', '')
     }
   }
   expect(actions).toBeGreaterThan(35)
-  console.log(`${info.project.name}: ${actions} actual clicks reconciled, slowest ${slowest}ms`)
-  await page.locator('.vp').screenshot({ path: info.outputPath('pulse.png') })
+  console.log(`${viewport.name}: ${actions} actual clicks reconciled, slowest ${slowest}ms`)
+  await page.locator('.vp').screenshot({ path: info.outputPath(`${viewport.name}-pulse.png`) })
   expect(await page.locator('.vp').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+  })
 })

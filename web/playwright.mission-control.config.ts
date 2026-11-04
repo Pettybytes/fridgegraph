@@ -5,9 +5,5 @@ export default defineConfig({
   testDir: './e2e', testMatch: /mission-control-drilldowns\.spec\.ts/,
   workers: 1, fullyParallel: false, timeout: 180_000, reporter: 'list',
   outputDir: './test-results/mission-control',
-  use: { browserName: 'chromium', baseURL: process.env.MC_BASE_URL ?? 'http://127.0.0.1:5189', actionTimeout: 8000, navigationTimeout: 15_000, trace: 'off', video: 'off', screenshot: 'only-on-failure', reducedMotion: 'reduce' },
-  projects: [
-    { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
-    { name: 'phone', use: { viewport: { width: 390, height: 844 } } },
-  ],
+  use: { browserName: 'chromium', viewport: { width: 1440, height: 900 }, baseURL: process.env.MC_BASE_URL ?? 'http://127.0.0.1:5189', actionTimeout: 8000, navigationTimeout: 15_000, trace: 'off', video: 'off', screenshot: 'only-on-failure', reducedMotion: 'reduce' },
 })
