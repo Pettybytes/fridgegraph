@@ -37,7 +37,7 @@ for(const name of parents)test(`${name} sees each authorized child's live map`,a
    if(test.info().project.name==='mobile')await map.getByRole('button',{name:'expanded planner',exact:true}).click()
    await map.locator('summary').filter({hasText:'Route from'}).click()
    if(test.info().project.name==='desktop'){
-    const pin=map.locator('.vm-person-marker').first(),destinationPin=map.locator('.vm-place-marker[data-place-id]').first();
+    const pin=map.getByTestId(/^map-person-drag-/).first(),destinationPin=map.getByTestId(/^map-place-drop-/).first();
     await pin.dragTo(destinationPin);await expect(map.getByRole('region',{name:'Route estimate',exact:true})).toBeVisible()
    }
    await map.getByRole('combobox',{name:'From',exact:true}).selectOption(people[0])
@@ -55,4 +55,22 @@ for(const name of parents)test(`${name} sees each authorized child's live map`,a
   console.info(`${name}: ${child.id}: ${people.length} members, ${body.data.villageWorld.places.length} places`)
  }
  expect(errors).toEqual([])
+})
+test('Priya keeps Malik selected when opening the map from Living Village',async({page})=>{
+ const childIds:string[]=[]
+ page.on('request',request=>{if(request.url().endsWith('/graphql')&&request.postData()?.includes('WebMapVillageWorld'))childIds.push(request.postDataJSON().variables.childId)})
+ await page.goto('/')
+ await page.getByRole('button',{name:'Explore as Priya',exact:true}).click()
+ await page.evaluate(()=>{location.hash='/village'})
+ await page.getByRole('combobox',{name:'Viewing',exact:true}).selectOption('p_malik')
+ await expect(page.getByRole('heading',{name:'A village around Malik Ferris.',exact:true})).toBeVisible()
+ await page.evaluate(()=>{location.hash='/map'})
+ await expect(page.locator('.topbar-context')).toHaveText("Malik Ferris's village")
+ const map=page.getByRole('region',{name:'Village map',exact:true})
+ await expect(map).toHaveAttribute('data-state','live')
+ await expect(map).not.toContainText(/Couldn't load|isn't shared|refused/)
+ await expect.poll(()=>childIds.at(-1)).toBe('p_malik')
+ await map.getByRole('button',{name:'People',exact:true}).click()
+ await expect(map.locator('.vm-person-row')).toHaveCount(1)
+ await expect(map.locator('.vm-person-row')).toContainText('Priya')
 })

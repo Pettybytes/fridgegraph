@@ -109,3 +109,15 @@ for (const scope of ['pickup.request', 'pickup.verify', 'supervise.request', 'sc
   await assert.rejects(authorizeChild(context(), 'p_jax', scope), /UNAUTHORIZED/);
  });
 }
+test('care-plan-only map read returns the selected child and caller only, never schedule or coordinates',async()=>{
+ const original=tables.grants,people=tables.people;
+ tables.grants=[{id:'care',actor_id:'p_helper',child_id:'p_jax',scopes:['careplan.read']}];
+ tables.people=[{id:'p_helper',display_name:'Helper'}];
+ try{
+  const ctx=context(false);ctx.callerId='p_helper';
+  const world=await village.resolvers.Query.villageWorld(null,{childId:'p_jax'},ctx);
+  assert.deepEqual(world.child,{id:'p_jax'});assert.deepEqual(world.places,[]);assert.deepEqual(world.events,[]);
+  assert.equal(world.people.length,1);assert.deepEqual(world.people[0].person,{id:'p_helper',displayName:'Helper'});assert.equal(world.people[0].homePlaceId,null);
+  await assert.rejects(village.resolvers.Query.villageWorld(null,{childId:'p_nora'},ctx),/UNAUTHORIZED/);
+ }finally{tables.grants=original;tables.people=people}
+});
