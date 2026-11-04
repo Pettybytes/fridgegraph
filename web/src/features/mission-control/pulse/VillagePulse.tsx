@@ -9,6 +9,7 @@ import type { StoredMissionControl, StoredRun } from '@/lib/frontendData/deliver
 import { formatDay, formatTime } from '@/features/calendar/time'
 import { approvalBreakdown, dailyCurrentStatuses, pulseCohort, pulseWindow, requestsByWeekday, statusOrder } from './model'
 import { ApprovalDonut, ContactGauge, CountUp, RequestsStream, StatusDonut, WeekdayBars } from './PulseVisuals'
+import { PulseRecords, selectRuns, type PulseSelection, type SelectPulse } from './records'
 import { orbitPulseRead } from './orbitPulseRead'
 import type { CardType } from '@/components/fg/cards'
 import '@/components/fg/cards.css'
@@ -41,10 +42,10 @@ function CalculationHelp({ from, through }: { from: string; through: string }) {
   </div></details>
 }
 
-function PulseTile({ label, name, icon: Icon, type, span2 = false, delay = 0, still, children }: { label: string; name: string; icon: LucideIcon; type: CardType; span2?: boolean; delay?: number; still: boolean; children: React.ReactNode }) {
-  return <motion.section className={`vp-tile${span2 ? ' vp-span2' : ''}`} data-fgc-type={type} role="region" aria-label={name} initial={still ? false : { opacity: 0, y: 30, scale: .95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={still ? { duration: 0 } : { duration: .6, delay: delay * .1, ease: [0.25, 0.46, 0.45, 0.94] }}>
+function PulseTile({ label, name, icon: Icon, type, span2 = false, delay = 0, still, onOpen, children }: { label: string; name: string; icon: LucideIcon; type: CardType; span2?: boolean; delay?: number; still: boolean; onOpen?: () => void; children: React.ReactNode }) {
+  return <motion.section className={`vp-tile${span2 ? ' vp-span2' : ''}`} data-fgc-type={type} role="region" aria-label={name} onClick={event => { if (onOpen && !(event.target as Element).closest('button,a,summary,details,svg,.vp-stream-wrap,.vp-donut-wrap,.vp-gauge-wrap,.vp-open-grid')) onOpen() }} initial={still ? false : { opacity: 0, y: 30, scale: .95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={still ? { duration: 0 } : { duration: .6, delay: delay * .1, ease: [0.25, 0.46, 0.45, 0.94] }}>
     <span className="vp-tile-bar" aria-hidden="true"/>
-    <div className="vp-tile-head"><h3>{label}</h3><span className="vp-icon-chip"><Icon size={16} aria-hidden="true"/></span></div>
+    <div className="vp-tile-head"><h3>{onOpen ? <button type="button" onClick={onOpen} data-pulse-tile={name} aria-label={`View ${name} records`}>{label}</button> : label}</h3><span className="vp-icon-chip"><Icon size={16} aria-hidden="true"/></span></div>
     {children}
   </motion.section>
 }
@@ -59,6 +60,8 @@ export function VillagePulseView({ jobs, orbit, now, readAt = null }: PulseProps
   const [page, setPage] = useState(0)
   const [panelHeight, setPanelHeight] = useState<number | null>(null)
   const [hovered, setHovered] = useState(false)
+  const [selection, setSelection] = useState<PulseSelection | null>(null)
+  const returnFocus = useRef<HTMLElement | SVGElement | null>(null)
   const reduce = useReducedMotion()
   const mobile = width < 600
   const still = mobile || Boolean(reduce)
@@ -102,9 +105,22 @@ export function VillagePulseView({ jobs, orbit, now, readAt = null }: PulseProps
   const days = cohort ? dailyCurrentStatuses(dated, range) : []
   const counts = Object.fromEntries(statusOrder.map(status => [status, days.reduce((sum, day) => sum + (day.counts[status] ?? 0), 0)]))
   const approvals = approvalBreakdown(dated)
-  const pending = jobs.kind === 'ready' ? jobs.value.filter(run => run.job.type === 'PICKUP' && run.job.status === 'awaiting_approval') : []
+  const pending = jobs.kind === 'ready' ? jobs.value.filter(run => run.job.type === 'PICKUP' && run.job.status === 'awaiting_approval' && !run.job.confirmation?.id) : []
   const pendingCount = new Set(pending.map(run => run.job.id)).size
   const activeOrbit = orbit.kind === 'ready' && orbit.value.status === 'ACTIVE'
+  const select: SelectPulse = (target, label) => {
+    returnFocus.current = document.activeElement as HTMLElement | SVGElement
+    const current = target.kind === 'pending' || target.kind === 'open' || target.kind === 'orbit'
+    const bounded = current ? target : { ...range, ...target }
+    const latest = (target.kind === 'orbit' || target.kind === 'open') && activeOrbit && orbit.kind === 'ready' && orbit.value.alertId ? { alertId: orbit.value.alertId, status: orbit.value.status! } : null
+    setSelection({ kind: target.kind, label, runs: jobs.kind === 'ready' ? selectRuns(jobs.value, bounded) : [], orbit: latest, from: bounded.from, through: bounded.through })
+  }
+  const back = () => { setSelection(null); requestAnimationFrame(() => returnFocus.current?.focus()) }
+  const selectionAuthorized = !selection || ((selection.kind === 'orbit' || (jobs.kind === 'ready' && selection.runs.every(run => jobs.value.some(current => current.job.id === run.job.id)))) && (!['orbit', 'open'].includes(selection.kind) || (orbit.kind === 'ready' && (!selection.orbit || (orbit.value.alertId === selection.orbit.alertId && orbit.value.status === 'ACTIVE')))))
+  useEffect(() => { if (!selectionAuthorized) setSelection(null) }, [selectionAuthorized])
+  // Freeze the selected IDs, while respecting field-level changes in every authorized refresh.
+  const currentRuns = jobs.kind === 'ready' ? new Map(jobs.value.map(run => [run.job.id, run])) : new Map<string, StoredRun>()
+  const shownSelection = selectionAuthorized && selection ? { ...selection, runs: selection.runs.map(run => currentRuns.get(run.job.id)!) } : null
   const navNames = ['Requests and status', 'Weekdays and open items']
   const changePage = (next: number) => setPage(Math.max(0, Math.min(1, next)))
   const requestContent = (subject: string) => <>{jobs.kind !== 'ready' ? <ReadBoundary state={jobs} subject={subject}/> : !cohort?.jobs.length ? <p className="vp-empty">No dated pickup requests are available in this window.</p> : null}</>
@@ -113,22 +129,25 @@ export function VillagePulseView({ jobs, orbit, now, readAt = null }: PulseProps
     <div className="vp-vignette" aria-hidden="true"/>
     <motion.div ref={dashboardRef} className="vp-dashboard" style={{ rotateX: still ? 0 : rotateX, scale: still ? 1 : scale, y: still ? 0 : y }}>
       <header className="vp-heading"><motion.div className="vp-mark" initial={still ? false : { scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ duration: .8, ease: 'easeOut' }}><Sprout size={25} aria-hidden="true"/></motion.div><div className="vp-heading-text"><h2>Village pulse</h2><p>Mission Control</p></div><span className="vp-update-pill">{readAt !== null && jobs.kind === 'ready' ? `Updated ${formatTime(readAt, false)}` : readAt !== null ? `Last read ${formatTime(readAt, false)} · refresh unavailable` : 'Update time not recorded'}</span></header>
+      {shownSelection && <PulseRecords selection={shownSelection} back={back}/>}
+      <div hidden={Boolean(shownSelection)} className="vp-overview">
       <div className="vp-context"><CalculationHelp from={range.from} through={range.through}/></div>
       <div className="vp-carousel" style={mobile && panelHeight ? { height: panelHeight } : undefined} onTouchStart={event => { touchStart.current = event.changedTouches[0].clientX }} onTouchEnd={event => { const delta = event.changedTouches[0].clientX - touchStart.current; if (mobile && Math.abs(delta) > 50) changePage(page + (delta < 0 ? 1 : -1)) }} onKeyDown={event => { if (!mobile || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return; event.preventDefault(); changePage(page + (event.key === 'ArrowRight' ? 1 : -1)) }}>
         <motion.div className="vp-grid" initial={false} animate={{ x: mobile ? `-${page * 50}%` : '0%' }} transition={still ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}>
           <div className="vp-slide" ref={node => { slides.current[0] = node }} inert={mobile && page !== 0} aria-hidden={mobile && page !== 0}>
-            <PulseTile label="Requests over 30 days" name="Requests over 30 days" icon={Activity} type="pickup" span2 still={still}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <RequestsStream days={days}/> : null}{!!cohort?.undated && <p className="vp-undated">{cohort.undated} visible pickup {cohort.undated === 1 ? 'request has' : 'requests have'} no recorded creation time.</p>}</PulseTile>
-            <PulseTile label="Contact coverage" name="Contact coverage" icon={Gauge} type="pickup" still={still} delay={1}>{requestContent('request records')}{cohort?.jobs.length ? <><ContactGauge contacted={cohort.withContactAttempts} total={cohort.requests}/><p className="vp-tile-subtitle">Jobs with a contact attempt recorded</p></> : null}</PulseTile>
-            <PulseTile label="Status mix" name="Status mix" icon={ChartPie} type="pickup" still={still} delay={2}>{requestContent('request records')}{cohort?.jobs.length ? <StatusDonut counts={counts}/> : null}</PulseTile>
+            <PulseTile label="Requests over 30 days" name="Requests over 30 days" icon={Activity} type="pickup" span2 still={still} onOpen={cohort?.jobs.length ? () => select({ kind: 'requests' }, 'Requests over 30 days') : undefined}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <RequestsStream days={days} select={select}/> : null}{!!cohort?.undated && <p className="vp-undated">{cohort.undated} visible pickup {cohort.undated === 1 ? 'request has' : 'requests have'} no recorded creation time.</p>}</PulseTile>
+            <PulseTile label="Contact coverage" name="Contact coverage" icon={Gauge} type="pickup" still={still} delay={1} onOpen={cohort?.jobs.length ? () => select({ kind: 'contact', value: 'recorded' }, 'Contact coverage') : undefined}>{requestContent('request records')}{cohort?.jobs.length ? <><ContactGauge contacted={cohort.withContactAttempts} total={cohort.requests} select={select}/><p className="vp-tile-subtitle">Jobs with a contact attempt recorded</p></> : null}</PulseTile>
+            <PulseTile label="Status mix" name="Status mix" icon={ChartPie} type="pickup" still={still} delay={2} onOpen={cohort?.jobs.length ? () => select({ kind: 'requests' }, 'Status mix') : undefined}>{requestContent('request records')}{cohort?.jobs.length ? <StatusDonut counts={counts} select={select}/> : null}</PulseTile>
           </div>
           <div className="vp-slide" ref={node => { slides.current[1] = node }} inert={mobile && page !== 1} aria-hidden={mobile && page !== 1}>
-            <PulseTile label="Requests by weekday" name="Requests by weekday" icon={ChartColumn} type="pickup" span2 still={still} delay={3}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <WeekdayBars values={requestsByWeekday(dated)}/> : null}</PulseTile>
-            <PulseTile label="Parent approvals" name="Parent approvals" icon={ClipboardCheck} type="safe" still={still} delay={4}>{requestContent('request records')}{cohort?.jobs.length ? <ApprovalDonut approved={approvals.approved} pending={approvals.pending}/> : null}</PulseTile>
-            <PulseTile label="Open items" name="Open items" icon={BellRing} type="orbit" still={still} delay={5}><div className="vp-open-grid"><div><span>Pending parent approvals</span><ReadBoundary state={jobs} subject="approval records"/>{jobs.kind === 'ready' && <><strong><CountUp value={pendingCount}/></strong><a href="#/mission-control">Mission Control</a></>}</div><div><span>Latest visible active Orbit alert</span><ReadBoundary state={orbit} subject="Orbit status"/>{orbit.kind === 'ready' && <><strong><CountUp value={activeOrbit ? 1 : 0}/></strong><a href="#/orbit">Orbit</a></>}</div></div>{jobs.kind === 'ready' && !pendingCount && orbit.kind === 'ready' && !activeOrbit && <p className="vp-empty">No current open item is available in these reads.</p>}</PulseTile>
+            <PulseTile label="Requests by weekday" name="Requests by weekday" icon={ChartColumn} type="pickup" span2 still={still} delay={3} onOpen={cohort?.jobs.length ? () => select({ kind: 'requests' }, 'Requests by weekday') : undefined}><div className="vp-tile-number">{cohort?.jobs.length ? <CountUp value={cohort.requests}/> : null}</div>{requestContent('request records')}{cohort?.jobs.length ? <WeekdayBars values={requestsByWeekday(dated)} select={select}/> : null}</PulseTile>
+            <PulseTile label="Parent approvals" name="Parent approvals" icon={ClipboardCheck} type="safe" still={still} delay={4} onOpen={cohort?.jobs.length ? () => select({ kind: 'approval' }, 'Parent approvals') : undefined}>{requestContent('request records')}{cohort?.jobs.length ? <ApprovalDonut approved={approvals.approved} pending={approvals.pending} select={select}/> : null}</PulseTile>
+            <PulseTile label="Open items" name="Open items" icon={BellRing} type="orbit" still={still} delay={5} onOpen={jobs.kind === 'ready' && orbit.kind === 'ready' ? () => select({ kind: 'open' }, 'Open items') : undefined}><div className="vp-open-grid"><div><span>Pending parent approvals</span><ReadBoundary state={jobs} subject="approval records"/>{jobs.kind === 'ready' && <><strong><CountUp value={pendingCount}/></strong><button type="button" data-pulse-action='{"kind":"pending"}' onClick={() => select({ kind: 'pending' }, 'Pending parent approvals')}>View pending records</button></>}</div><div><span>Latest visible active Orbit alert</span><ReadBoundary state={orbit} subject="Orbit status"/>{orbit.kind === 'ready' && <><strong><CountUp value={activeOrbit ? 1 : 0}/></strong><button type="button" data-pulse-action='{"kind":"orbit"}' onClick={() => select({ kind: 'orbit' }, 'Latest visible active Orbit alert')}>View Orbit record</button></>}</div></div>{jobs.kind === 'ready' && !pendingCount && orbit.kind === 'ready' && !activeOrbit && <p className="vp-empty">No current open item is available in these reads.</p>}</PulseTile>
           </div>
         </motion.div>
       </div>
       <nav className="vp-mobile-nav" aria-label="Pulse panels"><button type="button" onClick={() => changePage(page - 1)} disabled={page === 0} aria-label="Previous pulse panel"><ChevronLeft size={18}/></button><div className="vp-dots">{navNames.map((name, index) => <button key={name} type="button" onClick={() => changePage(index)} aria-label={`Show ${name}`} aria-current={page === index ? 'step' : undefined}><motion.span initial={false} animate={{ width: page === index ? 24 : 8, opacity: page === index ? 1 : .55 }} transition={still ? { duration: 0 } : { duration: .2 }}/></button>)}</div><button type="button" onClick={() => changePage(page + 1)} disabled={page === 1} aria-label="Next pulse panel"><ChevronRight size={18}/></button><span className="vp-page-label" role="status">{page + 1} of 2 · {navNames[page]}</span></nav>
+      </div>
     </motion.div>
   </section>
 }
@@ -153,7 +172,7 @@ export function VillagePulse({ result }: { result: { loading: boolean; error?: {
     : result.loading && !result.data ? { kind: 'loading' }
       : result.error ? { kind: /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(result.error.message) ? 'refused' : 'failed' }
         : result.data ? { kind: 'ready', value: result.data.frontendSnapshot.recordedRuns } : { kind: 'failed' }
-  if (!parent) return <VillagePulseView jobs={jobs} orbit={{ kind: 'refused' }} now={now} readAt={readAt}/>
-  if (!controller) return <VillagePulseView jobs={jobs} orbit={{ kind: 'failed' }} now={now} readAt={readAt}/>
-  return <OrbitPulse controller={controller} jobs={jobs} now={now} readAt={readAt}/>
+  if (!parent) return <VillagePulseView key={session?.generation} jobs={jobs} orbit={{ kind: 'refused' }} now={now} readAt={readAt}/>
+  if (!controller) return <VillagePulseView key={session?.generation} jobs={jobs} orbit={{ kind: 'failed' }} now={now} readAt={readAt}/>
+  return <OrbitPulse key={session?.generation} controller={controller} jobs={jobs} now={now} readAt={readAt}/>
 }

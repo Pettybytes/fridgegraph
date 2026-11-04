@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { StoredRun } from '@/lib/frontendData/deliveredAdapter'
 import type { OrbitState } from '@/features/orbit/controller'
 import { VillagePulseView } from './VillagePulse'
+import { selectRuns, type PulseTarget } from './records'
 import { orbitPulseRead } from './orbitPulseRead'
 import { approvalBreakdown, dailyCurrentStatuses, pulseCohort, pulseWindow, recordedJobStatus, requestsByWeekday } from './model'
 
@@ -21,6 +22,85 @@ function controllerState(error: string): Pick<OrbitState, 'phase' | 'status' | '
 }
 
 describe('Village pulse: caller-visible recorded measures', () => {
+  it('opens exact cached records from a tile and keeps the window on Back', async () => {
+    render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one'), run('two', 'PICKUP', 'failed', '2026-11-01T14:00:00Z', 0), run('outside', 'PICKUP', 'pending', '2026-10-01T13:00:00Z')] }} orbit={orbit} />)
+    screen.getByRole('button', { name: 'View Requests over 30 days records' }).focus()
+    fireEvent.click(screen.getByRole('button', { name: 'View Requests over 30 days records' }))
+    const records = screen.getByRole('region', { name: 'Selected pulse records' })
+    expect(within(records).getAllByTestId('pulse-record').map(row => row.getAttribute('data-pulse-record-id'))).toEqual(['two', 'one'])
+    fireEvent.click(within(records).getByText('two'))
+    expect(within(records).getByRole('region', { name: 'Timeline for two' })).toHaveTextContent('Pickup request recorded')
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Village pulse' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'View Requests over 30 days records' })).toHaveFocus())
+    expect(screen.queryByRole('region', { name: 'Selected pulse records' })).not.toBeInTheDocument()
+  })
+
+  it('reconciles exact subsets without turning status or invalid timestamps into evidence', () => {
+    const jobs = [run('pending'), run('approved', 'PICKUP', 'confirmed', '2026-11-01T14:00:00Z', 0, true), run('status-only', 'PICKUP', 'confirmed', '2026-11-02T14:00:00Z', 0), run('old-pending', 'PICKUP', 'awaiting_approval', '2026-10-01T13:00:00Z'), run('outside', 'INVITATION')]
+    jobs.push(run('pending'))
+    const ids = (target: PulseTarget) => selectRuns(jobs, target).map(item => item.job.id)
+    const range = pulseWindow(now)
+    expect(ids({ ...range, kind: 'contact', value: 'recorded' })).toEqual(['pending'])
+    expect(ids({ ...range, kind: 'contact', value: 'missing' })).toEqual(['status-only', 'approved'])
+    expect(ids({ ...range, kind: 'status', value: 'Approval evidence missing' })).toEqual(['status-only'])
+    expect(ids({ ...range, kind: 'approval', value: 'approved' })).toEqual(['approved'])
+    expect(ids({ ...range, kind: 'approval', value: 'pending' })).toEqual(['pending'])
+    expect(ids({ kind: 'pending' })).toEqual(['pending', 'old-pending'])
+    expect(ids({ ...range, kind: 'weekday', value: '6' })).toEqual(['approved', 'pending'])
+    expect(ids({ kind: 'requests', from: '2026-11-02', through: '2026-11-02' })).toEqual(['status-only'])
+    jobs[0].attempts[0].at = 'invalid'
+    expect(ids({ ...range, kind: 'contact', value: 'recorded' })).toEqual([])
+  })
+
+  it('keeps the selected record set and the second phone panel across refresh and Back', () => {
+    const width = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    const view = render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one')] }} orbit={orbit} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next pulse panel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View Requests by weekday records' }))
+    view.rerender(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one'), run('new')] }} orbit={orbit} />)
+    expect(screen.getByRole('region', { name: 'Selected pulse records' })).toHaveTextContent('one')
+    expect(screen.getByRole('region', { name: 'Selected pulse records' })).not.toHaveTextContent('new')
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Village pulse' }))
+    expect(screen.getByRole('button', { name: 'Show Weekdays and open items' })).toHaveAttribute('aria-current', 'step')
+    view.unmount()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+  })
+
+  it('removes selected private records immediately after refusal or removal from an authorized refresh', () => {
+    const view = render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one')] }} orbit={orbit} />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Requests over 30 days records' }))
+    view.rerender(<VillagePulseView now={now} jobs={{ kind: 'refused' }} orbit={orbit} />)
+    expect(screen.queryByRole('region', { name: 'Selected pulse records' })).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Timeline for one')
+    view.rerender(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one')] }} orbit={orbit} />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Requests over 30 days records' }))
+    view.rerender(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [] }} orbit={orbit} />)
+    expect(screen.queryByRole('region', { name: 'Selected pulse records' })).not.toBeInTheDocument()
+  })
+
+  it('keeps an independent Orbit read usable when jobs are refused, then clears a revoked Orbit selection', () => {
+    const active = { kind: 'ready' as const, value: { alertId: 'visible-alert', status: 'ACTIVE' } }
+    const view = render(<VillagePulseView now={now} jobs={{ kind: 'refused' }} orbit={active} />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Orbit record' }))
+    expect(screen.getByRole('region', { name: 'Selected pulse records' })).toHaveTextContent('visible-alert')
+    view.rerender(<VillagePulseView now={now} jobs={{ kind: 'refused' }} orbit={{ kind: 'refused' }} />)
+    expect(screen.queryByRole('region', { name: 'Selected pulse records' })).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('visible-alert')
+  })
+
+  it('uses refreshed authorized fields for selected IDs without adding new rows', () => {
+    const view = render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one')] }} orbit={orbit} />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Requests over 30 days records' }))
+    const updated = run('one'); updated.timeline = []
+    view.rerender(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [updated, run('new')] }} orbit={orbit} />)
+    const selected = screen.getByRole('region', { name: 'Selected pulse records' })
+    expect(within(selected).getAllByTestId('pulse-record')).toHaveLength(1)
+    fireEvent.click(within(selected).getByText('one'))
+    expect(selected).toHaveTextContent('No recorded timeline is available')
+    expect(selected).not.toHaveTextContent('Pickup request recorded')
+  })
+
   it('uses one Detroit dated pickup-job cohort and counts distinct jobs', () => {
     const range = pulseWindow(now)
     expect(range).toEqual({ from: '2026-10-04', through: '2026-11-02' })
@@ -51,9 +131,9 @@ describe('Village pulse: caller-visible recorded measures', () => {
     render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [run('one')] }} orbit={orbit} readAt={Date.parse('2026-11-02T23:42:00Z')} />)
     for (const name of ['Requests over 30 days', 'Contact coverage', 'Status mix', 'Requests by weekday', 'Parent approvals', 'Open items']) expect(screen.getByRole('region', { name })).toBeInTheDocument()
     expect(screen.getByText('Updated 6:42 PM')).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Requests over 30 Detroit dates, grouped by current recorded status' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: '1 of 1 jobs have a contact attempt recorded' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: /Requests by Detroit creation weekday/ })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Requests over 30 Detroit dates, grouped by current recorded status' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '1 of 1 jobs have a contact attempt recorded' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /Requests by Detroit creation weekday/ })).toBeInTheDocument()
     expect(screen.queryByText(/LIVE/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('How this is calculated'))
     expect(screen.getByRole('note')).toHaveTextContent('does not reconstruct historical status transitions')
@@ -107,10 +187,12 @@ describe('Village pulse: caller-visible recorded measures', () => {
     }
   })
 
-  it('shows only an active latest Orbit count and link, never alert payload', () => {
+  it('opens only the exact latest visible active Orbit identifier and status', () => {
     render(<VillagePulseView now={now} jobs={{ kind: 'ready', value: [] }} orbit={{ kind: 'ready', value: { alertId: 'private-id', status: 'ACTIVE' } }} />)
     const items = screen.getByRole('region', { name: 'Open items' })
-    expect(within(items).getByRole('link', { name: 'Orbit' })).toHaveAttribute('href', '#/orbit')
+    fireEvent.click(within(items).getByRole('button', { name: 'View Orbit record' }))
+    expect(screen.getByRole('region', { name: 'Selected pulse records' })).toHaveTextContent('private-id')
+    expect(screen.getByRole('region', { name: 'Selected pulse records' })).toHaveTextContent('No alert timeline is included')
     expect(items.textContent).not.toContain('private-id')
   })
 })
