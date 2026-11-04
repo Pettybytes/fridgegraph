@@ -90,6 +90,22 @@ Scope table is authoritative in `docs/schema-plan.md` and must stay mirrored in 
 
 **It does not exist.** It was deleted when the last subgraph moved to Postgres. Any doc, prompt or comment describing an in-memory store is stale. Reads go through a per-request Supabase client authenticated with the caller's token — the service key is never used in request handling.
 
+### Confirmed calendar writes (0104)
+
+The existing calendar mutations accept an optional client-generated UUID `idempotencyKey`.
+Rosina generates one per proposal and retains it for every retry. The database binds the key to
+caller, operation and exact arguments; changed arguments are refused. An advisory transaction
+lock and the `(actor_id, request_key)` primary key serialize replays. The event, existing
+`village_event` append and receipt commit atomically. Replays recheck current family permission.
+Receipts are private and cascade only when their actor/child is removed by the existing reset.
+
+Parents keep their existing rights. The verified Demo guide can edit only children in the
+Ellison showcase tenant through `guide_can_manage_child`; other showcase families remain
+read-only for the guide. This grants no other write capabilities. `calendarChanges` exposes committed calendar history to parents
+and the verified showcase guide. Activity and Mission Control derive their entries/counts from
+this read, never from proposals. Successful writes broadcast a data-free invalidation to other
+open tabs; each tab rereads with its own caller authorization. Visible views also poll for
+changes made on another device. The migration is forward-only; Bentley rehearses and applies it.
 ### Effective schedule RPC authorization (0100)
 
 `effective_schedule_for` checks its caller inside the SECURITY DEFINER function, before
@@ -102,18 +118,3 @@ repair grants no write permissions and preserves approved-holiday precedence ove
 
 Apply 0100 forward-only after 0099. If 0099 has not reached the shared database, rehearse and
 apply the two in sequence so its unguarded RPC is not left exposed. Never edit applied 0099.
-
-### Confirmed calendar writes (0100)
-
-The existing calendar mutations accept an optional client-generated UUID `idempotencyKey`.
-Rosina generates one per proposal and retains it for every retry. The database binds the key to
-caller, operation and exact arguments; changed arguments are refused. An advisory transaction
-lock and the `(actor_id, request_key)` primary key serialize replays. The event, existing
-`village_event` append and receipt commit atomically. Replays recheck current family permission.
-Receipts are private and cascade only when their actor/child is removed by the existing reset.
-
-Parents keep their existing rights. The verified Demo guide can additionally edit the ten
-canonical showcase children while their households remain sandbox records; this grants no
-other write capabilities. `calendarChanges` exposes committed calendar history to parents
-and the verified showcase guide. Activity and Mission Control derive their entries/counts from
-this read, never from proposals. The migration is forward-only; Bentley rehearses and applies it.

@@ -47,6 +47,9 @@ jobs:
       - name: MCP config generation tests
         run: npm run test:mcp-config
 
+      - name: Confirmed calendar proposals and mutation permissions
+        run: node --import tsx --test src/rosina/calendarActions.test.ts src/subgraphs/schedule.calendarMutations.test.ts
+
       - name: Secret scan
         run: npm run check
 
@@ -147,6 +150,12 @@ jobs:
       - name: Rosina proposal lifecycle regressions
         run: npm --prefix web test -- --no-file-parallelism src/features/rosina/livePanel.test.tsx src/features/rosina/liveAdapter.test.ts src/features/rosina/RosinaPanel.test.tsx
 
+      - name: Rosina proposal lifecycle regressions
+        run: npm --prefix web test -- --no-file-parallelism src/features/rosina/livePanel.test.tsx src/features/rosina/liveAdapter.test.ts src/features/rosina/RosinaPanel.test.tsx
+
+      - name: Confirmed calendar and voice regressions
+        run: npm --prefix web test -- --no-file-parallelism src/features/rosina/CalendarChangeCard.test.tsx src/features/rosina/calendarPanel.test.tsx src/features/voice/useRosinaVoice.test.tsx
+
       - name: Reset perspective and recovery regressions
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
@@ -160,6 +169,7 @@ jobs:
       - name: Showcase calendar PostgreSQL coverage and reset
         run: |
           node --import tsx ops/calendar-data-proof.mjs
+          node --import tsx ops/calendar-write-proof.mjs
           node --import tsx ops/calendar-rpc-auth-proof.mjs
 
       - name: Guide database read and isolation proof

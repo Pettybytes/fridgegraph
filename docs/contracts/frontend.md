@@ -59,3 +59,10 @@ Documented so nobody re-discovers them the hard way.
 2. `npm run check` passes.
 3. The change was exercised in a browser through `playwright-cli`, and you said what you saw.
 4. No secret, no `VITE_` server value, no copied code with an unread licence.
+
+### Demo guide calendar exception
+
+The guide remains read-only except for explicitly confirmed calendar add, move and cancel
+actions in Ask Rosina on the ten canonical showcase children. The server verifies both the
+guide identity and sandbox family. Pickup, outreach, Orbit, invitations, grants and reset retain
+their existing refusals. Calendar proposals never authorize a mutation by themselves.

@@ -53,8 +53,9 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     setSelected(null); setCareDetail(null); setAvailabilityDetail(null); setFailed(''); setNotSaved(null)
     if (!from) { setFailed('Choose a valid calendar date.'); return }
     const load = async () => { try { const value = await adapter.readWindow({ childId, from, to, includeCancelled: cancelled }); if (active) { setLoaded({ adapter, key, value }); refused = value.events.state === 'refused'; if (eventId) setSelected(value.events.state === 'ready' ? value.events.value.find(e => e.id === eventId) ?? null : null) } } catch { if (active) setFailed(outcomeCopy.failed) } }
+    const changed=()=>{void load()}; window.addEventListener('frontend:changed',changed);
     void load(); const timer = setInterval(() => { if (!refused && document.visibilityState !== 'hidden') void load() }, 2500)
-    return () => { active = false; clearInterval(timer) }
+    return () => { active = false; clearInterval(timer); window.removeEventListener('frontend:changed',changed) }
   }, [adapter, key, childId, from, to, cancelled, eventId])
   function navigate(nextDay: string, nextView: IlamyView = view) { setSelected(null); setCareDetail(null); setAvailabilityDetail(null); const next = `#/calendar?day=${nextDay}&childId=${encodeURIComponent(childId)}&view=${nextView}`; setRoute(next); location.hash = next }
   async function submitForm(cid: string, draft: EventDraft) {

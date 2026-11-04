@@ -28,7 +28,8 @@ try {
  await assert.rejects(write('p_dana','create',randomUUID(),args),/FORBIDDEN/);
  await assert.rejects(write('p_mom','create',randomUUID(),{...args,p_child:'p_jax'}),/FORBIDDEN/);
  const move={...args,p_id:results[0].id,p_start:'2026-11-05T19:00:00',p_end:'2026-11-05T20:00:00'};delete move.p_child;
- const moved=await write('p_mom','update',randomUUID(),move);assert.equal(moved.start_at,'2026-11-05T19:00:00');
+ const moved=await write('p_mom','update',randomUUID(),move);
+ await assert.rejects(write('p_mom','create',key,args),/CALENDAR_RECEIPT_STALE/);assert.equal(moved.start_at,'2026-11-05T19:00:00');
  const visible=await as('p_dad',c=>c.query('select id from events where id=$1',[moved.id]));assert.equal(visible.rowCount,1);
  const hidden=await as('p_dana',c=>c.query('select id from events where id=$1',[moved.id]));assert.equal(hidden.rowCount,0);
  const deleteKey=randomUUID();await Promise.all(Array.from({length:3},()=>write('p_mom','delete',deleteKey,{p_id:moved.id})));

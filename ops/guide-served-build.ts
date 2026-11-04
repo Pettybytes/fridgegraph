@@ -22,6 +22,8 @@ import schedule from '../src/subgraphs/schedule';
 import school from '../src/subgraphs/school';
 import transport from '../src/subgraphs/transport';
 import activities from '../src/subgraphs/activities';
+import {calendarProposal} from '../src/rosina/calendarActions';
+import {parseMyChildren} from '../src/rosina/childAccess';
 import { showcaseSnapshot } from '../src/demo/reset';
 import { createPinPreferencesHandler } from '../src/rosina/pinPreferences';
 import {createPinHandlers,createInMemoryMediaStore} from '../src/rosina/pinEndpoint';
@@ -131,6 +133,15 @@ app.post('/graphql',async(req,res)=>{
  const persona=personaFor(req.headers.authorization);if(!persona){res.sendStatus(401);return}
  const result=await withCaller(persona,client=>graphql({schema,source:req.body.query,variableValues:req.body.variables,operationName:req.body.operationName,contextValue:{callerId:persona.personId,demo:true,demoGuide:persona.id==='demo-guide',today:'2026-11-03',db:transportFor(client)}}));
  res.json(result);
+});
+// Calendar proposals use the production read-only path and caller-authorized graph.
+app.post('/api/rosina',async(req,res)=>{
+ const persona=personaFor(req.headers.authorization);if(!persona){res.sendStatus(401);return}
+ const base=`http://127.0.0.1:${process.env.GUIDE_PORT??5196}`;
+ const body=await fetch(`${base}/graphql`,{method:'POST',headers:{'content-type':'application/json',authorization:req.headers.authorization!},body:JSON.stringify({query:'query {myChildren {child{id person{displayName}} scopes}}'})}).then(r=>r.json()) as {data:unknown};
+ const children=parseMyChildren(body.data);
+ const result=children?await calendarProposal({message:req.body.message,history:req.body.history??[],children,bearer:`fixture-${persona.id}`,graphqlUrl:`${base}/graphql`}):null;
+ res.json(result??{reply:'This isolated harness supports calendar proposals only.',actions:[]});
 });
 app.all('/api/rosina/pin/preferences',createPinPreferencesHandler({
  verify:async header=>{const p=personaFor(header);return p?{ok:true,personId:p.personId,sub:ids.get(p.id)!,demo:true,demoGuide:p.id==='demo-guide'}:{ok:false,reason:'invalid'}},
