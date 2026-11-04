@@ -6,6 +6,7 @@ import {
   authorizeChild,
   deny,
   guideCanReadChild,
+  guideCanManageChild,
   isShowcaseGuide,
   hasAnyGrant,
   hasScope,
@@ -43,6 +44,7 @@ const typeDefs = parse(`
     A scope grants only what it names: careplan.read never implies schedule reads, pickup or approval.
     """
     myChildren: [ChildAccess!]!
+    canManageChild(childId: ID!): Boolean!
 
     """
     Completed Add-a-Villager confirmations for this child — sourced from villager_proposals' own
@@ -404,6 +406,10 @@ export async function guideChildIds(ctx: Ctx): Promise<string[]> {
 
 const resolvers = {
   Query: {
+    canManageChild: async (_: unknown, { childId }: { childId: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      return isParentOf(ctx, childId);
+    },
     grants: async (
       _: unknown,
       { childId, actorId }: { childId?: string; actorId?: string },
@@ -533,12 +539,11 @@ const resolvers = {
       const callerId = ctx.callerId!;
       const today = ctx.today;
 
-      // A guide enumerates the sandbox, not its own authority: it holds no memberships and no grants,
-      // so the two branches below would return [] for it. Read-only scopes only — the write gates
-      // (refuseDemoGuideWrite) are untouched and still refuse the guide.
+      // Reads cover the fictional showcase; action scopes come from the explicit server grant.
       if (isShowcaseGuide(ctx)) {
         const ids = await guideChildIds(ctx);
-        return ids.map((id) => ({ child: { id }, scopes: [...GUIDE_READ_SCOPES].sort() }));
+        return Promise.all(ids.map(async (id) => ({ child: { id }, scopes: [...GUIDE_READ_SCOPES,
+          ...(await guideCanManageChild(ctx,id)?['showcase.manage',SCOPE.pickupRequest,SCOPE.pickupVerify,SCOPE.superviseRequest,SCOPE.schoolReport,SCOPE.fridgePost]:[])].sort() })));
       }
 
       // (a) children the caller has authority over, via a parent/guardian membership.
@@ -625,6 +630,11 @@ const resolvers = {
       const callerId = requireCaller(ctx);
       // HouseholdPolicy caregiver_approval = ANY_PARENT: any parent of this child may grant.
       if (!(await isParentOf(ctx, childId))) throw deny();
+      if (isShowcaseGuide(ctx)) {
+        const {data,error}=await dbFor(ctx).rpc('showcase_grant_access',{p_actor:actorId,p_child:childId,p_scopes:scopes,p_from:validFrom??null,p_until:validUntil??null});
+        if(error||!data)throw deny();
+        return toGrant(Array.isArray(data)?data[0]:data);
+      }
       const id = `g_${randomUUID()}`;
       const inserted = await one(
         dbFor(ctx)
@@ -653,6 +663,11 @@ const resolvers = {
       );
       if (!existing) return false;
       if (!(await isParentOf(ctx, String(existing.child_id)))) throw deny();
+      if (isShowcaseGuide(ctx)) {
+        const {data,error}=await dbFor(ctx).rpc('showcase_revoke_grant',{p_grant:id});
+        if(error)throw deny();
+        return data===true;
+      }
       const deleted = await rows(dbFor(ctx).from('grants').delete().eq('id', id).select('id'));
       if (deleted.length === 0) return false;
       await recordApproval(ctx, id, 'REVOKED');

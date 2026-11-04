@@ -10,7 +10,7 @@ it('sends one run id with the current bearer and maps only the committed session
  expect(request).toHaveBeenCalledTimes(1);expect(request.mock.calls[0][1]).toMatchObject({method:'POST',cache:'no-store',headers:{Authorization:'Bearer test-only-current','Content-Type':'application/json'}})
  expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toEqual({runId:result.runId})
 })
-it.each([[429,'RESET_RATE_LIMITED','cooldown',RESET_COOLDOWN],[500,'RESET_FAILED','failed',RESET_FAILED],[403,'RESET_NOT_ALLOWED','forbidden',RESET_FORBIDDEN],[403,'DEMO_GUIDE_READ_ONLY','readonly','Demo guide is read-only'],[403,'DEMO_SESSION_REQUIRED','failed',RESET_FAILED],[403,'LOOPBACK_ONLY','failed',RESET_FAILED],[401,'UNAUTHENTICATED','session',RESET_FAILED]])('maps %s/%s without retrying or exposing raw details',async(status,error,kind,message)=>{
+it.each([[429,'RESET_RATE_LIMITED','cooldown',RESET_COOLDOWN],[500,'RESET_FAILED','failed',RESET_FAILED],[403,'RESET_NOT_ALLOWED','forbidden',RESET_FORBIDDEN],[403,'DEMO_GUIDE_READ_ONLY','readonly','Reset is not available for this perspective'],[403,'DEMO_SESSION_REQUIRED','failed',RESET_FAILED],[403,'LOOPBACK_ONLY','failed',RESET_FAILED],[401,'UNAUTHENTICATED','session',RESET_FAILED]])('maps %s/%s without retrying or exposing raw details',async(status,error,kind,message)=>{
  const request=vi.fn<typeof fetch>(async()=>Response.json({error,retryAfterMs:20000,details:'raw backend detail must not render'},{status:Number(status)}))
  await expect(createDemoReset(request)('test-only-session')).rejects.toMatchObject({kind,message});expect(request).toHaveBeenCalledTimes(1)
 })

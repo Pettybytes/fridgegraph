@@ -71,7 +71,7 @@ it.each(['rosa'] as const)('allows the %s guardian to reset',async(id)=>{
  await act(async()=>{expect(await state.resetDemo()).toBe(true)})
  expect(reset).toHaveBeenCalledTimes(1);expect(state.getCurrentSession()?.persona.id).toBe(id)
 })
-it.each(['demo-guide','loretta','priya','whitfield'] as const)('hides reset for %s and blocks direct handler calls',async(id)=>{
+it.each(['loretta','priya','whitfield'] as const)('hides reset for %s and blocks direct handler calls',async(id)=>{
  const {reset}=await mount({live:true});await act(async()=>{await state.switchPerson(id)})
  expect(screen.queryByRole('button',{name:'Reset demo'})).not.toBeInTheDocument();await act(async()=>{expect(await state.resetDemo()).toBe(false)});expect(reset).not.toHaveBeenCalled()
 })
@@ -87,4 +87,15 @@ it('another tab keeps its session and token; the next explicit read needs no log
 })
 it('cooldown expiry only enables a manual confirmation; it never schedules another reset',async()=>{
  const reset=vi.fn(async()=>{throw new DemoResetError('cooldown',30000)});await mount({reset,live:true});vi.useFakeTimers();fireEvent.click(screen.getByRole('button',{name:'Reset demo'}));await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Reset demo for everyone'}))});expect(screen.getByRole('button',{name:'Reset demo for everyone'})).toBeDisabled();await act(async()=>{await vi.advanceTimersByTimeAsync(30001)});expect(reset).toHaveBeenCalledTimes(1);expect(screen.getByRole('button',{name:'Reset demo for everyone'})).toBeEnabled();await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Reset demo for everyone'}))});expect(reset).toHaveBeenCalledTimes(2)
+})
+
+it('guide Reset names its Ellison boundary and requires confirmation',async()=>{
+ const {reset}=await mount({live:true});await act(async()=>{await state.switchPerson('demo-guide')})
+ fireEvent.click(screen.getByRole('button',{name:'Reset demo'}))
+ expect(screen.getByRole('alertdialog')).toHaveTextContent('Other families stay unchanged')
+ expect(reset).not.toHaveBeenCalled()
+ fireEvent.click(screen.getByRole('button',{name:'Reset Ellison showcase'}))
+ await act(async()=>{})
+ expect(reset).toHaveBeenCalledTimes(1)
+ expect(state.getCurrentSession()?.persona.id).toBe('demo-guide')
 })

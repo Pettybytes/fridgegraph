@@ -42,7 +42,7 @@ export async function proveGuideReads(db) {
      "select create_calendar_event('p_jax','Forbidden',now()::timestamp,(now()+interval '1 hour')::timestamp)",
     ]){
      await client.query('savepoint guide_write');
-     await assert.rejects(client.query(sql),/policy|UNAUTHORIZED|FORBIDDEN|READ_ONLY/i);
+     await assert.rejects(client.query(sql),/policy|UNAUTHORIZED|FORBIDDEN|READ_ONLY|SHOWCASE_WRITE_REFUSED/i);
      await client.query('rollback to savepoint guide_write');
     }
     const privateRows=await client.query("select person_id from household_members where household_id like 'fx_%'");

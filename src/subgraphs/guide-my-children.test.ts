@@ -49,6 +49,7 @@ function ctxFor(over: Partial<Ctx>): Ctx {
     callerId: 'p_demo_guide',
     today: '2026-11-02',
     db: {
+      rpc(name:string,args:{p_child:string}) { assert.equal(name,'guide_can_manage_child');return Promise.resolve({data:args.p_child==='p_leo',error:null}); },
       from(name: string) {
         if (name === 'household_members') return chain(SANDBOX_CHILDREN);
         if (name === 'grants') return chain([]);
@@ -72,7 +73,7 @@ test('the guide enumerates the sandbox children (the regression)', async () => {
   }
 });
 
-test('guide scopes never include an action scope', () => {
+test('the guide read grant alone never includes an action scope', () => {
   for (const forbidden of ['pickup.request', 'pickup.verify', 'supervise.request']) {
     assert.ok(!GUIDE_READ_SCOPES.includes(forbidden), `guide must not hold ${forbidden}`);
   }
@@ -83,4 +84,12 @@ test('guide scopes never include an action scope', () => {
 test('a non-guide with no memberships and no grants still sees nothing', async () => {
   const out = await myChildren(null, {}, ctxFor({ callerId: 'p_dana', demoGuide: undefined }));
   assert.deepEqual(out, [], 'the guide branch must not widen anyone else');
+});
+
+test('verified guide receives action scopes only for the server-authorized showcase child',async()=>{
+ const out=await myChildren(null,{},ctxFor({demo:true,demoGuide:true}));
+ assert.ok(out.find(c=>c.child.id==='p_leo')?.scopes.includes('showcase.manage'));
+ for(const row of out.filter(c=>c.child.id!=='p_leo'))assert.deepEqual(row.scopes,[...GUIDE_READ_SCOPES].sort());
+ assert.equal(await access.resolvers.Query.canManageChild(null,{childId:'p_leo'},ctxFor({demo:true,demoGuide:true})),true);
+ assert.equal(await access.resolvers.Query.canManageChild(null,{childId:'p_jax'},ctxFor({demo:true,demoGuide:true})),false);
 });

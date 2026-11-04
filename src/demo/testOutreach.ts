@@ -25,12 +25,13 @@ export type ServiceFetch = (path: string, init?: RequestInit) => Promise<Respons
 export type TestOutreachDeps = {
   /** Service-role PostgREST call, path like '/rest/v1/attempts'. Key never leaves the server. */
   service: ServiceFetch;
+  authorizeChild?: (childId: string) => Promise<boolean>;
   /** Verified caller person id (from the bearer), supplied by the route. */
   replyDelayMs?: number;
   now?: () => number;
 };
 
-type JobRow = { id: string; child_id: string; status: string; request_version: number };
+type JobRow = { id: string; child_id: string; status: string; request_version: number; sandbox?: boolean };
 
 async function readJson<T>(response: Response): Promise<T | null> {
   try { return await response.json() as T; } catch { return null; }
@@ -44,21 +45,22 @@ export async function runTestOutreach(
   if (!jobId || jobId.length > 80 || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
     return { status: 400, body: { error: 'INVALID_REQUEST' } };
   }
-  const jobRes = await deps.service(`/rest/v1/coordination_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,child_id,status,request_version`);
+  const jobRes = await deps.service(`/rest/v1/coordination_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,child_id,status,request_version,sandbox`);
   const jobs = await readJson<JobRow[]>(jobRes);
   const job = jobs?.[0];
   if (!job) return { status: 404, body: { error: 'NOT_FOUND' } };
 
   // Parent gate: the caller's verified person id must be a DEMO parent persona of this child.
-  const callerIsParent = DEMO_PERSONAS.some((p) => p.parent && p.personId === callerPersonId && p.childId === job.child_id);
-  if (!callerIsParent) return { status: 403, body: { error: 'UNAUTHORIZED' } };
+  const callerIsParent = deps.authorizeChild ? await deps.authorizeChild(job.child_id) : DEMO_PERSONAS.some((p) => p.parent && p.personId === callerPersonId && p.childId === job.child_id);
+  if (!callerIsParent || (callerPersonId === 'p_demo_guide' && job.sandbox !== true)) return { status: 403, body: { error: 'UNAUTHORIZED' } };
 
   if (job.status !== 'discovering') return { status: 409, body: { error: 'JOB_NOT_DISCOVERING', jobStatus: job.status } };
 
   // One open test attempt per job.
-  const openRes = await deps.service(`/rest/v1/attempts?job_id=eq.${encodeURIComponent(job.id)}&closed_at=is.null&select=id`);
-  const open = await readJson<{ id: string }[]>(openRes);
-  if (open && open.length > 0) return { status: 409, body: { error: 'ATTEMPT_ALREADY_OPEN', attemptId: open[0].id } };
+  const openRes = await deps.service(`/rest/v1/attempts?job_id=eq.${encodeURIComponent(job.id)}&closed_at=is.null&select=id,candidate_id,destination_mode`);
+  const open = await readJson<{ id: string; candidate_id?: string; destination_mode?: string }[]>(openRes);
+  let reusable = job.sandbox === true ? open?.find(row => row.destination_mode === 'TEST_RESPONDER' && TEST_RESPONDER_ROSTER.some(id => id === row.candidate_id)) : undefined;
+  if (open && open.length > 0 && !reusable) return { status: 409, body: { error: 'ATTEMPT_ALREADY_OPEN', attemptId: open[0].id } };
 
   // Candidate: evaluated for THIS job, on the TEST roster, preferring a recorded vehicle.
   const evalRes = await deps.service(`/rest/v1/candidate_evaluations?job_id=eq.${encodeURIComponent(job.id)}&select=candidate_id`);
@@ -67,16 +69,20 @@ export async function runTestOutreach(
   if (!eligible.length) return { status: 409, body: { error: 'NO_TEST_CANDIDATE' } };
   const vehiclesRes = await deps.service(`/rest/v1/vehicles?owner_id=in.(${eligible.map((id) => `"${id}"`).join(',')})&select=owner_id`);
   const withVehicle = new Set(((await readJson<{ owner_id: string }[]>(vehiclesRes)) ?? []).map((row) => row.owner_id));
-  const candidateId = eligible.find((id) => withVehicle.has(id)) ?? eligible[0];
+  if (reusable) reusable = open?.find(row=>row.destination_mode==='TEST_RESPONDER'&&eligible.some(id=>id===row.candidate_id)&&withVehicle.has(row.candidate_id!)) ?? reusable;
+  if (reusable && !eligible.some(id => id === reusable.candidate_id)) return { status: 409, body: { error: 'NO_TEST_CANDIDATE' } };
+  const candidateId = reusable?.candidate_id ?? eligible.find((id) => withVehicle.has(id)) ?? eligible[0];
 
-  const attemptId = `demo_att_${randomUUID().replaceAll('-', '')}`;
+  const attemptId = reusable?.id ?? `demo_att_${randomUUID().replaceAll('-', '')}`;
   const at = new Date(deps.now?.() ?? Date.now()).toISOString();
+  if (!reusable) {
   const insertRes = await deps.service('/rest/v1/attempts', {
     method: 'POST',
     headers: { 'content-type': 'application/json', prefer: 'return=minimal' },
     body: JSON.stringify([{ id: attemptId, job_id: job.id, channel: 'SMS', at, candidate_id: candidateId, destination_mode: 'TEST_RESPONDER' }]),
   });
   if (!insertRes.ok) return { status: 502, body: { error: 'ATTEMPT_WRITE_FAILED' } };
+  }
 
   // The simulated reply: a few seconds later, through the SAME webhook RPC the SMS path uses.
   // Identity is derived from the attempt row by the RPC; ranking/advancement stay in the DB.

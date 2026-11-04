@@ -1,7 +1,7 @@
 /**
  * Production wiring for "Pin it to the fridge" — the real dependencies behind createPinHandlers.
  * Mirrors photoDeps/inviteDeps: every decision is made AS THE CALLER (bearer forwarded, never a
- * service key). Parent authority is pre-checked here (checkInStatus, same signal invites use) and is
+ * service key). Parent authority is pre-checked here with canManageChild and is
  * ALSO enforced in the database (register_pin_media / fridge_notes RLS / pin_media_access).
  */
 import { verifyBearer } from '../auth/verify';
@@ -12,11 +12,10 @@ import { buildPinExtractor, type PinVisionProvenance } from './pinVision';
 import { buildPinSegmenter, type SegmentProvenance } from './pinSegment';
 import { pinIntakeReadiness } from './pinReadiness';
 
-/** Parent/guardian of the child, AS THE CALLER — the parent-only `checkInStatus` read (a clean result
- *  proves parent authority; non-parent / unseeable / missing all answer identically — no oracle). */
+/** Explicit action authority, evaluated by the graph as the verified caller. */
 export function buildPinParentAuthorizer(cfg: { graphqlUrl: string; fetchFn?: typeof fetch }): ParentAuthorizer {
   const doFetch = cfg.fetchFn ?? fetch;
-  const QUERY = 'query PinParent($c: ID!){ checkInStatus(childId: $c){ child { id } } }';
+  const QUERY = 'query PinParent($c: ID!){ canManageChild(childId: $c) }';
   return async ({ childId, bearer }) => {
     try {
       const res = await doFetch(cfg.graphqlUrl, {
@@ -25,9 +24,9 @@ export function buildPinParentAuthorizer(cfg: { graphqlUrl: string; fetchFn?: ty
         body: JSON.stringify({ query: QUERY, variables: { c: childId } }),
       });
       if (!res.ok) return false;
-      const body = (await res.json()) as { data?: { checkInStatus?: { child?: { id?: string } } | null }; errors?: unknown[] };
+      const body = (await res.json()) as { data?: { canManageChild?: boolean }; errors?: unknown[] };
       if (body.errors && body.errors.length > 0) return false;
-      return Boolean(body.data?.checkInStatus?.child?.id);
+      return body.data?.canManageChild === true;
     } catch {
       return false;
     }

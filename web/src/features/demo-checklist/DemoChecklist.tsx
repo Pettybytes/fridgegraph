@@ -63,7 +63,7 @@ const STEP_LOOK: Record<DemoStepId, { type: CardType; icon: LucideIcon }> = {
 function steps(availability: DemoChecklistAvailability): Step[] {
   const result: Step[] = [{
     id: 'notice', number: 1, title: 'A school notice changes the plan',
-    doThis: <>As Kendra viewing Nora, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
+    doThis: <>Viewing Nora as Kendra or the Demo guide, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
     lookFor: <>This is a historical October 26, 2026 sample: 12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup that day. {availability.noticeConfirmReady ? <>After parent confirmation, look for <strong>Pickup request created</strong>; pickup is <strong>not arranged yet</strong>.</> : <>In mock mode, confirmation shows a sample pickup request; <strong>no record is created</strong>. A recorded request needs live parent confirmation.</>}</>,
     evidenceLabel: 'Notice and pickup receipt',
   }]
@@ -92,9 +92,9 @@ function steps(availability: DemoChecklistAvailability): Step[] {
     evidenceLabel: 'Photo descriptor receipt (different fixture)',
   })
   result.push({
-    id: 'guide', number: 6, title: 'Explore read-only',
+    id: 'guide', number: 6, title: 'Explore the showcase',
     doThis: <>Use <strong>Explore as…</strong> to switch to the <strong>Demo guide</strong> perspective.</>,
-    lookFor: <>A broad sandbox view for exploration. Only a parent can make changes.</>,
+    lookFor: <>Explore all fictional families. Try parent actions with the Ellison showcase.</>,
     evidenceLabel: 'Demo guide scope receipt',
   })
   return result
@@ -142,7 +142,7 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
   if (saved.dismissed) return <FgButton variant="secondary" onClick={() => setSaved(current => ({ ...current, dismissed: false }))}>Reopen judge checklist</FgButton>
   return <Surface className="demo-checklist" role="region" aria-label="Judge checklist">
     <div className="demo-checklist__header">
-      <div><h2>Here's what to expect</h2><p>{props.mode === 'guide' ? 'Demo guide · read-only exploration' : 'Start as Kendra, viewing Nora. The notice flow is the quick demonstration.'}</p></div>
+      <div><h2>Here's what to expect</h2><p>{props.mode === 'guide' ? 'Demo guide · showcase exploration' : 'View Nora as Kendra or the Demo guide. Start with a notice.'}</p></div>
       <FgButton variant="quiet" onClick={() => setSaved(current => ({ ...current, dismissed: true }))}>Dismiss checklist</FgButton>
     </div>
     {props.mode === 'parent' && (props.personaId !== 'kendra' || props.childId !== 'p_nora') && <p className="demo-checklist__context">The notice sample is for Kendra viewing Nora. Switch perspective before trying it.</p>}

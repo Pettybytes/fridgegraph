@@ -86,9 +86,9 @@ export function PersonaPicker() {
         >
           <Avatar name="Demo guide" kind="adult" size={44} />
           <span className="fg-pcard-body">
-            <span className="fg-pcard-name">Demo guide <StatusChip tone="simulated" icon={false}>Read-only</StatusChip></span>
+            <span className="fg-pcard-name">Demo guide <StatusChip tone="simulated" icon={false}>Showcase</StatusChip></span>
             <span className="fg-pcard-rel">Every family in the demo · No real family would have this view.</span>
-            <span className="fg-pcard-see">{soon('demo-guide') ? 'Not set up in this demo yet' : 'Explore (read-only). Browse everything, nothing changes.'}</span>
+            <span className="fg-pcard-see">{soon('demo-guide') ? 'Not set up in this demo yet' : 'Try parent actions with the fictional Ellison family. Browse every showcase family.'}</span>
           </span>
           <Icon.chevron className="fg-pcard-go" aria-hidden />
         </button>
@@ -132,5 +132,5 @@ export function PersonaPicker() {
 export function SessionChip() {
   const { session, switchPerson, authMode } = useSession()
   if (!session) return null
-  return <div className="session-chip"><span>{authMode === 'live' ? 'Exploring as' : 'Signed in as'} {session.persona.name}</span><button type="button" onClick={() => { void switchPerson() }}>Switch {authMode === 'live' ? 'perspective' : 'person'}</button>{authMode === 'live' && <button type="button" onClick={() => { void switchPerson() }}>Leave perspective</button>}{session.marks?.demoGuide && <span>Demo guide is read-only</span>}<GuideChildSelector /><ResetDemoControl /></div>
+  return <div className="session-chip"><span>{authMode === 'live' ? 'Exploring as' : 'Signed in as'} {session.persona.name}</span><button type="button" onClick={() => { void switchPerson() }}>Switch {authMode === 'live' ? 'perspective' : 'person'}</button>{authMode === 'live' && <button type="button" onClick={() => { void switchPerson() }}>Leave perspective</button>}{session.marks?.demoGuide && <span>Fictional showcase</span>}<GuideChildSelector /><ResetDemoControl /></div>
 }
