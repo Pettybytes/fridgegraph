@@ -112,18 +112,31 @@
 }
 .fg-field .fg-field-error { font-size: 12px; color: var(--fg-attention); }
 
-.fg-composer {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 8px 7px 14px;
+/* iMessage-style composer: optional pill row above, then a rounded field that
+   grows to 4 lines with the send/mic inside on the right. */
+.fg-composer { display: grid; gap: 8px; }
+.fg-composer-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fg-composer-field {
+  display: flex; align-items: flex-end; gap: 4px;
+  padding: 5px 5px 5px 16px;
   border: 1px solid var(--fg-border);
-  border-radius: var(--radius-pill);
+  border-radius: 22px;
   background: var(--fg-surface);
   transition: border-color var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out);
 }
-.fg-composer:focus-within { border-color: var(--fg-primary); box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 25%, transparent); }
-.fg-composer input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg-ink); font: inherit; font-size: 14px; }
-.fg-composer input:focus-visible { outline: none; }
-.fg-composer input::placeholder { color: var(--fg-muted); }
+.fg-composer-field:focus-within { border-color: var(--fg-primary); box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 28%, transparent); }
+.fg-composer-field textarea {
+  flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg-ink);
+  font: inherit; font-size: 15px; line-height: 1.4; resize: none; outline: none;
+  padding: 10px 0 9px; min-height: 24px;
+  field-sizing: content; max-height: calc(1.4em * 4);
+}
+.fg-composer-field textarea::placeholder { color: var(--fg-muted); }
+/* Send / mic sit inside the field, aligned to the bottom so they stay put as it grows. */
+.fg-composer-field .fg-iconbtn { align-self: flex-end; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; }
+.fg-composer-mic { color: var(--fg-muted); }
+.fg-iconbtn[data-variant='brand'].fg-composer-send { background: var(--fg-send); }
+.fg-iconbtn[data-variant='brand'].fg-composer-send:hover { background: var(--fg-send-hover); }
 
 /* ── Icon button ──────────────────────────────────────────────────────── */
 .fg-iconbtn {

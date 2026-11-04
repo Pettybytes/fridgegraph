@@ -1,3 +1,4 @@
+import { RecordedInvitations } from './RecordedInvitations'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FgButton, InlineFeedback, Surface } from '@/components/fg/primitives'
 import { useChildAccess } from '@/features/personas/childContext'
@@ -61,6 +62,7 @@ export function InvitesPanel({ mode = 'mock', createInvite }: { mode?: 'mock' | 
     !session.marks?.demoGuide && session.scope.childId === childId
   const creator = useMemo(() => createInvite ?? (mode === 'mock' ? createMockInvite(firstName) : null), [createInvite, mode, firstName])
   const identityKey = `${session?.generation ?? 'signed-out'}:${session?.persona.personId ?? ''}:${childId}`
+  if (session?.marks?.demoGuide && mode === 'live') return <RecordedInvitations key={identityKey} />
   if (!permitted) return <Surface className="invites-panel" role="region" aria-label="Invitations unavailable">
     <h2>Invitations</h2><InlineFeedback tone="warning">Only a parent or guardian viewing their child can prepare an invitation.</InlineFeedback>
   </Surface>

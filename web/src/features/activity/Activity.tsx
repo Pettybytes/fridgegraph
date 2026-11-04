@@ -56,7 +56,7 @@ const EMPTY:View={data:{state:'ready',data:null},slips:{state:'ready',data:[]},o
 const NAMED:[keyof View,string][]=[['data','Activity feed'],['slips','Consent decisions'],['orbit','Orbit status'],['check','Check-in'],['additions','Village additions'],['reports','School reports']]
 export function Activity({client,adapter}:{client:ReturnType<typeof createGraphClient>|null;adapter:FrontendAdapter}){
  const {session,runRead,getSessionGeneration}=useSession(),[phase,setPhase]=useState<'loading'|'ready'|'refused'|'unavailable'>('loading'),[view,setView]=useState<View>(EMPTY)
- const childId=session?.scope.childId,personId=session?.persona.personId,parent=mayReadFamilyActivity(!!session?.persona.parent,!!session?.persona.guardian)
+ const childId=session?.scope.childId,personId=session?.persona.personId,parent=!!session?.marks?.demoGuide||mayReadFamilyActivity(!!session?.persona.parent,!!session?.persona.guardian)
  useEffect(()=>{
   let active=true;const generation=session?.generation;setPhase('loading');setView(EMPTY)
   if(!session||!parent){setPhase('refused');return()=>{active=false}}

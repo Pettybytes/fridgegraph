@@ -22,9 +22,9 @@ export function ConnectedFridge(){
  const viewer=useMemo<FridgeViewer|null>(()=>session?{personId:session.persona.personId,sessionKey:String(session.generation),role:guide?'GUIDE':home&&session.persona.guardian?'GUARDIAN':home&&session.persona.parent?'PARENT':'CAREGIVER'}:null,[session?.persona,session?.generation,guide,home])
  const service=useMemo(()=>viewer&&access?(preview?preview(viewer,access.selectedChildId):access.client?createPhase2Service(access.client,access.runRead,()=>verified):null):null,[preview,viewer,access?.selectedChildId,access?.client,access?.runRead,verified])
  // Live intake (its own bearer); self-gates on the backend readiness probe. Never in preview/evidence.
- const intake=useMemo(()=>(!preview&&authMode==='live'&&session?.accessToken&&access?.selectedChildId)
+ const intake=useMemo(()=>guide?<></>:(!preview&&authMode==='live'&&session?.accessToken&&access?.selectedChildId)
   ?<FridgeIntake client={buildPinIntakeClient(()=>getCurrentSession()?.accessToken)} childId={access.selectedChildId} canUse={viewer?.role==='PARENT'||viewer?.role==='GUARDIAN'}/>
-  :undefined,[preview,authMode,session?.accessToken,access?.selectedChildId,viewer?.role,getCurrentSession])
+  :undefined,[guide,preview,authMode,session?.accessToken,access?.selectedChildId,viewer?.role,getCurrentSession])
  const mediaReader=useMemo<MediaReader>(()=>async(id,signal)=>{
   const token=getCurrentSession()?.accessToken
   if(!token)throw Error('UNAUTHENTICATED')

@@ -1,0 +1,72 @@
+import { test, expect, type Page } from '@playwright/test'
+const denied=/refused|not shared|isn't shared|Couldn['’]t load|unavailable/i
+async function open(page:Page,route:string){
+ await page.evaluate(route=>{location.hash='/'+route},route)
+ const main=page.locator('main')
+ await expect.poll(async()=>await main.innerText(),{timeout:45_000}).not.toMatch(/Loading|Opening the fridge/i)
+ await expect.poll(()=>main.innerText()).not.toMatch(denied)
+ return main
+}
+test('Demo guide browses every page and all families without write controls',async({page})=>{
+ // No state files, traces, request headers or session tokens are retained.
+ const pageErrors:string[]=[]
+ page.on('pageerror',error=>{pageErrors.push(error.message);console.error('Browser error:',error.message)})
+ await page.goto('/')
+ await page.getByRole('button',{name:'Explore as the Demo guide',exact:true}).click()
+ const select=page.getByRole('combobox',{name:'Demo guide child',exact:true})
+ await expect(select.locator('option')).toHaveCount(10)
+ let main=await open(page,'village')
+ await main.getByRole('button',{name:'List view',exact:true}).click()
+ await expect(main.getByRole('button',{name:'Kendra Ellison parent',exact:true})).toBeVisible()
+ main=await open(page,'mission-control')
+ await expect(main.getByRole('combobox',{name:'Pickup record'})).toBeVisible()
+ await expect(main.locator('[data-pulse-tile]')).not.toHaveCount(0)
+ main=await open(page,'activity')
+ await expect(main.locator('article').first()).toBeVisible()
+ main=await open(page,'orbit')
+ await expect(main).toContainText(/check-in|Recorded responses/)
+ await expect(main.getByRole('button',{name:/prepare|Found safe|With me|On my way/i})).toHaveCount(0)
+ main=await open(page,'calendar')
+ await expect(main).toContainText(/School pickup|dismissal|practice/)
+ await expect(main.getByRole('button',{name:'Add event'})).toHaveCount(0)
+ main=await open(page,'fridge')
+ await expect(main).toContainText('Peanut allergy')
+ main=await open(page,'invitations')
+ await expect(main.getByRole('region',{name:'Recorded invitations'})).toBeVisible()
+ await expect(main).toContainText(/birthday party/i)
+ await expect(main.getByRole('button',{name:'Prepare invitation'})).toHaveCount(0)
+ main=await open(page,'care-information')
+ await expect(main).toContainText('Peanut allergy')
+ main=await open(page,'map')
+ await expect(main).toContainText(/school|practice/i)
+ main=await open(page,'today')
+ await expect(main).toContainText('Nora')
+ await open(page,'ask-rosina')
+ await page.getByRole('button',{name:'Close Ask Rosina',exact:true}).click()
+ const children=await select.locator('option').evaluateAll(options=>options.map(option=>({id:(option as HTMLOptionElement).value,name:option.textContent!})))
+ for(const child of children){
+  console.info(`Checking fictional child ${child.id}`)
+  await select.selectOption(child.id)
+  main=await open(page,'village')
+  await expect(main).toContainText(child.name)
+  await expect(main.getByRole('figure',{name:new RegExp(child.name)}).first()).toBeVisible()
+  main=await open(page,'care-information')
+  await expect(main).toContainText(child.name.split(' ')[0])
+  main=await open(page,'calendar')
+  await expect(main).toContainText(child.name)
+ }
+ expect(pageErrors).toEqual([])
+ await expect(page.getByRole('button',{name:'Reset demo',exact:true})).toHaveCount(0)
+})
+test('Kendra and Dana retain separate family directories',async({page})=>{
+ for(const name of ['Kendra','Dana']){
+  await page.goto('/')
+  await page.getByRole('button',{name:`Explore as ${name}`,exact:true}).click()
+  const main=await open(page,'village')
+  const viewing=main.getByRole('combobox',{name:'Viewing',exact:true})
+  const children=await viewing.locator('option').allTextContents()
+  expect(children).toContain(name==='Kendra'?'Nora Ellison':'Jax Coleman')
+  expect(children).not.toContain(name==='Kendra'?'Jax Coleman':'Nora Ellison')
+  await page.getByRole('button',{name:'Leave perspective',exact:true}).click()
+ }
+})

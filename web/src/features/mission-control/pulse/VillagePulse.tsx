@@ -167,7 +167,7 @@ export function VillagePulse({ result }: { result: { loading: boolean; error?: {
   }, [session?.generation, result.data?.frontendSnapshot, result.loading, result.error])
   const readAt = session && lastRead && result.data?.frontendSnapshot === lastRead.snapshot && session.generation === lastRead.generation ? lastRead.at : null
   const controller = useOrbit()
-  const parent = Boolean(session && (session.persona.parent || session.persona.guardian) && !session.marks?.demoGuide)
+  const parent = Boolean(session && (session.persona.parent || session.persona.guardian || session.marks?.demoGuide))
   const jobs: PulseRead<StoredRun[]> = !parent ? { kind: 'refused' }
     : result.loading && !result.data ? { kind: 'loading' }
       : result.error ? { kind: /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(result.error.message) ? 'refused' : 'failed' }

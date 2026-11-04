@@ -64,14 +64,14 @@ it('a live adapter without a commit receipt reports uncertainty and preserves th
  await mount({reset:async()=>{},live:true});await act(async()=>{expect(await state.resetDemo()).toBe(false)})
  expect(state.getCurrentSession()?.persona.id).toBe('kendra');expect(state.resetError).toBe(RESET_UNCERTAIN)
 })
-it.each(['demo-guide','rosa'] as const)('allows the %s to reset through the reset-only permission exception',async(id)=>{
+it.each(['rosa'] as const)('allows the %s guardian to reset',async(id)=>{
  const reset=vi.fn<AuthAdapter['resetDemo']>(async(_bearer,_signal,personaId)=>({runId:'test-run',status:'committed',personaId:personaId!,session:null}));await mount({reset,live:true})
  await act(async()=>{await state.switchPerson(id)})
  expect(screen.getByRole('button',{name:'Reset demo'})).toBeVisible()
  await act(async()=>{expect(await state.resetDemo()).toBe(true)})
  expect(reset).toHaveBeenCalledTimes(1);expect(state.getCurrentSession()?.persona.id).toBe(id)
 })
-it.each(['loretta','priya','whitfield'] as const)('hides reset for %s and blocks direct handler calls',async(id)=>{
+it.each(['demo-guide','loretta','priya','whitfield'] as const)('hides reset for %s and blocks direct handler calls',async(id)=>{
  const {reset}=await mount({live:true});await act(async()=>{await state.switchPerson(id)})
  expect(screen.queryByRole('button',{name:'Reset demo'})).not.toBeInTheDocument();await act(async()=>{expect(await state.resetDemo()).toBe(false)});expect(reset).not.toHaveBeenCalled()
 })

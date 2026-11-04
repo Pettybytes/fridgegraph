@@ -436,7 +436,7 @@ export function createDemoLoginApp() {
       // basis). A cache hit is not re-stored; a refusal never reaches this line at all. A storage
       // failure must not fail a route the family can already see, so it is logged and swallowed —
       // but it IS logged, because a silent failure here means ranking quietly stays on haversine.
-      if (!route.cached) {
+      if (!route.cached && !identity.demoGuide) {
         try {
           // The RAW writer is no longer executable by a request-handling caller (0063); this is the
           // caller-authorized one. It re-checks parent/address.read on the child and refuses a
@@ -500,7 +500,7 @@ export function createDemoLoginApp() {
     res.status(200).json({ childId, date: read.plan.date, items: read.plan.items });
   });
 
-  // Reset is the sole guide-write exception. Authority comes from verified identity + server cast.
+  // Reset is a parent/guardian write. Showcase read authority never grants reset authority.
   app.get('/api/demo/reset/:runId', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control',NO_STORE);
     if (!isLoopback(req.socket.remoteAddress ?? '')) { res.status(403).json({error:'LOOPBACK_ONLY'}); return; }
