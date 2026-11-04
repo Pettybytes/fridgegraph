@@ -18,6 +18,8 @@ try{
   return JSON.stringify(all);
  };
  const before=await unrelated();
+ const canonicalGrants=async()=>(await db.admin.query("select to_jsonb(g) as row from grants g where child_id in ('p_nora','p_max','p_leo') order by id")).rows;
+ const grantsBefore=await canonicalGrants();
  await db.admin.query("update care_plans set text='Judge edit' where child_id='p_nora'");
  await db.admin.query("insert into orbit_alerts(id,child_id,created_by,sandbox) values('reset_orbit','p_nora','p_demo_guide',true),('other_orbit','p_jax','p_dana',true)");
  await db.admin.query("insert into orbit_audience_members(orbit_alert_id,person_id,notify_order,notification_outcome) values('reset_orbit','p_gma',1,'SIMULATED'),('other_orbit','p_dana',1,'SIMULATED')");
@@ -30,6 +32,12 @@ try{
  assert.equal(await unrelated(),before,'other families and unmarked rows are byte-for-byte unchanged');
  assert.equal((await db.admin.query("select text from care_plans where child_id='p_nora'")).rows[0].text,snapshot.care_plans.find(r=>r.child_id==='p_nora').text);
  assert.equal((await db.admin.query("select count(*)::int as n from events where id='e_school_1026' and child_id='p_nora'")).rows[0].n,1,'sample notice school day survives Reset');
+ assert.deepEqual(await canonicalGrants(),grantsBefore,'canonical Ellison grants survive Reset byte-for-byte');
+ const expectedGrants=snapshot.grants.filter(row=>['p_nora','p_max','p_leo'].includes(row.child_id));
+ for(const grant of expectedGrants){
+  const actual=(await db.admin.query('select actor_id,child_id,scopes,granted_by from grants where id=$1',[grant.id])).rows[0];
+  assert.deepEqual(actual,{actor_id:grant.actor_id,child_id:grant.child_id,scopes:grant.scopes,granted_by:grant.granted_by},`canonical grant survives Reset: ${grant.id}`);
+ }
  assert.deepEqual((await reset()).rows[0].report,first,'same run is idempotent');
  await assert.rejects(db.admin.query('select restore_showcase_snapshot($1,$2,$3::jsonb)',['p_dana',randomUUID(),JSON.stringify(snapshot)]),/ACTOR_REFUSED/);
  const failedRun=randomUUID();
