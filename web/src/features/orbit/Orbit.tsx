@@ -1,6 +1,7 @@
 import {OrbitStart} from './OrbitStart'
 import {AlertTakeover,FoundSafe,lastSeenCopy} from './AlertTakeover'
 import {OrbitFactsCard} from './OrbitFactsCard'
+import {OrbitMessage} from './OrbitMessage'
 import {Portrait} from '@/components/signature/Portrait'
 import {portraitFor} from '@/components/fg/portraits'
 import {useActivePolling} from './useActivePolling'
@@ -46,9 +47,9 @@ export function OrbitView({controller}:{controller:OrbitController}){
    {active&&parent&&state.alert&&<div className="orbit-parent-alert" data-state="active">
     <div className={`orbit-takeover-photo${parentPhoto?'':' is-fallback'}`} style={parentPhoto?{backgroundImage:`url("${parentPhoto}")`}:undefined} aria-hidden="true"/>
     <div className="orbit-takeover-stage" key="parent-active">
-     <div className="orbit-glass-heading"><p>Simulated notification · recorded active alert</p><h2>Orbit active.</h2><p>Your approved village can respond. A response is recorded only when someone sends one.</p></div>
+     <p className="orbit-card-status">Orbit active · your approved village can respond</p>
      <OrbitFactsCard childName={childFullName} lastSeen={lastSeen!} share={state.alert.share} image={image} photoAlt="Photo you shared" missingPhotoText="Photo not recorded." failedPhotoText="Couldn't display the shared photo." onOpen={()=>{location.hash='#/orbit'}}/>
-     <details className="orbit-shared-message"><summary>Shared message</summary><blockquote>{state.alert.message??'Message not recorded.'}</blockquote></details>
+     <OrbitMessage message={state.alert.message} at={state.alert.activatedAt}/>
      <section className="orbit-vresponses" aria-label="Recorded responses"><h3>Recorded responses</h3>
       {visibleResponses.length?<ol>{visibleResponses.map(response=><li className="orbit-vrow" key={`${response.person.id}:${response.respondedAt}:${response.response}`}><span className="orbit-vrow-portrait"><Portrait name={response.person.displayName} src={portraitFor({personId:response.person.id})}/></span><div><strong>{response.person.displayName}</strong><p>{responses[response.response as ResponseChoice]??'Response not recognized'}</p></div><time dateTime={response.respondedAt}>{formatInstant(response.respondedAt)}</time></li>)}</ol>:<p className="orbit-vempty">No responses have been recorded.</p>}
      </section>
