@@ -1,6 +1,6 @@
 import {ApolloLink,Observable} from '@apollo/client'
 import {GraphQLError,print} from 'graphql'
-import {fireEvent,render,screen,waitFor} from '@testing-library/react'
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react'
 import {expect,it} from 'vitest'
 import {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
 import {createMockAuthAdapter} from '@/features/personas/auth'
@@ -20,6 +20,9 @@ async function fixture(options:{empty?:boolean;refused?:boolean;failed?:boolean}
   if(op.operationName==='WebChildEvents')data={childEvents:options.empty?[]:[baseEvent,{...baseEvent,id:'proposal',title:'Proposed commitment',status:'proposed'},...(v.includeCancelled?[{...baseEvent,id:'cancelled',title:'Cancelled commitment',status:'cancelled'}]:[])]}
   else if(op.operationName==='WebEffectiveSchedule')data={effectiveScheduleFor:{parent:options.empty?null:{id:v.date>='2026-11-25'&&v.date<='2026-11-27'?'p_dad':'p_mom',displayName:v.date>='2026-11-25'&&v.date<='2026-11-27'?'Andre Ellison':'Kendra Ellison'},source:v.date>='2026-11-25'&&v.date<='2026-11-27'?'ARRANGEMENT':'WEEKLY',arrangementId:v.date>='2026-11-25'&&v.date<='2026-11-27'?'recorded-arrangement':null}}
   else if(op.operationName==='WebScheduleConflicts')data={scheduleConflicts:options.empty?[]:[{kind:'OVERLAP',onDay:'2026-11-26',arrangementIds:['recorded-arrangement','other-arrangement']}]}
+  else if(op.operationName==='WebCreateEvent')data={createCalendarEvent:{id:'new1',child:{id:v.childId},title:v.title,start:v.start,end:v.end,location:v.location??null,status:v.status??'confirmed',notes:v.notes??null,color:v.color??null}}
+  else if(op.operationName==='WebUpdateEvent')data={updateCalendarEvent:{id:v.id,child:{id:'p_nora'},title:v.title,start:v.start,end:v.end,location:v.location??null,status:v.status??'confirmed',notes:v.notes??null,color:v.color??null}}
+  else if(op.operationName==='WebDeleteEvent')data={deleteCalendarEvent:v.id}
   else data={adultAvailability:options.empty?[]:[{person:{id:v.personId,displayName:v.personId==='p_mom'?'Kendra Ellison':'Andre Ellison'},start:'2026-11-25T14:00:00Z',end:'2026-11-25T22:00:00Z',state:v.personId==='p_mom'?'BUSY':'FREE',reason:'PRIVATE employer details'}]}
   observer.next({data});observer.complete()
  })),()=>generation)
@@ -82,4 +85,37 @@ it('late calendar reads cannot restore a prior perspective or enter the catalog 
 })
 it('opens the recorded Free window without revealing a reason or claiming willingness',async()=>{
  const {adapter,client}=await fixture();mount(adapter);fireEvent.click(await screen.findByRole('button',{name:/Andre Ellison · free time recorded/}));const detail=screen.getByRole('dialog',{name:'Free time recorded'});expect(detail).toHaveTextContent('Andre Ellison');expect(detail).not.toHaveTextContent(/PRIVATE|employer|reason|available to/);client.stop()
+})
+// ── Parent editing (migration 0095 mutations) ──────────────────────────────
+it('a parent adds an event only after the explicit confirm prompt', async () => {
+ const {adapter,calls,client}=await fixture();mount(adapter)
+ await findPill('Confirmed commitment')
+ fireEvent.click(screen.getByRole('button',{name:'+ Add event'}))
+ fireEvent.change(screen.getByLabelText('Title'),{target:{value:'Dentist'}})
+ // No write yet: clicking Save opens the confirm, it does not persist.
+ expect(calls.some(c=>c.name==='WebCreateEvent')).toBe(false)
+ fireEvent.click(screen.getByRole('button',{name:'Save'}))
+ const confirm=await screen.findByRole('dialog',{name:/Save this change to .* calendar\?/})
+ expect(calls.some(c=>c.name==='WebCreateEvent')).toBe(false)
+ fireEvent.click(within(confirm).getByRole('button',{name:'Save'}))
+ await waitFor(()=>expect(calls.some(c=>c.name==='WebCreateEvent'&&c.variables.title==='Dentist'&&c.variables.childId==='p_nora')).toBe(true))
+ client.stop()
+})
+it('a parent deletes an event through its own confirm', async () => {
+ const {adapter,calls,client}=await fixture();mount(adapter)
+ fireEvent.click(await findPill('Confirmed commitment'))
+ fireEvent.click(await screen.findByRole('button',{name:'Edit event'}))
+ fireEvent.click(await screen.findByRole('button',{name:'Delete'}))
+ const confirm=await screen.findByRole('dialog',{name:/Delete this event from .* calendar\?/})
+ fireEvent.click(within(confirm).getByRole('button',{name:'Delete'}))
+ await waitFor(()=>expect(calls.some(c=>c.name==='WebDeleteEvent'&&c.variables.id==='confirmed')).toBe(true))
+ client.stop()
+})
+it('a caregiver (read-only) gets no add or edit controls', async () => {
+ const {adapter,client}=await fixture();mount({...adapter,parent:false})
+ await findPill('Confirmed commitment')
+ expect(screen.queryByRole('button',{name:'+ Add event'})).not.toBeInTheDocument()
+ fireEvent.click(pill('Confirmed commitment')!)
+ expect(within(screen.getByRole('dialog')).queryByRole('button',{name:'Edit event'})).not.toBeInTheDocument()
+ client.stop()
 })

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { CalendarEvent as IlamyEvent, EventSegment } from '@ilamy/calendar'
 import type { CalType } from './ilamyMap'
 import { formatTime } from './time'
@@ -8,12 +9,14 @@ import { formatTime } from './time'
 // Detroit formatter (not ilamy's dayjs), so a recorded time is never shifted and
 // a repeated DST hour still reads "1:15 AM EDT" vs "1:15 AM EST".
 export function CalendarEventPill({ event, segment }: { event: IlamyEvent; segment: EventSegment }) {
-  const data = event.data as { type?: CalType; status?: string; original?: { start?: string } } | undefined
+  const data = event.data as { type?: CalType; status?: string; color?: string | null; original?: { start?: string } } | undefined
   const type: CalType = data?.type ?? 'neutral'
   const status = data?.status ?? 'confirmed'
   const startIso = data?.original?.start
+  // A parent-chosen color (from the event form) wins over the category hue.
+  const custom = data?.color ? ({ ['--pill']: data.color } as CSSProperties) : undefined
   return (
-    <div className={`cal-pill cal-type-${type} is-${status}`} data-type={type} data-status={status} data-event-title={event.title}>
+    <div className={`cal-pill cal-type-${type} is-${status}`} style={custom} data-type={type} data-status={status} data-event-title={event.title}>
       {segment.isStart && !event.allDay && startIso && <span className="cal-pill-time">{formatTime(startIso)}</span>}
       <span className="cal-pill-title">{event.title}</span>
       {status === 'proposed' && <span className="cal-pill-tag">Proposed</span>}

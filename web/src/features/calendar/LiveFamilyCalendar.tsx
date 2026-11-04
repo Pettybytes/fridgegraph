@@ -3,14 +3,17 @@ import { Dialog } from 'radix-ui'
 import { X } from 'lucide-react'
 import { IlamyCalendar, dayjs } from '@ilamy/calendar'
 import type { CalendarEvent as IlamyEvent, EventSegment, EventsChange, IlamyCalendarApi } from '@ilamy/calendar'
-import type { LiveCalendarAdapter, LiveWindow, LiveEvent, ReadOutcome, EffectiveCare, Availability } from './liveAdapter'
+import type { LiveCalendarAdapter, LiveWindow, LiveEvent, EventDraft, ReadOutcome, EffectiveCare, Availability } from './liveAdapter'
 import { outcomeCopy } from './liveAdapter'
 import { addDays, CALENDAR_ZONE, formatDay, formatInstant, localDay, midnight, validDay, weekStart } from './time'
 import { liveToIlamy, liveLaneData } from './ilamyMap'
 import type { LiveLaneClick } from './ilamyMap'
 import { CalendarEventPill } from './CalendarEventPill'
 import { CaregiverLanes } from './CaregiverLanes'
+import { EventForm } from './EventForm'
+import type { EventFormInitial } from './EventForm'
 import './calendar.css'
+const toDraft = (e: LiveEvent): EventDraft => ({ title: e.title, start: e.start, end: e.end, location: e.location, notes: e.notes, color: e.color, status: e.status })
 const eventStatus = (status: string) => status === 'proposed' ? 'Proposed' : status === 'confirmed' ? 'Confirmed' : status === 'cancelled' ? 'Cancelled' : 'Status not recorded'
 // No move/resize mutation exists for live events (liveAdapter reads only), so a
 // parent's drag is reverted and surfaced honestly - never a silent fake save.
@@ -29,13 +32,18 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
   const [availabilityDetail, setAvailabilityDetail] = useState<Availability | null>(null)
   const [selected, setSelected] = useState<LiveEvent | null>(null), [careDetail, setCareDetail] = useState<{ day: string; care: ReadOutcome<EffectiveCare> } | null>(null)
   const [notSaved, setNotSaved] = useState<string | null>(null), [lanes, setLanes] = useState(false)
+  // Parent editing: the form (create / edit), a pending drag-or-resize awaiting confirmation, and a
+  // reload counter bumped after any successful write so the shared window is re-read.
+  const [formOpen, setFormOpen] = useState<EventFormInitial | 'new' | null>(null)
+  const [dragPending, setDragPending] = useState<{ id: string; draft: EventDraft } | null>(null)
+  const [writeBusy, setWriteBusy] = useState(false), [reload, setReload] = useState(0)
   const api = useRef<IlamyCalendarApi>(null)
   const query = useMemo(() => new URLSearchParams(route.split('?')[1] ?? ''), [route])
   const requested = query.get('day'), eventId = query.get('event')
   const known = eventId ? adapter.knownEvent(eventId) : undefined
   const day = requested ?? (known ? localDay(known.start) : localDay(Date.now())), view: IlamyView = query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
   const childId = query.get('childId') ?? (eventId ? adapter.knownChild(eventId) : undefined) ?? adapter.scope.childId, from = validDay(day) ? weekStart(view === 'month' ? `${day.slice(0, 7)}-01` : day) : '', to = from ? addDays(from, view === 'month' ? 41 : 6) : ''
-  const key = `${route}:${cancelled}`, current = loaded?.adapter === adapter && loaded.key === key ? loaded.value : null
+  const key = `${route}:${cancelled}:${reload}`, current = loaded?.adapter === adapter && loaded.key === key ? loaded.value : null
   const canEdit = adapter.parent
   useEffect(() => { const follow = () => { setRoute(location.hash); setSelected(null); setCareDetail(null); setAvailabilityDetail(null) }; window.addEventListener('hashchange', follow); return () => window.removeEventListener('hashchange', follow) }, [])
   useEffect(() => {
@@ -47,6 +55,25 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     return () => { active = false; clearInterval(timer) }
   }, [adapter, key, childId, from, to, cancelled, eventId])
   function navigate(nextDay: string, nextView: IlamyView = view) { setSelected(null); setCareDetail(null); setAvailabilityDetail(null); const next = `#/calendar?day=${nextDay}&childId=${encodeURIComponent(childId)}&view=${nextView}`; setRoute(next); location.hash = next }
+  async function submitForm(cid: string, draft: EventDraft) {
+    const r = formOpen === 'new' ? await adapter.createEvent(cid, draft) : await adapter.updateEvent((formOpen as { id: string }).id, draft)
+    if (r.ok) { setReload(x => x + 1); setSelected(null) }
+    return r
+  }
+  async function deleteForm() {
+    const r = await adapter.deleteEvent((formOpen as { id: string }).id)
+    if (r.ok) { setReload(x => x + 1); setSelected(null) }
+    return r
+  }
+  // A drag or resize is an edit, so it also confirms before persisting; until then it is reverted.
+  async function confirmDrag() {
+    if (!dragPending) return
+    setWriteBusy(true)
+    const r = await adapter.updateEvent(dragPending.id, dragPending.draft)
+    setWriteBusy(false); setDragPending(null)
+    if (r.ok) setReload(x => x + 1)
+    else setNotSaved(r.reason === 'refused' ? 'Only a parent can change this calendar.' : "Couldn't save that move just now.")
+  }
   useEffect(() => {
     if (!current || !api.current || !from) return
     const target = dayjs(midnight(day) + 12 * 3600000)
@@ -64,7 +91,10 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
   return <section className="family-calendar cal-live" aria-label="Family Calendar" data-state="live">
     <div className="cal-toolbar">
       <div className="cal-child"><strong>{childName}</strong><span className="cal-authority">Live data · Detroit time</span></div>
-      <div className="cal-lane-toggle"><button type="button" aria-pressed={!lanes} onClick={() => setLanes(false)}>Calendar</button><button type="button" aria-pressed={lanes} onClick={() => setLanes(true)}>Caregivers</button></div>
+      <div className="cal-toolbar-end">
+        {canEdit && <button type="button" className="cal-add" onClick={() => setFormOpen('new')}>+ Add event</button>}
+        <div className="cal-lane-toggle"><button type="button" aria-pressed={!lanes} onClick={() => setLanes(false)}>Calendar</button><button type="button" aria-pressed={lanes} onClick={() => setLanes(true)}>Caregivers</button></div>
+      </div>
     </div>
     <div className="cal-live-key"><p>A care schedule describes responsibility, not a confirmed location.</p><label><input type="checkbox" checked={cancelled} onChange={e => setCancelled(e.target.checked)} /> Show cancelled events</label></div>
     {notSaved && <p className="cal-notsaved" role="status">{notSaved}</p>}
@@ -89,7 +119,13 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
             onEventClick={(event: IlamyEvent) => { const original = event.data?.original as LiveEvent | undefined; if (original) setSelected(original) }}
             onDateChange={date => { const nextDay = localDay(date.valueOf()); if (nextDay !== day) navigate(nextDay) }}
             onViewChange={next => { const v = next === 'month' || next === 'day' ? next : 'week'; if (v !== view) navigate(day, v) }}
-            onEventsChange={(change: EventsChange) => { change.revert(); setNotSaved(LIVE_NOT_SAVED) }}
+            onEventsChange={(change: EventsChange) => {
+              if (!canEdit) { change.revert(); setNotSaved(LIVE_NOT_SAVED); return }
+              const u = change.updated[0]
+              const orig = u?.data?.original as LiveEvent | undefined
+              change.revert() // nothing persists until the parent confirms the move
+              if (u && orig) setDragPending({ id: String(u.id), draft: { ...toDraft(orig), start: u.start.format('YYYY-MM-DDTHH:mm:ss'), end: u.end.format('YYYY-MM-DDTHH:mm:ss') } })
+            }}
           />
           {!records.length && <Outcome result={current.events} empty />}
         </div>}
@@ -102,7 +138,9 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     <section className="cal-conflicts"><h3>Schedule conflicts</h3><Outcome result={current.conflicts} empty={!conflicts.length} />{conflicts.map((c, i) => <p className="cal-attention" key={i}>{c.kind === 'OVERLAP' ? `Schedule needs review · overlapping arrangements on ${formatDay(c.onDay)}` : c.kind === 'GAP' ? `Needs coverage · no care schedule recorded on ${formatDay(c.onDay)}` : `Schedule needs review on ${formatDay(c.onDay)}`}</p>)}{!!conflicts.length && <p>Overlaps and gaps are shown on the affected days. No arrangement is chosen here to resolve a conflict.</p>}</section>
     <p className="cal-footnote">Free time recorded does not mean willingness, permission or suitability to provide care.</p>
     <Dialog.Root open={!!selected || !!careDetail || !!availabilityDetail} onOpenChange={value => { if (!value) { setSelected(null); setCareDetail(null); setAvailabilityDetail(null) } }}><Dialog.Portal><Dialog.Overlay className="cal-overlay" /><Dialog.Content className="cal-sheet"><Dialog.Title>{selected?.title ?? (availabilityDetail ? availabilityDetail.state === 'FREE' ? 'Free time recorded' : 'Busy' : careDetail ? careLabel(careDetail.care) : 'Calendar record')}</Dialog.Title><Dialog.Description>Only recorded information shared with you is shown.</Dialog.Description><Dialog.Close className="cal-close" aria-label="Close details"><X size={20} /></Dialog.Close>
-      {availabilityDetail ? <dl><dt>Who</dt><dd>{availabilityDetail.person.displayName}</dd><dt>State</dt><dd>{availabilityDetail.state === 'FREE' ? 'Free time recorded' : 'Busy'}</dd><dt>Starts</dt><dd>{formatInstant(availabilityDetail.start, availabilityDetail.end)}</dd><dt>Ends</dt><dd>{formatInstant(availabilityDetail.end, availabilityDetail.start)}</dd></dl> : selected ? <dl><dt>Who</dt><dd>{childId === adapter.scope.childId ? adapter.scope.childName : 'Participant names not recorded'}</dd><dt>Starts</dt><dd>{formatInstant(selected.start, selected.end)}</dd><dt>Ends</dt><dd>{formatInstant(selected.end, selected.start)}</dd><dt>Where</dt><dd>{selected.location ?? 'Location not provided'}</dd><dt>Status</dt><dd>{eventStatus(selected.status)}</dd><dt>Category</dt><dd>Category not recorded</dd><dt>Confirmed by</dt><dd>{selected.status === 'proposed' ? 'Not confirmed yet' : 'Confirmer not recorded'}</dd></dl> : careDetail ? <><p>{formatDay(careDetail.day, true)}, {careDetail.day.slice(0, 4)}</p><p>{careLabel(careDetail.care)}</p>{careDetail.care.state === 'ready' && <p>{careDetail.care.value.source === 'ARRANGEMENT' ? 'An approved arrangement takes precedence over the weekly schedule for this day.' : careDetail.care.value.source === 'WEEKLY' ? 'This answer comes from the weekly schedule.' : 'Schedule source not recorded'}</p>}<p>This is scheduled responsibility, not a confirmed location.</p></> : null}
+      {availabilityDetail ? <dl><dt>Who</dt><dd>{availabilityDetail.person.displayName}</dd><dt>State</dt><dd>{availabilityDetail.state === 'FREE' ? 'Free time recorded' : 'Busy'}</dd><dt>Starts</dt><dd>{formatInstant(availabilityDetail.start, availabilityDetail.end)}</dd><dt>Ends</dt><dd>{formatInstant(availabilityDetail.end, availabilityDetail.start)}</dd></dl> : selected ? <><dl><dt>Who</dt><dd>{childId === adapter.scope.childId ? adapter.scope.childName : 'Participant names not recorded'}</dd><dt>Starts</dt><dd>{formatInstant(selected.start, selected.end)}</dd><dt>Ends</dt><dd>{formatInstant(selected.end, selected.start)}</dd><dt>Where</dt><dd>{selected.location ?? 'Location not provided'}</dd>{selected.notes && <><dt>Notes</dt><dd>{selected.notes}</dd></>}<dt>Status</dt><dd>{eventStatus(selected.status)}</dd><dt>Category</dt><dd>Category not recorded</dd><dt>Confirmed by</dt><dd>{selected.status === 'proposed' ? 'Not confirmed yet' : 'Confirmer not recorded'}</dd></dl>{canEdit && <div className="cal-detail-actions"><button type="button" className="cal-btn cal-btn-primary" onClick={() => { const s = selected; setSelected(null); setFormOpen({ id: s.id, childId, draft: toDraft(s) }) }}>Edit event</button></div>}</> : careDetail ? <><p>{formatDay(careDetail.day, true)}, {careDetail.day.slice(0, 4)}</p><p>{careLabel(careDetail.care)}</p>{careDetail.care.state === 'ready' && <p>{careDetail.care.value.source === 'ARRANGEMENT' ? 'An approved arrangement takes precedence over the weekly schedule for this day.' : careDetail.care.value.source === 'WEEKLY' ? 'This answer comes from the weekly schedule.' : 'Schedule source not recorded'}</p>}<p>This is scheduled responsibility, not a confirmed location.</p></> : null}
     </Dialog.Content></Dialog.Portal></Dialog.Root>
+    {formOpen && <EventForm childName={childName} childId={childId} children={[{ id: childId, displayName: childName }]} initial={formOpen === 'new' ? null : formOpen} onSubmit={submitForm} onDelete={formOpen === 'new' ? null : deleteForm} onClose={() => setFormOpen(null)} />}
+    <Dialog.Root open={!!dragPending} onOpenChange={v => { if (!v && !writeBusy) setDragPending(null) }}><Dialog.Portal><Dialog.Overlay className="cal-overlay" /><Dialog.Content className="cal-sheet cal-confirm"><Dialog.Title>Save this change to {childName}'s calendar?</Dialog.Title><Dialog.Description>Everyone who shares this calendar will see the new time.</Dialog.Description><div className="cal-form-actions"><span className="cal-form-spacer" /><button type="button" className="cal-btn" onClick={() => setDragPending(null)} disabled={writeBusy}>Cancel</button><button type="button" className="cal-btn cal-btn-primary" onClick={confirmDrag} disabled={writeBusy}>{writeBusy ? 'Saving…' : 'Save'}</button></div></Dialog.Content></Dialog.Portal></Dialog.Root>
   </section>
 }

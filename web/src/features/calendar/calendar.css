@@ -1,7 +1,7 @@
 /* Family Calendar - design-v2 LIGHT skin over @ilamy/calendar (Bryan, 2026-11-03:
    the calendar is the light theme with type-coloured pills). Card TYPE drives
    colour, consistently (docs/contracts/design.md §12): the --cal-* aliases
-   resolve to the shared --type-* tokens — pickup/transport = amber, school =
+   resolve to the shared --type-* tokens - pickup/transport = amber, school =
    blue, care = teal, celebration/invite = violet-pink; live events with no
    recorded category read pending-gray. */
 /* Pin the shadcn tokens ilamy's internals use (bg-background / card / border /
@@ -28,9 +28,12 @@
 .family-calendar {
   --cal-amber: var(--type-pickup);
   --cal-blue: var(--type-school);
+  --cal-green: var(--type-activity);
   --cal-teal: var(--type-care);
   --cal-violet: var(--type-invite);
   --cal-neutral: var(--type-pending);
+  /* Readable ink for text sitting on a saturated filled pill/row. */
+  --cal-on-fill: oklch(0.99 0.004 230);
   color: var(--fg-ink);
   min-width: 0;
 }
@@ -45,6 +48,7 @@
   color: var(--fg-ink); font-weight: 600;
 }
 .cal-authority { font-size: .75rem; color: var(--fg-muted); }
+.cal-toolbar-end { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .cal-lane-toggle { display: inline-flex; border: 1px solid var(--fg-border); border-radius: var(--radius-control); padding: .2rem; gap: .2rem; background: var(--fg-surface); }
 .cal-lane-toggle button { padding: .5rem .9rem; border-radius: calc(var(--radius-control) - 3px); font-size: .85rem; color: var(--fg-muted); font-weight: 550; }
 .cal-lane-toggle button[aria-pressed=true] { color: var(--fg-ink); background: var(--fg-elevated); box-shadow: inset 0 0 0 1px var(--fg-border); }
@@ -77,28 +81,38 @@
    cannot happen. Export stays: it only serializes what is already on screen. */
 .cal-grid-host button[aria-label="New"] { display: none; }
 
-/* ── Event pill (renderEvent output) ────────────────────────────────────── */
+/* ── Event pill (renderEvent output) ────────────────────────────────────────
+   Confirmed events are SATURATED FILLED pills in the type colour with light ink
+   (the @ilamy demo look Bryan asked for). The fill is deepened a touch so small
+   white text stays AA on every hue. */
 .cal-pill {
   --pill: var(--cal-neutral);
-  display: flex; flex-direction: column; gap: .1rem;
-  height: 100%; min-width: 0; padding: .28rem .45rem;
+  display: flex; flex-direction: column; gap: .05rem;
+  height: 100%; min-width: 0; padding: .3rem .5rem;
   border-radius: var(--radius-chip);
-  border-left: 3px solid var(--pill);
-  background: color-mix(in oklch, var(--pill) 18%, var(--fg-elevated));
-  color: var(--fg-ink);
+  background: color-mix(in oklch, var(--pill) 92%, black);
+  color: var(--cal-on-fill);
   line-height: 1.3; text-align: left; overflow: hidden;
+  box-shadow: 0 1px 2px oklch(0.2 0.03 262 / 0.16);
 }
-.cal-pill-title { font-size: .78rem; font-weight: 600; overflow-wrap: anywhere; }
-.cal-pill-time { font-size: .75rem; font-weight: 550; color: color-mix(in oklch, var(--pill) 55%, var(--fg-ink)); font-variant-numeric: tabular-nums; }
-.cal-pill-tag { font-size: .62rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: color-mix(in oklch, var(--pill) 60%, var(--fg-ink)); }
+.cal-pill-title { font-size: .78rem; font-weight: 650; overflow-wrap: anywhere; }
+.cal-pill-time { font-size: .72rem; font-weight: 600; color: oklch(1 0 0 / 0.86); font-variant-numeric: tabular-nums; }
+.cal-pill-tag { font-size: .62rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: oklch(1 0 0 / 0.82); }
 .cal-type-amber { --pill: var(--cal-amber); }
 .cal-type-blue { --pill: var(--cal-blue); }
+.cal-type-green { --pill: var(--cal-green); }
 .cal-type-teal { --pill: var(--cal-teal); }
 .cal-type-violet { --pill: var(--cal-violet); }
 .cal-type-neutral { --pill: var(--cal-neutral); }
-/* Proposed = not yet confirmed: dashed edge + muted fill, still legible. */
-.cal-pill.is-proposed { border-left-style: dashed; background: color-mix(in oklch, var(--pill) 9%, var(--fg-elevated)); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--pill) 35%, transparent); }
-.cal-pill.is-cancelled { opacity: .62; }
+/* Proposed = not yet confirmed: outlined tinted pill (clearly not a committed
+   fill), dark type-coloured ink on a pale wash. */
+.cal-pill.is-proposed {
+  background: color-mix(in oklch, var(--pill) 12%, white);
+  color: color-mix(in oklch, var(--pill) 72%, black);
+  box-shadow: inset 0 0 0 1.5px var(--pill);
+}
+.cal-pill.is-proposed .cal-pill-time, .cal-pill.is-proposed .cal-pill-tag { color: color-mix(in oklch, var(--pill) 64%, black); }
+.cal-pill.is-cancelled { opacity: .5; }
 .cal-pill.is-cancelled .cal-pill-title { text-decoration: line-through; }
 
 /* ── Schedule notes + availability chrome ───────────────────────────────── */
@@ -108,12 +122,16 @@
 .cal-care-list { display: grid; gap: .4rem; margin: 0 0 1.1rem; }
 .cal-care-list li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); align-items: center; gap: .6rem; }
 .cal-care-day { font-size: .75rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-.cal-care { display: block; width: 100%; text-align: left; font-size: .8rem; line-height: 1.4; padding: .55rem .7rem; border-radius: var(--radius-nested); border: 1px solid var(--fg-border); border-left: 3px solid var(--cal-teal); background: color-mix(in oklch, var(--cal-teal) 10%, var(--fg-elevated)); color: var(--fg-ink); }
-.cal-care.is-holiday { border-left-color: var(--cal-amber); background: color-mix(in oklch, var(--cal-amber) 10%, var(--fg-elevated)); }
+/* Care rows carry the same vibrant palette as the pills: a filled care-teal row,
+   amber on an approved holiday arrangement, with light ink. */
+.cal-care { display: block; width: 100%; text-align: left; font-size: .8rem; line-height: 1.4; padding: .55rem .7rem; border-radius: var(--radius-nested); border: none; background: color-mix(in oklch, var(--cal-teal) 92%, black); color: var(--cal-on-fill); }
+.cal-care.is-holiday { background: color-mix(in oklch, var(--cal-amber) 92%, black); }
 .cal-busy-list :is(h3,h4) { font-size: .75rem; color: var(--fg-muted); margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .03em; }
-.cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem .7rem; border-radius: var(--radius-nested); background: var(--fg-elevated); border: 1px solid var(--fg-border); margin-bottom: .5rem; font-size: .78rem; }
-.cal-busy small { font-size: .7rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-.cal-busy.is-free { border-left: 3px solid var(--fg-safe); }
+/* Busy/free audit rows: busy reads neutral-gray filled, recorded free time reads
+   green filled (the found-safe hue), both from the shared palette. */
+.cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem .7rem; border-radius: var(--radius-nested); border: none; margin-bottom: .5rem; font-size: .78rem; background: color-mix(in oklch, var(--cal-neutral) 86%, black); color: var(--cal-on-fill); }
+.cal-busy small { font-size: .7rem; color: oklch(1 0 0 / 0.8); font-variant-numeric: tabular-nums; }
+.cal-busy.is-free { background: color-mix(in oklch, var(--type-safe) 90%, black); }
 .cal-arrangement { display: grid; gap: .25rem; padding: .6rem .7rem; width: 100%; text-align: left; margin-top: .6rem; font-size: .76rem; color: color-mix(in oklch, var(--cal-violet) 50%, var(--fg-ink)); background: color-mix(in oklch, var(--cal-violet) 10%, var(--fg-elevated)); border: 1px dashed color-mix(in oklch, var(--cal-violet) 45%, transparent); border-radius: var(--radius-nested); }
 .cal-arrangement span { color: var(--fg-muted); font-size: .75rem; }
 .cal-footnote { display: flex; align-items: start; gap: .5rem; margin-top: 1rem; }
@@ -147,6 +165,31 @@
 .cal-linked { display: block; width: 100%; text-align: left; padding: .75rem; border: 1px solid var(--fg-border); border-radius: var(--radius-nested); color: var(--fg-ink); margin: .5rem 0; background: var(--fg-surface); }
 .cal-linked-text { font-size: .9rem; line-height: 1.7; }
 .cal-back { margin-top: 1.4rem; text-decoration: underline; color: var(--fg-primary); }
+
+/* ── Event form + confirm ───────────────────────────────────────────────── */
+.cal-form .cal-field { display: grid; gap: .3rem; margin-bottom: .8rem; }
+.cal-form .cal-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.cal-form label, .cal-field-label { font-size: .78rem; font-weight: 600; color: var(--fg-muted); }
+.cal-form input, .cal-form select, .cal-form textarea {
+  width: 100%; padding: .55rem .65rem; font: inherit; font-size: .9rem;
+  border: 1px solid var(--fg-border); border-radius: var(--radius-control);
+  background: var(--fg-surface); color: var(--fg-ink);
+}
+.cal-form textarea { resize: vertical; }
+.cal-swatches { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.cal-swatch { width: 2rem; height: 2rem; border-radius: 999px; border: 2px solid transparent; cursor: pointer; }
+.cal-swatch[data-selected="true"] { border-color: var(--fg-ink); box-shadow: 0 0 0 2px var(--fg-surface) inset; }
+.cal-swatch-custom { width: 2rem; height: 2rem; border-radius: 999px; overflow: hidden; border: 1px dashed var(--fg-border); display: grid; place-items: center; cursor: pointer; }
+.cal-swatch-custom input { width: 150%; height: 150%; padding: 0; border: 0; cursor: pointer; }
+.cal-form-actions { display: flex; align-items: center; gap: .6rem; margin-top: 1.4rem; }
+.cal-form-spacer { flex: 1; }
+.cal-form-error { color: var(--fg-danger); font-size: .82rem; margin-top: .3rem; }
+.cal-btn { padding: .55rem 1rem; border-radius: var(--radius-control); font-size: .88rem; font-weight: 600; border: 1px solid var(--fg-border); background: var(--fg-surface); color: var(--fg-ink); cursor: pointer; }
+.cal-btn-primary { background: var(--fg-primary); color: var(--fg-on-primary); border-color: transparent; }
+.cal-btn-danger { background: color-mix(in oklch, var(--fg-danger) 92%, black); color: var(--cal-on-fill); border-color: transparent; }
+.cal-btn:disabled { opacity: .5; cursor: default; }
+.cal-add { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border-radius: var(--radius-control); font-size: .85rem; font-weight: 600; background: var(--fg-primary); color: var(--fg-on-primary); }
+.cal-detail-actions { display: flex; gap: .6rem; margin-top: 1.4rem; }
 
 /* ── Empty / error / loading ────────────────────────────────────────────── */
 .cal-empty { padding: 1.5rem; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: var(--radius-card); color: var(--fg-ink); }

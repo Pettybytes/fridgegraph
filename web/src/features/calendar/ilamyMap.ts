@@ -11,15 +11,16 @@ import type { CareBand } from './model'
 import { careBand } from './model'
 import { addDays } from './time'
 
-// Design-v2 type colors: pickup/transport = amber, school/activity = blue,
-// care = teal, celebration = violet. Live events carry no category, so they
-// read as neutral (the detail sheet already says "Category not recorded").
-export type CalType = 'amber' | 'blue' | 'teal' | 'violet' | 'neutral'
+// Design-v2 type colors (the vibrant --type-* palette): pickup/transport = amber,
+// school = blue, activity = green, care = teal, celebration = violet-pink. Live
+// events carry no category, so they read neutral gray (the detail sheet already
+// says "Category not recorded").
+export type CalType = 'amber' | 'blue' | 'green' | 'teal' | 'violet' | 'neutral'
 
 export const categoryType: Record<EventCategory, CalType> = {
   PARENTING_HANDOFF: 'amber', // a care handoff is the pickup/transport moment
-  PRACTICE: 'blue',
-  GAME: 'blue',
+  PRACTICE: 'green', // sports / activity
+  GAME: 'green',
   FIELD_TRIP: 'blue',
   SCHOOL_CLOSURE: 'blue',
   RECITAL: 'violet',
@@ -48,6 +49,7 @@ export type IlamyInputEvent = {
     kind: 'mock' | 'live'
     type: CalType
     category: EventCategory | null
+    color?: string // a parent-chosen CSS colour; overrides the type hue in the pill
     status: string // normalized lowercase: proposed | confirmed | cancelled
     original: CalendarEvent | LiveEvent
   }
@@ -92,6 +94,7 @@ export function liveToIlamy(event: LiveEvent, canEdit: boolean): IlamyInputEvent
       kind: 'live',
       type: calTypeOf(null),
       category: null,
+      color: event.color ?? undefined, // a parent-chosen colour overrides the neutral default
       status: normalizeStatus(event.status),
       original: event,
     },
