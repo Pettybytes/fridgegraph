@@ -22,7 +22,7 @@ it.each([
   history.replaceState(null, '', `#/calendar?day=${day}&view=month`)
   const view = render(<LiveFamilyCalendar adapter={adapter} />)
   await waitFor(() => expect(readWindow).toHaveBeenCalledWith({ childId: 'p_nora', from, to, includeCancelled: false }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Caregivers', exact: true }))
+  fireEvent.click(await screen.findByRole('button', { name: /^Caregivers$/ }))
   expect(screen.getByTestId('calendar-grid')).toHaveAttribute('data-day', caregiverWeek)
   view.unmount()
 })
