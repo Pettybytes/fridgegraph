@@ -96,9 +96,11 @@ async function readStoredRides(read:Read,session:MapSession,signal:AbortSignal):
  }
 }
 export function createVillageWorldReader(client:ApolloClient,runRead:<T>(read:()=>Promise<T>)=>Promise<T>,now:()=>number=Date.now){
+ // Each map lifetime owns its AbortSignal. Reusing an aborted in-flight request
+ // across a child or capability remount would fail the new authorized map.
  const read:Read=async<T>(query:ReturnType<typeof gql>,variables:Record<string,string>,signal:AbortSignal)=>{
   try{
-   const result=await runRead(()=>client.query<T>({query,variables,fetchPolicy:'no-cache',context:{fetchOptions:{signal}}}))
+   const result=await runRead(()=>client.query<T>({query,variables,fetchPolicy:'no-cache',context:{queryDeduplication:false,fetchOptions:{signal}}}))
    if(signal.aborted)throw new DOMException('Aborted','AbortError')
    if(!result.data)throw Error('WORLD_READ_UNAVAILABLE')
    return result.data

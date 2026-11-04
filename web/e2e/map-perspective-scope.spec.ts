@@ -1,0 +1,37 @@
+import {test,expect} from '@playwright/test'
+const parents=['Kendra','Andre','Dana',"Jax's family",'Rosa Castellano','Felicia Reyes','Simone Lee','Dwayne Ferris']
+for(const name of parents)test(`${name} sees each authorized child's live map`,async({page})=>{
+ const worlds=new Map<string,any>()
+ page.on('response',async response=>{if(response.url().endsWith('/graphql')&&response.request().postData()?.includes('WebMapVillageWorld')){const childId=response.request().postDataJSON()?.variables?.childId;// A child switch can cancel an earlier read before its body is available.
+  const body=await response.json().catch(()=>null);if(body)worlds.set(childId,body)}})
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message))
+ await page.goto('/')
+ await page.getByRole('button',{name:`Explore as ${name}`,exact:true}).click()
+ await expect(page.getByRole('button',{name:'Leave perspective',exact:true})).toBeVisible()
+ await page.evaluate(()=>{location.hash='/village'})
+ const selector=page.locator('main').getByRole('combobox',{name:'Viewing',exact:true})
+ await expect(selector.locator('option').first()).toBeAttached()
+ const children=await selector.locator('option').evaluateAll(options=>options.map(option=>({id:(option as HTMLOptionElement).value,name:option.textContent!})))
+ expect(children.length).toBeGreaterThan(0)
+ for(const child of children){
+  await page.evaluate(()=>{location.hash='/village'})
+  await selector.selectOption(child.id)
+  await page.evaluate(()=>{location.hash='/map'})
+  await expect.poll(()=>worlds.has(child.id)).toBe(true)
+  const body=worlds.get(child.id)
+  expect(body.errors).toBeUndefined()
+  expect(body.data.villageWorld.child.id).toBe(child.id)
+  expect(body.data.villageWorld.people.length).toBeGreaterThan(0)
+  expect(body.data.villageWorld.places.length).toBeGreaterThan(0)
+  const map=page.getByRole('region',{name:'Village map',exact:true})
+  await expect(map).toHaveAttribute('data-state','live')
+  await expect(map).not.toContainText(/isn't shared|Couldn't load|Sample data/)
+  const people=body.data.villageWorld.people.map((row:{person:{id:string}})=>row.person.id)
+  if(['p_jax','p_malik','p_emma','p_taylor','p_skye','p_micah','p_avery'].includes(child.id))expect(people).not.toContain('p_mom')
+  // Dana is a recorded friend-parent in Nora's village. Dwayne has no Ellison relationship.
+  if(['p_nora','p_max','p_leo'].includes(child.id))expect(people).not.toContain('p_dwayne')
+  if(child.id==='p_malik')expect(people).not.toContain('p_dana')
+  console.info(`${name}: ${child.id}: ${people.length} members, ${body.data.villageWorld.places.length} places`)
+ }
+ expect(errors).toEqual([])
+})

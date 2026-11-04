@@ -54,6 +54,8 @@ test('Demo guide browses every page and all families without write controls',asy
   await expect(main).toContainText(child.name.split(' ')[0])
   main=await open(page,'calendar')
   await expect(main).toContainText(child.name)
+  main=await open(page,'map')
+  await expect(main.getByRole('region',{name:'Village map',exact:true})).toHaveAttribute('data-state','live')
  }
  expect(pageErrors).toEqual([])
  await expect(page.getByRole('button',{name:'Reset demo',exact:true})).toHaveCount(0)
