@@ -12,6 +12,27 @@ const tiles: Record<string, Target> = {
   'Parent approvals': { kind: 'approval' }, 'Open items': { kind: 'open' },
 }
 
+declare global { interface Window { __pulseTiming?: { started: number; rendered: number | null } } }
+
+async function measureClickToRecords(locator: Locator, wanted: string[]) {
+  await locator.evaluate((element, ids) => {
+    window.__pulseTiming = undefined
+    element.addEventListener('click', () => {
+      const timing = { started: performance.now(), rendered: null as number | null }
+      window.__pulseTiming = timing
+      const observer = new MutationObserver(() => {
+        const panel = document.querySelector('[aria-label="Selected pulse records"]')
+        if (!panel || !panel.getBoundingClientRect().height) return
+        const actual = [...panel.querySelectorAll('[data-pulse-record-id]')].map(row => row.getAttribute('data-pulse-record-id')!).sort()
+        if (JSON.stringify(actual) !== JSON.stringify(ids)) return
+        timing.rendered = performance.now() - timing.started
+        observer.disconnect()
+      })
+      observer.observe(document.querySelector('.vp')!, { childList: true, subtree: true, attributes: true })
+    }, { once: true, capture: true })
+  }, wanted)
+}
+
 async function pointerClick(locator: Locator) {
   await locator.scrollIntoViewIfNeeded()
   // Use an actual painted SVG point. The center of a donut's bounding box is its hole.
@@ -99,12 +120,14 @@ test('every tile, chart segment, bucket and daily count opens exact records with
       const target = tile ? tiles[tile] : JSON.parse((await action.getAttribute('data-pulse-action'))!) as Target
       const wanted = expected(target)
       await action.scrollIntoViewIfNeeded()
-      const start = Date.now()
+      // Start at the actual browser click, excluding automation's scrolling/hit-point discovery.
+      await measureClickToRecords(action, wanted)
       await pointerClick(action)
       const records = page.getByRole('region', { name: 'Selected pulse records' })
       await expect(records).toBeVisible({ timeout: 3000 })
-      await expect.poll(async () => (await records.locator('[data-pulse-record-id]').evaluateAll(rows => rows.map(row => row.getAttribute('data-pulse-record-id')!).sort())), { timeout: Math.max(1, 3000 - (Date.now() - start)), message: `Exact records for ${tile ?? JSON.stringify(target)}` }).toEqual(wanted)
-      const elapsed = Date.now() - start
+      await expect.poll(async () => (await records.locator('[data-pulse-record-id]').evaluateAll(rows => rows.map(row => row.getAttribute('data-pulse-record-id')!).sort())), { timeout: 3000, message: `Exact records for ${tile ?? JSON.stringify(target)}` }).toEqual(wanted)
+      await expect.poll(() => page.evaluate(() => window.__pulseTiming?.rendered ?? null), { timeout: 3000 }).not.toBeNull()
+      const elapsed = await page.evaluate(() => window.__pulseTiming!.rendered!)
       expect(elapsed, 'Click to reconciled records must take under 3 seconds').toBeLessThan(3000)
       slowest = Math.max(slowest, elapsed); actions++
       if (actions % 30 === 0) console.log(`${viewport.name}: ${actions} clicks reconciled`)
