@@ -63,7 +63,7 @@ export default function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
   // authoritative live signal; the persona id identifies the same read-only guide under mock auth.
   const isDemoGuide = session.marks?.demoGuide === true || session.persona.id === 'demo-guide'
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
-    <VoiceProvider getAccessToken={() => getCurrentSession()?.accessToken ?? null} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
+    <VoiceProvider deps={{ stream: import.meta.env.VITE_VOICE_STREAM_LAB === '1' }} getAccessToken={() => getCurrentSession()?.accessToken ?? null} getSelectedChildId={() => getCurrentSession()?.scope.childId} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope} cache={connection?.client?.cache}>
       <PageChildAccess client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>

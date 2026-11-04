@@ -64,6 +64,8 @@ export function createBrowserVoiceRoutes(deps) {
     const contentType = req.headers['content-type']
     const reqId = crypto.randomUUID().slice(0, 8)
     const t0 = now()
+    const selectedChildId = req.headers['x-rosina-child']
+    if (selectedChildId !== undefined && (typeof selectedChildId !== 'string' || !/^p_[a-z0-9_]{1,60}$/.test(selectedChildId))) { send(res, 400, { error: 'INVALID_CHILD_CONTEXT' }); return }
     let transcript, source = 'audio', history = [], asrMs = null
 
     if ((contentType || '').includes('application/json')) {
@@ -81,7 +83,7 @@ export function createBrowserVoiceRoutes(deps) {
       transcript = String(asr.transcript).trim()
     }
 
-    const tRos = now(); const ros = await rosinaTurn({ token, message: transcript, history }); const rosinaMs = now() - tRos
+    const tRos = now(); const ros = await rosinaTurn({ token, message: transcript, history, selectedChildId }); const rosinaMs = now() - tRos
     if (!ros.ok) { log(`req=${reqId} ROSINA_UNAVAILABLE status=${ros.status} rosinaMs=${rosinaMs}`); send(res, 502, { error: 'ROSINA_UNAVAILABLE', status: ros.status }); return }
     const reply = String(ros.reply ?? '')
     const tTts = now(); const tts = await speak(reply); const ttsMs = now() - tTts

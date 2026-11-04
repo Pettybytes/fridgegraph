@@ -23,7 +23,7 @@ import type { VoiceController } from './RosinaVoiceButton'
 export type VoiceBinding = {
   getHistory?: () => HistoryMessage[]
   onTranscript?: (text: string) => void
-  onReply?: (reply: string, actions: unknown[]) => void
+  onReply?: VoiceDeps['onReply']
 }
 
 export type VoiceStartHandle = { start: () => void }
@@ -33,8 +33,9 @@ const VoiceControllerContext = createContext<VoiceController | null>(null)
 const VoiceStartContext = createContext<VoiceStartHandle | null>(null)
 const VoiceBindContext = createContext<VoiceBindApi | null>(null)
 
-export function VoiceProvider({ getAccessToken, resetKey, deps, children }: {
+export function VoiceProvider({ getAccessToken, getSelectedChildId, resetKey, deps, children }: {
   getAccessToken: VoiceDeps['getAccessToken']
+  getSelectedChildId?: VoiceDeps['getSelectedChildId']
   resetKey?: unknown
   deps?: Partial<Omit<VoiceDeps, 'getAccessToken' | 'resetKey' | 'getHistory' | 'onTranscript' | 'onReply'>>
   children: ReactNode
@@ -42,10 +43,11 @@ export function VoiceProvider({ getAccessToken, resetKey, deps, children }: {
   const bindingRef = useRef<VoiceBinding>({})
   const v = useRosinaVoice({
     getAccessToken,
+    getSelectedChildId,
     resetKey,
     getHistory: () => bindingRef.current.getHistory?.() ?? [],
     onTranscript: (t) => bindingRef.current.onTranscript?.(t),
-    onReply: (r, a) => bindingRef.current.onReply?.(r, a),
+    onReply: (r, a, response) => bindingRef.current.onReply?.(r, a, response),
     ...deps,
   })
   const vRef = useRef(v); vRef.current = v
@@ -87,7 +89,7 @@ export function useVoiceBinding(binding: VoiceBinding) {
     const live: VoiceBinding = {
       getHistory: () => ref.current.getHistory?.() ?? [],
       onTranscript: (t) => ref.current.onTranscript?.(t),
-      onReply: (r, a) => ref.current.onReply?.(r, a),
+      onReply: (r, a, response) => ref.current.onReply?.(r, a, response),
     }
     api.setBinding(live)
     return () => { api.clearBinding(live); api.cancel() }

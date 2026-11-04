@@ -12,7 +12,11 @@ export default defineConfig({
       '/api/orbit': { target: 'http://127.0.0.1:4008', changeOrigin: true },
       '/api/village': { target: 'http://127.0.0.1:4008', changeOrigin: true },
       '/api/demo': { target: 'http://127.0.0.1:4008', changeOrigin: true },
-      '/api/rosina': { target: 'http://127.0.0.1:4200', changeOrigin: true },
+      '/api/rosina': { target: process.env.VOICE_STREAM_LAB === '1' ? 'http://127.0.0.1:4202' : 'http://127.0.0.1:4200', changeOrigin: true },
+      ...(process.env.VOICE_STREAM_LAB === '1' ? {
+        '/voice/stream': { target: 'http://127.0.0.1:4123', changeOrigin: true },
+        '/voice/transcribe-prefix': { target: 'http://127.0.0.1:4123', changeOrigin: true },
+      } : {}),
       // Browser voice (#71 voice-turn server, VOICE_PORT default 4118). Same-origin so the
       // caller's bearer is forwarded exactly like a Rosina text turn; keys stay server-side.
       // Trailing slash so it matches /voice/turn + /voice/transcribe, never /voice-turn.

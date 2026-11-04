@@ -342,13 +342,13 @@ const browserRoutes = createBrowserVoiceRoutes({
   allow: (personId) => allowVoice(personId),
   transcribe,
   speak,
-  rosinaTurn: async ({ token, message, history }) => {
+  rosinaTurn: async ({ token, message, history, selectedChildId }) => {
     let ros
     try {
       ros = await fetch(ROSINA_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: AUTH_PREFIX + token },
-        body: JSON.stringify({ message, currentRoute: '/voice', history }),
+        body: JSON.stringify({ message, currentRoute: '/voice', history, selectedChildId }),
       })
     } catch { return { ok: false, status: 0 } }
     const text = await ros.text()

@@ -140,7 +140,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }
   // /voice/turn already ran the turn. Insert its output; never call ask/send here.
   function appendUserMessage(text:string) { append('PARENT',text) }
-  function appendRosinaReply(reply:string,actions:unknown[]) { accept({reply,actions}) }
+  function appendRosinaReply(reply:string,actions:unknown[],response?:Record<string,unknown>) { accept({...response,reply,actions} as RosinaResponse) }
   function accept(response: RosinaResponse) {
     const actions=validateActions(response.actions)
     // Keep validated cards until their live dependencies settle; execution still rechecks permission.
@@ -162,7 +162,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     const history=messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))
     if(recordUser)append('PARENT',message)
     try {
-      const response=await adapter.send({message,currentRoute:location.hash||'#/mission-control',history},controller.signal)
+      const response=await adapter.send({message,currentRoute:location.hash||'#/mission-control',selectedChildId:session?.scope.childId,history},controller.signal)
       if(owns()){if(response.notice==='sign-in'){setNeedsSignIn(true);const renewed=await renewSession();if(owns()&&renewed){setNeedsSignIn(false);append('ROSINA','Your perspective is ready again. Please send your question again.')}else if(owns()){if(authMode==='live'){setNeedsSignIn(false);append('ROSINA','Busy, try again in a moment')}else accept(response)}}else accept(response)}
     }catch(error){
       if(owns() && !(error instanceof RosinaCancelled)) {
