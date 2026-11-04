@@ -62,3 +62,7 @@ and committed-response requirements are unchanged. No session payload or credent
 Bentley has the run ID for numeric connection, query and lock-wait investigation. No additional
 shared reset should be inferred from test discovery or offline checks. Reset acceptance stays open;
 Claude owns served PASS, and live analytics implementation remains queued behind this fix.
+
+The subsequent guide showcase change in #240 removes the guide-reset exception. The current
+integrated source keeps reset parent/guardian-only and the Demo guide read-only. The observations
+above identify the earlier served asset and must not be read as deployment proof for that change.

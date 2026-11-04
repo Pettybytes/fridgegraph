@@ -2,8 +2,9 @@
 
 The browser makes one `POST /api/demo/reset` with `{runId: <UUID v4>}` and its current demo bearer.
 The endpoint derives the actor and permitted seeded persona from the verified JWT and server cast.
-Seeded parents, guardians and the marked Demo guide may reset; caregivers cannot. This is the
-single guide-write exception. Origin, loopback, per-client-IP, cooldown and serialization guards
+Seeded parents and guardians may reset; caregivers and the Demo guide cannot. The guide showcase
+change in #240 removed the reset exception to preserve its read-only contract. Origin, loopback,
+per-client-IP, cooldown and serialization guards
 remain. Created-family personas cannot reset the baseline that would remove their own identity.
 
 Migration0096 adds the owner-only `restore_demo_snapshot(actor,runId,fixtures,cast)` function and
