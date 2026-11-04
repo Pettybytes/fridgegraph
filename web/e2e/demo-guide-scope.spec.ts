@@ -173,3 +173,20 @@ test('Guide activates Orbit, receives a caregiver response and confirms found sa
  await page.getByRole('button',{name:'Reset Ellison showcase',exact:true}).click()
  await expect(page.getByText('Demo reset.',{exact:true}).first()).toBeVisible()
 })
+
+for(const [persona,childId,childName] of [['Loretta','p_nora','Nora Ellison'],['Priya','p_nora','Nora Ellison'],['Priya','p_malik','Malik Ferris']]){
+ test(`${persona} loads the shared Living Village for ${childName}`,async({page})=>{
+  await page.goto('/')
+  await page.getByRole('button',{name:`Explore as ${persona}`,exact:true}).click()
+  await expect(page.getByRole('button',{name:'Leave perspective',exact:true})).toBeVisible()
+  await page.evaluate(()=>{location.hash='/village'})
+  const main=page.locator('main')
+  await main.getByRole('combobox',{name:'Viewing',exact:true}).selectOption(childId)
+  await expect(main.getByRole('heading',{name:`A village around ${childName}.`,exact:true})).toBeVisible()
+  await expect(main.locator('[data-state="live"]')).toBeVisible()
+  await expect(main).not.toContainText(/Couldn't load|isn't shared|refused/)
+  await main.getByRole('button',{name:'List view',exact:true}).click()
+  await expect(main.getByRole('button',{name:new RegExp(persona)}).first()).toBeVisible()
+  await expect(main.getByRole('button',{name:/approve/i})).toHaveCount(0)
+ })
+}

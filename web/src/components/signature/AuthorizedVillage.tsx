@@ -8,11 +8,11 @@ import {VillageRings} from './VillageRings'
 import {readSignatureVillage,type VillageScene} from './villageRead'
 import {sampleDadStatus} from '@/features/shared-status/sampleStatus'
 type Read=<T>(read:()=>Promise<T>)=>Promise<T>
-export type AuthorizedVillageProps={client:ApolloClient|null;child:VillageChild|null;runRead:Read;portraitFor?:(id:string)=>string|undefined}
+export type AuthorizedVillageProps={client:ApolloClient|null;child:VillageChild|null;runRead:Read;portraitFor?:(id:string)=>string|undefined;householdView?:boolean}
 type SceneState={owner:ApolloClient|null;childId:string;status:'loading'|'ready'|'refused'|'error';scene?:VillageScene}
-function useScene({client,child,runRead}:AuthorizedVillageProps,revision:number){
- const load=useCallback(()=>readSignatureVillage(client!,child!.id,runRead,new AbortController().signal),[client,child?.id,runRead,revision])
- const cached=useCachedResource(child?client:null,`village:${child?.id}`,load,2500)
+function useScene({client,child,runRead,householdView=true}:AuthorizedVillageProps,revision:number){
+ const load=useCallback(()=>readSignatureVillage(client!,child!.id,runRead,new AbortController().signal,householdView),[client,child?.id,runRead,revision,householdView])
+ const cached=useCachedResource(child?client:null,`village:${child?.id}:${householdView?'family':'shared'}`,load,2500)
  const state:SceneState|null=!child||!client?null:{owner:client,childId:child.id,status:cached?.error?/UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(cached.error)?'refused':'error':cached?.value?'ready':'loading',scene:cached?.value}
  return state
 }

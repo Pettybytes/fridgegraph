@@ -12,3 +12,14 @@ it('keeps distinct recorded statuses for multiple roles and assigns a stable doc
  const edges=[{id:'two',from:{id:'person',displayName:'Person'},to:{id:'child'},type:'sitter',status:'DISCOVERED'},{id:'one',from:{id:'person',displayName:'Person'},to:{id:'child'},type:'aunt',status:'ACTIVE'}]
  let reversed=false;const client=new ApolloClient({cache:new InMemoryCache(),link:new ApolloLink(()=>new Observable(observer=>{observer.next({data:{child:{person:{id:'child',displayName:'Child'}},householdMembers:[],relationships:reversed?[...edges].reverse():edges}});observer.complete()}))});const first=await readSignatureVillage(client,'child',fn=>fn());reversed=true;const second=await readSignatureVillage(client,'child',fn=>fn());expect(first.people[0].relationshipStatus).toBeUndefined();expect(first.people[0].relationshipDetails).toEqual([{type:'aunt',status:'ACTIVE'},{type:'sitter',status:'DISCOVERED'}]);expect(first.people[0].group).toBe('Family');expect(second.people).toEqual(first.people);client.stop()
 })
+it('reads the existing shared world without requesting parent-only household or relationship fields',async()=>{
+ const operations:string[]=[]
+ const client=new ApolloClient({cache:new InMemoryCache(),link:new ApolloLink(operation=>new Observable(observer=>{
+  operations.push(operation.operationName??'')
+  observer.next({data:{villageWorld:{child:{id:'child',person:{id:'child',displayName:'Child'}},people:[{person:{id:'caregiver',displayName:'Caregiver'},relationship:'sitter'}]}}});observer.complete()
+ }))})
+ const scene=await readSignatureVillage(client,'child',fn=>fn(),undefined,false)
+ expect(operations).toEqual(['WebSharedVillage'])
+ expect(scene.people).toEqual([{id:'caregiver',name:'Caregiver',relationship:'sitter',group:'Care'}])
+ client.stop()
+})

@@ -48,7 +48,7 @@ export function orbitError(error:unknown):string{
  const text=[e?.message,...(e?.errors??[]).flatMap(x=>[x.message,x.extensions?.code])].join(' ')
  if(/ORBIT_PLACE_NOT_YOURS/.test(text))return 'Choose a place shared with this child.'
  if(/ORBIT_DRAFT_STALE|ORBIT_PREVIEW_MISMATCH/.test(text))return 'The draft changed. Review it again.'
- if(/DEMO_GUIDE_READ_ONLY/.test(text))return 'Demo guide is read-only'
+ if(/DEMO_GUIDE_READ_ONLY/.test(text))return 'This action is available only in the showcase family'
  if(/UNAUTHORIZED|PHOTO_NOT_SHARED/.test(text))return "This isn't shared with you."
  if(/UNAUTHENTICATED/.test(text))return 'Your perspective needs refreshing. Try this action again.'
  if(/ORBIT_ALREADY_ACTIVE/.test(text))return 'An Orbit alert is already active. Refresh to see its recorded state.'
