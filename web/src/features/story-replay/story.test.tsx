@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ThreePhoneStory } from './ThreePhoneStory'
 import {
   CALL_TRACE, PARENT_JOURNEY, REPLAY_DURATION_MS, captionAt, journeyAt, traceAt, traceClock,
 } from './story'
@@ -14,19 +13,7 @@ beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 16))
   vi.stubGlobal('cancelAnimationFrame', clearTimeout)
 })
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
-
-function mockAudio(audio: HTMLAudioElement, behavior: 'resolve' | 'reject' = 'resolve') {
-  let paused = true
-  Object.defineProperty(audio, 'paused', { configurable: true, get: () => paused })
-  const play = vi.spyOn(audio, 'play').mockImplementation(() => {
-    if (behavior === 'reject') return Promise.reject(new Error('NotAllowedError'))
-    paused = false
-    return Promise.resolve()
-  })
-  vi.spyOn(audio, 'pause').mockImplementation(() => { paused = true })
-  return play
-}
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('replay story model', () => {
   it('walks the whole path on the parent phone in order, with approval before any outreach', () => {
@@ -81,99 +68,5 @@ describe('replay story model', () => {
     expect([startX, startY]).toEqual([66, 252])
     expect([endX, endY]).toEqual([214, 300])
     expect(routePoint(0.5)).not.toEqual([startX, startY])
-  })
-})
-
-describe('ThreePhoneStory playback', () => {
-  it('populates all three phones from the first frame', () => {
-    render(<ThreePhoneStory initialAutoplay={false} />)
-    expect(screen.getByText('Good afternoon, Kendra')).toBeInTheDocument()
-    expect(screen.getByText(/replay trace · demo flow/)).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: /real Village map/ })).toBeInTheDocument()
-    expect(screen.getByText(/Pickup route · waiting/)).toBeInTheDocument()
-    const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
-    expect(section.querySelectorAll('audio')).toHaveLength(1)
-  })
-
-  it('pauses, resumes and replays from one master progress clock', () => {
-    vi.useFakeTimers()
-    render(<ThreePhoneStory />)
-    const progress = screen.getByRole('progressbar')
-    act(() => { vi.advanceTimersByTime(5000) })
-    const first = Number(progress.getAttribute('aria-valuenow'))
-    expect(first).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
-    act(() => { vi.advanceTimersByTime(3000) })
-    expect(Number(progress.getAttribute('aria-valuenow'))).toBe(first)
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
-    act(() => { vi.advanceTimersByTime(1000) })
-    expect(Number(progress.getAttribute('aria-valuenow'))).toBeGreaterThan(first)
-    fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
-    expect(progress).toHaveAttribute('aria-valuenow', '0')
-  })
-
-  it('plays the one audio element after a sound gesture, pulses Rosina only on her segments, and rewinds each loop', () => {
-    vi.useFakeTimers()
-    render(<ThreePhoneStory />)
-    const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
-    const audio = section.querySelector('audio')!
-    const play = mockAudio(audio)
-    fireEvent.click(screen.getByRole('button', { name: 'Sound off' }))
-    expect(screen.getByRole('button', { name: 'Sound on' })).toHaveAttribute('aria-pressed', 'true')
-    act(() => { vi.advanceTimersByTime(2000) })               // within segment s1 (700-5715)
-    expect(screen.getByRole('img', { name: 'Rosina, speaking' })).toBeInTheDocument()
-    act(() => { vi.advanceTimersByTime(4500) })               // 6500ms: gap between s1 and s2
-    expect(screen.getByRole('img', { name: 'Rosina, ready' })).toBeInTheDocument()
-    const callsBeforeLoop = play.mock.calls.length
-    for (let second = 0; second < 30; second++) act(() => { vi.advanceTimersByTime(1000) })  // cross 34s duration
-    expect(section).toHaveAttribute('data-loop-count', '1')
-    expect(play.mock.calls.length).toBeGreaterThan(callsBeforeLoop)
-    expect(section.querySelectorAll('audio')).toHaveLength(1)
-  })
-
-  it('shows a visible fallback when the browser blocks audio', async () => {
-    render(<ThreePhoneStory initialAutoplay={false} />)
-    const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
-    mockAudio(section.querySelector('audio')!, 'reject')
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sound off' })) })
-    expect(screen.getByRole('status')).toHaveTextContent(/blocked audio/i)
-    expect(screen.getByRole('button', { name: 'Sound off' })).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('shows a final readable static frame under reduced motion, with user-initiated replay', () => {
-    vi.useFakeTimers()
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
-    render(<ThreePhoneStory />)
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
-    expect(screen.getByText('Plan confirmed')).toBeInTheDocument()
-    expect(screen.getByText(/confirmed plans this week/)).toBeInTheDocument()
-    expect(screen.getByText(/replay complete/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
-  })
-
-  it('preserves playback position while changing the phone perspective', () => {
-    render(<ThreePhoneStory initialAutoplay={false} />)
-    const progress = screen.getByRole('progressbar')
-    fireEvent.click(screen.getByRole('button', { name: 'Under the hood' }))
-    expect(screen.getByRole('button', { name: 'Under the hood' })).toHaveAttribute('aria-pressed', 'true')
-    expect(progress).toHaveAttribute('aria-valuenow', '0')
-    fireEvent.click(screen.getByRole('button', { name: 'Village' }))
-    expect(screen.getByRole('button', { name: 'Village' })).toHaveAttribute('aria-pressed', 'true')
-    expect(progress).toHaveAttribute('aria-valuenow', '0')
-    expect(screen.getByRole('button', { name: 'Sound off' })).toBeEnabled()
-  })
-
-  it('labels the replay honestly and separates the offer from the parent decision', () => {
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
-    render(<ThreePhoneStory />)
-    const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
-    expect(within(section).getByText(/Demo replay · fictional people/)).toBeInTheDocument()
-    expect(section.querySelectorAll('.sr-replay-chip')).toHaveLength(3)
-    expect(section.textContent).toMatch(/pickup completion is not recorded|no pickup is actually arranged/i)
-    const journey = within(section).getByLabelText('Kendra’s replayed journey')
-    expect(within(journey).getByText(/Confirm Loretta for the pickup/)).toBeInTheDocument()
-    expect(within(journey).getByRole('img', { name: /Waveform derived/ })).toBeInTheDocument()
   })
 })

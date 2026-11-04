@@ -113,3 +113,9 @@ li[data-tag=coord] .sr-tag{color:var(--srt-str);border-color:color-mix(in oklch,
 .sr-recorded .sr-heading h2{text-wrap:balance}
 .sr-recorded figcaption,.sr-recorded .sr-footnote{text-wrap:pretty}
 @media(max-width:860px){.sr-recorded .sr-player{padding:8px;gap:8px}.sr-recorded .sr-controls{gap:6px;flex-wrap:nowrap}.sr-recorded .sr-controls button{padding:0 10px;font-size:13px}}
+
+/* Keep the explicit sound opt-in readable inside a 390px phone viewport. */
+.sr .sr-player { border-radius: 20px; }
+.sr .sr-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.sr .sr-controls button:last-child { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.sr .sr-controls button:disabled { opacity: .5; cursor: wait; }

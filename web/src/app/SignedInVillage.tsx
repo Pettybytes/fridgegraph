@@ -31,7 +31,7 @@ import { createMockCalendarAdapter } from '@/features/calendar/mockAdapter'
 import { PersonaAccessState } from '@/features/personas/PersonaAccessState'
 import { PageChildAccess } from '@/features/personas/GuideDirectory'
 import { createLiveInvite } from '@/features/invites/liveInvite'
-const ThreePhoneStory = lazy(() => import('@/features/story-replay/RecordedReplay').then(m => ({ default: m.RecordedReplay })))
+const ThreePhoneStory = lazy(() => import('@/features/story-replay/DemoReplay').then(m => ({ default: m.DemoReplay })))
 const LivingVillage = lazy(() => import('@/features/village').then(module => ({ default: module.LivingVillage })))
 function SharingBoundary({ surface }: { surface: 'pickup' | 'village' }) {
   const { session } = useSession()

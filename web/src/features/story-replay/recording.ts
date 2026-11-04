@@ -1,4 +1,4 @@
-import audioSrc from './assets/rosina-narration.mp3'
+const audioSrc = '/replay/narration.mp3'
 
 /** This rehearsal is deliberately marked incomplete until the public journey can finish.
  * The export pipeline replaces these three files without changing the media clock. */

@@ -1,4 +1,4 @@
-import narrationUrl from './assets/rosina-narration.mp3'
+import narrationUrl from './assets/rosina-master.mp3'
 import manifest from './assets/rosina-narration.json'
 import lorettaClip from './assets/voice-three-phone-loretta.json'
 

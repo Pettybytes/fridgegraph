@@ -1,8 +1,9 @@
 # Demo replay
 
-The Demo guide tab lazy-loads `RecordedReplay`. Its three silent H.264 videos share the parent
-video's playback clock, with one separate Rosina narration element. A buffering track pauses the
-whole group. Play, Pause, Replay and Sound control all tracks; changing the mobile phone selection
+The Demo guide tab lazy-loads `DemoReplay`. It keeps the labeled illustrative replay until
+`RECORDING.complete` is true. The recorded preview uses three silent H.264 videos. Both players
+use one fully preloaded Rosina audio element as the master clock. Videos follow audio time; a
+buffering video recovers independently without interrupting narration. Play, Pause, Replay and Sound control all tracks; changing the mobile phone selection
 preserves time. Playback starts only on a user action, including with reduced motion enabled.
 
 `recording.ts` describes the exports, captions and disclosure. The current exports are an
@@ -22,10 +23,12 @@ clips and their source trims in that timeline when a complete Playwright or Reco
 Render H.264 at CRF 23 with preset `veryfast`, remux with `-movflags +faststart`, and export the first
 frame as each poster. Keep the three clips the same duration and below 15 MB in total.
 
-Exports live in `web/public/replay/`. Posters are immediately available; video sources are attached
-when the player enters view or Play is pressed. The audio is the existing recorded ElevenLabs
-asset, with playback unlocked by the Sound button. The current capture's limited narration window
-is intentional and must be updated only when the missing steps have been captured.
+Exports live in `web/public/replay/`. The tab itself is lazy-loaded. Audio uses `preload="auto"`;
+Play is disabled with a loading explanation until `canplaythrough` and the whole file is buffered.
+Sound starts muted with “Tap to turn sound on”; toggling sound does not start playback or seek.
+Only Replay seeks the narration. Both narration assets reuse the existing ElevenLabs recording,
+padded with silence to cover the 34-second timeline. The incomplete capture uses only the first
+19.8 seconds of speech, before any uncaptured approval claims.
 
 Local preview: start Vite and open `/recorded-replay.html`. The previous illustrative version and
 its standalone `/story-replay-preview.html` remain available for comparison. Mission Control and
