@@ -1,0 +1,176 @@
+{
+  "at": "2026-11-03T05:34:59.499Z",
+  "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
+  "migration": "supabase/migrations/0087_outreach_dispatch.sql",
+  "checks": [
+    {
+      "name": "resetDemo table lists do not include outreach safety records",
+      "status": "PASS",
+      "detail": "none listed"
+    },
+    {
+      "name": "postgres reached",
+      "status": "PASS",
+      "detail": "sha256:0cefa"
+    },
+    {
+      "name": "0087 applied to a disposable database",
+      "status": "PASS",
+      "detail": "single transaction, no error"
+    },
+    {
+      "name": "guard refuses delete from outreach_suppression",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "guard refuses truncate outreach_allowance",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "guard refuses delete from outreach_dispatch",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "guard refuses delete from outreach_reservation",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "authenticated cannot select outreach_dispatch",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "authenticated cannot insert outreach_suppression",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "authenticated cannot update outreach_allowance",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "authenticated cannot execute outreach_claim",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "authenticated cannot execute outreach_reserve",
+      "status": "PASS",
+      "detail": "42501"
+    },
+    {
+      "name": "dispatch identity is deterministic",
+      "status": "PASS",
+      "detail": "0d91bf2a4fb4"
+    },
+    {
+      "name": "a different message kind is a different identity",
+      "status": "PASS"
+    },
+    {
+      "name": "first claim on PENDING succeeds",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"token\":\"a733fd24-1d52-4cfe-8133-cf31e57917fa\",\"reclaimed\":false,\"expires_at\":\"2026-11-03T05:35:58.858565+00:"
+    },
+    {
+      "name": "a live claim cannot be stolen",
+      "status": "PASS",
+      "detail": "NOT_CLAIMABLE"
+    },
+    {
+      "name": "mark_handoff is fenced (wrong token refused)",
+      "status": "PASS"
+    },
+    {
+      "name": "mark_handoff records the handoff before the request",
+      "status": "PASS"
+    },
+    {
+      "name": "lease expiry does NOT make a handed-off dispatch claimable",
+      "status": "PASS",
+      "detail": "HANDOFF_STARTED"
+    },
+    {
+      "name": "fenced accept records the provider id",
+      "status": "PASS"
+    },
+    {
+      "name": "an accepted dispatch is never claimable",
+      "status": "PASS",
+      "detail": "HANDOFF_STARTED"
+    },
+    {
+      "name": "crash after handoff: restart cannot claim the dispatch again",
+      "status": "PASS",
+      "detail": "HANDOFF_STARTED"
+    },
+    {
+      "name": "crash after handoff: exactly one handoff marker, zero additional sends",
+      "status": "PASS",
+      "detail": "markers=1"
+    },
+    {
+      "name": "crash after handoff: the reservation is retained",
+      "status": "PASS"
+    },
+    {
+      "name": "reserve is idempotent per dispatch identity",
+      "status": "PASS",
+      "detail": "used 4 → 4"
+    },
+    {
+      "name": "recipient cap 15 binds at the 16th segment",
+      "status": "PASS",
+      "detail": "LIMIT_RECIPIENT"
+    },
+    {
+      "name": "run cap 50 binds on the fourth 15-segment reservation",
+      "status": "PASS",
+      "detail": "45 used, fourth refused: LIMIT_RUN"
+    },
+    {
+      "name": "day cap 150 binds at the 151st segment across runs",
+      "status": "PASS",
+      "detail": "first ten 10/10 ok; eleventh: LIMIT_DAY"
+    },
+    {
+      "name": "$1 run backstop refuses when segments would exceed the ceiling",
+      "status": "PASS",
+      "detail": "LIMIT_COST_RUN"
+    },
+    {
+      "name": "handoff is refused when the dispatch has no reservation",
+      "status": "PASS",
+      "detail": "claim=true handoff=false"
+    },
+    {
+      "name": "the same handoff succeeds once the reservation exists",
+      "status": "PASS"
+    },
+    {
+      "name": "claim+reserve entry point yields a usable token in one call",
+      "status": "PASS",
+      "detail": "token=true reserved=true"
+    },
+    {
+      "name": "a refused reservation releases its claim (no lease left holding an unusable dispatch)",
+      "status": "PASS",
+      "detail": "{\"ok\":false,\"used\":15,\"limit\":15,\"reason\":\"LIMIT_RECIPIENT\",\"claimReleased\":true} state=PENDING"
+    },
+    {
+      "name": "20 concurrent reservers against a cap of 15: exactly 15 succeed",
+      "status": "PASS",
+      "detail": "won=15 lost=5 used=15"
+    },
+    {
+      "name": "local SQL lifecycle timing (claim→reserve→handoff→accept) p95 ≤ 5 s",
+      "status": "PASS",
+      "detail": "p95 3.8 ms over 12 — local SQL only; reply→visible ≤5 s is NOT proven by this"
+    }
+  ]
+}

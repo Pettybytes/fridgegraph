@@ -74,6 +74,9 @@ jobs:
       - name: Demo app origins
         run: npm run test:demo-origins
 
+      - name: Pickup outreach policy (phone identity, segments, crash safety)
+        run: npm run test:outreach
+
       - name: Client IP resolution
         run: node --import tsx --test src/demo/client-ip.test.ts
 
