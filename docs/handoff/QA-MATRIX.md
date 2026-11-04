@@ -9,12 +9,12 @@ change the historical results below.
 | --- | --- | --- |
 | #220 fixture copy | Em dashes removed from generated care plans, reports, achievements and closure labels; regression guard added | Pending Bentley deploy and Claude |
 | #220 all-family history | Fixed October 5 through November 3 Detroit window, all ten authorized children; 216 simulated jobs and 200 closed test attempts in the source | Pending Bentley seed and Claude |
-| Mission Control copy | Remove approval-unavailable sentence after #220 | Pending fix |
+| Mission Control copy and evidence | Removed approval-unavailable sentence; status-only confirmed rows do not claim parent approval; chart colors use shared tokens | Pending Bentley deploy and Claude |
 | Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
-| Calendar | Light cards and dense calendar fixtures in #220 | Pending Bentley deploy and Claude |
+| Calendar | #220 light cards and fixtures; follow-up fixes month read range and extends all-child pickup fixtures through November 17 | Pending Bentley seed, deploy and Claude |
 | Orbit | Retained by Codex | Pending fix and Claude |
-| Map sample label | Retained by Codex; must follow actual provenance | Pending investigation |
-| Rosina live proof | Retained by Codex; requires served runtime | Pending Bentley runtime and Claude |
+| Map sample label | Actual mock provenance traced to the existing VITE_VILLAGE_MAP_LIVE build flag; live-map flag dependency handed to Bentley | Pending Bentley build flag and Claude |
+| Rosina live proof | Served text read returned HTTP 200 on the older asset; launcher and Send use shared buttons; close restores focus | Pending new served SHA, seed and Claude |
 | Today, Care information, Living Village | Owned by fix/pages-today-care-village | Separate PR and Claude |
 
 The new requests are recorded, ended coordination attempts. They do not assert a physical pickup

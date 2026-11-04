@@ -41,6 +41,10 @@ it('composes daily WEEKLY/ARRANGEMENT answers without manufacturing weekly rules
  expect(data.care['2026-11-25']).toMatchObject({state:'ready',value:{source:'ARRANGEMENT',parent:{id:'p_dad'}}});expect(data.care['2026-11-27']).toMatchObject({state:'ready',value:{source:'ARRANGEMENT'}});expect(data.care['2026-11-28']).toMatchObject({state:'ready',value:{source:'WEEKLY',parent:{id:'p_mom'}}})
  expect(calls.filter(c=>c.name==='WebEffectiveSchedule')).toHaveLength(7);expect(data.conflicts).toMatchObject({state:'ready',value:[{kind:'OVERLAP'}]});expect(adapter.getActionScope().calendarEventIds.has('confirmed')).toBe(true);adapter.clear();expect(adapter.knownEvent('confirmed')).toBeUndefined();client.stop()
 })
+it('accepts a complete six-week month grid without exceeding its read-window limit',async()=>{
+ const f=await fixture(),data=await f.adapter.readWindow({childId:'p_nora',from:'2026-10-26',to:'2026-12-06'})
+ expect(data.days).toHaveLength(42);expect(data.events.state).toBe('ready');expect(f.calls.filter(c=>c.name==='WebEffectiveSchedule')).toHaveLength(42);f.client.stop()
+})
 it('renders the approved holiday band, weekly return, proposals, conflict and Busy/Free honestly',async()=>{
  const {adapter,client}=await fixture();mount(adapter)
  // Care labels live in the flat care-schedule list now, not per-day regions.

@@ -38,7 +38,7 @@ jobs:
         run: npm run test:seed
 
       - name: All-family fictional history and fixture copy
-        run: node --import tsx --test src/demo/pristineHistory.test.ts
+        run: node --import tsx --test src/demo/pristineHistory.test.ts src/demo/calendarDensity.test.ts
 
       - name: MCP config generation tests
         run: npm run test:mcp-config

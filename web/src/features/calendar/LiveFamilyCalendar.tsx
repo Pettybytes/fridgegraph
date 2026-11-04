@@ -34,7 +34,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
   const requested = query.get('day'), eventId = query.get('event')
   const known = eventId ? adapter.knownEvent(eventId) : undefined
   const day = requested ?? (known ? localDay(known.start) : localDay(Date.now())), view: IlamyView = query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
-  const childId = query.get('childId') ?? (eventId ? adapter.knownChild(eventId) : undefined) ?? adapter.scope.childId, from = validDay(day) ? weekStart(day) : '', to = from ? addDays(from, 6) : ''
+  const childId = query.get('childId') ?? (eventId ? adapter.knownChild(eventId) : undefined) ?? adapter.scope.childId, from = validDay(day) ? weekStart(view === 'month' ? `${day.slice(0, 7)}-01` : day) : '', to = from ? addDays(from, view === 'month' ? 41 : 6) : ''
   const key = `${route}:${cancelled}`, current = loaded?.adapter === adapter && loaded.key === key ? loaded.value : null
   const canEdit = adapter.parent
   useEffect(() => { const follow = () => { setRoute(location.hash); setSelected(null); setCareDetail(null); setAvailabilityDetail(null) }; window.addEventListener('hashchange', follow); return () => window.removeEventListener('hashchange', follow) }, [])
@@ -70,7 +70,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     {notSaved && <p className="cal-notsaved" role="status">{notSaved}</p>}
     {eventId && !selected && <p className="cal-attention">Event details are not available in the records read for this view.</p>}
     {lanes
-      ? (() => { const data = liveLaneData(current.days, current.care, childName); return <CaregiverLanes from={from} resources={data.resources} events={data.events} emptyLabel="No care schedule is recorded for this week." onEventClick={event => { const click = event.data as LiveLaneClick | undefined; if (click?.kind === 'care') setCareDetail({ day: click.day, care: click.care }) }} /> })()
+      ? (() => { const data = liveLaneData(current.days, current.care, childName); return <CaregiverLanes from={weekStart(day)} resources={data.resources} events={data.events} emptyLabel="No care schedule is recorded for this week." onEventClick={event => { const click = event.data as LiveLaneClick | undefined; if (click?.kind === 'care') setCareDetail({ day: click.day, care: click.care }) }} /> })()
       : <div className="cal-grid-host">
           <IlamyCalendar
             ref={api}
@@ -94,10 +94,10 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
           {!records.length && <Outcome result={current.events} empty />}
         </div>}
     <section className="cal-schedule-notes">
-      <h3 className="cal-section-title">Care schedule</h3>
-      <p className="cal-section-sub">{childName}'s week of {formatDay(from)}. A care schedule describes responsibility, not a confirmed location.</p>
+      <h2 className="cal-section-title">Care schedule</h2>
+      <p className="cal-section-sub">{childName}'s {view === 'month' ? `calendar range, ${formatDay(from)} to ${formatDay(to)}` : `week of ${formatDay(from)}`}. A care schedule describes responsibility, not a confirmed location.</p>
       <ul className="cal-care-list">{current.days.map(date => { const care = current.care[date]; return <li key={date}><span className="cal-care-day">{formatDay(date)}</span><button type="button" className={`cal-care ${care.state === 'ready' && care.value.source === 'ARRANGEMENT' ? 'is-holiday' : ''}`} onClick={() => setCareDetail({ day: date, care })}>{careLabel(care)}</button>{care.state === 'ready' && care.value.parent && <span className="cal-schedule-source">{care.value.source === 'WEEKLY' ? 'Weekly schedule' : care.value.source === 'ARRANGEMENT' ? 'Approved arrangement' : 'Source not recorded'}</span>}</li> })}</ul>
-      <div className="cal-busy-list"><h4>Recorded Busy/Free time</h4>{slots.map((slot, i) => <button type="button" className={`cal-busy ${slot.state === 'FREE' ? 'is-free' : ''}`} key={i} onClick={() => setAvailabilityDetail(slot)}><span>{slot.person.displayName} · {slot.state === 'FREE' ? 'free time recorded' : slot.state === 'BUSY' ? 'Busy' : 'State not recorded'}</span><small>{formatInstant(slot.start, slot.end)}</small></button>)}{!slots.length && <Outcome result={current.availability} empty />}</div>
+      <div className="cal-busy-list"><h3>Recorded Busy/Free time</h3>{slots.map((slot, i) => <button type="button" className={`cal-busy ${slot.state === 'FREE' ? 'is-free' : ''}`} key={i} onClick={() => setAvailabilityDetail(slot)}><span>{slot.person.displayName} · {slot.state === 'FREE' ? 'free time recorded' : slot.state === 'BUSY' ? 'Busy' : 'State not recorded'}</span><small>{formatInstant(slot.start, slot.end)}</small></button>)}{!slots.length && <Outcome result={current.availability} empty />}</div>
     </section>
     <section className="cal-conflicts"><h3>Schedule conflicts</h3><Outcome result={current.conflicts} empty={!conflicts.length} />{conflicts.map((c, i) => <p className="cal-attention" key={i}>{c.kind === 'OVERLAP' ? `Schedule needs review · overlapping arrangements on ${formatDay(c.onDay)}` : c.kind === 'GAP' ? `Needs coverage · no care schedule recorded on ${formatDay(c.onDay)}` : `Schedule needs review on ${formatDay(c.onDay)}`}</p>)}{!!conflicts.length && <p>Overlaps and gaps are shown on the affected days. No arrangement is chosen here to resolve a conflict.</p>}</section>
     <p className="cal-footnote">Free time recorded does not mean willingness, permission or suitability to provide care.</p>
