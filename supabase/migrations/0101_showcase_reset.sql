@@ -5,7 +5,7 @@ returns jsonb language plpgsql security invoker set search_path=public,pg_temp a
 declare
  children text[]; t text; rows jsonb; fixture_row jsonb; cols text; n int; receipt jsonb;
  cleared jsonb:='{}'; restored jsonb:='{}'; prior public.demo_reset_runs%rowtype;
- tables constant text[]:=array['orbit_alerts','school_report_proposals','villager_proposals',
+ tables constant text[]:=array['school_report_proposals','villager_proposals',
  'coordination_jobs','conversation_state','fridge_item_preferences','fridge_notes','goals',
  'care_plans','care_facts','events','school_reports','permission_slips','grants'];
 begin
@@ -22,6 +22,21 @@ begin
  select array_agg(g.child_id) into children from showcase_parent_grants g
  where g.enabled and exists(select 1 from household_members m join households h on h.id=m.household_id
   where m.person_id=g.child_id and m.role='child' and h.sandbox and h.id in ('h_a','h_b'));
+ -- Preserve the existing append-only response guard. Only the owner's snapshot of
+ -- disposable showcase alerts may authorize response deletion.
+ perform set_config('app.demo_reset','on',true);
+ create temp table if not exists reset_eligibility(alert_id text primary key) on commit drop;
+ delete from reset_eligibility;
+ insert into reset_eligibility(alert_id)
+ select a.id from orbit_alerts a where a.child_id=any(children) and a.sandbox
+ and not exists(select 1 from real_call_authorizations r where r.job_id=a.job_id)
+ and not exists(select 1 from attempts x where x.job_id=a.job_id and x.real_consent_authorization_id is not null)
+ and not exists(select 1 from orbit_audience_members m where m.orbit_alert_id=a.id
+   and m.notification_outcome is distinct from 'SIMULATED' and m.notification_outcome is distinct from 'TEST_RESPONDER');
+ delete from orbit_responses r using reset_eligibility e where r.orbit_alert_id=e.alert_id;
+ delete from orbit_audience_members m using reset_eligibility e where m.orbit_alert_id=e.alert_id;
+ delete from orbit_alerts a using reset_eligibility e where a.id=e.alert_id;
+ perform set_config('app.demo_reset','off',true);
  -- Only relationships actually created by this showcase's proposal are disposable.
  delete from relationships r using villager_proposals p
  where p.child_id=any(children) and p.relationship_id is null and r.id=p.confirmed_relationship_id and r.to_id=any(children);

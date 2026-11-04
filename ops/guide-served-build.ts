@@ -2,6 +2,7 @@
  * Only the session issuer and PostgREST transport are replaced. No external services or credentials.
  */
 import express from 'express';
+import {createDiscoverySweeper} from '../src/village/discoverySweeper';
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { buildASTSchema, graphql, Kind, type DocumentNode, type DefinitionNode } from 'graphql';
@@ -36,6 +37,8 @@ import {createInviteDedup} from '../src/rosina/inviteDedup';
 pg.types.setTypeParser(1082, value => value);
 pg.types.setTypeParser(1114,value=>value.replace(' ','T'));
 pg.types.setTypeParser(1184,value=>new Date(value).toISOString());
+const port=Number(process.env.GUIDE_PORT??5196);
+const baseUrl=`http://127.0.0.1:${port}`;
 const db = await guideDatabase();
 process.once('uncaughtException',async error=>{console.error(error.message);await db.close();process.exit(1)});
 process.once('unhandledRejection',async error=>{console.error(error);await db.close();process.exit(1)});
@@ -133,7 +136,7 @@ app.all('/api/rosina/pin/preferences',createPinPreferencesHandler({
 // External model/media dependencies are deterministic fixtures here. Production
 // handlers, explicit graph authority, database persistence and rate limits are exercised.
 const verify=async(header?:string)=>{const p=personaFor(header);return p?{ok:true as const,personId:p.personId,demoGuide:p.id==='demo-guide'}:{ok:false as const}};
-const authorizeParent=buildInviteParentAuthorizer({graphqlUrl:'http://127.0.0.1:5196/graphql'});
+const authorizeParent=buildInviteParentAuthorizer({graphqlUrl:`${baseUrl}/graphql`});
 const media=createInMemoryMediaStore(),bytes=new Map<string,{bytes:Uint8Array;mimeType:string}>();
 const mediaLoad=async(input:{assetId:string;personId:string;bearer:string})=>{
  const access=await media.access(input),body=bytes.get(input.assetId);
@@ -162,8 +165,8 @@ app.post('/api/rosina/invite',createInviteHandler({verify,authorizeParent,
  ledgerBudget:new Proxy({} as any,{get:()=>()=>{throw Error('Fixture must never spend a live generation budget')}}),
 }));
 const notice=createNoticePlanHandlers({verify,rateLimiter:createRateLimiter(20),
- scheduleReader:buildScheduleReader({graphqlUrl:'http://127.0.0.1:5196/graphql'}),
- requestPickup:buildPickupRequester({graphqlUrl:'http://127.0.0.1:5196/graphql'}),
+ scheduleReader:buildScheduleReader({graphqlUrl:`${baseUrl}/graphql`}),
+ requestPickup:buildPickupRequester({graphqlUrl:`${baseUrl}/graphql`}),
  signingKey:randomUUID(),scenarioDate:'2026-10-26',
  extractor:async({notice})=>({modelId:'fixture-no-model',processingSource:notice.kind==='text'?'text':'image',facts:[{
   kind:'early_dismissal',dates:['2026-10-26'],times:[{label:'dismissal',time:'12:30'}],appliesTo:'all students',
@@ -204,7 +207,12 @@ app.post('/api/demo/test-outreach',async(req,res)=>{
  res.status(result.status).json(result.body);
 });
 app.use(express.static('web/dist'));
-const port = Number(process.env.GUIDE_PORT ?? 5196);
+const sweeper=createDiscoverySweeper({
+ listExpired:async limit=>(await db.admin.query("select id from coordination_jobs where status='discovering' and created_at+make_interval(secs=>discovery_timeout_seconds)<=now() order by created_at limit $1",[limit])).rows.map(row=>row.id),
+ close:async id=>{await db.admin.query('select close_discovery($1)',[id])},
+ log:console.error,
+},{intervalMs:1000});
+sweeper.start();
 const server=app.listen(port,'127.0.0.1',()=>console.log(`Guide served build ready at http://127.0.0.1:${port}`));
-async function close(){server.close();await pool.end();await db.close();process.exit(0)}
+async function close(){sweeper.stop();server.close();await pool.end();await db.close();process.exit(0)}
 process.once('SIGTERM',close);process.once('SIGINT',close);

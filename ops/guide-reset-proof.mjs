@@ -19,9 +19,14 @@ try{
  };
  const before=await unrelated();
  await db.admin.query("update care_plans set text='Judge edit' where child_id='p_nora'");
+ await db.admin.query("insert into orbit_alerts(id,child_id,created_by,sandbox) values('reset_orbit','p_nora','p_demo_guide',true),('other_orbit','p_jax','p_dana',true)");
+ await db.admin.query("insert into orbit_audience_members(orbit_alert_id,person_id,notify_order,notification_outcome) values('reset_orbit','p_gma',1,'SIMULATED'),('other_orbit','p_dana',1,'SIMULATED')");
+ await db.admin.query("insert into orbit_responses(id,orbit_alert_id,person_id,response) values('reset_reply','reset_orbit','p_gma','WITH_ME'),('other_reply','other_orbit','p_dana','WITH_ME')");
  const run=randomUUID();
  const reset=()=>db.admin.query('select restore_showcase_snapshot($1,$2,$3::jsonb) as report',['p_demo_guide',run,JSON.stringify(snapshot)]);
  const first=(await reset()).rows[0].report;
+ assert.equal((await db.admin.query("select count(*)::int as n from orbit_responses where id='reset_reply'")).rows[0].n,0);
+ assert.equal((await db.admin.query("select count(*)::int as n from orbit_responses where id='other_reply'")).rows[0].n,1);
  assert.equal(await unrelated(),before,'other families and unmarked rows are byte-for-byte unchanged');
  assert.equal((await db.admin.query("select text from care_plans where child_id='p_nora'")).rows[0].text,snapshot.care_plans.find(r=>r.child_id==='p_nora').text);
  assert.equal((await db.admin.query("select count(*)::int as n from events where id='e_school_1026' and child_id='p_nora'")).rows[0].n,1,'sample notice school day survives Reset');

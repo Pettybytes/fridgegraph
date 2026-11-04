@@ -59,7 +59,7 @@ export async function runTestOutreach(
   // One open test attempt per job.
   const openRes = await deps.service(`/rest/v1/attempts?job_id=eq.${encodeURIComponent(job.id)}&closed_at=is.null&select=id,candidate_id,destination_mode`);
   const open = await readJson<{ id: string; candidate_id?: string; destination_mode?: string }[]>(openRes);
-  const reusable = job.sandbox === true ? open?.find(row => row.destination_mode === 'TEST_RESPONDER' && TEST_RESPONDER_ROSTER.some(id => id === row.candidate_id)) : undefined;
+  let reusable = job.sandbox === true ? open?.find(row => row.destination_mode === 'TEST_RESPONDER' && TEST_RESPONDER_ROSTER.some(id => id === row.candidate_id)) : undefined;
   if (open && open.length > 0 && !reusable) return { status: 409, body: { error: 'ATTEMPT_ALREADY_OPEN', attemptId: open[0].id } };
 
   // Candidate: evaluated for THIS job, on the TEST roster, preferring a recorded vehicle.
@@ -69,6 +69,7 @@ export async function runTestOutreach(
   if (!eligible.length) return { status: 409, body: { error: 'NO_TEST_CANDIDATE' } };
   const vehiclesRes = await deps.service(`/rest/v1/vehicles?owner_id=in.(${eligible.map((id) => `"${id}"`).join(',')})&select=owner_id`);
   const withVehicle = new Set(((await readJson<{ owner_id: string }[]>(vehiclesRes)) ?? []).map((row) => row.owner_id));
+  if (reusable) reusable = open?.find(row=>row.destination_mode==='TEST_RESPONDER'&&eligible.some(id=>id===row.candidate_id)&&withVehicle.has(row.candidate_id!)) ?? reusable;
   if (reusable && !eligible.some(id => id === reusable.candidate_id)) return { status: 409, body: { error: 'NO_TEST_CANDIDATE' } };
   const candidateId = reusable?.candidate_id ?? eligible.find((id) => withVehicle.has(id)) ?? eligible[0];
 
