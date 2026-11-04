@@ -23,7 +23,7 @@
 .rosina-panel form label { display: block; font-size: .75rem; color: #56667e; margin-bottom: .4rem; }
 .rosina-panel form > div { display: flex; align-items: end; gap: .5rem; }
 .rosina-panel textarea { resize: none; width: 100%; padding: .7rem; border: 1px solid var(--fg-border); border-radius: .65rem; font: inherit; font-size: .85rem; min-width: 0; }
-.rosina-panel form button[type="submit"], .rosina-confirm > button { padding: .7rem .9rem; color: var(--fg-surface); border-radius: var(--radius-pill); background: var(--fg-ink); font-size: .85rem; }
+.rosina-confirm > button { padding: .7rem .9rem; color: var(--fg-surface); border-radius: var(--radius-pill); background: var(--fg-ink); font-size: .85rem; }
 .rosina-panel form button:disabled { opacity: .5; }
 .rosina-error { padding: .5rem 1rem; color: #8d3d50; font-size: .8rem; }
 /* Launcher is the resting state on every size: a quiet pill, bottom-right. */
@@ -71,7 +71,6 @@
 .rosina-panel .rosina-message>span{color:var(--fg-primary)}
 .rosina-message.from-person{background:var(--fg-selection)}
 .rosina-action{color:var(--fg-primary);background:var(--fg-surface);border-color:var(--fg-border);font-size:16px}
-.rosina-panel form button[type="submit"]{background:var(--fg-ink);color:var(--fg-surface);min-height:44px}
 .rosina-panel textarea{background:var(--fg-surface);color:var(--fg-ink);border-color:var(--fg-border)}
 .rosina-progress{min-height:72px;padding:16px 0;color:var(--fg-ink)}.rosina-progress strong{font-size:16px;font-weight:500}.rosina-progress span{display:block;font-size:13px;color:var(--fg-muted);margin-top:8px}
 :root[data-focus="1"] .rosina-panel.is-open{left:24px;right:24px;top:24px;bottom:24px;width:auto;height:auto;max-width:1100px;margin:auto;font-size:18px}
@@ -103,22 +102,32 @@ body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
 .rosina-school-report [role="alert"]{color:var(--fg-attention);font-weight:600}
 
 /* Mounted voice control shares the composer row; its credit/status use the full width. */
-.rosina-panel form > .rosina-composer{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:end}
-.rosina-composer > textarea{grid-column:1;grid-row:1}
-.rosina-composer > button[type="submit"]{grid-column:2;grid-row:1}
-.rosina-composer > .fg-voice{display:contents}
-.rosina-composer .fg-voice > .fg-iconbtn{grid-column:3;grid-row:1}
-.rosina-composer .fg-voice > :not(.fg-iconbtn){grid-column:1 / -1}
-/* Notice intake is a secondary attachment action: a compact icon control in the composer row,
-   not a primary surface above it. The expanded draft still renders the full, unmodified
-   NoticeDraftBoundary content — only its position/size here changes. */
-.rosina-composer > .rosina-notice-attach{grid-column:4;grid-row:1;position:relative}
-.rosina-notice-attach .notice-draft{margin:0;border:1px solid var(--fg-border);background:transparent;flex-shrink:0}
-.rosina-notice-attach .notice-draft summary{min-height:44px;min-width:44px;padding:0;justify-content:center;gap:0}
+/* iMessage-style composer: a compact tools row (voice + notice) above a rounded
+   field that grows to 4 lines with the send arrow inside on the right. */
+.rosina-compose{display:grid;gap:8px}
+.rosina-compose-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+/* Voice controls live in the tools row; qa/pristine owns their internals (voice.css) —
+   this only lays them out horizontally and keeps the verbose status/credit on their own line. */
+.rosina-compose-tools .fg-voice{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.rosina-compose-tools .fg-voice-live{flex-basis:100%;font-size:.72rem;color:var(--fg-muted)}
+.rosina-compose-tools .fg-voice-credit{flex-basis:100%}
+.rosina-compose .fg-voice-transcript,.rosina-compose .fg-voice-reply{display:none}
+/* The field. */
+.rosina-field{display:flex;align-items:flex-end;gap:4px;padding:5px 5px 5px 16px;border:1px solid var(--fg-border);border-radius:22px;background:var(--fg-surface);transition:border-color var(--dur-feedback) var(--ease-out),box-shadow var(--dur-feedback) var(--ease-out)}
+.rosina-field:focus-within{border-color:var(--fg-primary);box-shadow:0 0 0 3px color-mix(in oklch,var(--fg-focus) 28%,transparent)}
+.rosina-field textarea{flex:1;min-width:0;border:0;background:transparent;color:var(--fg-ink);font:inherit;font-size:15px;line-height:1.4;resize:none;outline:none;padding:10px 0 9px;min-height:24px;field-sizing:content;max-height:calc(1.4em * 4)}
+.rosina-field textarea::placeholder{color:var(--fg-muted)}
+.rosina-send{display:grid;place-items:center;flex:0 0 auto;align-self:flex-end;width:40px;height:40px;border-radius:50%;border:0;background:var(--fg-send);color:var(--fg-on-primary);cursor:pointer;transition:background-color var(--dur-feedback) var(--ease-out),transform var(--dur-feedback) var(--ease-out)}
+.rosina-send:hover{background:var(--fg-send-hover)}
+.rosina-send:active{transform:scale(.94)}
+.rosina-send:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,var(--fg-focus) 40%,transparent)}
+.rosina-send:disabled{background:color-mix(in oklch,var(--fg-ink) 12%,var(--fg-surface));color:var(--fg-muted);cursor:default}
+/* Notice intake: a compact doc pill in the tools row; the expanded draft is unchanged. */
+.rosina-notice-attach{position:relative}
+.rosina-notice-attach .notice-draft{margin:0;border:1px solid var(--fg-border);background:var(--fg-surface);border-radius:var(--radius-pill);flex-shrink:0}
+.rosina-notice-attach .notice-draft summary{min-height:40px;min-width:40px;padding:0 13px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-pill);cursor:pointer}
 .rosina-notice-attach .notice-draft summary span,.rosina-notice-attach .notice-draft summary strong{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.rosina-notice-attach .notice-draft[open]>.notice-draft-body{position:absolute;bottom:calc(100% + 8px);right:0;width:min(360px,calc(100vw - 32px));max-height:min(60dvh,480px);overflow:auto;background:var(--fg-surface);border:1px solid var(--fg-border);border-radius:var(--radius-lg,12px);box-shadow:0 12px 40px #26344c25;padding:12px;z-index:30}
-/* The canonical conversation above renders these once, including validated action cards. */
-.rosina-composer .fg-voice-transcript,.rosina-composer .fg-voice-reply{display:none}
+.rosina-notice-attach .notice-draft[open]>.notice-draft-body{position:absolute;bottom:calc(100% + 8px);right:0;width:min(360px,calc(100vw - 32px));max-height:min(60dvh,480px);overflow:auto;background:var(--fg-surface);border:1px solid var(--fg-border);border-radius:var(--radius-lg,12px);box-shadow:0 12px 40px oklch(0.2 0.03 270 / 0.18);padding:12px;z-index:30}
 /* Streaming turn (Bryan 2026-11-03: typing within 300 ms, tokens as they arrive).
    Provisional bubble with a caret while tokens stream; three-dot typing indicator before the
    first token. Opacity/transform only; both go still under reduced motion. */
