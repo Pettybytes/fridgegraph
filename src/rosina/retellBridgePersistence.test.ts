@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RetellBridge, signPayload, type BridgeSession } from './retellBridge';
-import type { RosinaActionProposal } from './actionContract';
+import { spokenStatus, type RosinaActionProposal } from './actionContract';
 
 /**
  * Bound-session Confirm -> persist proof for the voice proposal path.
@@ -29,8 +29,10 @@ type StoredRecord = { recordId: string; childId: string; actorPersonId: string; 
 class BackendDouble {
   private byKey = new Map<string, StoredRecord>();
   private seq = 0;
+  failSaves = false;
   confirm(p: RosinaActionProposal, opts: { session: BridgeSession; parentConfirmed: boolean }) {
     if (!opts.parentConfirmed) return { ok: false as const, reason: 'not-confirmed' };
+    if (this.failSaves) return { ok: false as const, reason: 'save-failed' };
     if (p.actorPersonId !== opts.session.personId || !opts.session.childIds.includes(p.childId)) {
       return { ok: false as const, reason: 'not-authorized' };
     }
@@ -95,4 +97,22 @@ test('bound parent session: Confirm persists one record visible on Calendar, Act
   const cross = backend.confirm(proposal, { session: dana, parentConfirmed: true });
   assert.equal(cross.ok, false, 'another family cannot confirm or write');
   assert.equal(backend.calendar(dana).length, 0, 'nothing leaks into the other family surfaces');
+});
+
+test('failed save: nothing persists and the spoken status never claims a record', async () => {
+  const proposal = await voiceProposal();
+  const backend = new BackendDouble();
+  backend.failSaves = true;
+  const failed = backend.confirm(proposal, { session: kendra, parentConfirmed: true });
+  assert.equal(failed.ok, false);
+  assert.equal(backend.calendar(kendra).length, 0, 'a failed save writes nothing');
+  assert.equal(backend.activity(kendra).length, 0);
+  // State 4: the proposal is still only proposed/requested - no recorded claim.
+  assert.doesNotMatch(spokenStatus(proposal), /It's recorded/);
+  assert.match(spokenStatus(proposal), /nothing is recorded/);
+  // Recovery: the same proposal can still be confirmed once saves work.
+  backend.failSaves = false;
+  const saved = backend.confirm(proposal, { session: kendra, parentConfirmed: true });
+  assert.equal(saved.ok, true);
+  if (saved.ok) assert.match(spokenStatus({ ...proposal, result: { recordId: saved.recordId, status: 'saved' } }), /It's recorded/);
 });

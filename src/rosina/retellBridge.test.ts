@@ -170,3 +170,44 @@ test('a provider failure in the turn itself is a clean refusal with no actions',
   assert.equal(r.body.executed, false);
   assert.match(r.body.reply, /unavailable/);
 });
+
+test('slow Muse writer: holding line is the state-1 line and the reply lands as the state-2 proposal line', async () => {
+  const b = new RetellBridge({ secret: SECRET,
+    runTurn: async () => ({ reply: 'Working on it.', actions: [], intent: { description: 'Arrange pickup for Nora early dismissal tomorrow 12:30 PM', sourceFacts: ['Nora has an early dismissal tomorrow at 12:30 PM'], affectedPeople: ['Nora Ellison'] } }),
+    writeProposal: async ({ intent }) => { await new Promise(r => setTimeout(r, 60)); return { intent: 'pickup.coverage', sourceFacts: intent.sourceFacts, summary: intent.description, affectedPeople: intent.affectedPeople }; } });
+  const { raw, headers } = signed({ callId: 'call-s1', turn: 1, message: 'Can you handle Nora pickup tomorrow?', session: { ...kendraSession, childName: 'Nora' } });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.holdingLine, "Let me check Nora's schedule and put together an option for you.");
+  assert.doesNotMatch(r.body.holdingLine ?? '', /claude|retell|spark/i);
+  assert.equal(r.body.actions.length, 1, 'a slow writer still produces the proposal');
+  assert.match(r.body.reply, /Here's an option:/);
+  assert.match(r.body.reply, /Nothing has changed yet/);
+  assert.doesNotMatch(r.body.reply, /claude|retell|spark|recorded|has been saved/i);
+  assert.equal(r.body.executed, false);
+});
+
+test('holding line follows a child-name context switch and never assumes Nora', async () => {
+  const mk = () => new RetellBridge({ secret: SECRET,
+    runTurn: async () => ({ reply: 'Working on it.', actions: [], intent: { description: 'Arrange a pickup', sourceFacts: ['fact'], affectedPeople: [] } }),
+    writeProposal: async ({ intent }) => ({ intent: 'pickup.coverage', sourceFacts: intent.sourceFacts, summary: intent.description, affectedPeople: intent.affectedPeople }) });
+  const dana = signed({ callId: 'call-s2', turn: 1, message: 'Can you handle pickup?', session: { personId: 'dana', childId: 'p_jax', childIds: ['p_jax'], childName: 'Jax' } });
+  const r = await mk().handle(dana.raw, dana.headers);
+  assert.equal(r.body.holdingLine, "Let me check Jax's schedule and put together an option for you.");
+  assert.doesNotMatch(r.body.holdingLine ?? '', /Nora/);
+});
+
+test('a Muse proposal the contract rejects yields the state-4 line and no success language', async () => {
+  const b = new RetellBridge({ secret: SECRET,
+    runTurn: async () => ({ reply: 'All set, I will add that for Malik.', actions: [], intent: { description: 'Add an event for Malik', sourceFacts: ['x'], affectedPeople: [] } }),
+    // The writer proposes outside the caller's authorized children: refused.
+    writeProposal: async () => ({ intent: 'calendar.create', childId: 'p_malik', sourceFacts: ['x'], summary: 'Add an event for Malik', affectedPeople: [] }) });
+  const { raw, headers } = signed({ callId: 'call-s3', turn: 1, message: 'Add an event for Malik', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.body.actions.length, 0);
+  assert.equal(r.body.proposalUnavailable, true);
+  assert.equal(r.body.reply, "I couldn't put that together, so nothing has changed.");
+  assert.doesNotMatch(r.body.reply, /all set|recorded|saved|booked|done/i);
+  assert.equal(r.body.attribution.proposal, undefined);
+  assert.equal(r.body.executed, false);
+});

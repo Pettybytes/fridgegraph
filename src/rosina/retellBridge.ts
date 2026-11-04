@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { buildActionProposal, deriveIdempotencyKey, museProposalAuthor, type RosinaActionProposal } from './actionContract';
+import { buildActionProposal, changeUnavailableLine, deriveIdempotencyKey, holdingLine, museProposalAuthor, proposalLine, type RosinaActionProposal } from './actionContract';
 
 /**
  * Isolated Retell <-> Rosina bridge core (feat/rosina-retell).
@@ -23,7 +23,7 @@ import { buildActionProposal, deriveIdempotencyKey, museProposalAuthor, type Ros
  * issuer to the real session endpoint, and mount this behind the Rosina server.
  */
 
-export type BridgeSession = { personId: string; childId: string; childIds: string[] };
+export type BridgeSession = { personId: string; childId: string; childIds: string[]; childName?: string };
 /** Action draft from the Muse proposal writer; the bridge turns it into the shared contract.
  * Actions returned by the turn runner itself are fast-model output: they are rejected, never proposed. */
 export type BridgeActionInput = {
@@ -47,6 +47,8 @@ export type BridgeResponse = {
     attribution: { reply: 'retell-model'; proposal?: 'muse-spark-1.3' };
     /** Fast-model actions rejected at this boundary (never proposed, never Muse-labelled). */
     rejectedActions?: number;
+    /** State-1 spoken holding line for action turns, using the selected child's name. */
+    holdingLine?: string;
     proposalUnavailable?: true;
   };
 };
@@ -135,8 +137,17 @@ export class RetellBridge {
       }, museProposalAuthor());
       if (built.ok) actions.push(built.proposal);
     });
+    // One-assistant spoken states: once a change is in play, the reply is the
+    // canonical line for the state reached, never the fast model's free text
+    // (which could claim success or name a provider). Plain Q&A, refusals and
+    // cancellation acknowledgements from the runner pass through unchanged.
+    if (actionInputs.length && !actions.length) proposalUnavailable = true;
+    let reply = result.reply;
+    if (actions.length) reply = proposalLine(actions[0]);
+    else if (proposalUnavailable) reply = changeUnavailableLine();
     const body: BridgeResponse['body'] = {
-      reply: result.reply,
+      reply,
+      ...(result.intent ? { holdingLine: holdingLine(s.childName) } : {}),
       actions,
       requiresConfirmation: actions.length > 0,
       executed: false,

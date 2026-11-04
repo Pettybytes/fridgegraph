@@ -106,8 +106,36 @@ export function buildActionProposal(input: BuildProposalInput, author?: Proposal
 }
 
 /** The only status wording a channel may speak before a backend record exists. */
+/**
+ * One-assistant spoken lines. Rosina speaks as a single assistant in every
+ * channel: spoken dialogue never names a provider or model. Attribution
+ * lives only in the structured proposal and audit receipt.
+ */
+/** State 1 - before the proposal returns: a brief holding line. The child
+ *  name comes from the selected child; no candidate, decision or completed
+ *  action is claimed, and confirming is always the parent's job. */
+export function holdingLine(childName?: string): string {
+  const name = childName?.trim();
+  return name
+    ? `Let me check ${name}'s schedule and put together an option for you.`
+    : 'Let me check the schedule and put together an option for you.';
+}
+
+/** State 2 - a grounded proposal exists: state the actual option, ask the
+ *  parent to review and confirm, and say clearly nothing has changed yet. */
+export function proposalLine(p: RosinaActionProposal): string {
+  return `Here's an option: ${p.proposedChange.summary}. Please review and confirm it in the app. Nothing has changed yet.`;
+}
+
+/** State 4 - the change could not be prepared: no success language, no write. */
+export function changeUnavailableLine(): string {
+  return "I couldn't put that together, so nothing has changed.";
+}
+
 export function spokenStatus(p: RosinaActionProposal): string {
-  if (p.result.recordId) return `saved as record ${p.result.recordId}`;
+  // State 3 - only after the backend confirms persistence: recorded, with
+  // the actual saved result. Never spoken before a recordId exists.
+  if (p.result.recordId) return `It's recorded: ${p.proposedChange.summary} (record ${p.result.recordId}).`;
   return p.result.status === 'requested'
     ? 'requested - no one is assigned yet; a parent confirms first and someone must accept'
     : 'proposed - nothing is recorded until a parent confirms in the FridgeGraph app';
