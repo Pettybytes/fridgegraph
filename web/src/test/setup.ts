@@ -6,6 +6,9 @@ import { afterEach } from 'vitest'
 // Browser performance probes measure user-visible latency separately.
 configure({ asyncUtilTimeout: 3000 })
 afterEach(cleanup)
+// The per-tab perspective memory (fg:perspective) would otherwise leak a sign-in from one
+// test into the next test's fresh SessionProvider mount. Each test starts with an empty tab.
+afterEach(() => { if (typeof sessionStorage !== 'undefined') sessionStorage.clear() })
 
 // jsdom implements neither of these; @ilamy/calendar's scrolling time grid and
 // mobile-adaptive layout call them. No-op/stub polyfills keep component renders
