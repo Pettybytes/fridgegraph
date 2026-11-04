@@ -1,3 +1,4 @@
+import {refreshResource,resourceSnapshot,storeResource} from '@/lib/frontendData/resourceCache'
 import {gql,type ApolloClient,type DocumentNode} from '@apollo/client'
 import type {FridgeEditingAdapter,GoalRecord,FridgeNoteRecord} from './editingContract'
 
@@ -50,10 +51,10 @@ export function missingPhase2Schema(error:unknown):boolean{
   (/Cannot query field "(?:period|completedAt)" on type "Goal"/.test(e.message??'')||/Cannot query field "fridgeNotes" on type "Query"/.test(e.message??'')))
 }
 export const phase2Message:Record<Phase2Failure,string>={authentication:'Your perspective needs a fresh session. Choose a perspective again.',refused:'These records aren’t shared with this perspective.',network:'Couldn’t connect just now. Try again.',database:'Couldn’t load these records just now. Try again.',server:'The fridge service answered with an error. Try again.',failed:'Couldn’t load these records. Try again.'}
-export type Phase2Service={check(childId:string,signal:AbortSignal):Promise<Compatibility>;adapter:FridgeEditingAdapter}
+export type Phase2Service={peekCompatibility?(childId:string):Compatibility|undefined;check(childId:string,signal:AbortSignal):Promise<Compatibility>;adapter:FridgeEditingAdapter}
 export function createPhase2Service(client:ApolloClient,runRead:<T>(read:()=>Promise<T>)=>Promise<T>,writesEnabled:()=>boolean):Phase2Service{
  const read=async<T,>(query:DocumentNode,variables:Record<string,unknown>,field:string,signal:AbortSignal):Promise<T>=>{
-  try{const result=await runRead(()=>client.query<Record<string,T>>({query,variables,fetchPolicy:'no-cache',errorPolicy:'none',context:{queryDeduplication:false,fetchOptions:{signal}}}));if(!result.data||result.data[field]==null)throw Error('NO_DATA');return result.data[field]}
+  try{const result=await runRead(()=>client.query<Record<string,T>>({query,variables,fetchPolicy:'network-only',errorPolicy:'none',context:{fetchOptions:{signal}}}));if(!result.data||result.data[field]==null)throw Error('NO_DATA');return result.data[field]}
   catch(error){if(signal.aborted)throw error;throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',server:'SERVER_ERROR',failed:'READ_FAILED'} as const)[phase2Failure(error)])}
  }
  const write=async<T,>(name:keyof typeof phase2Operations,args:object):Promise<T>=>{
@@ -61,17 +62,27 @@ export function createPhase2Service(client:ApolloClient,runRead:<T>(read:()=>Pro
   try{const result=await client.mutate<Record<string,T>>({mutation:phase2Operations[name],variables:args,errorPolicy:'none',fetchPolicy:'no-cache'});if(!result.data||result.data[name]==null)throw Error('NO_DATA');return result.data[name]}
   catch(error){throw Error(({authentication:'UNAUTHENTICATED',refused:'UNAUTHORIZED',network:'NETWORK_ERROR',database:'DB_UNAVAILABLE',server:'SERVER_ERROR',failed:'WRITE_FAILED'} as const)[phase2Failure(error)])}
  }
- return {async check(childId,signal){try{
-  const result=await runRead(()=>client.query({query:FRIDGE_COMPATIBILITY,variables:{childId},fetchPolicy:'no-cache',errorPolicy:'none',context:{queryDeduplication:false,fetchOptions:{signal}}}))
+ const check=async(childId:string,signal:AbortSignal):Promise<Compatibility>=>{try{
+  const result=await runRead(()=>client.query({query:FRIDGE_COMPATIBILITY,variables:{childId},fetchPolicy:'network-only',errorPolicy:'none',context:{fetchOptions:{signal}}}))
   if(signal.aborted)throw Error('ABORTED')
   const data=result.data as {__typename?:unknown;goals?:unknown;fridgeNotes?:unknown}|null|undefined
   // Success needs the whole shape: both collections resolved to arrays (empty is valid).
   // errorPolicy 'none' means any GraphQL error already threw, so partial data never reaches here.
   if(!data||data.__typename!=='Query'||!Array.isArray(data.goals)||!Array.isArray(data.fridgeNotes))throw Error('MALFORMED')
   return {kind:'ready'}
- }catch(error){if(signal.aborted)throw error;return {kind:missingPhase2Schema(error)?'absent':phase2Failure(error)}}},adapter:{
-  readGoals:(id,signal)=>read<GoalRecord[]>(phase2Operations.readGoals,{childId:id},'goals',signal),
-  readNotes:(id,signal)=>read<FridgeNoteRecord[]>(phase2Operations.readNotes,{childId:id},'fridgeNotes',signal),
+ }catch(error){if(signal.aborted)throw error;return {kind:missingPhase2Schema(error)?'absent':phase2Failure(error)}}}
+ const shared=async<T,>(key:string,signal:AbortSignal,load:(signal:AbortSignal)=>Promise<T>)=>{
+  const value=await refreshResource(client,key,()=>load(new AbortController().signal))
+  if(signal.aborted)throw Error('ABORTED')
+  return value
+ }
+ return {peekCompatibility:childId=>resourceSnapshot<Compatibility>(client,`fridge:compatibility:${childId}`)?.value,check:(childId,signal)=>shared(`fridge:compatibility:${childId}`,signal,fresh=>check(childId,fresh)),adapter:{
+  rememberGoals:(id,items)=>storeResource(client,`fridge:goals:${id}`,items),
+  rememberNotes:(id,items)=>storeResource(client,`fridge:notes:${id}`,items),
+  peekGoals:id=>resourceSnapshot<GoalRecord[]>(client,`fridge:goals:${id}`)?.value,
+  readGoals:(id,signal)=>shared(`fridge:goals:${id}`,signal,fresh=>read<GoalRecord[]>(phase2Operations.readGoals,{childId:id},'goals',fresh)),
+  peekNotes:id=>resourceSnapshot<FridgeNoteRecord[]>(client,`fridge:notes:${id}`)?.value,
+  readNotes:(id,signal)=>shared(`fridge:notes:${id}`,signal,fresh=>read<FridgeNoteRecord[]>(phase2Operations.readNotes,{childId:id},'fridgeNotes',fresh)),
   createGoal:args=>write('createGoal',args),updateGoal:args=>write('updateGoal',args),completeGoal:args=>write('completeGoal',args),uncompleteGoal:args=>write('uncompleteGoal',args),deleteGoal:args=>write('deleteGoal',args),
   postFridgeNote:args=>write('postFridgeNote',args),updateFridgeNote:args=>write('updateFridgeNote',args),setFridgeNoteAudience:args=>write('setFridgeNoteAudience',args),removeFridgeNote:args=>write('removeFridgeNote',args),
  }}

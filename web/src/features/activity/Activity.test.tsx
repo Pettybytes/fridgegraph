@@ -1,3 +1,4 @@
+import {InMemoryCache} from '@apollo/client'
 import {act,render,screen,waitFor} from '@testing-library/react'
 import {beforeEach,expect,it,vi} from 'vitest'
 import {Activity} from './Activity'
@@ -9,7 +10,7 @@ const getSessionGeneration=()=>generation
 vi.mock('@/features/personas/Session',()=>({useSession:()=>({session:current,runRead,getSessionGeneration})}))
 const base={candidates:[],events:[],recordedRuns:[{job:{id:'job',status:'OPEN',version:1,candidateEvaluations:[],confirmation:null},attempts:[],timeline:[{at:'2026-11-01T15:00:00Z',kind:'JOB_CREATED',attemptId:null,candidate:null,detail:null}]}]} as StoredMissionControl
 function session(persona:'kendra'|'priya',version:number):AuthSession{return {generation:version,scope:{childId:'p_nora',childName:'Nora',parentName:persona,villageId:'v_nora'},persona:{id:persona,personId:persona,childId:'p_nora',childName:'Nora',name:persona,villageId:'v_nora',parent:persona==='kendra',grants:[],role:'test'}}}
-function client(school:()=>Promise<unknown>,additions:()=>Promise<unknown>=async()=>({data:{villagerAdditions:[]}})){return {query:({query}:{query:{definitions:{name?:{value:string}}[]}})=>{const name=query.definitions[0]?.name?.value;if(name==='WebActivitySlips')return Promise.resolve({data:{permissionSlips:[]}});if(name==='WebActivityOrbit')return Promise.resolve({data:{orbitStatus:{status:null,latestResponses:[]}}});if(name==='WebActivityCheck')return Promise.resolve({data:{checkInStatus:{recorded:true}}});if(name==='WebActivitySchoolReportsWithTime')return school();if(name==='WebActivityVillagerAdditions')return additions();return Promise.resolve({data:{schoolReports:[]}})}} as unknown as Parameters<typeof Activity>[0]['client']}
+function client(school:()=>Promise<unknown>,additions:()=>Promise<unknown>=async()=>({data:{villagerAdditions:[]}})){return {cache:new InMemoryCache(),onClearStore:()=>()=>{},query:({query}:{query:{definitions:{name?:{value:string}}[]}})=>{const name=query.definitions[0]?.name?.value;if(name==='WebActivitySlips')return Promise.resolve({data:{permissionSlips:[]}});if(name==='WebActivityOrbit')return Promise.resolve({data:{orbitStatus:{status:null,latestResponses:[]}}});if(name==='WebActivityCheck')return Promise.resolve({data:{checkInStatus:{recorded:true}}});if(name==='WebActivitySchoolReportsWithTime')return school();if(name==='WebActivityVillagerAdditions')return additions();return Promise.resolve({data:{schoolReports:[]}})}} as unknown as Parameters<typeof Activity>[0]['client']}
 const adapter={mode:'graphql' as const,readMissionControl:async()=>base,readVillage:async()=>({nodes:[],edges:[]})}
 beforeEach(()=>{generation=1;current=session('kendra',1)})
 it('renders school words as plain text with source date and no confirmation',async()=>{

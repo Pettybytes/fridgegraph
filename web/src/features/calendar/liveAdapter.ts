@@ -1,3 +1,4 @@
+import {refreshResource,resourceSnapshot} from '@/lib/frontendData/resourceCache'
 import {gql} from '@apollo/client'
 import type {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
 import type {AuthSession} from '@/features/personas/auth'
@@ -50,13 +51,30 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
    return /UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?{ok:false,reason:'refused'}:{ok:false,reason:'failed'}
   }
  }
+ async function readCare(childId:string,days:string[]):Promise<readonly (readonly [string,ReadOutcome<EffectiveCare>])[]>{
+  const output:(readonly [string,ReadOutcome<EffectiveCare>])[]=[]
+  for(let start=0;start<days.length;start+=21){
+   const dates=days.slice(start,start+21)
+   const query=gql(`query WebEffectiveScheduleWindow($childId:ID!,${dates.map((_,i)=>`$date${i}:String!`).join(',')}){${dates.map((_,i)=>`day${i}:effectiveScheduleFor(childId:$childId,date:$date${i}){parent{id displayName} source arrangementId}`).join(' ')}}`)
+   try{
+    const data=await runRead(async()=>{const result=await client.query<Record<string,EffectiveCare>>({query,variables:{childId,...Object.fromEntries(dates.map((date,i)=>[`date${i}`,date]))},fetchPolicy:'network-only'});if(!result.data)throw Error('READ_UNAVAILABLE');return result.data})
+    dates.forEach((date,i)=>output.push([date,data[`day${i}`]?{state:'ready',value:data[`day${i}`]}:{state:'failed'}]))
+   }catch(error){
+    if(getGeneration()!==generation)throw Error('SESSION_CHANGED')
+    const e=error as {message?:string;errors?:{extensions?:{code?:string}}[]}
+    const state=/UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?'refused':'failed'
+    dates.forEach(date=>output.push([date,{state}]))
+   }
+  }
+  return output
+ }
  async function readWindow({childId,from,to,includeCancelled=false}:{childId:string;from:string;to:string;includeCancelled?:boolean}):Promise<LiveWindow>{
   if(!validDay(from)||!validDay(to)||from>to)throw Error('INVALID_DATE')
   const days:string[]=[];for(let day=from;day<=to;day=addDays(day,1)){if(days.length>=42)throw Error('INVALID_DATE');days.push(day)}
   const [eventResult,conflicts,schedules]=await Promise.all([
    read<LiveEvent[]>(CHILD_EVENTS,{childId,from,to,includeCancelled},'childEvents'),
    read<ScheduleConflict[]>(SCHEDULE_CONFLICTS,{childId,from,to},'scheduleConflicts'),
-   Promise.all(days.map(async date=>[date,await read<EffectiveCare>(EFFECTIVE_SCHEDULE,{childId,date},'effectiveScheduleFor')] as const)),
+   readCare(childId,days),
   ])
   const care=Object.fromEntries(schedules)
   // Only IDs actually returned for this child's care, plus this caller's own identity. No mock roster.
@@ -73,7 +91,8 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
  // A parent may drag to move/resize; caregivers and read-only personas may not.
  // There is no move/resize mutation here (reads only), so a parent's drag is still
  // reverted and shown as "not saved" by the view - never a silent fake save.
- return {mode:'live' as const,scope:session.scope,parent:session.persona.parent===true,readWindow,
+ const windowKey=(input:{childId:string;from:string;to:string;includeCancelled?:boolean})=>`calendar:${input.childId}:${input.from}:${input.to}:${!!input.includeCancelled}`
+ return {mode:'live' as const,client,peekWindow:(input:Parameters<typeof readWindow>[0])=>resourceSnapshot<LiveWindow>(client,windowKey(input))?.value,scope:session.scope,parent:session.persona.parent===true,readWindow:(input:Parameters<typeof readWindow>[0])=>refreshResource(client,windowKey(input),()=>readWindow(input)),
   createEvent:(childId:string,draft:EventDraft):Promise<WriteResult<LiveEvent>>=>write<LiveEvent>(CREATE_EVENT,{childId,...draft},'createCalendarEvent'),
   updateEvent:(id:string,draft:EventDraft):Promise<WriteResult<LiveEvent>>=>write<LiveEvent>(UPDATE_EVENT,{id,...draft},'updateCalendarEvent'),
   deleteEvent:(id:string):Promise<WriteResult<string>>=>write<string>(DELETE_EVENT,{id},'deleteCalendarEvent'),

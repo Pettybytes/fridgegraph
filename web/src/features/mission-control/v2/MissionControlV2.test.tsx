@@ -7,6 +7,8 @@ import {RideEstimate,ContactBadge,MissionControlV2} from './MissionControlV2'
 async function enter(name='Kendra'){
  window.location.hash='#/mission-control';render(<App/>);fireEvent.click(screen.getByRole('button',{name:new RegExp(name)}));await screen.findByText('Signed in as '+name)
  const link=screen.getByRole('link',{name:'Mission Control'});fireEvent.click(link);fireEvent(window,new HashChangeEvent('hashchange'))
+ if(name==='Priya')await screen.findByRole('alert')
+ else await screen.findByRole('region',{name:'Mission Control recorded pickup'})
 }
 function finish(){for(let i=0;i<5;i++)fireEvent.click(screen.getByRole('button',{name:/Next recorded step/}))}
 it('replays a complete normal job with independent lanes and an unskippable app confirm',async()=>{

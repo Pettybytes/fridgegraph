@@ -1,3 +1,4 @@
+import {invalidateResources} from './resourceCache'
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, Observable, gql } from '@apollo/client'
 import { contactChannelLabel, pickupStatusLabel } from './displayCopy'
 import { reasonLabel } from './types'
@@ -55,11 +56,12 @@ export function createGraphClient(getAccessToken: () => Promise<string | null>, 
       if(generation!==getGeneration()){observer.error(new Error('SESSION_CHANGED'));return}
       if (!token) { observer.error(new Error('UNAUTHENTICATED')); return }
       operation.setContext(({ headers = {} }) => ({ headers: { ...headers, authorization: `Bearer ${token}` } }))
-      subscription = forward(operation).subscribe({next:value=>{if(active && generation===getGeneration())observer.next(value);else observer.error(new Error('SESSION_CHANGED'))},error:error=>{if(active)observer.error(generation===getGeneration()?error:new Error('SESSION_CHANGED'))},complete:()=>observer.complete()})
+      subscription = forward(operation).subscribe({next:value=>{if(active && generation===getGeneration()){observer.next(value);if(!value.errors?.length&&operation.query.definitions.some(d=>d.kind==='OperationDefinition'&&d.operation==='mutation')){invalidateResources(client);if(typeof window!=='undefined')window.dispatchEvent(new Event('frontend:changed'))}}else observer.error(new Error('SESSION_CHANGED'))},error:error=>{if(active)observer.error(generation===getGeneration()?error:new Error('SESSION_CHANGED'))},complete:()=>observer.complete()})
     }, error => { if (active) observer.error(error) })
     return () => { active = false; subscription?.unsubscribe() }
   }))
-  return new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.from([auth, link]) })
+  const client=new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.from([auth, link]) })
+  return client
 }
 export function createGraphqlAdapter(client: ReturnType<typeof createGraphClient>): FrontendAdapter {
   async function read<T>(query: Parameters<typeof client.query>[0]['query'], variables: Record<string, string>): Promise<T> {

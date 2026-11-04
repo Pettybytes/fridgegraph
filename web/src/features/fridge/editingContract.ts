@@ -31,6 +31,10 @@ export type NoteFields = { text: string; paperColor: PaperColor }
 
 /** The mount supplies methods backed by its signed-in Apollo client and caller token. */
 export interface FridgeEditingAdapter {
+  rememberGoals?(childId: string,items: GoalRecord[]): void
+  rememberNotes?(childId: string,items: FridgeNoteRecord[]): void
+  peekGoals?(childId: string): GoalRecord[] | undefined
+  peekNotes?(childId: string): FridgeNoteRecord[] | undefined
   readGoals(childId: string, signal: AbortSignal): Promise<GoalRecord[]>
   readNotes(childId: string, signal: AbortSignal): Promise<FridgeNoteRecord[]>
   createGoal(args: { childId: string; title: string; horizon: string | null; period: GoalPeriod | null; status: 'PROPOSED' }): Promise<GoalRecord>

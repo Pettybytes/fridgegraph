@@ -60,7 +60,7 @@ export function EventForm({ childName, childId, children, initial, onSubmit, onD
     setError(result.reason === 'refused' ? 'Only a parent can change this calendar.' : "Couldn't save that just now. Please try again.")
   }
   return (
-    <Dialog.Root open onOpenChange={value => { if (!value && !busy) onClose() }}>
+    <Dialog.Root open={!busy} onOpenChange={value => { if (!value && !busy) onClose() }}>
       <Dialog.Portal><Dialog.Overlay className="cal-overlay" />
         <Dialog.Content className="cal-sheet cal-form" aria-describedby={undefined}>
           <Dialog.Title>{editing ? 'Edit event' : 'Add event'}</Dialog.Title>
@@ -90,7 +90,7 @@ export function EventForm({ childName, childId, children, initial, onSubmit, onD
         </Dialog.Content>
       </Dialog.Portal>
       {/* Explicit confirm: a write never happens on the first click. */}
-      <Dialog.Root open={confirm !== null} onOpenChange={value => { if (!value && !busy) setConfirm(null) }}>
+      <Dialog.Root open={confirm !== null && !busy} onOpenChange={value => { if (!value && !busy) setConfirm(null) }}>
         <Dialog.Portal><Dialog.Overlay className="cal-overlay" />
           <Dialog.Content className="cal-sheet cal-confirm">
             <Dialog.Title>{confirm === 'delete' ? `Delete this event from ${childName}'s calendar?` : `Save this change to ${childName}'s calendar?`}</Dialog.Title>

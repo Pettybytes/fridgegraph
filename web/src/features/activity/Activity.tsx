@@ -1,4 +1,6 @@
-import {useEffect,useState} from 'react'
+import {useCallback} from 'react'
+import {useCachedResource} from '@/lib/frontendData/resourceCache'
+import {RouteSkeleton} from '@/app/RouteSkeleton'
 import {gql} from '@apollo/client'
 import type {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
 import type {FrontendAdapter} from '@/lib/frontendData/types'
@@ -54,38 +56,28 @@ type OrbitSummary={alertId:string|null;status:string|null;closeOutcome?:string|n
 type View={data:Source<StoredMissionControl|null>;slips:Source<Slip[]>;orbit:Source<OrbitSummary|null>;check:Source<{recorded:boolean}|null>;additions:Source<VillagerAddition[]>;reports:Source<SchoolReport[]>}
 const EMPTY:View={data:{state:'ready',data:null},slips:{state:'ready',data:[]},orbit:{state:'ready',data:null},check:{state:'ready',data:null},additions:{state:'ready',data:[]},reports:{state:'ready',data:[]}}
 const NAMED:[keyof View,string][]=[['data','Activity feed'],['slips','Consent decisions'],['orbit','Orbit status'],['check','Check-in'],['additions','Village additions'],['reports','School reports']]
+export async function loadActivity(client:ReturnType<typeof createGraphClient>,adapter:FrontendAdapter,scope:Parameters<FrontendAdapter['readMissionControl']>[0],runRead:<T>(read:()=>Promise<T>)=>Promise<T>):Promise<View>{
+ const childId=scope.childId
+ const read=async<T,>(query:typeof SLIPS,field:string)=>runRead(async()=>{const result=await client.query<Record<string,T>>({query,variables:{childId},fetchPolicy:'network-only'});if(!result.data||result.data[field]===undefined)throw Error('READ_UNAVAILABLE');return result.data[field]})
+ const [data,slips,orbit,check,additions,reports]=await Promise.all([
+  attempt<StoredMissionControl|null>(()=>adapter.readMissionControl(scope) as Promise<StoredMissionControl>,null),
+  attempt<Slip[]>(()=>read<Slip[]>(SLIPS,'permissionSlips'),[]),
+  attempt<OrbitSummary|null>(()=>read<OrbitSummary>(STATUS,'orbitStatus'),null),
+  attempt<{recorded:boolean}|null>(()=>read<{recorded:boolean}>(CHECK,'checkInStatus'),null),
+  attempt<VillagerAddition[]>(()=>readVillagerAdditions(client,childId,runRead),[]),
+  attempt<SchoolReport[]>(()=>readSchoolReports(client,childId,runRead),[]),
+ ])
+ return {data,slips,orbit,check,additions,reports}
+}
 export function Activity({client,adapter}:{client:ReturnType<typeof createGraphClient>|null;adapter:FrontendAdapter}){
- const {session,runRead,getSessionGeneration}=useSession(),[phase,setPhase]=useState<'loading'|'ready'|'refused'|'unavailable'>('loading'),[view,setView]=useState<View>(EMPTY)
+ const {session,runRead}=useSession()
  const childId=session?.scope.childId,personId=session?.persona.personId,parent=!!session?.marks?.demoGuide||mayReadFamilyActivity(!!session?.persona.parent,!!session?.persona.guardian)
- // Live propagation (release gate: a change shows across the village within 5s, no refresh):
- // bounded, visibility-aware re-read every 4s while this page is mounted and visible.
- const [tick,setTick]=useState(0)
- useEffect(()=>{
-  if(!session||!client)return
-  const timer=setInterval(()=>{if(document.visibilityState!=='hidden')setTick(value=>value+1)},4000)
-  return()=>clearInterval(timer)
- },[session,client])
- useEffect(()=>{
-  let active=true;const generation=session?.generation;if(tick===0){setPhase('loading');setView(EMPTY)}
-  if(!session||!parent){setPhase('refused');return()=>{active=false}}
-  if(!client){setPhase('unavailable');return()=>{active=false}}
-  const read=async<T,>(query:typeof SLIPS,field:string)=>runRead(async()=>{const result=await client.query<Record<string,T>>({query,variables:{childId},fetchPolicy:'no-cache'});if(!result.data||result.data[field]===undefined)throw Error('READ_UNAVAILABLE');return result.data[field]})
-  void (async()=>{
-   // Every source is contained. One failing read can no longer reject the others.
-   const [data,slips,orbit,check,additions,reports]=await Promise.all([
-    attempt<StoredMissionControl|null>(()=>adapter.readMissionControl(session.scope) as Promise<StoredMissionControl>,null),
-    attempt<Slip[]>(()=>read<Slip[]>(SLIPS,'permissionSlips'),[]),
-    attempt<OrbitSummary|null>(()=>read<OrbitSummary>(STATUS,'orbitStatus'),null),
-    attempt<{recorded:boolean}|null>(()=>read<{recorded:boolean}>(CHECK,'checkInStatus'),null),
-    attempt<VillagerAddition[]>(()=>readVillagerAdditions(client,childId!,runRead),[]),
-    attempt<SchoolReport[]>(()=>readSchoolReports(client,childId!,runRead),[]),
-   ])
-   if(active&&getSessionGeneration()===generation)setView({data,slips,orbit,check,additions,reports})
-   if(active&&getSessionGeneration()===generation)setPhase('ready')
-  })()
-  return()=>{active=false}
- },[client,adapter,session?.generation,childId,personId,parent,runRead,getSessionGeneration,tick])
- if(phase==='loading')return <section className="activity" role="status">Loading activity…</section>
+ const load=useCallback(()=>loadActivity(client!,adapter,session!.scope,runRead),[client,adapter,session?.generation,childId,runRead])
+ const cached=useCachedResource(parent?client:null,`activity:${childId}`,load,4000)
+ const phase=!session||!parent?'refused':!client?'unavailable':cached?'ready':'loading'
+ const view=cached?.value??EMPTY
+ if(phase==='loading')return <RouteSkeleton />
+ if(cached?.error)return <section className="activity" role="alert">Couldn’t refresh activity. Try again.</section>
  if(phase==='refused')return <section className="activity" role="alert"><h2>This activity is not shared with you</h2><p>Your perspective cannot read this child’s family activity.</p></section>
  if(phase==='unavailable')return <section className="activity" data-state="unavailable"><h2>Activity isn’t connected in this view.</h2><p>Choose a live perspective to see the records shared with it.</p></section>
  const entries=activityEntries(view.data.state==='ready'&&view.data.data?view.data.data:{candidates:[],events:[],recordedRuns:[]} as unknown as StoredMissionControl,view.slips.state==='ready'?view.slips.data:[],{[personId!]:session!.persona.name},view.reports.state==='ready'?view.reports.data:[],view.additions.state==='ready'?view.additions.data:[])

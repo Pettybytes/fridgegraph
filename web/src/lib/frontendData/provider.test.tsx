@@ -34,3 +34,16 @@ describe('adapter bridge', () => {
     expect(read).toHaveBeenCalledTimes(1)
   })
 })
+
+it('renders a revisited surface from cache while its fresh read is still pending', async () => {
+  const adapter = createMockAdapter()
+  const read = vi.spyOn(adapter, 'readParentChat')
+  const tree = (visible: boolean) => <DataProvider adapter={adapter} scope={demoScope}>{visible ? <Probe /> : null}</DataProvider>
+  const mounted = render(tree(true))
+  await screen.findByText(/can someone grab Nora/)
+  mounted.rerender(tree(false))
+  read.mockImplementation(() => new Promise(() => {}))
+  mounted.rerender(tree(true))
+  expect(screen.getByText(/can someone grab Nora/)).toBeVisible()
+  expect(screen.queryByText('Loading')).not.toBeInTheDocument()
+})

@@ -8,7 +8,7 @@ import {mockFridgeEditingAdapter} from './mockEditingAdapter'
 import type {FridgeNoteRecord} from './editingContract'
 const empty={read:async()=>({status:'empty' as const})}
 afterEach(()=>{cleanup();localStorage.clear();history.replaceState(null,'','#/today')})
-it('mounts confirmed posts on the door, preserves failed edits/removes, updates edits/removes, and clears on refusal/persona switch',async()=>{
+it('shows pending posts immediately, reconciles confirmed posts, preserves failed edits/removes, updates edits/removes, and clears on refusal/persona switch',async()=>{
  history.replaceState(null,'','#/fridge')
  const adapter=mockFridgeEditingAdapter([],[],{id:'p_mom',displayName:'Kendra'})
  const post=adapter.postFridgeNote
@@ -23,7 +23,8 @@ it('mounts confirmed posts on the door, preserves failed edits/removes, updates 
  fireEvent.change(within(form).getByRole('textbox',{name:'Note text'}),{target:{value:'Bring the library book.'}})
  fireEvent.click(within(form).getByRole('button',{name:'Post privately'}))
  await waitFor(()=>expect(confirm).toBeDefined())
- expect(document.querySelector('[aria-label="Posted fridge notes"]')).toBeNull()
+ expect(document.querySelector('[aria-label="Posted fridge notes"]')).toHaveTextContent('Bring the library book.')
+ expect(document.querySelector('[aria-label="Posted fridge notes"]')).toHaveTextContent('Saving…')
  expect(screen.queryByText('Saved.')).not.toBeInTheDocument()
  await act(async()=>confirm())
  fireEvent.click(screen.getByRole('button',{name:'Close editor'}))

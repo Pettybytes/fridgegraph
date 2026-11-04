@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { useEffect } from 'react'
 import App from '@/App'
@@ -42,12 +42,12 @@ function ResetHarness() {
   const { session, switchPerson, registerResetVerification } = useSession()
   // The real app registers this verification through ResetSeededReads.
   useEffect(() => registerResetVerification(async () => {}), [registerResetVerification])
-  return !session ? <button onClick={() => { void switchPerson('kendra') }}>Choose Kendra</button> : <TodayDemoChecklist reopenSignal={0} />
+  return !session ? <button onClick={() => { void switchPerson('kendra') }}>Choose Kendra</button> : <TodayDemoChecklist key={session.generation} reopenSignal={0} />
 }
 
 it('uses the session reset path; failure preserves progress and success clears it before the next run', async () => {
   const base = createMockAuthAdapter()
-  const reset = vi.fn<() => Promise<void>>().mockRejectedValueOnce(new DemoResetError('failed')).mockResolvedValueOnce()
+  const reset = vi.fn<AuthAdapter['resetDemo']>().mockRejectedValueOnce(new DemoResetError('failed')).mockResolvedValueOnce({status:'committed',runId:'reset-checklist-test',personaId:'kendra',session:null})
   const adapter: AuthAdapter = { ...base, mode: 'live', resetDemo: reset, signInAsPersona: async id => ({ ...await base.signInAsPersona(id), accessToken: 'test-only', expiresAt: Date.now() / 1000 + 3600, marks: { demo: true, demoGuide: false } }) }
   render(<SessionProvider adapter={adapter}><ResetHarness /></SessionProvider>)
   fireEvent.click(screen.getByRole('button', { name: 'Choose Kendra' }))
@@ -62,8 +62,8 @@ it('uses the session reset path; failure preserves progress and success clears i
   expect(within(checklist).getByText(/1 of 2 tried/)).toBeVisible()
   expect(reset).toHaveBeenCalledTimes(1)
   fireEvent.click(within(checklist).getByRole('button', { name: 'Reset demo for everyone' }))
-  await screen.findByRole('button', { name: 'Choose Kendra' })
+  // #239 deliberately preserves the perspective and remounts generation-owned state.
+  await waitFor(() => expect(screen.getByRole('region', { name: 'Judge checklist' })).toHaveTextContent('0 of 2 tried'))
   expect(reset).toHaveBeenCalledTimes(2)
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Choose Kendra' })))
-  expect((await screen.findByRole('region', { name: 'Judge checklist' })).textContent).toMatch(/0 of 2 tried/)
+  expect(screen.queryByRole('button', { name: 'Choose Kendra' })).not.toBeInTheDocument()
 })

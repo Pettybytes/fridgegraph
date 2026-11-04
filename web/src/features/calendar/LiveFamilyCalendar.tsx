@@ -1,3 +1,4 @@
+import {RouteSkeleton} from '@/app/RouteSkeleton'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from 'radix-ui'
 import { X } from 'lucide-react'
@@ -36,6 +37,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
   // reload counter bumped after any successful write so the shared window is re-read.
   const [formOpen, setFormOpen] = useState<EventFormInitial | 'new' | null>(null)
   const [dragPending, setDragPending] = useState<{ id: string; draft: EventDraft } | null>(null)
+  const [optimisticEvent,setOptimisticEvent]=useState<LiveEvent|null>(null)
   const [writeBusy, setWriteBusy] = useState(false), [reload, setReload] = useState(0)
   const api = useRef<IlamyCalendarApi>(null)
   const query = useMemo(() => new URLSearchParams(route.split('?')[1] ?? ''), [route])
@@ -43,21 +45,24 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
   const known = eventId ? adapter.knownEvent(eventId) : undefined
   const day = requested ?? (known ? localDay(known.start) : localDay(Date.now())), view: IlamyView = query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
   const childId = query.get('childId') ?? (eventId ? adapter.knownChild(eventId) : undefined) ?? adapter.scope.childId, from = validDay(day) ? weekStart(view === 'month' ? `${day.slice(0, 7)}-01` : day) : '', to = from ? addDays(from, view === 'month' ? 41 : 6) : ''
-  const key = `${route}:${cancelled}:${reload}`, current = loaded?.adapter === adapter && loaded.key === key ? loaded.value : null
-  const canEdit = adapter.parent
+  const key = `${route}:${cancelled}:${reload}`, current = loaded?.adapter === adapter && loaded.key === key ? loaded.value : adapter.peekWindow?.({childId,from,to,includeCancelled:cancelled}) ?? null
+  const canEdit = adapter.parent && !optimisticEvent
   useEffect(() => { const follow = () => { setRoute(location.hash); setSelected(null); setCareDetail(null); setAvailabilityDetail(null) }; window.addEventListener('hashchange', follow); return () => window.removeEventListener('hashchange', follow) }, [])
   useEffect(() => {
     let active = true, refused = false
     setSelected(null); setCareDetail(null); setAvailabilityDetail(null); setFailed(''); setNotSaved(null)
     if (!from) { setFailed('Choose a valid calendar date.'); return }
     const load = async () => { try { const value = await adapter.readWindow({ childId, from, to, includeCancelled: cancelled }); if (active) { setLoaded({ adapter, key, value }); refused = value.events.state === 'refused'; if (eventId) setSelected(value.events.state === 'ready' ? value.events.value.find(e => e.id === eventId) ?? null : null) } } catch { if (active) setFailed(outcomeCopy.failed) } }
-    void load(); const timer = setInterval(() => { if (!refused && document.visibilityState !== 'hidden') void load() }, 30000)
+    void load(); const timer = setInterval(() => { if (!refused && document.visibilityState !== 'hidden') void load() }, 2500)
     return () => { active = false; clearInterval(timer) }
   }, [adapter, key, childId, from, to, cancelled, eventId])
   function navigate(nextDay: string, nextView: IlamyView = view) { setSelected(null); setCareDetail(null); setAvailabilityDetail(null); const next = `#/calendar?day=${nextDay}&childId=${encodeURIComponent(childId)}&view=${nextView}`; setRoute(next); location.hash = next }
   async function submitForm(cid: string, draft: EventDraft) {
+    const pendingId=formOpen==='new'?'pending-calendar-save':(formOpen as {id:string}).id
+    setOptimisticEvent({id:pendingId,...draft,title:`${draft.title} (Saving…)`})
     const r = formOpen === 'new' ? await adapter.createEvent(cid, draft) : await adapter.updateEvent((formOpen as { id: string }).id, draft)
-    if (r.ok) { setReload(x => x + 1); setSelected(null) }
+    setOptimisticEvent(null)
+    if (r.ok) { if(current&&current.events.state==='ready')setLoaded({adapter,key:`${route}:${cancelled}:${reload+1}`,value:{...current,events:{state:'ready',value:[...current.events.value.filter(event=>event.id!==pendingId),r.value]}}});setReload(x => x + 1); setSelected(null) }
     return r
   }
   async function deleteForm() {
@@ -81,10 +86,11 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     if (api.current.view !== view) api.current.setView(view)
   }, [current, view, day, from])
   if (failed) return <section className="cal-empty" role="alert"><p>{failed}</p></section>
-  if (!current) return <p role="status">Loading your shared calendar…</p>
+  if (!current) return <RouteSkeleton variant="calendar" />
   if (current.events.state === 'refused') return <section className="cal-empty" role="alert"><h2>{outcomeCopy.refused}</h2><p>This calendar is only shown to people with permission to read it.</p><a href="#/calendar">Return to your calendar</a></section>
   const slots = current.availability.state === 'ready' ? current.availability.value : []
-  const records = current.events.state === 'ready' ? current.events.value : []
+  const storedRecords = current.events.state === 'ready' ? current.events.value : []
+  const records = optimisticEvent ? [...storedRecords.filter(event=>event.id!==optimisticEvent.id),optimisticEvent] : storedRecords
   const conflicts = current.conflicts.state === 'ready' ? current.conflicts.value : []
   const childName = childId === adapter.scope.childId ? adapter.scope.childName : 'Selected child'
   const events = records.map(event => liveToIlamy(event, canEdit))
@@ -97,6 +103,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
       </div>
     </div>
     <div className="cal-live-key"><p>A care schedule describes responsibility, not a confirmed location.</p><label><input type="checkbox" checked={cancelled} onChange={e => setCancelled(e.target.checked)} /> Show cancelled events</label></div>
+    {optimisticEvent&&<p role="status">Saving {optimisticEvent.title.replace(' (Saving…)','')}…</p>}
     {notSaved && <p className="cal-notsaved" role="status">{notSaved}</p>}
     {eventId && !selected && <p className="cal-attention">Event details are not available in the records read for this view.</p>}
     {lanes

@@ -56,3 +56,18 @@ it('retains a created goal ID when style saving fails and retries without anothe
  expect(create).toHaveBeenCalledTimes(1)
  expect(client.write).toHaveBeenLastCalledWith('nora',{kind:'goal',itemId:id,...marker})
 })
+it('shows the submitted caption immediately and restores the old caption on failure',async()=>{
+ const adapter=mockFridgeEditingAdapter([],[])
+ await adapter.postFridgeNote({childId:'nora',text:'Old caption',paperColor:'WHITE',audience:'PARENTS_ONLY',attachmentRef:'fridge-art:dog'})
+ const {result}=renderHook(()=>useFridgeEditing(adapter,'nora',viewer))
+ await waitFor(()=>expect(result.current.notes.kind).toBe('ready'))
+ let reject!:(error:Error)=>void
+ adapter.readNotes=vi.fn(()=>new Promise<import('./editingContract').FridgeNoteRecord[]>((_,fail)=>{reject=fail}))
+ let pending!:Promise<boolean>
+ act(()=>{pending=result.current.saveCaption('dog','New caption')})
+ expect(result.current.notes.kind==='ready'&&latestCaptions(result.current.notes.items)[0].text).toBe('New caption')
+ expect(result.current.pending).toBe('notes')
+ await act(async()=>{reject(Error('NETWORK_ERROR'));expect(await pending).toBe(false)})
+ expect(result.current.notes.kind==='ready'&&latestCaptions(result.current.notes.items)[0].text).toBe('Old caption')
+ expect(result.current.notice?.kind).toBe('failed')
+})

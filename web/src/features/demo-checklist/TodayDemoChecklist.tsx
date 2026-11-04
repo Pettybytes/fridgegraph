@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { RESET_COMPLETE } from '@/features/personas/demoReset'
 import { useSession } from '@/features/personas/Session'
 import { useChildAccess } from '@/features/personas/childContext'
 import { useOrbit } from '@/features/orbit/runtime'
@@ -26,10 +27,13 @@ function rotateRunId() {
 }
 
 export function TodayDemoChecklist({ reopenSignal }: { reopenSignal: number }) {
-  const { session, authMode, resetDemo, resetError } = useSession()
+  const { session, authMode, resetDemo, resetError, notice } = useSession()
   const child = useChildAccess()
   const orbit = useOrbit()
-  const [runId] = useState(currentRunId)
+  const [runId, setRunId] = useState(currentRunId)
+  // Reset preserves the perspective (#239) and remounts this component before
+  // the caller's promise settles. Rotate only on the committed reset notice.
+  useEffect(() => { if (notice === RESET_COMPLETE) setRunId(rotateRunId()) }, [notice])
   if (!session) return null
   const guide = session.marks?.demoGuide === true || session.persona.id === 'demo-guide'
   if (!guide && session.persona.id !== 'kendra') return null
@@ -48,7 +52,6 @@ export function TodayDemoChecklist({ reopenSignal }: { reopenSignal: number }) {
     const success = await resetDemo()
     if (success) {
       try { localStorage.removeItem(checklistStorageKey('1', session.persona.id, childId, runId)) } catch { /* Storage may be unavailable. */ }
-      rotateRunId()
     }
     return success
   } : undefined
