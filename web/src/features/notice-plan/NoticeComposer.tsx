@@ -6,6 +6,7 @@ import {createMockNoticeAdapter,noticeErrorMessage} from './mockAdapter'
 import {createLiveNoticeAdapter} from './liveAdapter'
 import {noticeInput,fileTypes} from './input'
 import {sampleFile} from './samples'
+import {announceNoticeConfirmed,onNoticeSampleRequest} from './sampleSignal'
 import {NoticeReview} from './NoticeReview'
 import {NoticeFailure,type NoticeAdapter,type NoticeConfirmResult,type NoticeProposal,type NoticeRequest} from './types'
 import './notice-plan.css'
@@ -27,7 +28,7 @@ export function NoticeDraftBoundary({ownerKey,...props}:{ownerKey:string;registe
 }
 function LocalNoticeDraft({registerCleanup,adapter,childId,canConfirm=false,readOnly=false}:{registerCleanup:CleanupRegistration;adapter?:NoticeAdapter;childId?:string;canConfirm?:boolean;readOnly?:boolean}){
  const [text,setText]=useState(''),[files,setFiles]=useState<File[]>([]),[dragging,setDragging]=useState(false),[samples,setSamples]=useState(false)
- const input=useRef<HTMLInputElement>(null),id=useId()
+ const input=useRef<HTMLInputElement>(null),details=useRef<HTMLDetailsElement>(null),id=useId()
  const [busy,setBusy]=useState(false),[confirming,setConfirming]=useState(false),[confirmed,setConfirmed]=useState<NoticeConfirmResult|null>(null),[confirmBlocked,setConfirmBlocked]=useState(false),[proposal,setProposal]=useState<NoticeProposal|null>(null),[submittedText,setSubmittedText]=useState<string|null>(null),[error,setError]=useState('')
  const abort=useRef<AbortController|null>(null),revision=useRef(0),alive=useRef(true)
  const [loadingSample,setLoadingSample]=useState(false)
@@ -40,15 +41,30 @@ function LocalNoticeDraft({registerCleanup,adapter,childId,canConfirm=false,read
   catch{if(alive.current&&revision.current===owner&&!controller.signal.aborted)setError('Couldn’t load the sample just now.')}
   finally{if(alive.current&&revision.current===owner)setLoadingSample(false)}
  }
- async function run(answer?:string){
+ // Card 1 deep-link: stage the authorized Nora sample and run the SAME review a judge clicks by
+ // hand (open draft → sample → review). The explicit Confirm still stays the parent's decision.
+ async function stageSampleAndReview(){
+  if(!adapter||childId!=='p_nora'||busy||confirming||loadingSample)return
+  invalidate();const controller=new AbortController();abort.current=controller;const owner=revision.current
+  setSamples(true);setLoadingSample(true)
+  let file:File|null=null
+  try{file=await sampleFile(controller.signal)}
+  catch{if(alive.current&&revision.current===owner&&!controller.signal.aborted)setError('Couldn’t load the sample just now.')}
+  finally{if(alive.current&&revision.current===owner)setLoadingSample(false)}
+  if(!file||!alive.current||revision.current!==owner||controller.signal.aborted)return
+  setText('');setFiles([file])
+  await run(undefined,[file])
+ }
+ async function run(answer?:string,explicitFiles?:File[]){
   if(!adapter||!childId||busy||confirming||loadingSample)return
   const previous=proposal
+  const useFiles=explicitFiles??files,useText=explicitFiles?'':text
   const controller=new AbortController();abort.current?.abort();abort.current=controller
   const owner=++revision.current,owns=()=>alive.current&&owner===revision.current&&!controller.signal.aborted
   setBusy(true);setError('');setConfirmed(null);setConfirmBlocked(false)
   try{
-   if(!answer&&(text&&files.length||files.length>1)){setError('Choose pasted text or one file for this review.');return}
-   const notice=await noticeInput(text,files,controller.signal)
+   if(!answer&&(useText&&useFiles.length||useFiles.length>1)){setError('Choose pasted text or one file for this review.');return}
+   const notice=await noticeInput(useText,useFiles,controller.signal)
    const request:NoticeRequest=answer&&previous?{childId,notice,resume:{proposalId:previous.proposalId,version:previous.version,answer}}:{childId,notice}
    if(!owns())return
    setSubmittedText(request.notice.kind==='text'?request.notice.text:null)
@@ -72,12 +88,19 @@ function LocalNoticeDraft({registerCleanup,adapter,childId,canConfirm=false,read
    if(!owns())return
    if(!result.job.id)throw new NoticeFailure('INVALID_PROPOSAL')
    setConfirmed(result)
+   // Report the server's recorded pickup to the Today judge card. A job id is a non-secret
+   // record identifier; mode tells the card whether a real record exists (live) or not (mock).
+   announceNoticeConfirmed({childId,jobId:result.job.id,status:result.job.status,mode:adapter.mode})
   }catch(e){if(owns()){setError(noticeErrorMessage(e,adapter.mode,'confirm'));if(e instanceof NoticeFailure&&['INVALID_PROPOSAL','PROPOSAL_EXPIRED','PROPOSAL_STALE','NO_ACTION_AVAILABLE','UNAUTHORIZED','UNAUTHENTICATED'].includes(e.code))setConfirmBlocked(true)}}
   finally{if(owns())setConfirming(false)}
  }
  function clear(){invalidate();setText('');setFiles([]);setDragging(false);setSamples(false);if(input.current)input.current.value=''}
  useEffect(()=>{alive.current=true;const unregister=registerCleanup(clear);return()=>{alive.current=false;++revision.current;abort.current?.abort();unregister()}},[registerCleanup])
- return <details className="notice-draft" aria-label="Notice draft">
+ // Serve a staged-sample request from the Today judge card. Latest render's staging closure runs.
+ const stageRef=useRef(()=>{})
+ stageRef.current=()=>{if(details.current)details.current.open=true;void stageSampleAndReview()}
+ useEffect(()=>onNoticeSampleRequest(()=>stageRef.current()),[])
+ return <details ref={details} className="notice-draft" aria-label="Notice draft">
   <summary><FileText size={18} aria-hidden="true"/><span>Add a notice</span><strong>{adapter?.mode==='live'?'Live':'Mock'}</strong></summary>
   <div className="notice-draft-body">
    <Button type="button" variant="ghost" className="notice-control" onClick={event=>{const details=event.currentTarget.closest('details');if(details){details.open=false;details.querySelector('summary')?.focus()}}}>Close notice</Button>

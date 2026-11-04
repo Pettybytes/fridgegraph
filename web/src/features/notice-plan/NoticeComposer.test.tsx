@@ -1,6 +1,8 @@
-import {act,fireEvent,render,screen,within} from '@testing-library/react'
+import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react'
 import {afterEach,expect,it,vi} from 'vitest'
 import {NoticeDraftBoundary} from './NoticeComposer'
+import {createMockNoticeAdapter} from './mockAdapter'
+import {sampleText} from './samples'
 afterEach(()=>vi.unstubAllGlobals())
 function setup(){
  let cleanup:(()=>void)|undefined
@@ -59,4 +61,23 @@ it('registered private cleanup clears text, file references, input value and sam
  expect(screen.queryByText('private.notice')).not.toBeInTheDocument()
  expect(screen.queryByRole('region',{name:'Sample notices'})).not.toBeInTheDocument()
  expect(screen.getByRole('button',{name:'Clear draft'})).toBeDisabled()
+})
+it('reports the recorded pickup job to the Today card only when a notice is confirmed',async()=>{
+ const registerCleanup=vi.fn(()=>()=>{})
+ const adapter=createMockNoticeAdapter('Nora','mock-parent',true)
+ const confirmed=vi.fn()
+ const listener=(event:Event)=>confirmed((event as CustomEvent).detail)
+ window.addEventListener('fg:notice-confirmed',listener)
+ try{
+  render(<NoticeDraftBoundary ownerKey="kendra:p_nora" registerCleanup={registerCleanup} adapter={adapter} childId="p_nora" canConfirm/>)
+  fireEvent.click(screen.getByText('Add a notice'))
+  fireEvent.change(screen.getByLabelText('Or paste notice text'),{target:{value:sampleText}})
+  fireEvent.click(screen.getByRole('button',{name:'Review notice'}))
+  const review=await screen.findByRole('region',{name:'Review proposed changes'})
+  // Reviewing alone records nothing and reports nothing — confirmation is the parent's decision.
+  expect(confirmed).not.toHaveBeenCalled()
+  fireEvent.click(within(review).getByRole('button',{name:'Confirm mock pickup request'}))
+  await screen.findByText('Mock pickup request shown')
+  await waitFor(()=>expect(confirmed).toHaveBeenCalledWith({childId:'p_nora',jobId:'mock-pickup:p_nora:2026-10-26:afternoon',status:'discovering',mode:'mock'}))
+ }finally{window.removeEventListener('fg:notice-confirmed',listener)}
 })

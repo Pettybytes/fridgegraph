@@ -28,6 +28,10 @@ export type DemoChecklistProps = {
   resetFailure?: string
   /** Supply only an authorized reset action. A resolved false means reset failed. */
   onReset?: () => Promise<boolean | void>
+  /** Card 1 trigger: stage + open the real notice flow. Only wired when the live gate is on. */
+  onStartNotice?: () => void
+  /** The server's recorded pickup from a confirmed notice — persisted-state completion for Card 1. */
+  noticeResult?: { jobId: string; status: string; mode: 'mock' | 'live' } | null
 }
 
 const IDS: DemoStepId[] = ['notice', 'village', 'orbit', 'voice', 'photo', 'guide']
@@ -121,7 +125,16 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
   }, [props.reopenSignal])
 
   const visible = props.mode === 'guide' ? steps(props.availability).filter(step => step.id === 'guide') : steps(props.availability)
-  const triedCount = visible.filter(step => saved.tried.includes(step.id)).length
+  // Card 1 (notice) is a persisted-state action card under the live gate — never a tried checkbox.
+  const isNoticeAction = (id: DemoStepId) => id === 'notice' && props.availability.noticeConfirmReady
+  const noticeDone = props.noticeResult?.mode === 'live'
+  const checkboxSteps = visible.filter(step => !isNoticeAction(step.id))
+  const triedCount = checkboxSteps.filter(step => saved.tried.includes(step.id)).length
+  const noticeActionState = props.noticeResult?.mode === 'live'
+    ? `Pickup request recorded — not arranged yet · ${props.noticeResult.jobId}`
+    : props.noticeResult?.mode === 'mock'
+      ? 'Sample reviewed. No record was created in this build.'
+      : 'Not started. The trigger stages the notice; confirm the pickup request in Rosina’s review to record it.'
   const mark = (id: DemoStepId, checked: boolean) => setSaved(current => ({ ...current,
     tried: checked ? [...new Set([...current.tried, id])] : current.tried.filter(item => item !== id),
   }))
@@ -147,18 +160,31 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
     </div>
     {props.mode === 'parent' && (props.personaId !== 'kendra' || props.childId !== 'p_nora') && <p className="demo-checklist__context">The notice sample is for Kendra viewing Nora. Switch perspective before trying it.</p>}
     <div className="demo-checklist__running">
-      <ProgressBar value={visible.length ? Math.round((triedCount / visible.length) * 100) : 0} type="safe" label={`${triedCount} of ${visible.length} steps tried`} />
-      <p className="demo-checklist__progress">{triedCount} of {visible.length} tried. These boxes record what you tried; they do not verify an app result.</p>
+      <ProgressBar value={checkboxSteps.length ? Math.round((triedCount / checkboxSteps.length) * 100) : 0} type="safe" label={`${triedCount} of ${checkboxSteps.length} steps tried`} />
+      <p className="demo-checklist__progress">{triedCount} of {checkboxSteps.length} tried. These boxes record what you tried; they do not verify an app result.</p>
     </div>
     <ol className="demo-checklist__steps">
-      {visible.map(step => <li key={step.id} className="demo-checklist__step" data-fgc-type={STEP_LOOK[step.id].type} data-tried={saved.tried.includes(step.id) || undefined} value={step.number}>
+      {visible.map(step => <li key={step.id} className="demo-checklist__step" data-fgc-type={STEP_LOOK[step.id].type} data-tried={(isNoticeAction(step.id) ? noticeDone : saved.tried.includes(step.id)) || undefined} value={step.number}>
         <span className="demo-checklist__bar" aria-hidden="true" />
         <div className="demo-checklist__node"><TypeNode type={STEP_LOOK[step.id].type}>{(() => { const StepIcon = STEP_LOOK[step.id].icon; return <StepIcon size={18} aria-hidden="true" /> })()}</TypeNode><span className="demo-checklist__number">{step.number}</span></div>
         <div className="demo-checklist__body">
           <div className="demo-checklist__step-heading"><h3>{step.title}</h3>{step.number > 1 && <span className="demo-checklist__optional">Optional</span>}</div>
           <p><strong>Do this:</strong> {step.doThis}</p>
           <p><strong>Look for:</strong> {step.lookFor}</p>
-          <div className="demo-checklist__step-foot"><a href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a><label><input type="checkbox" checked={saved.tried.includes(step.id)} onChange={event => mark(step.id, event.target.checked)} aria-label={`I tried this: ${step.title}`} /><span>I tried this</span></label></div>
+          {isNoticeAction(step.id) ? (
+            <div className="demo-checklist__action">
+              <FgButton variant={noticeDone ? 'secondary' : 'primary'} onClick={props.onStartNotice} disabled={!props.onStartNotice}>{noticeDone ? 'Add another notice' : 'Add the school notice'}</FgButton>
+              <p className="demo-checklist__action-state" role="status">{noticeActionState}</p>
+              {noticeDone && <nav className="demo-checklist__results" aria-label="Check the result">
+                <a href="#/mission-control">Mission Control — the pickup request</a>
+                <a href="#/activity">Recorded activity</a>
+                <a href="#/calendar">Family Calendar</a>
+              </nav>}
+              <a className="demo-checklist__action-receipt" href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a>
+            </div>
+          ) : (
+            <div className="demo-checklist__step-foot"><a href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a><label><input type="checkbox" checked={saved.tried.includes(step.id)} onChange={event => mark(step.id, event.target.checked)} aria-label={`I tried this: ${step.title}`} /><span>I tried this</span></label></div>
+          )}
         </div>
       </li>)}
     </ol>
