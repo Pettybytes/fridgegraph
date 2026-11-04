@@ -16,6 +16,7 @@ test('Demo guide browses all families with actions confined to the Ellison showc
  await page.getByRole('button',{name:'Explore as the Demo guide',exact:true}).click()
  const select=page.getByRole('combobox',{name:'Demo guide child',exact:true})
  await expect(select.locator('option')).toHaveCount(10)
+ await expect(page.locator('.session-chip')).not.toContainText('Demo guide: sees the whole fictional ecosystem')
  let main=await open(page,'village')
  await main.getByRole('button',{name:'List view',exact:true}).click()
  await expect(main.getByRole('button',{name:'Kendra Ellison parent',exact:true})).toBeVisible()
