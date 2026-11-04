@@ -1,22 +1,65 @@
-.invites-panel{max-width:940px;display:grid;gap:16px}
-.invites-panel h2,.invites-panel h3{margin:0;color:var(--fg-ink)}
+/* Two-column page: the composer card with, on a wide screen, the example card beside it.
+   The columns stack under 1024px so the phone reads form first, example after. */
+.invites-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start;max-width:1280px}
+.invites-example{position:sticky;top:20px;display:grid;gap:12px}
+@media(max-width:1024px){.invites-layout{grid-template-columns:1fr}.invites-example{position:static}}
+
+.invites-panel{max-width:940px;display:grid;gap:18px}
+.invites-panel h2,.invites-panel h3,.invites-example h3{margin:0;color:var(--fg-ink)}
 .invites-panel__heading{display:flex;align-items:flex-start;justify-content:space-between}
 .invites-panel__eyebrow{font-size:13px;color:var(--fg-muted);margin:0 0 4px}
-.invites-panel__request,.invites-card__fields label{display:grid;gap:6px;color:var(--fg-ink);font-size:13px;font-weight:600}
-.invites-panel textarea,.invites-panel input,.invites-card input,.invites-card textarea{width:100%;border:1px solid var(--fg-border);border-radius:8px;background:var(--fg-surface);color:var(--fg-ink);font:inherit;font-weight:400;padding:10px 12px;min-height:42px}
-.invites-panel textarea{resize:vertical;line-height:1.5}
-.invites-card textarea{resize:vertical;line-height:1.45}
-.invites-panel textarea:focus-visible,.invites-panel input:focus-visible,.invites-card input:focus-visible,.invites-card textarea:focus-visible{outline:2px solid var(--fg-focus);outline-offset:2px}
-.invites-panel>.fg-btn{justify-self:start}
-.invites-panel__actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.invites-panel__revise-hint{font-size:13px;line-height:1.45;color:var(--fg-muted);margin:0}
-.invites-panel__hint{font-size:12.5px;line-height:1.45;color:var(--fg-muted);margin:0}
-.invites-panel__counter{font-size:12px;font-weight:400;color:var(--fg-muted);justify-self:end;margin-top:-4px}
-/* Invitation details and wording: filled before Prepare, editable after. */
-.invites-panel__details{display:grid;gap:12px;padding-top:4px;border-top:1px solid var(--fg-border)}
+
+/* iOS-style grouped sections: one quiet inset per topic (art, details, reference) on the white
+   card, so each group reads as its own settings block. Hierarchy, not decoration. */
+.invites-group{display:grid;gap:12px;padding:16px;border:1px solid var(--fg-border);border-radius:var(--radius-nested,10px);background:color-mix(in oklab,var(--fg-canvas) 70%,var(--fg-surface))}
+.invites-group__footer{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
 .invites-panel__section-head{display:grid;gap:2px}
 .invites-panel__section-title{font-size:14px;font-weight:600;color:var(--fg-ink)}
 .invites-panel__optional{margin-left:6px;font-size:11px;font-weight:500;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.04em}
+.invites-panel__hint{font-size:12.5px;line-height:1.45;color:var(--fg-muted);margin:0}
+.invites-panel__counter{font-size:12px;font-weight:400;color:var(--fg-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.invites-panel__revise-hint{font-size:13px;line-height:1.45;color:var(--fg-muted);margin:0}
+
+/* Fields: label above, one 44px control height, a visibly typeable surface (white field on the
+   tinted group, a border a step darker than the hairline, real placeholders) and a smooth focus
+   ring. State feedback only; 140ms, color/shadow, no movement. */
+.invites-panel__request,.invites-fields label{display:grid;gap:7px;color:var(--fg-ink);font-size:13px;font-weight:600}
+.invites-panel input,.invites-panel textarea{width:100%;height:44px;border:1px solid color-mix(in oklab,var(--fg-ink) 14%,var(--fg-border));border-radius:10px;background:var(--fg-surface);color:var(--fg-ink);font:inherit;font-weight:400;padding:0 12px;transition:border-color 140ms ease,box-shadow 140ms ease}
+.invites-panel textarea{height:auto;min-height:96px;padding:10px 12px;resize:vertical;line-height:1.5}
+.invites-fields textarea{min-height:64px}
+.invites-panel input::placeholder,.invites-panel textarea::placeholder{color:var(--fg-muted)}
+.invites-panel input:hover:not(:disabled),.invites-panel textarea:hover:not(:disabled){border-color:color-mix(in oklab,var(--fg-ink) 30%,var(--fg-border))}
+.invites-panel input:focus-visible,.invites-panel textarea:focus-visible{outline:none;border-color:var(--fg-focus);box-shadow:0 0 0 3px color-mix(in oklab,var(--fg-focus) 22%,transparent)}
+.invites-panel input:disabled,.invites-panel textarea:disabled{color:var(--fg-muted);background:color-mix(in oklab,var(--fg-canvas) 55%,var(--fg-surface))}
+.invites-panel input[aria-invalid='true']{border-color:var(--fg-danger)}
+.invites-field-error{grid-column:1/-1;margin:-4px 0 0;font-size:12.5px;line-height:1.4;color:var(--fg-danger)}
+
+/* The creative field carries a small sparkle affordance that lights with focus. */
+.invites-art-input{position:relative}
+.invites-art-input textarea{padding-right:40px}
+.invites-art-input__spark{position:absolute;top:10px;right:12px;width:18px;height:18px;color:var(--fg-muted);pointer-events:none;transition:color 140ms ease}
+.invites-art-input:focus-within .invites-art-input__spark{color:var(--fg-focus)}
+
+.invites-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.invites-field--full{grid-column:1/-1}
+.invites-fields__when{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.invites-card__timezone{font-size:13px;color:var(--fg-muted);margin:0}
+
+.invites-panel>.fg-btn{justify-self:start}
+.invites-panel__actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* The example card beside the form: the art slot (Bryan's warrior-unicorn card once supplied;
+   until then the description that produces it), then the wording the details print. The soft
+   invite tint is the invitations card-type colour (design.md §12): orientation, not decoration. */
+.invites-example__card{border:1px solid var(--fg-border);border-radius:14px;overflow:hidden;background:var(--fg-surface)}
+.invites-example__slot{display:grid;justify-items:center;gap:8px;padding:26px 18px;text-align:center;border-bottom:1.5px dashed color-mix(in oklab,var(--type-invite) 35%,var(--fg-border));background:color-mix(in oklab,var(--type-invite) 6%,var(--fg-surface))}
+.invites-example__slot svg{width:22px;height:22px;color:var(--type-invite)}
+.invites-example__slot p{margin:0;font-size:15px;font-weight:600;line-height:1.35;color:var(--fg-ink);text-wrap:balance}
+.invites-example__slot span{font-size:12.5px;line-height:1.45;color:var(--fg-muted)}
+.invites-example__art{display:block;width:100%;height:auto;border-bottom:1px solid var(--fg-border)}
+.invites-example__wording{display:grid;gap:2px;justify-items:center;text-align:center;padding:16px 12px}
+.invites-example__wording .invites-card__line--name{font-size:24px}
+.invites-example__wording .invites-card__line--occasion{font-size:16px}
 
 /* The result card: the generated artwork with its readable text and the download. Details and
    wording are edited above in the panel, so the card is a single preview column. */
@@ -36,25 +79,27 @@
 .invites-card__line--host{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
 .invites-card__line--name{font-size:30px;font-weight:700;line-height:1.12;margin-bottom:6px}
 .invites-card__line--occasion{font-size:18px;font-weight:600;line-height:1.25;margin-bottom:10px}
-.invites-card__line--date,.invites-card__line--time{font-size:15px;line-height:1.4}
+.invites-card__line--date,.invites-card__line--time{font-size:15px;line-height:1.4;font-variant-numeric:tabular-nums}
 .invites-card__line--time{margin-bottom:10px}
 .invites-card__line--place{font-size:16px;font-weight:600;line-height:1.3}
 .invites-card__line--message{font-size:15px;font-style:italic;line-height:1.45;margin-top:12px}
 
-.invites-card__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.invites-card__field--full{grid-column:1/-1}
-.invites-card__timezone{font-size:13px;color:var(--fg-muted);margin:0}
-
 @media(max-width:1024px){
   .invites-card{grid-template-columns:1fr}
-  .invites-card__fields{grid-template-columns:1fr}
   .invites-card__line--name{font-size:26px}
   .invites-card__line--occasion{font-size:17px}
 }
-.dark .invites-card input[type="date"],.dark .invites-card input[type="time"]{color-scheme:dark}
+@media(max-width:700px){
+  .invites-fields{grid-template-columns:1fr}
+  .invites-fields__when{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .invites-fields__when label:first-child{grid-column:1/-1}
+}
+.dark .invites-panel input[type="date"],.dark .invites-panel input[type="time"]{color-scheme:dark}
+@media(prefers-reduced-motion:reduce){
+  .invites-panel input,.invites-panel textarea,.invites-art-input__spark{transition:none}
+}
 
 /* Optional reference image: remix control. Tokens only, matches the panel. */
-.invites-panel__reference{display:grid;gap:8px;margin-top:2px;padding-top:4px;border-top:1px solid var(--fg-border)}
 .invites-dropzone{display:grid;justify-items:center;gap:8px;padding:18px;border:1.5px dashed var(--fg-border);border-radius:var(--radius-md,12px);background:color-mix(in oklch,var(--fg-primary) 3%,transparent);text-align:center}
 .invites-dropzone.is-dragging{border-color:var(--fg-primary);background:color-mix(in oklch,var(--fg-primary) 9%,transparent)}
 .invites-dropzone__input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
