@@ -40,6 +40,9 @@ jobs:
       - name: All-family fictional history and fixture copy
         run: node --import tsx --test src/demo/pristineHistory.test.ts src/demo/calendarDensity.test.ts
 
+      - name: Mission Control coverage failure reporting (offline)
+        run: node --test ops/mc-analytics-coverage.test.mjs
+
       - name: MCP config generation tests
         run: npm run test:mcp-config
 

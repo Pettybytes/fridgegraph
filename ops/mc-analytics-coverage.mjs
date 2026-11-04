@@ -59,13 +59,24 @@ async function query(bearer, document, variables = {}) {
   } catch { return { state: 'failed', reason: 'Transport or non-JSON response' }; }
 }
 
+async function login(personaId) {
+  try {
+    const response = await fetch(`${origin}/api/demo/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ personaId }) });
+    if (!response.ok) return { state: [401, 403].includes(response.status) ? 'refused' : 'failed', http: response.status };
+    const body = await response.json();
+    const bearer = body.session?.access_token;
+    return body.status === 'READY' && typeof bearer === 'string' && bearer.length
+      ? { state: 'ready', bearer }
+      : { state: 'failed', http: response.status, reason: 'Login did not supply a ready session' };
+  } catch { return { state: 'failed', reason: 'Transport or non-JSON login response' }; }
+}
+
 const reads = [];
 if (live) {
   for (const persona of DEMO_PERSONAS.filter(p => (p.parent || p.guardian) && (!selectedPersona || p.id === selectedPersona))) {
-    const response = await fetch(`${origin}/api/demo/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ personaId: persona.id }) });
-    const login = await response.json();
-    if (login.status !== 'READY' || !login.session?.access_token) { reads.push({ persona: persona.id, login: login.status ?? 'FAILED', http: response.status }); continue; }
-    const bearer = login.session.access_token;
+    const auth = await login(persona.id);
+    if (auth.state !== 'ready') { reads.push({ persona: persona.id, login: auth.state, http: auth.http, reason: auth.reason }); continue; }
+    const bearer = auth.bearer;
     const childrenRead = await query(bearer, 'query McCoverageChildren {myChildren{child{id person{displayName}} scopes}}');
     const children = childrenRead.state === 'ready' ? childrenRead.data.myChildren : [];
     const own = families.find(f => f.personas.includes(persona.id));
