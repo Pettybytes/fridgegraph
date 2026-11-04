@@ -91,6 +91,36 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     })
     return () => { active.current = false; proposals.current.clear(); streamTurn.current=null; ++requestId.current; abort.current?.abort(); unregister() }
   }, [registerPrivateCleanup])
+  // Isolated development replay only. No public build polls the Gate B bridge.
+  useEffect(() => {
+    if (!import.meta.env.DEV || new URLSearchParams(location.search).get('gateB') !== '1' || !open || !session?.accessToken) return
+    let current = true, timer: ReturnType<typeof setTimeout>
+    const controller = new AbortController(), seen = new Set<string>()
+    const selected = child?.selectedChildId ?? session.scope.childId
+    async function poll() {
+      try {
+        if (document.visibilityState === 'hidden') return
+        const response = await fetch('/gate-b/proposals', {headers:{Authorization:`Bearer ${session!.accessToken}`},signal:controller.signal})
+        if (!response.ok) return
+        const body = await response.json()
+        if (!current || !Array.isArray(body.proposals)) return
+        for (const proposal of body.proposals) {
+          if (proposal.actorPersonId !== session!.persona.personId || proposal.childId !== selected || proposal.authoredBy !== 'muse-spark-1.3' || typeof proposal.idempotencyKey !== 'string' || seen.has(proposal.idempotencyKey)) continue
+          const actions = validateActions([{id:'calendar-change',args:proposal.proposedChange?.args}])
+          if (!actions.length) continue
+          seen.add(proposal.idempotencyKey)
+          setMessages(items => items.some(m => m.calendarKey === proposal.idempotencyKey) ? items : [...items, {
+            id:`gate-b-${proposal.idempotencyKey}`, from:'ROSINA', kind:'TEXT', text:proposal.proposedChange.summary,
+            at:new Date().toISOString(),relatedJobId:null,relatedInformationRequestId:null,hasVoiceNote:false,
+            actions,proposalKeys:[],calendarKey:proposal.idempotencyKey,
+          }])
+        }
+      } catch { /* Keep typed chat available when the isolated bridge is offline. */ }
+      finally { if (current) timer = setTimeout(poll, 3000) }
+    }
+    void poll()
+    return () => { current=false; controller.abort(); clearTimeout(timer) }
+  }, [open, session, child?.selectedChildId])
   useEffect(() => {
     let current = true
     if (session && dataAdapter) dataAdapter.readVillage(session.scope).then(data => { if (current) setPeople(new Set(data.nodes.map(node => node.person.id))) }, () => { if (current) setPeople(new Set()) })
