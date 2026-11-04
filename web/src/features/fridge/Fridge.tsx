@@ -1,7 +1,8 @@
 import {useFridgePreferences} from './preferences'
 import {useCallback,useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react'
 import {Dialog,Popover} from 'radix-ui'
-import {FgButton} from '@/components/fg/primitives'
+import {FridgeButton as FgButton,FridgeControlSurface} from './FridgeControls'
+import {Images,ClipboardList,Info,Minus,Plus,RotateCcw,Move,AlignStartVertical} from 'lucide-react'
 import {authorInk,doors,MARKER_INK,notePositions,samples,type FridgeReader,type Goal,type MarkerColor,type MarkerFont,type MarkerStyle,type Position,type Slot,type Read} from './model'
 import {Magnet} from './Magnet'
 import {useFridgeSource} from './useFridgeSource'
@@ -102,22 +103,31 @@ function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=
  }
  const goalFeedback=()=>board.status==='ready'?null:<p className="fridge-read" role={board.status==='failed'?'alert':'status'}>{board.status==='loading'?'Loading shared goals…':board.status==='empty'?'Nothing posted here yet.':board.status==='refused'?"These notes aren't shared with this perspective.":board.status==='unavailable'?'These notes aren’t connected in this view.':"Couldn't load these notes"}{board.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
  return <section className="fridge-feature" aria-label="The Fridge">
-  <header className="fridge-toolbar"><div className="fridge-heading"><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div>
-  <div className="fridge-caption"><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Tap anywhere to zoom into that point; tap again to open an item. Drag to pan, pinch to zoom, or focus the viewer to use the wheel and + / − keys. Arrow keys pan. Turn on Arrange items to drag paper or move it with Alt + arrow keys.</p><p>Positions and marker choices save to the family fridge. Tidy up resets positions. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div></header>
-  <div className="fridge-actions">
-   <nav aria-label="Fridge doors" className="fridge-action-group"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
-   <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
-  </div>
+  <header className="fridge-toolbar"><div className="fridge-heading"><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div></header>
+  <FridgeControlSurface role="group" aria-label="Fridge controls">
+   <div className="fridge-control-browse">
+    <nav aria-label="Fridge doors" className="fridge-action-group"><FgButton variant="secondary" ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}><Images aria-hidden="true" size={18}/>Open collage door</FgButton><FgButton variant="secondary" ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}><ClipboardList aria-hidden="true" size={18}/>Open goals door</FgButton></nav>
+    <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
+   </div>
+   <div className="fridge-control-tools">
+    {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
+    <nav className="fridge-view-controls" aria-label="Fridge view controls">
+     <div className="fridge-zoom-segments" role="group" aria-label="Zoom controls">
+      <FgButton variant="secondary" disabled={viewport.view.scale===1} onClick={()=>viewport.zoom(.8)} aria-label="Zoom out" title="Zoom out"><Minus aria-hidden="true" size={18}/></FgButton>
+      <FgButton variant="secondary" onClick={()=>navigate(null)} aria-label="Reset view" title="Reset view"><RotateCcw aria-hidden="true" size={15}/><span aria-hidden="true">{Math.round(viewport.view.scale*100)}%</span></FgButton>
+      <FgButton variant="secondary" onClick={()=>viewport.zoom(1.25)} aria-label="Zoom in" title="Zoom in"><Plus aria-hidden="true" size={18}/></FgButton>
+     </div>
+     <Popover.Root><Popover.Trigger asChild><FgButton variant="secondary" className="fridge-help-trigger" aria-label="Fridge layout and keyboard help"><Info aria-hidden="true" size={18}/></FgButton></Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Tap anywhere to zoom into that point; tap again to open an item. Drag to pan, pinch to zoom, or focus the viewer to use the wheel and + / − keys. Arrow keys pan. Turn on Arrange items to drag paper or move it with Alt + arrow keys.</p><p>Positions and marker choices save to the family fridge. Tidy up resets positions. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close asChild><FgButton variant="secondary" aria-label="Close fridge help">Close</FgButton></Popover.Close></Popover.Content></Popover.Portal></Popover.Root>
+    </nav>
+   </div>
+   {(!readOnly||viewport.view.scale>1)&&<div className="fridge-arrange-controls">
+    {viewport.view.scale>1&&<FgButton variant="secondary" onClick={()=>navigate(null)}>← Back to fridge</FgButton>}
+    {!readOnly&&<><FgButton variant="secondary" aria-pressed={arrange} disabled={arrangementReadOnly} onClick={()=>setArrange(value=>!value)}><Move aria-hidden="true" size={17}/>Arrange items</FgButton><FgButton variant="secondary" disabled={arrangementReadOnly} onClick={()=>void preferences.change({tidy:true})}><AlignStartVertical aria-hidden="true" size={17}/>Tidy up</FgButton></>}
+   </div>}
+  </FridgeControlSurface>
   {!sampleSlots.length&&<p className="fridge-empty-art">Make room for your family’s moments. There’s no artwork in this family album yet.</p>}
-  {readOnly?<p className="fridge-readonly-hint">Read-only perspective. Explore the family collage, notes and goals.</p>:intake??<div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>}
-  {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
-  {preferences.status&&<p className="fridge-arrangement-status" role={preferences.status.startsWith('Couldn’t')?'alert':'status'}>{preferences.status}{!preferences.ready&&<button onClick={preferences.retry}>Retry arrangement</button>}</p>}
-  <nav className="fridge-view-controls" aria-label="Fridge view controls">
-   {viewport.view.scale>1&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}
-   <button onClick={()=>viewport.zoom(1.25)}>Zoom in</button><button disabled={viewport.view.scale===1} onClick={()=>viewport.zoom(.8)}>Zoom out</button><button onClick={()=>navigate(null)}>Reset view</button>
-   {!readOnly&&<><button aria-pressed={arrange} disabled={arrangementReadOnly} onClick={()=>setArrange(value=>!value)}>Arrange items</button>
-   <button disabled={arrangementReadOnly} onClick={()=>void preferences.change({tidy:true})}>Tidy up</button></>}
-  </nav>
+  {readOnly?<p className="fridge-readonly-hint">Explore the family collage, notes and goals.</p>:intake??<div className="fridge-intake-state"><FgButton variant="secondary" disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</FgButton><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>}
+  {preferences.status&&<p className="fridge-arrangement-status" role={preferences.status.startsWith('Couldn’t')?'alert':'status'}>{preferences.status}{!preferences.ready&&<FgButton variant="secondary" onClick={preferences.retry}>Retry arrangement</FgButton>}</p>}
   <div ref={viewport.ref} className={`fridge-viewport ${viewport.view.scale>1?'is-focused':''}`} data-view={door??'overview'} data-scale={viewport.view.scale} data-arrange={arrange} data-editable={!arrangementReadOnly} tabIndex={0} role="region" aria-label="Fridge viewer"
    onFocusCapture={e=>{
     if(e.target===e.currentTarget||viewport.view.scale===1)return
@@ -173,6 +183,6 @@ function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=
    </div>
   </div>
   {!door&&sampleSlots.some(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date'))&&<div className="fridge-sample-card-tray" aria-label="Decorative papers">{sampleSlots.filter(slot=>slot.kind==='form'||(postedNotes.length>0&&slot.variant==='save-date')).map(slot=><button key={slot.id} aria-label={`Open decorative ${slot.text}`} onClick={()=>selectSlot(slot)}><img src={slot.image?.src??`/fridge/samples/${slot.asset}-720.webp`} alt=""/><strong>{slot.text}</strong></button>)}</div>}
-  <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{(selected&&(captions[selected.id]||selected.caption))||''}</Dialog.Description>{selected&&!readOnly&&saveCaption&&<div className="fridge-caption-edit"><label><span>Your caption</span><textarea value={captionDraft} disabled={savingCaption} maxLength={300} rows={2} aria-label={`Edit caption for ${selected.text}`} onChange={e=>{captionDirty.current=true;setCaptionDraft(e.target.value);setCaptionStatus('')}}/></label><FgButton type="button" disabled={savingCaption||!captionDraft.trim()} onClick={()=>void commitCaption()}>{savingCaption?'Saving…':'Save'}</FgButton>{captionStatus&&<p role="status">{captionStatus}</p>}<small>Manage who can see this item in Family notes.</small></div>}<Dialog.Close>Close</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
+  <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open)setSelected(null)}}><Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog"><Dialog.Title>{selected?.text}</Dialog.Title>{selected&&(selected.asset||selected.image)&&<img src={selected.image?.src??`/fridge/samples/${selected.asset}-1440.webp`} alt={selected.image?.alt??selected.text}/>}<Dialog.Description>{(selected&&(captions[selected.id]||selected.caption))||''}</Dialog.Description>{selected&&!readOnly&&saveCaption&&<div className="fridge-caption-edit"><label><span>Your caption</span><textarea value={captionDraft} disabled={savingCaption} maxLength={300} rows={2} aria-label={`Edit caption for ${selected.text}`} onChange={e=>{captionDirty.current=true;setCaptionDraft(e.target.value);setCaptionStatus('')}}/></label><FgButton type="button" disabled={savingCaption||!captionDraft.trim()} onClick={()=>void commitCaption()}>{savingCaption?'Saving…':'Save'}</FgButton>{captionStatus&&<p role="status">{captionStatus}</p>}<small>Manage who can see this item in Family notes.</small></div>}<Dialog.Close asChild><FgButton variant="secondary">Close</FgButton></Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>
  </section>
 }

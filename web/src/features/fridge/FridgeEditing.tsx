@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { FgButton, Surface } from '@/components/fg/primitives'
+import { Surface } from '@/components/fg/primitives'
+import {FridgeButton as FgButton} from './FridgeControls'
 import type { FridgeEditingAdapter, FridgeNoteRecord, FridgeViewer, GoalFields, GoalPeriod, GoalRecord, NoteFields, PaperColor } from './editingContract'
 import { isParent } from './editingContract'
 import { useFridgeEditing, type ReadState } from './useFridgeEditing'

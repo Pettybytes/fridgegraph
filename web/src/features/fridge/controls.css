@@ -1,0 +1,48 @@
+/* React Bits SpecularButton + GlassSurface fallback adaptation.
+   Copyright (c) 2026 David Haz. See react-bits.LICENSE.txt. */
+.fridge-feature .fridge-control-surface{margin:24px 6% 16px;border-radius:24px;position:relative;background:#fff;box-shadow:inset 0 1px 0 #fff,0 4px 16px rgb(17 17 26 / .06),0 8px 24px rgb(17 17 26 / .04);border:1px solid rgb(255 255 255 / .85)}
+@supports(backdrop-filter:blur(12px)){
+ .fridge-feature .fridge-control-surface{background:rgb(255 255 255 / .72);backdrop-filter:blur(12px) saturate(1.4);-webkit-backdrop-filter:blur(12px) saturate(1.4)}
+}
+.fridge-control-content{display:grid;gap:12px;padding:12px}
+.fridge-control-browse,.fridge-control-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fridge-control-browse .fridge-action-group{display:contents}
+.fridge-control-browse .fridge-control{flex:1}
+.fridge-feature .fridge-control,.fridge-dialog .fridge-control,.fridge-help .fridge-control{
+ position:relative;isolation:isolate;display:inline-flex;align-items:center;justify-content:center;gap:8px;margin:0;min-height:44px;padding:10px 16px;border:1px solid rgb(148 163 184 / .22);border-radius:999px;background:rgb(255 255 255 / .94);color:var(--fg-ink,#17212f);font-family:inherit;font-size:14px;font-weight:550;line-height:1.3;box-shadow:inset 0 1px 0 #fff,0 2px 4px rgb(15 23 42 / .04);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 150ms ease-out;touch-action:manipulation
+}
+.fridge-control-label{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0}
+.fridge-control-label>svg{flex-shrink:0;stroke-width:1.75}
+.fridge-feature .fridge-control[aria-pressed=true]{background:#e0f2fe;border-color:var(--fg-primary,#0284c7);color:#0c4a6e;box-shadow:inset 0 1px 0 rgb(255 255 255 / .8)}
+.fridge-feature .fridge-control[data-variant=primary],.fridge-dialog .fridge-control[data-variant=primary]{background:var(--fg-ink,#17212f);color:#fff;box-shadow:0 2px 4px rgb(15 23 42 / .12)}
+.fridge-feature .fridge-control:focus-visible,.fridge-dialog .fridge-control:focus-visible,.fridge-help .fridge-control:focus-visible{outline:2px solid var(--fg-primary,#0284c7);outline-offset:3px;transition:none}
+.fridge-feature .fridge-control:disabled,.fridge-dialog .fridge-control:disabled{opacity:.48;cursor:not-allowed;transform:none}
+.fridge-feature .fridge-control:active:not(:disabled):not(:focus-visible),.fridge-dialog .fridge-control:active:not(:disabled):not(:focus-visible){transform:scale(.97);transition-duration:75ms}
+@media(hover:hover) and (pointer:fine){.fridge-feature .fridge-control:hover:not(:disabled),.fridge-dialog .fridge-control:hover:not(:disabled),.fridge-help .fridge-control:hover:not(:disabled){border-color:rgb(100 116 139 / .5);background:#f8fafc}.fridge-feature .fridge-control[aria-pressed=true]:hover{background:#d2edfc}}
+.fridge-feature .fridge-editing-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0;justify-content:flex-start}
+.fridge-feature .fridge-control-surface .fridge-view-controls{display:flex;align-items:center;gap:8px;margin:0 0 0 auto;padding:0;background:none;border:0;box-shadow:none;flex-wrap:nowrap;position:static;width:auto;transform:none}
+.fridge-zoom-segments{display:flex;align-items:center;padding:3px;border-radius:999px;background:rgb(15 23 42 / .055);border:1px solid rgb(148 163 184 / .2)}
+.fridge-feature .fridge-zoom-segments .fridge-control{min-width:44px;padding:8px;border:0;background:transparent;box-shadow:none;border-radius:999px}
+.fridge-feature .fridge-zoom-segments .fridge-control:nth-child(2){min-width:86px;background:#fff;font-variant-numeric:tabular-nums;box-shadow:0 1px 3px rgb(15 23 42 / .08)}
+.fridge-feature .fridge-help-trigger{width:44px;padding:10px;flex:none}
+.fridge-arrange-controls{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:700px){
+ .fridge-feature .fridge-control-surface{margin:20px 0 12px;border-radius:24px}
+ .fridge-control-browse{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .fridge-control-browse>.fridge-album-trigger{grid-column:1/-1}
+ .fridge-control-browse .fridge-control{padding:10px;min-width:0}
+ .fridge-control-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ .fridge-feature .fridge-editing-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fridge-editing-controls>.fridge-control:first-of-type:nth-last-of-type(3){grid-column:1/-1}
+ .fridge-feature .fridge-control-surface .fridge-view-controls{margin:0;justify-content:space-between}
+ .fridge-zoom-segments{flex:1;max-width:260px}
+ .fridge-feature .fridge-zoom-segments .fridge-control{flex:1}
+ .fridge-arrange-controls .fridge-control{flex:1;padding-inline:10px}
+}
+@media(prefers-reduced-motion:reduce){.fridge-feature .fridge-control,.fridge-dialog .fridge-control{transition:none}.fridge-feature .fridge-control:active:not(:disabled),.fridge-dialog .fridge-control:active:not(:disabled){transform:none}}
+@media(prefers-reduced-transparency:reduce){.fridge-feature .fridge-control-surface{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(forced-colors:active){.fridge-feature .fridge-control-surface,.fridge-feature .fridge-control,.fridge-zoom-segments{border:1px solid ButtonText}.fridge-feature .fridge-control[aria-pressed=true]{outline:2px solid Highlight}}
+
+@media(hover:hover) and (pointer:fine){.fridge-feature .fridge-control[data-variant=primary]:hover:not(:disabled),.fridge-dialog .fridge-control[data-variant=primary]:hover:not(:disabled){background:#263445;color:#fff}}
+.fridge-dialog .fridge-control[data-variant=destructive]{background:var(--fg-danger,#b91c1c);border-color:transparent;color:#fff;box-shadow:none}
+@media(hover:hover) and (pointer:fine){.fridge-dialog .fridge-control[data-variant=destructive]:hover:not(:disabled){background:#991b1b;color:#fff}}

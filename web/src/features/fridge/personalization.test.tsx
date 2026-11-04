@@ -35,6 +35,7 @@ it('guide can browse artwork but gets no pin/replace/remove action',()=>{
  render(<Fridge personId="guide" childId="p_nora" generation={1} reader={reader} readOnly sampleSlots={art.slots} albumAssets={art.album}/>)
  fireEvent.click(screen.getByRole('button',{name:/^(Add from|View) family album$/}))
  const dialog=screen.getByRole('dialog')
- expect(within(dialog).getByText('Read-only perspective.')).toBeInTheDocument()
+ expect(within(dialog).queryByText('Read-only perspective.')).not.toBeInTheDocument()
+ expect(within(dialog).queryByRole('button',{name:'Pin to fridge unavailable'})).not.toBeInTheDocument()
  expect(within(dialog).queryByRole('button',{name:/pin|replace|remove/i})).not.toBeInTheDocument()
 })

@@ -1,6 +1,6 @@
 import {useEffect,useId,useRef,useState} from 'react'
 import {Upload,Image as ImageIcon,Check} from 'lucide-react'
-import {FgButton as Button} from '@/components/fg/primitives'
+import {FridgeButton as Button} from './FridgeControls'
 import {createPinIntakeClient,pinErrorMessage,sampleSlipFile,type PinIntakeClient,type PinPrepareResult,type PinAudience,type PinnedResult} from './pinIntake'
 
 type Phase={kind:'idle'}|{kind:'uploading'}|{kind:'photo'}|{kind:'review';result:PinPrepareResult}|{kind:'pinning';result:PinPrepareResult}|{kind:'pinned';pinned:PinnedResult}

@@ -15,7 +15,7 @@ async function checkFridge(page:Page,guide:boolean){
  expect(await page.locator('.fridge-whiteboard h3').count()).toBeGreaterThanOrEqual(2)
  await expect(page.getByRole('alert')).toHaveCount(0)
  if(guide){
-  await expect(page.getByText('Read-only perspective. Explore the family collage, notes and goals.')).toBeVisible()
+  await expect(page.getByText('Explore the family collage, notes and goals.')).toBeVisible()
   for(const name of ['Arrange items','Tidy up','Add sticky note','Write on the whiteboard'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0)
  }
  await page.getByRole('button',{name:guide?'View family album':'Add from family album',exact:true}).click()
