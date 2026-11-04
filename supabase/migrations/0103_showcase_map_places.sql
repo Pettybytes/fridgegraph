@@ -51,6 +51,28 @@ returns table(person_id text,place_id text) language sql stable security definer
 $$;
 revoke all on function showcase_person_places_for_child(text) from public,anon;
 grant execute on function showcase_person_places_for_child(text) to authenticated;
+-- A sibling's separate caregiver association is not this child's map place.
+alter function village_places_for_child(text) rename to village_places_before_showcase;
+revoke all on function village_places_before_showcase(text) from public,anon,authenticated,service_role;
+create function village_places_for_child(p_child text)
+returns table(id text,kind text,label text,latitude numeric,longitude numeric,state text)
+language sql stable security definer set search_path=pg_catalog,public as $$
+ select v.* from village_places_before_showcase(p_child) v where v.kind<>'HOME'
+ or exists(select 1 from showcase_person_places s where s.child_id=p_child and s.place_id=v.id)
+$$;
+revoke all on function village_places_for_child(text) from public,anon;
+grant execute on function village_places_for_child(text) to authenticated;
+alter function place_route_geometry_for(text,text) rename to place_route_geometry_before_showcase;
+revoke all on function place_route_geometry_before_showcase(text,text) from public,anon,authenticated,service_role;
+create function place_route_geometry_for(p_child text,p_place text)
+returns table(id text,label text,state text,latitude numeric,longitude numeric)
+language sql stable security definer set search_path=pg_catalog,public as $$
+ select v.* from place_route_geometry_before_showcase(p_child,p_place) v
+ join recorded_places p on p.id=v.id where p.kind<>'HOME'
+ or exists(select 1 from showcase_person_places s where s.child_id=p_child and s.place_id=v.id)
+$$;
+revoke all on function place_route_geometry_for(text,text) from public,anon;
+grant execute on function place_route_geometry_for(text,text) to authenticated;
 -- Both existing global reset and the guide's scoped reset call this seed hook.
 alter function seed_recorded_places() rename to seed_recorded_places_before_showcase;
 revoke all on function seed_recorded_places_before_showcase() from public,anon,authenticated,service_role;
@@ -65,6 +87,7 @@ language sql stable security definer set search_path=pg_catalog,public as $$
  and (is_parent_of(p_child) or guide_reads_child(p_child) or has_scope(p_child,'address.read'))
  and (select count(*) from recorded_places p join households h on h.id=p.household_id and h.sandbox
  where p.id=any(array[p_from,p_to]) and p.sandbox and p.fixture
+ and (p.kind<>'HOME' or exists(select 1 from showcase_person_places s where s.child_id=p_child and s.place_id=p.id))
  and p.household_id in(select household_id from household_members where person_id=p_child and role='child'))
  =case when p_from=p_to then 1 else 2 end
 $$;
