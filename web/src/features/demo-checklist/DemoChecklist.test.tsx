@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -34,24 +34,49 @@ it('shows voice and photo only with readiness flags and credits the copied fixtu
   expect(screen.getByRole('heading', { name: 'Review photo suggestions' })).toBeVisible()
   expect(screen.getByText(/not Muse art/)).toBeVisible()
   expect(screen.getByRole('link', { name: 'fictional outfit sample illustration' })).toHaveAttribute('href', '/samples/demo-checklist/fictional-outfit.png')
-  expect(screen.getAllByRole('checkbox')).toHaveLength(6)
+  // Under the live gate the notice step is a persisted-state action card, not a tried checkbox.
+  expect(screen.getByRole('button', { name: 'Add the school notice' })).toBeVisible()
+  expect(screen.queryByRole('checkbox', { name: 'I tried this: A school notice changes the plan' })).not.toBeInTheDocument()
+  expect(screen.getAllByRole('checkbox')).toHaveLength(5)
   expect(screen.getByText(/they do not verify an app result/)).toBeVisible()
 })
 
+it('renders the notice action card from persisted pickup state, never a checkbox', () => {
+  const onStartNotice = vi.fn()
+  const { rerender } = render(<DemoChecklist {...props} onStartNotice={onStartNotice} />)
+  const start = screen.getByRole('button', { name: 'Add the school notice' })
+  expect(screen.getByText(/Not started\. The trigger stages the notice/)).toBeVisible()
+  fireEvent.click(start)
+  expect(onStartNotice).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('navigation', { name: 'Check the result' })).not.toBeInTheDocument()
+  // A mock confirm reports no real record; the card must not claim completion.
+  rerender(<DemoChecklist {...props} onStartNotice={onStartNotice} noticeResult={{ jobId: 'mock-pickup:p_nora:2026-10-26:afternoon', status: 'discovering', mode: 'mock' }} />)
+  expect(screen.getByText(/No record was created in this build/)).toBeVisible()
+  expect(screen.queryByRole('navigation', { name: 'Check the result' })).not.toBeInTheDocument()
+  // A live confirm is the persisted completion: the recorded job id + result links appear.
+  rerender(<DemoChecklist {...props} onStartNotice={onStartNotice} noticeResult={{ jobId: 'pickup_live_123', status: 'discovering', mode: 'live' }} />)
+  expect(screen.getByText(/Pickup request recorded — not arranged yet · pickup_live_123/)).toBeVisible()
+  const results = screen.getByRole('navigation', { name: 'Check the result' })
+  expect(within(results).getByRole('link', { name: 'Mission Control — the pickup request' })).toHaveAttribute('href', '#/mission-control')
+  expect(within(results).getByRole('link', { name: 'Recorded activity' })).toHaveAttribute('href', '#/activity')
+  expect(within(results).getByRole('link', { name: 'Family Calendar' })).toHaveAttribute('href', '#/calendar')
+})
+
 it('scopes tried progress and dismissal to version, persona, child, and demo run', () => {
+  // With the notice action card excluded, the tried checkboxes are village, orbit, and guide.
   const view = render(<DemoChecklist {...props} />)
-  fireEvent.click(screen.getByRole('checkbox', { name: 'I tried this: A school notice changes the plan' }))
-  expect(screen.getByText(/1 of 4 tried/)).toBeVisible()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'I tried this: Grow the village with permission' }))
+  expect(screen.getByText(/1 of 3 tried/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Dismiss checklist' }))
   expect(screen.getByRole('button', { name: 'Reopen judge checklist' })).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Reopen judge checklist' }))
-  expect(screen.getByText(/1 of 4 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 3 tried/)).toBeVisible()
   for (const changed of [{ version: '2' }, { personaId: 'andre' }, { childId: 'p_jax' }, { demoRunId: 'run-b' }]) {
     view.rerender(<DemoChecklist {...props} {...changed} />)
-    expect(screen.getByText(/0 of 4 tried/)).toBeVisible()
+    expect(screen.getByText(/0 of 3 tried/)).toBeVisible()
   }
   view.rerender(<DemoChecklist {...props} />)
-  expect(screen.getByText(/1 of 4 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 3 tried/)).toBeVisible()
 })
 
 it('handles denied storage and keeps the guide path read-only', () => {
@@ -72,17 +97,17 @@ it('calls authorized reset only on click and clears progress only after success'
   const onReset = vi.fn().mockImplementationOnce(() => new Promise<boolean>(done => { finish = done })).mockResolvedValueOnce(true)
   render(<DemoChecklist {...props} onReset={onReset} />)
   expect(onReset).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('checkbox', { name: 'I tried this: A school notice changes the plan' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: 'I tried this: Grow the village with permission' }))
   fireEvent.click(screen.getByRole('button', { name: 'Reset shared demo…' }))
   expect(screen.getByText(/resets the shared sandbox for everyone/)).toBeVisible()
   expect(onReset).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Reset demo for everyone' }))
-  expect(screen.getByText(/1 of 4 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 3 tried/)).toBeVisible()
   expect(screen.getByText(/Resetting the demo/)).toBeVisible()
   await act(async () => finish(false))
   expect(screen.getByRole('alert')).toHaveTextContent('progress is unchanged')
-  expect(screen.getByText(/1 of 4 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 3 tried/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Reset demo for everyone' }))
-  await waitFor(() => expect(screen.getByText(/0 of 4 tried/)).toBeVisible())
+  await waitFor(() => expect(screen.getByText(/0 of 3 tried/)).toBeVisible())
   expect(onReset).toHaveBeenCalledTimes(2)
 })

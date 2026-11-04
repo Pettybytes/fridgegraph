@@ -31,6 +31,14 @@
 .demo-checklist__step-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.86rem}
 .demo-checklist__step-foot label{display:flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer;color:var(--fg-ink)}
 .demo-checklist__step-foot input{width:17px;height:17px;margin:0;accent-color:var(--fg-primary)}
+/* Card 1 action foot — a persisted-state action card: one trigger, a live state line, result links. */
+.demo-checklist__action{display:grid;gap:10px;justify-items:start;margin-top:2px}
+.demo-checklist__action .fg-btn{min-height:44px}
+.demo-checklist__action-state{font-size:.9rem;color:var(--fg-ink);font-variant-numeric:tabular-nums}
+.demo-checklist__step[data-tried] .demo-checklist__action-state{color:color-mix(in srgb,var(--type-safe) 82%,var(--fg-ink))}
+.demo-checklist__results{display:flex;flex-wrap:wrap;gap:6px 16px}
+.demo-checklist__results a{font-size:.9rem;min-height:28px;display:inline-flex;align-items:center}
+.demo-checklist__action .demo-checklist__action-receipt{font-size:.86rem;color:var(--fg-muted)}
 .demo-checklist__reset{display:grid;justify-items:start;gap:8px;padding-top:14px;border-top:1px solid var(--fg-border)}
 .demo-checklist__reset p{font-size:.88rem}
 .demo-checklist__reset-confirm{display:grid;gap:10px;max-width:58ch}
