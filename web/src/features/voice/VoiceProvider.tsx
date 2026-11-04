@@ -23,7 +23,7 @@ import type { VoiceController } from './RosinaVoiceButton'
 export type VoiceBinding = {
   getHistory?: () => HistoryMessage[]
   onTranscript?: (text: string) => void
-  onReply?: (reply: string, actions: unknown[]) => void
+  onReply?: (reply: string, actions: unknown[]) => void | false
 }
 
 export type VoiceStartHandle = { start: () => void }

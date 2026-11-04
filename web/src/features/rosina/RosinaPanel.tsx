@@ -1,3 +1,4 @@
+import {CalendarChangeCard} from './CalendarChangeCard'
 import {onEnterSubmit, COMPOSER_HINT_MULTILINE} from '@/lib/composerKeys'
 import {NoticeComposer} from '@/features/notice-plan/NoticeComposer'
 import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
@@ -30,7 +31,7 @@ import {RosinaAvatar} from '@/components/fg/RosinaAvatar'
 import {FgButton} from '@/components/fg/primitives'
 import {Proposals} from './proposals'
 import './rosina.css'
-type ThreadMessage = ChatMessage & { actions: CatalogAction[]; proposalKeys: string[]; schoolReportProposal?: SchoolReportProposal | null; addVillagerProposal?: AddVillagerProposal | null }
+type ThreadMessage = ChatMessage & { actions: CatalogAction[]; proposalKeys:string[]; calendarKey?:string; calendarSaved?:boolean; calendarDismissed?:boolean; schoolReportProposal?: SchoolReportProposal | null; addVillagerProposal?: AddVillagerProposal | null }
 type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:RosinaAdapter;confirmSchoolReport?:ConfirmSchoolReport}
 export function RosinaPanel(props:PanelProps){
   const {session,getSessionGeneration}=useSession()
@@ -62,6 +63,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
       onAction:(raw,turn)=>{if(turn!==streamTurn.current)return;const valid=validateActions([raw]);if(valid.length&&streamTurn.current!==null){const key=proposals.current.offer(streamTurn.current,valid[0]);setLiveStream(prev=>({text:prev?.text??'',status:prev?.status??null,actions:[...(prev?.actions??[]).filter(action=>proposals.current.key(turn!,action)!==key),valid[0]]}))}}})
     : createMockRosinaAdapter(session, dataAdapter)), [session, dataAdapter, service, getSessionGeneration])
   const confirmReport = useMemo(() => confirmSchoolReport ?? (adapter.mode === 'mock' ? createMockSchoolReportConfirm() : child?.client ? createLiveSchoolReportConfirm(child.client) : null), [confirmSchoolReport, adapter.mode, child?.client])
+  const confirmCalendar=useRef<(()=>void)|null>(null), suppressVoiceReply=useRef(false)
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(() => location.hash.startsWith('#/ask-rosina'))
@@ -141,12 +143,12 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   useEffect(()=>{const prepare=(event:Event)=>{const text=(event as CustomEvent<unknown>).detail;if(typeof text==='string'){setOpen(true);setDismissed(false)}};window.addEventListener('orbit:ask',prepare);return()=>window.removeEventListener('orbit:ask',prepare)},[])
   function append(from: 'PARENT' | 'ROSINA', text: string, actions: CatalogAction[] = [], schoolReportProposal?: SchoolReportProposal | null, addVillagerProposal?: AddVillagerProposal | null, proposalKeys?:string[]) {
     if (!active.current) return
-    const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions, proposalKeys:proposalKeys??proposals.current.reconcile(proposals.current.begin(),actions), schoolReportProposal, addVillagerProposal }
+    const message: ThreadMessage = { id: `local-rosina-${++nextId.current}`, from, kind: 'TEXT', text, at: new Date().toISOString(), relatedJobId: null, relatedInformationRequestId: null, hasVoiceNote: false, actions, proposalKeys:proposalKeys??proposals.current.reconcile(proposals.current.begin(),actions), calendarKey:actions.some(a=>a.id==='calendar-change')?crypto.randomUUID():undefined, schoolReportProposal, addVillagerProposal }
     setMessages(items => [...items, message])
   }
   // /voice/turn already ran the turn. Insert its output; never call ask/send here.
-  function appendUserMessage(text:string) { append('PARENT',text) }
-  function appendRosinaReply(reply:string,actions:unknown[]) { accept({reply,actions}) }
+  function appendUserMessage(text:string) { append('PARENT',text); if(/^(yes|yes please|confirm|confirm it)[.!]?$/i.test(text.trim())&&confirmCalendar.current){suppressVoiceReply.current=true;confirmCalendar.current()}else{setMessages(items=>items.map(m=>m.calendarKey&&!m.calendarSaved?{...m,calendarDismissed:true}:m));confirmCalendar.current=null} }
+  function appendRosinaReply(reply:string,actions:unknown[]) { if(suppressVoiceReply.current){suppressVoiceReply.current=false;return false as const} accept({reply,actions}) }
   function accept(response: RosinaResponse, turn=proposals.current.begin()) {
     const actions=validateActions(response.actions)
     const keys=proposals.current.reconcile(turn,actions)
@@ -165,6 +167,9 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }
   async function ask(message:string, recordUser=true) {
     if (!message || sent.current || needsSignIn) return
+    if(/^(yes|yes please|confirm|confirm it)[.!]?$/i.test(message.trim())&&confirmCalendar.current){if(recordUser)append('PARENT',message);confirmCalendar.current();return}
+    setMessages(items=>items.map(m=>m.calendarKey&&!m.calendarSaved?{...m,calendarDismissed:true}:m))
+    confirmCalendar.current=null
     const generation=getSessionGeneration(),id=++requestId.current,controller=new AbortController()
     const turn=proposals.current.begin();streamTurn.current=turn
     abort.current=controller
@@ -234,6 +239,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }
   const screen: ExplainableScreen = currentRoute.startsWith('#/calendar') ? 'calendar' : currentRoute.startsWith('#/village') ? 'village' : currentRoute.startsWith('#/care-information') ? 'care-information' : currentRoute.startsWith('#/ask-rosina') ? 'ask-rosina' : 'mission-control'
   const focusedChildId = child?.selectedChildId ?? session?.scope.childId
+  const latestCalendar=[...messages].reverse().find(m=>!m.calendarDismissed&&m.actions.some(a=>a.id==='calendar-change'))
   const latestReport = [...messages].reverse().find(message => message.schoolReportProposal)?.schoolReportProposal
   const reportAccessLoading = adapter.mode === 'live' && child?.authorized.status === 'loading'
   const mayReport = (proposal:SchoolReportProposal) => !!session && (!session.marks?.demoGuide||session.marks.showcaseEditor===true) && proposal.childId === focusedChildId &&
@@ -254,11 +260,11 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
       <div ref={threadRef} className="rosina-thread" role="log" aria-label="Rosina conversation" aria-live="polite">
         {contextCard}
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
-        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}<AddVillagerReview proposal={parseAddVillagerProposal(message.addVillagerProposal)} liveEnabled={import.meta.env.VITE_ADD_VILLAGER_LIVE === 'true'} />{message.actions.map((action,index)=>({action,key:message.proposalKeys[index]})).filter(({action,key}) => proposals.current.allows(key,action) && catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map(({action,key}) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={key} disabled={executed.current.has(key)||!actionAllowed(action,context)} onClick={() => { void execute(action, key) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
+        {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}<AddVillagerReview proposal={parseAddVillagerProposal(message.addVillagerProposal)} liveEnabled={import.meta.env.VITE_ADD_VILLAGER_LIVE === 'true'} />{message.actions.filter(a=>a.id==='calendar-change').map((a,i)=>a.id==='calendar-change'?<CalendarChangeCard key={i} args={a.args} requestKey={message.calendarKey} saved={message.calendarSaved} client={child?.client??null} current={message===latestCalendar} register={fn=>{if(message===latestCalendar)confirmCalendar.current=fn}} onSaved={text=>{setMessages(items=>items.map(m=>m.id===message.id?{...m,calendarSaved:true}:m));append('ROSINA',text)}}/>:null)}{message.actions.map((action,index)=>({action,key:message.proposalKeys[index]})).filter(({action,key}) => action.id!=='calendar-change' && proposals.current.allows(key,action) && catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map(({action,key}) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={key} disabled={executed.current.has(key)||!actionAllowed(action,context)} onClick={() => { void execute(action, key) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
         {busy && !!liveStream?.text && <article className="rosina-message is-streaming" aria-label="Rosina is replying"><span>Rosina</span><p>{liveStream.text}<span className="rosina-caret" aria-hidden="true"/></p></article>}
         {busy && !liveStream?.text && <div className="rosina-progress" role="status"><strong><span className="rosina-typing" aria-hidden="true"><i/><i/><i/></span>{adapter.mode==='live'?(liveStream?.status??(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…')):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
         {busy && !!liveStream?.text && !!liveStream.status && <p className="rosina-progress-inline" role="status">{liveStream.status}</p>}
-        {busy && !!liveStream?.actions.length && <article className="rosina-message is-streaming" aria-label="Ready for your review"><span>Rosina</span><p>Ready for your review. Nothing happens until you confirm.</p>{liveStream.actions.map(action=>({action,key:proposals.current.key(streamTurn.current!,action)})).filter(({action}) => catalog[action.id].implemented && actionAllowed(action, context)).map(({action,key}) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={key} disabled={executed.current.has(key)} onClick={() => { void execute(action, key) }}>{actionLabel(action)}</button>)}</article>}
+        {busy && !!liveStream?.actions.length && <article className="rosina-message is-streaming" aria-label="Ready for your review"><span>Rosina</span><p>Ready for your review. Nothing happens until you confirm.</p>{liveStream.actions.map(action=>({action,key:proposals.current.key(streamTurn.current!,action)})).filter(({action}) => action.id!=='calendar-change' && catalog[action.id].implemented && actionAllowed(action, context)).map(({action,key}) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={key} disabled={executed.current.has(key)} onClick={() => { void execute(action, key) }}>{actionLabel(action)}</button>)}</article>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
       <form onSubmit={send} className="rosina-compose"><label htmlFor="rosina-message" className="sr-only">Message Rosina</label>{!dismissed&&<div className="rosina-compose-tools"><RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/><div className="rosina-notice-attach"><NoticeComposer/></div></div>}<div className="rosina-field"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={1} placeholder="Message Rosina…" /><button type="submit" className="rosina-send" aria-label="Send" disabled={busy || needsSignIn || !draft.trim()}><ArrowUp size={18} aria-hidden /></button></div><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span></form>

@@ -1,3 +1,4 @@
+import {notifyCalendarChanged} from './changeSignal'
 import {refreshResource,resourceSnapshot} from '@/lib/frontendData/resourceCache'
 import {gql} from '@apollo/client'
 import type {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
@@ -8,9 +9,9 @@ export const CHILD_EVENTS=gql`query WebChildEvents($childId:ID!,$from:String!,$t
 export const EFFECTIVE_SCHEDULE=gql`query WebEffectiveSchedule($childId:ID!,$date:String!){effectiveScheduleFor(childId:$childId,date:$date){parent{id displayName} source arrangementId}}`
 export const SCHEDULE_CONFLICTS=gql`query WebScheduleConflicts($childId:ID!,$from:String!,$to:String!){scheduleConflicts(childId:$childId,from:$from,to:$to){kind onDay arrangementIds}}`
 export const ADULT_AVAILABILITY=gql`query WebAdultAvailability($personId:ID!,$from:String!,$to:String!){adultAvailability(personId:$personId,from:$from,to:$to){person{id displayName} start end state}}`
-export const CREATE_EVENT=gql`mutation WebCreateEvent($childId:ID!,$title:String!,$start:String!,$end:String!,$location:String,$notes:String,$color:String,$status:String){createCalendarEvent(childId:$childId,title:$title,start:$start,end:$end,location:$location,notes:$notes,color:$color,status:$status){${EVENT_FIELDS}}}`
-export const UPDATE_EVENT=gql`mutation WebUpdateEvent($id:ID!,$title:String!,$start:String!,$end:String!,$location:String,$notes:String,$color:String,$status:String){updateCalendarEvent(id:$id,title:$title,start:$start,end:$end,location:$location,notes:$notes,color:$color,status:$status){${EVENT_FIELDS}}}`
-export const DELETE_EVENT=gql`mutation WebDeleteEvent($id:ID!){deleteCalendarEvent(id:$id)}`
+export const CREATE_EVENT=gql`mutation WebCreateEvent($childId:ID!,$title:String!,$start:String!,$end:String!,$location:String,$notes:String,$color:String,$status:String,$idempotencyKey:ID){createCalendarEvent(childId:$childId,title:$title,start:$start,end:$end,location:$location,notes:$notes,color:$color,status:$status,idempotencyKey:$idempotencyKey){${EVENT_FIELDS}}}`
+export const UPDATE_EVENT=gql`mutation WebUpdateEvent($id:ID!,$title:String!,$start:String!,$end:String!,$location:String,$notes:String,$color:String,$status:String,$idempotencyKey:ID){updateCalendarEvent(id:$id,title:$title,start:$start,end:$end,location:$location,notes:$notes,color:$color,status:$status,idempotencyKey:$idempotencyKey){${EVENT_FIELDS}}}`
+export const DELETE_EVENT=gql`mutation WebDeleteEvent($id:ID!,$idempotencyKey:ID){deleteCalendarEvent(id:$id,idempotencyKey:$idempotencyKey)}`
 export type ReadOutcome<T>={state:'ready';value:T}|{state:'refused'}|{state:'failed'}
 export type LiveEvent={id:string;title:string;start:string;end:string;location:string|null;status:string;notes:string|null;color:string|null}
 // What the event form collects. childId is required to create; an edit targets an existing id.
@@ -37,13 +38,14 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
    return /UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?{state:'refused'}:{state:'failed'}
   }
  }
- // Mutations go through the parent-only schedule RPCs. A refusal (non-parent, demo guide) comes
+ // Mutations go through the authorized family/showcase schedule RPCs. A permission refusal comes
  // back as UNAUTHORIZED and is surfaced as 'refused'; anything else is 'failed'. The caller re-reads
  // the window on success so the new row (shared across tenants) appears.
  async function write<T>(mutation:Parameters<typeof client.mutate>[0]['mutation'],variables:Record<string,string|null>,field:string):Promise<WriteResult<T>>{
   try{
    const value=await runRead(async()=>{const result=await client.mutate<Record<string,T>>({mutation,variables});if(!result.data||result.data[field]===undefined)throw Error('WRITE_UNAVAILABLE');return result.data[field]})
    if(getGeneration()!==generation)throw Error('SESSION_CHANGED')
+   notifyCalendarChanged()
    return {ok:true,value}
   }catch(error){
    if(getGeneration()!==generation)throw Error('SESSION_CHANGED')

@@ -30,7 +30,7 @@ export type VoiceController = ReturnType<typeof useRosinaVoice>
 
 export type VoiceConversation = {
   onTranscript?: (text: string) => void
-  onReply?: (reply: string, actions: unknown[]) => void
+  onReply?: (reply: string, actions: unknown[]) => void | false
 }
 
 /** Presentational — renders a controller the caller owns (so Today + the panel share ONE). */

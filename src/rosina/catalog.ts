@@ -11,7 +11,9 @@
 export type Screen = 'mission-control' | 'village' | 'care-information' | 'ask-rosina';
 export type ExplainableScreen = Screen | 'calendar';
 
+export type CalendarChangeArgs = { operation: 'create' | 'update' | 'delete'; childId: string; childName: string; eventId: string; title: string; start: string; end: string; location: string; notes: string; color: string; status: string }
 export type ActionArgs = {
+  'calendar-change': CalendarChangeArgs;
   'open-calendar': { day: string; childId: string };
   'open-event': { id: string };
   'open-screen': { screen: Screen };
@@ -29,7 +31,7 @@ type ArgsSchema<T> = { parse(value: unknown): T | null };
 type CatalogEntry<Id extends ActionId> = {
   id: Id;
   argsSchema: ArgsSchema<ActionArgs[Id]>;
-  routeOrHandler: 'route' | 'person-card' | 'pickup' | 'explain' | 'orbit';
+  routeOrHandler: 'route' | 'person-card' | 'pickup' | 'explain' | 'orbit' | 'calendar-write';
   changesData: boolean;
   implemented: boolean;
 };
@@ -92,7 +94,18 @@ function orbitAlertArgs(value: unknown): ActionArgs['prepareOrbitAlert'] | null 
   return out;
 }
 
+function calendarArgs(value: unknown): CalendarChangeArgs | null {
+  const keys=['operation','childId','childName','eventId','title','start','end','location','notes','color','status'];
+  if(!record(value,keys) || !keys.every(k=>typeof value[k]==='string')) return null;
+  const a=value as unknown as CalendarChangeArgs;
+  const wall=(v:string)=>/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(v)&&validDay(v.slice(0,10));
+  if(!['create','update','delete'].includes(a.operation)||!personId(a.childId)||!a.childName.trim()||a.childName.length>120||!a.title.trim()||a.title.length>300||!wall(a.start)||!wall(a.end)||a.end<=a.start||a.location.length>500||a.notes.length>4000||a.color.length>40||!['confirmed','proposed','cancelled'].includes(a.status))return null;
+  if(a.operation==='create'?a.eventId!=='':!/^[-a-zA-Z0-9_]{1,128}$/.test(a.eventId))return null;
+  return {...a};
+}
+
 export const catalog: { [Id in ActionId]: CatalogEntry<Id> } = {
+  'calendar-change': {id:'calendar-change',argsSchema:{parse:calendarArgs},routeOrHandler:'calendar-write',changesData:true,implemented:true},
   'open-calendar': { id: 'open-calendar', argsSchema: { parse: (value) => (record(value, ['day', 'childId']) && validDay(value.day) && personId(value.childId) ? { day: value.day, childId: value.childId } : null) }, routeOrHandler: 'route', changesData: false, implemented: true },
   'open-event': { id: 'open-event', argsSchema: { parse: (value) => (record(value, ['id']) && typeof value.id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value.id) ? { id: value.id } : null) }, routeOrHandler: 'route', changesData: false, implemented: true },
   'open-screen': { id: 'open-screen', argsSchema: { parse: screenArgs }, routeOrHandler: 'route', changesData: false, implemented: true },

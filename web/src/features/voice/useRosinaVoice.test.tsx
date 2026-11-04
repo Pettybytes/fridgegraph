@@ -341,3 +341,17 @@ it('three consecutive failed turns end the conversation instead of looping the m
     expect((request as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3)
   } finally { vi.useRealTimers() }
 })
+
+it('suppresses model text and audio when the app handles a spoken confirmation',async()=>{
+ const {deps,audio}=makeDeps()
+ const {fetchMock}=okFetch({...TURN_OK,transcript:'yes',reply:'An unverified model acknowledgment'})
+ const onReply=vi.fn(()=>false as const)
+ const {result}=renderHook(()=>useRosinaVoice({...deps,request:fetchMock,onReply}))
+ await act(async()=>{await result.current.start()})
+ await act(async()=>{result.current.stop()})
+ await waitFor(()=>expect(onReply).toHaveBeenCalled())
+ expect(result.current.state).toBe('idle')
+ expect(result.current.reply).toBeNull()
+ expect(result.current.actions).toEqual([])
+ expect(audio.play).not.toHaveBeenCalled()
+})

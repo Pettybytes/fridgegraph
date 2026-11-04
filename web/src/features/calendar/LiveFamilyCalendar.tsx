@@ -14,6 +14,7 @@ import { CalendarEventPill } from './CalendarEventPill'
 import { CaregiverLanes } from './CaregiverLanes'
 import { EventForm } from './EventForm'
 import type { EventFormInitial } from './EventForm'
+import {subscribeCalendarChanges} from './changeSignal'
 import './calendar.css'
 const toDraft = (e: LiveEvent): EventDraft => ({ title: e.title, start: e.start, end: e.end, location: e.location, notes: e.notes, color: e.color, status: e.status })
 const eventStatus = (status: string) => status === 'proposed' ? 'Proposed' : status === 'confirmed' ? 'Confirmed' : status === 'cancelled' ? 'Cancelled' : 'Status not recorded'
@@ -29,6 +30,7 @@ export function careLabel(result: ReadOutcome<EffectiveCare>) {
 function Outcome({ result, empty }: { result: ReadOutcome<unknown[]>; empty?: boolean }) { return <p className="cal-no-events" role={result.state === 'failed' ? 'alert' : undefined}>{result.state === 'ready' ? (empty ? outcomeCopy.empty : null) : outcomeCopy[result.state]}</p> }
 type IlamyView = 'month' | 'week' | 'day' | 'year'
 export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }) {
+  useEffect(subscribeCalendarChanges,[])
   const [route, setRoute] = useState(location.hash), [cancelled, setCancelled] = useState(false)
   const [loaded, setLoaded] = useState<{ adapter: LiveCalendarAdapter; key: string; value: LiveWindow } | null>(null), [failed, setFailed] = useState('')
   const [availabilityDetail, setAvailabilityDetail] = useState<Availability | null>(null)
@@ -54,8 +56,9 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     setSelected(null); setCareDetail(null); setAvailabilityDetail(null); setFailed(''); setNotSaved(null)
     if (!from) { setFailed('Choose a valid calendar date.'); return }
     const load = async () => { try { const value = await adapter.readWindow({ childId, from, to, includeCancelled: cancelled }); if (active) { setLoaded({ adapter, key, value }); refused = value.events.state === 'refused'; if (eventId) setSelected(value.events.state === 'ready' ? value.events.value.find(e => e.id === eventId) ?? null : null) } } catch { if (active) setFailed(outcomeCopy.failed) } }
+    const changed=()=>{void load()}; window.addEventListener('frontend:changed',changed);
     void load(); const timer = setInterval(() => { if (!refused && document.visibilityState !== 'hidden') void load() }, 2500)
-    return () => { active = false; clearInterval(timer) }
+    return () => { active = false; clearInterval(timer); window.removeEventListener('frontend:changed',changed) }
   }, [adapter, key, childId, from, to, cancelled, eventId])
   function navigate(nextDay: string, nextView: IlamyView = view) { setSelected(null); setCareDetail(null); setAvailabilityDetail(null); const next = `#/calendar?day=${nextDay}&childId=${encodeURIComponent(childId)}&view=${nextView}`; setRoute(next); location.hash = next }
   async function submitForm(cid: string, draft: EventDraft) {

@@ -1,3 +1,4 @@
+import {CalendarChanges} from '@/features/calendar/CalendarChanges'
 import { PrefetchRoutes } from './PrefetchRoutes'
 import { Today, Activity, LiveMissionControl, LiveFamilyCalendar, CareInformation, SignatureVillageRoute, FridgeRoute, Orbit, VillageMap, InvitesPanel } from './routeModules'
 import { RouteSkeleton } from './RouteSkeleton'
@@ -72,7 +73,7 @@ export default function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
         map: <VillageMap/>,
         fridge: <Suspense fallback={<RouteSkeleton />}><FridgeRoute /></Suspense>,
         today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
-        'mission-control': <>{session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>}</>,
+        'mission-control': <>{session.accessToken&&authMode==='live'?<><CalendarChanges summary/><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>}</>,
         ...(isDemoGuide ? { 'demo-replay': <Suspense fallback={<RouteSkeleton />}><ThreePhoneStory /></Suspense> } : {}),
         orbit:<Orbit/>,
         activity:<Activity client={connection?.client??null} adapter={adapter}/>,

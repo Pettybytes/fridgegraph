@@ -51,7 +51,7 @@ export type VoiceDeps = {
   getHistory?: () => HistoryMessage[]
   /** The server's transcript + reply are reported here to insert into the live conversation. */
   onTranscript?: (text: string) => void
-  onReply?: (reply: string, actions: unknown[]) => void
+  onReply?: (reply: string, actions: unknown[]) => void | false
   request?: typeof fetch
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
   createRecorder?: (stream: MediaStream, onData: (blob: Blob) => void) => RecorderLike
@@ -306,7 +306,11 @@ export function useRosinaVoice(deps: VoiceDeps) {
     const serverTimings = (u.timings && typeof u.timings === 'object') ? u.timings : {}
     setTimings({ ...serverTimings, speechEndToReplyMs: speechEndAtRef.current ? now() - speechEndAtRef.current : undefined })
     cbRef.current.onTranscript?.(text)   // insert into the live conversation…
-    cbRef.current.onReply?.(rep, acts)   // …no second Rosina turn, cards left for the panel
+    // A pending app confirmation owns its acknowledgment. Never play a model's
+    // independent reply while the confirmed API write is still unresolved.
+    if(cbRef.current.onReply?.(rep, acts)===false){
+      setReply(null);replyRef.current=null;setActions([]);setState('idle');return
+    }
 
     if (!voiceRepliesRef.current) { setState('idle'); if (conversationRef.current) armNext.current(); return }
     if (typeof u.audioBase64 === 'string' && u.audioBase64 && typeof u.mimeType === 'string') {

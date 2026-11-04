@@ -1,7 +1,8 @@
 # Ask Rosina — Task W v1 frontend/service contract
 
-Status: frontend contract; Bentley owns the service. Live service and execution integration are
-unavailable. Scripted mock replies are explicit, not evidence of model performance.
+Status: the live Rosina service and confirmed calendar actions are implemented. Bentley owns
+deployment. The sections below retain the original Task W rollout history; the current calendar
+contract is specified at the end. Scripted mock replies are not evidence of model performance.
 
 ## Transport
 
@@ -168,3 +169,24 @@ withdraws its provisional actions; late stream events cannot restore them.
 Confirmation checks both current proposal availability and action permissions
 before calling the app's authorized write path. An already executed proposal stays
 executed even if a replacement later reoffers it within the same turn.
+## Confirmed calendar actions (current)
+
+Calendar requests now use a read-only proposal path before model execution. It resolves a child
+from the caller's own MyChildren result, checks live `calendarWriteAccess`, and reads existing
+events through GraphQL. It supports add, move/reschedule and cancel/delete, with today,
+tomorrow or ISO dates and AM/PM times in America/Detroit. Ambiguous children/events or DST
+times produce a question. New events default to one hour; the card always shows the exact
+start/end and supplied place. Moves preserve duration unless a new end time is supplied, and retain notes and color.
+
+The card changes nothing until the user taps its labeled confirmation or replies exactly
+“yes”, “yes please”, “confirm” or “confirm it”. Voice proposals enter the same thread. Only a
+fresh explicit confirmation of the current card can execute; post-call processing cannot write.
+A client UUID belongs to the proposal across navigation and retries. Confirmation calls the
+same GraphQL mutation as manual calendar editing and acknowledges only its returned saved
+result. Network uncertainty offers a retry with the same key. Changing perspective cancels
+in-flight confirmation and discards the thread. The server still enforces family permission.
+
+Calendar questions refresh the family lens instead of reusing its short-TTL snapshot. Activity
+and Mission Control read committed calendar changes from the database. Neither derives a
+successful action from Rosina's words. Earlier mock-only statements in this document describe
+historical rollout stages, not the current calendar path.

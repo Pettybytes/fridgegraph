@@ -59,3 +59,11 @@ Documented so nobody re-discovers them the hard way.
 2. `npm run check` passes.
 3. The change was exercised in a browser through `playwright-cli`, and you said what you saw.
 4. No secret, no `VITE_` server value, no copied code with an unread licence.
+
+### Confirmed Demo guide calendar actions
+
+Calendar add, move and cancel in Ask Rosina require explicit confirmation and the
+trusted Ellison showcase tenant authority established in `showcase-actions.md`.
+The guide can browse other showcase calendars but cannot write their events.
+Calendar proposals never authorize a mutation by themselves; confirmation uses
+the same application mutations and server permissions as manual calendar edits.

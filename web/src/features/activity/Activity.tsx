@@ -1,3 +1,4 @@
+import {CalendarChanges} from '@/features/calendar/CalendarChanges'
 import {useCallback} from 'react'
 import {useCachedResource} from '@/lib/frontendData/resourceCache'
 import {RouteSkeleton} from '@/app/RouteSkeleton'
@@ -89,7 +90,7 @@ export function Activity({client,adapter}:{client:ReturnType<typeof createGraphC
  // A source that failed is reported by name; a source that succeeded and returned nothing is empty.
  const failed=NAMED.map(([key,label])=>({key,label,state:view[key].state})).filter((source):source is {key:keyof View;label:string;state:Exclude<ReadState,'ready'>}=>source.state!=='ready')
  return <section className="activity" aria-label={`${session!.scope.childName} activity`}><p className="activity-lead">Recorded activity for {session!.scope.childName}. Times shown in Detroit local time.</p>
- {failed.map(({key,label,state})=>{const notice=sourceNotice(label,state);return <aside key={key} className="activity-status" role={state==='privilege'?'status':'alert'}><h2>{notice.heading}</h2><p>{notice.body}</p></aside>})}
+ <CalendarChanges/>{failed.map(({key,label,state})=>{const notice=sourceNotice(label,state);return <aside key={key} className="activity-status" role={state==='privilege'?'status':'alert'}><h2>{notice.heading}</h2><p>{notice.body}</p></aside>})}
  {view.orbit.state==='ready'&&view.orbit.data?.status&&<aside className="activity-status"><h2>Orbit status</h2><p>{orbitStatusCopy(view.orbit.data)}</p><a href="#/orbit">Open Orbit</a></aside>}
  {view.check.state==='ready'&&view.check.data?.recorded===false&&<p className="activity-status">Check-in not recorded. <a href="#/orbit">Open Orbit</a></p>}
  {!entries.length?(failed.length?<p className="activity-status">Some activity sources did not answer; they are named above and retry on their own.</p>:<p className="activity-status">Nothing recorded for this view yet. New activity appears here as it happens.</p>):days.map(day=><section key={day} className="activity-day"><h2 className="activity-day-head">{formatDay(day,true)}</h2><div className="activity-cards">{entries.filter(e=>e.day===day).map(e=><ActivityCard key={e.id} e={e}/>)}</div></section>)}

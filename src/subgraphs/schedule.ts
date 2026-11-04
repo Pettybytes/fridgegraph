@@ -1,5 +1,5 @@
 import { parse } from 'graphql';
-import { SCOPE, authorizeChild, deny, refuseDemoGuideWrite, requireCaller, type Ctx } from '../authz';
+import { SCOPE, authorizeChild, deny, requireCaller, type Ctx } from '../authz';
 import { dbFor, rows } from '../db';
 
 const typeDefs = parse(`
@@ -8,6 +8,8 @@ const typeDefs = parse(`
 
 
   type Query {
+    calendarWriteAccess(childId: ID!): Boolean!
+    calendarChanges(childId: ID!): [CalendarChange!]!
     events(childId: ID!, date: String!): [Event!]!
 
     """
@@ -35,6 +37,16 @@ const typeDefs = parse(`
     Overlaps and gaps in parenting coverage for a window. Surfaced, never resolved silently.
     """
     scheduleConflicts(childId: ID!, from: String!, to: String!): [ScheduleConflict!]!
+  }
+
+  type CalendarChange {
+    id: ID!
+    at: String!
+    actor: Person!
+    kind: String!
+    eventId: ID!
+    title: String!
+    start: String!
   }
 
   type Child @key(fields: "id") {
@@ -70,16 +82,16 @@ const typeDefs = parse(`
   }
 
   """
-  Parent-only calendar editing. Each mutation refuses a demo guide in the resolver and is refused
-  again inside the database (is_parent_of), writes the row, and records the change in village_event
+  Calendar editing for parents and the verified Demo guide on showcase children only. Permission is checked
+  inside the database on every write and replay, writes the row, and records the change in village_event
   so it appears in Activity for everyone who shares the child. Times are America/Detroit wall-clock
   strings (YYYY-MM-DDTHH:MM:SS), the same shape childEvents returns; a recorded time is never shifted.
   """
   type Mutation {
-    createCalendarEvent(childId: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
-    updateCalendarEvent(id: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
+    createCalendarEvent(childId: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String, idempotencyKey: ID): CalendarEvent!
+    updateCalendarEvent(id: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String, idempotencyKey: ID): CalendarEvent!
     """Returns the deleted event id."""
-    deleteCalendarEvent(id: ID!): ID!
+    deleteCalendarEvent(id: ID!, idempotencyKey: ID): ID!
   }
 
   """Busy/Free only. The reason is private to its owner and is not part of this type."""
@@ -121,13 +133,14 @@ function toCalendarEvent(e: EventRow) {
     color: (e.color as string | null) ?? null,
   };
 }
-// The DB function is the only write path and enforces is_parent_of; a non-parent (including a
-// caregiver with schedule.read, or a demo guide) raises FORBIDDEN (SQLSTATE 42501), which we pass
-// through as UNAUTHORIZED. The resolver never writes the table directly.
-async function callWrite(ctx: Ctx, fn: string, args: Record<string, unknown>) {
-  refuseDemoGuideWrite(ctx);
+// The DB function enforces family writer or trusted showcase tenant authority. Read-only
+// caregivers and callers outside that scope receive UNAUTHORIZED. The resolver never writes
+// the table directly; confirmed proposals reuse these same mutation functions.
+async function callWrite(ctx: Ctx, fn: string, args: Record<string, unknown>, key?: string) {
   requireCaller(ctx);
-  const { data, error } = await dbFor(ctx).rpc(fn, args);
+  const { data, error } = key
+    ? await dbFor(ctx).rpc('calendar_write_once', {p_operation: fn.split('_')[0], p_request_key: key, p_request: args})
+    : await dbFor(ctx).rpc(fn, args);
   if (error) {
     if (error.code === '42501' || /FORBIDDEN/.test(error.message ?? '')) throw deny();
     throw error;
@@ -137,6 +150,20 @@ async function callWrite(ctx: Ctx, fn: string, args: Record<string, unknown>) {
 
 const resolvers = {
   Query: {
+    calendarWriteAccess: async (_: unknown, {childId}: {childId:string}, ctx:Ctx) => {
+      requireCaller(ctx);
+      const {data,error}=await dbFor(ctx).rpc('calendar_write_access',{p_child:childId});
+      if(error) throw error;
+      return data === true;
+    },
+    calendarChanges: async (_: unknown, {childId}: {childId:string}, ctx:Ctx) => {
+      requireCaller(ctx);
+      const {data:allowed,error}=await dbFor(ctx).rpc('calendar_write_access',{p_child:childId});
+      if(error) throw error;
+      if(allowed!==true) throw deny();
+      const changes=await rows(dbFor(ctx).from('village_event').select('id,occurred_at,actor_id,kind,payload').eq('subject_id',childId).in('kind',['CALENDAR_EVENT_CREATED','CALENDAR_EVENT_UPDATED','CALENDAR_EVENT_DELETED']).order('occurred_at',{ascending:false}).limit(100));
+      return changes.map(row=>{const p=row.payload as Record<string,string>;return {id:row.id,at:row.occurred_at,actor:{id:row.actor_id},kind:row.kind,eventId:p.eventId,title:p.title,start:p.start}});
+    },
     events: async (_: unknown, { childId, date }: { childId: string; date: string }, ctx: Ctx) => {
       await authorizeChild(ctx, childId, SCOPE.schedule);
       const data = await rows(
@@ -250,28 +277,28 @@ const resolvers = {
   Mutation: {
     createCalendarEvent: async (
       _: unknown,
-      a: { childId: string; title: string; start: string; end: string; location?: string; notes?: string; color?: string; status?: string },
+      a: { childId: string; title: string; start: string; end: string; location?: string; notes?: string; color?: string; status?: string; idempotencyKey?: string },
       ctx: Ctx,
     ) => {
       const data = await callWrite(ctx, 'create_calendar_event', {
         p_child: a.childId, p_title: a.title, p_start: a.start, p_end: a.end,
         p_location: a.location ?? null, p_notes: a.notes ?? null, p_color: a.color ?? null, p_status: a.status ?? 'confirmed',
-      });
+      }, a.idempotencyKey);
       return toCalendarEvent((Array.isArray(data) ? data[0] : data) as EventRow);
     },
     updateCalendarEvent: async (
       _: unknown,
-      a: { id: string; title: string; start: string; end: string; location?: string; notes?: string; color?: string; status?: string },
+      a: { id: string; title: string; start: string; end: string; location?: string; notes?: string; color?: string; status?: string; idempotencyKey?: string },
       ctx: Ctx,
     ) => {
       const data = await callWrite(ctx, 'update_calendar_event', {
         p_id: a.id, p_title: a.title, p_start: a.start, p_end: a.end,
         p_location: a.location ?? null, p_notes: a.notes ?? null, p_color: a.color ?? null, p_status: a.status ?? 'confirmed',
-      });
+      }, a.idempotencyKey);
       return toCalendarEvent((Array.isArray(data) ? data[0] : data) as EventRow);
     },
-    deleteCalendarEvent: async (_: unknown, { id }: { id: string }, ctx: Ctx) => {
-      const data = await callWrite(ctx, 'delete_calendar_event', { p_id: id });
+    deleteCalendarEvent: async (_: unknown, { id, idempotencyKey }: { id: string; idempotencyKey?:string }, ctx: Ctx) => {
+      const data = await callWrite(ctx, 'delete_calendar_event', { p_id: id }, idempotencyKey);
       return String((Array.isArray(data) ? data[0] : data) ?? id);
     },
   },
