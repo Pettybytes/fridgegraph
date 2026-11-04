@@ -123,12 +123,14 @@ body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
 .rosina-send:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,var(--fg-focus) 40%,transparent)}
 .rosina-send:disabled{background:color-mix(in oklch,var(--fg-ink) 12%,var(--fg-surface));color:var(--fg-muted);cursor:default}
 /* Notice intake: a compact doc pill in the tools row; the expanded draft is unchanged. */
-/* The attach pill must NOT be the containing block for the open draft: anchoring the
-   draft to the pill (right:0, 360px wide) pushed it ~300px left out of the panel over
-   the page, where its Review/Confirm controls were mouse-intercepted. The draft
-   anchors to the compose form instead, so it always opens inside the panel. */
-.rosina-notice-attach{position:static}
-.rosina-compose{position:relative}
+/* The open draft anchors to the attach wrapper, which spans the full tools row:
+   anchoring to the pill itself (right:0, 360px wide) pushed the draft ~300px left
+   out of the panel over the page, where its Review/Confirm controls were
+   mouse-intercepted, and anchoring higher (compose/tools top) pushed the draft
+   top under the sticky page header. A full-width attach row keeps the draft
+   inside the panel/column horizontally and low enough vertically in both the
+   floating panel and the Ask Rosina page. */
+.rosina-notice-attach{position:relative;flex:1 1 100%;display:flex;justify-content:flex-end}
 .rosina-notice-attach .notice-draft{margin:0;border:1px solid var(--fg-border);background:var(--fg-surface);border-radius:var(--radius-pill);flex-shrink:0}
 .rosina-notice-attach .notice-draft summary{min-height:40px;min-width:40px;padding:0 13px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-pill);cursor:pointer}
 .rosina-notice-attach .notice-draft summary span,.rosina-notice-attach .notice-draft summary strong{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
