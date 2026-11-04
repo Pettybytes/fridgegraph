@@ -80,7 +80,12 @@ function FridgeContext({mediaUrls={},captionNotes=[],saveCaption,childId,reader,
  // reachable in the separate sample tray. Never merge stored text into that manifest.
  const doorSamples=postedNotes.length?sampleSlots.filter(slot=>slot.variant!=='save-date').map(slot=>slot.id==='sample-family-dinner'?{...slot,position:{x:.211,y:.478,width:.115,rotation:3}}:slot):sampleSlots
  const slots=[...doorSamples,...displayedLive]
- const storePosition=(id:string,p:Position)=>void preferences.change({kind:postedNotes.some(note=>note.id===id)?'note':'art',itemId:id,position:p})
+ const storePosition=(id:string,p:Position)=>{
+  // `Position` is exactly {x,y,width,rotation}. Renderers carry extra style keys (e.g. magnet) beside
+  // the position; persisting those makes the database check reject the whole save (23514 -> 400).
+  const {x,y,width,rotation}=p
+  void preferences.change({kind:postedNotes.some(note=>note.id===id)?'note':'art',itemId:id,position:{x,y,width,rotation}})
+ }
  const postedPaper=(note:FridgeNoteRecord,placed?:Position)=>{
   const position=(target:HTMLElement):Position=>{const box=target.getBoundingClientRect(),base=scene.current!.getBoundingClientRect();return placed??{x:(box.left-base.left)/base.width,y:(box.top-base.top)/base.height,width:box.width/base.width,rotation:0}}
   return <button key={note.id} className={`fridge-posted-paper ${placed?'is-arranged':''}`} style={placed?positionStyle(placed):undefined} data-paper={note.paperColor} data-note-id={note.id}
