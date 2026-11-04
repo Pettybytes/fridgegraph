@@ -37,9 +37,23 @@ Concurrent workers therefore cannot both send. Claim order is the only authority
 
 ### 1.2 Crash and uncertainty
 
-- A crash **before** handoff leaves `CLAIMED` with no provider message id. That is recoverable by lease expiry back to `PENDING` — nothing was sent, so re-claim is safe.
-- A crash **after** handoff leaves `UNKNOWN`. **`UNKNOWN` never becomes a resend — not on retry, not on restart, not by an operator shortcut.** The allowance it reserved is retained, not returned.
-- Any provider response that does not unambiguously prove acceptance (timeout, 5xx, truncated body, disconnect after write) is `UNKNOWN`.
+**The handoff marker is the only proof, and it is written first.** Before the provider request, the
+dispatcher persists `handoff_started_at` (state `HANDOFF_STARTED`) in its own committed write. The
+request goes out only after that write succeeds. A **missing provider message id proves nothing**: it
+is exactly what a crash between the request and the response looks like.
+
+- A crash **before** handoff leaves `CLAIMED` with `handoff_started_at IS NULL`. **That marker, not the
+  absence of a provider id, is what makes re-claim safe.** Lease expiry may return only a pre-handoff
+  claim, and re-claiming it must reuse its reservation — never reserve the allowance twice.
+- A crash **after** handoff leaves `HANDOFF_STARTED` (or `UNKNOWN` if the worker recorded the
+  uncertainty). **Neither ever becomes a resend — not on lease expiry, not on restart, not by an
+  operator shortcut, and not because the provider id was never persisted.** The allowance it reserved
+  is retained, not returned.
+- Claim ownership is **fenced**: every claim carries a token that rotates on re-claim. A worker whose
+  token was rotated away by another worker must be refused when it tries to record an outcome, even
+  though its own lease has expired. Expiry alone is not permission.
+- Any provider response that does not unambiguously prove acceptance (timeout, 5xx, truncated body,
+  disconnect after write) is `UNKNOWN`.
 
 ### 1.3 Reconciliation
 
