@@ -147,7 +147,9 @@ jobs:
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
 
       - name: Showcase calendar PostgreSQL coverage and reset
-        run: node --import tsx ops/calendar-data-proof.mjs
+        run: |
+          node --import tsx ops/calendar-data-proof.mjs
+          node --import tsx ops/calendar-rpc-auth-proof.mjs
 
       - name: Guide database read and isolation proof
         run: node --import tsx ops/guide-database-proof.mjs
