@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-04T05:42:23.179Z",
+  "at": "2026-11-04T05:52:18.949Z",
   "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
   "note": "disposable DB; nothing sent; no GHL credential used",
   "checks": [
@@ -66,7 +66,7 @@
     {
       "name": "real voice-turn-server started",
       "status": "PASS",
-      "detail": "127.0.0.1:41186 (PGSSL=disable, RPC shim)"
+      "detail": "127.0.0.1:41418 (PGSSL=disable, RPC shim)"
     },
     {
       "name": "three open demo attempts available for replies",

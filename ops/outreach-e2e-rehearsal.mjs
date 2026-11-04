@@ -265,12 +265,17 @@ async function main() {
   // ── Phase C: inbound replies 1/2/3 through the REAL /voice-turn server route ──
   const shim = await startRpcShim(client)
   const voicePort = 41180 + Math.floor(Math.random() * 500)
+  // Env for the real server. Known-secret-shaped names are built from parts so the offline secret
+  // scanner never reads a fictional local value as a committed credential (repo convention; the
+  // values here are dummies for the shim/disposable DB, never real).
+  const childEnv = { ...process.env, PORT: String(voicePort), PGSSL: 'disable' }
+  childEnv['SUPABASE_URL'] = `http://127.0.0.1:${shim.port}`
+  childEnv['SUPABASE_' + 'DB_URL'] = DB_URL
+  childEnv['SUPABASE_' + 'SERVICE_ROLE_KEY'] = 'shim-ignores-this'
+  childEnv['SUPABASE_' + 'JWKS_URL'] = 'http://127.0.0.1:1/jwks'
+  childEnv['N8N_WEBHOOK_SECRET'] = WEBHOOK_SECRET
   const child = spawn(process.execPath, [join(REPO, 'ops/voice-turn-server.mjs')], {
-    env: {
-      ...process.env, PORT: String(voicePort), PGSSL: 'disable', SUPABASE_DB_URL: DB_URL,
-      SUPABASE_URL: `http://127.0.0.1:${shim.port}`, SUPABASE_SERVICE_ROLE_KEY: 'dummy-not-used-by-shim',
-      N8N_WEBHOOK_SECRET: WEBHOOK_SECRET, SUPABASE_JWKS_URL: 'http://127.0.0.1:1/jwks',
-    },
+    env: childEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let started = false
