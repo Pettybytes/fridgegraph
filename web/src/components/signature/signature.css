@@ -106,3 +106,46 @@
 
 /* Leave native arrow room independent of the selected child's name. */
 .sg-workspace select{padding-inline-end:44px}
+
+/* Living-village elevation (Bryan, 2026-11-03): the full village breathes. A very slow
+   orbital sway of the whole scene (rings and people together, so nobody leaves their
+   recorded ring) with an equal counter-rotation keeping every face and name upright,
+   plus a soft staggered presence glow behind each member. Compositor-only properties,
+   paused while a visitor is reading (hover or focus inside the scene), absent entirely
+   under reduced motion. Orbit alert and the compact preview keep their stricter
+   motion contracts and get none of this. */
+.sg-full .sg-person>button{position:relative}
+@media(prefers-reduced-motion:no-preference){
+ /* steps(240): the sway advances in sub-pixel increments (about 0.02deg every 0.4s), so a
+    portrait's hit box is rock-steady between steps. Visually identical to continuous drift
+    at this speed; interactively it keeps taps, assistive tech and e2e hit-testing stable. */
+ .sg-full .sg-scene{animation:sg-orbit-sway 100s steps(240) infinite alternate}
+ .sg-full .sg-scene .sg-person>button,.sg-full .sg-child>.sg-portrait,.sg-full .sg-child>figcaption{animation:sg-orbit-counter 100s steps(240) infinite alternate}
+ /* The halo is an annular band sitting just outside the portrait's white ring; a filled
+    radial gradient would hide its energy underneath the photo. */
+ .sg-full .sg-person>button::before{content:'';position:absolute;top:-14px;left:50%;translate:-50% 0;width:calc(var(--sg-face) + 44px);height:calc(var(--sg-face) + 44px);border-radius:50%;background:radial-gradient(circle,transparent 58%,color-mix(in oklch,var(--fg-primary) 52%,transparent) 76%,transparent 94%);z-index:-1;pointer-events:none;animation:sg-presence 3.4s ease-in-out infinite alternate;animation-delay:calc(var(--sg-i,0)*-.65s)}
+ .sg-full .sg-scene:hover,.sg-full .sg-scene:focus-within,.sg-full .sg-scene:hover *,.sg-full .sg-scene:focus-within *{animation-play-state:paused}
+}
+@keyframes sg-orbit-sway{from{transform:rotate(-2.2deg)}to{transform:rotate(2.2deg)}}
+@keyframes sg-orbit-counter{from{transform:rotate(2.2deg)}to{transform:rotate(-2.2deg)}}
+@keyframes sg-presence{from{opacity:.3;transform:scale(.94)}to{opacity:.75;transform:scale(1.05)}}
+
+/* Profile card: the full village floats it (fixed, opposite the Rosina launcher) so a
+   tap near the top of a tall scene answers in place; on phones it becomes a bottom
+   sheet. It never covers the whole scene, and Escape, outside press and the close
+   button all dismiss it. */
+.sg-profile-card{position:fixed;left:24px;right:auto;top:auto;bottom:24px;margin:0;width:min(400px,calc(100vw - 48px));min-height:0;max-height:min(76vh,680px);overflow-y:auto;overscroll-behavior:contain;z-index:var(--z-overlay,40);box-shadow:0 16px 40px color-mix(in oklch,var(--fg-ink) 14%,transparent)}
+.sg-profile-card button:focus-visible{outline:3px solid var(--fg-focus);outline-offset:5px}
+@media(max-width:540px){
+ .sg-profile-card{left:0;right:0;bottom:0;width:100%;max-height:78dvh;border-radius:20px 20px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -18px 48px color-mix(in oklch,var(--fg-ink) 18%,transparent)}
+ .sg-profile-card::before{content:'';display:block;width:44px;height:5px;border-radius:999px;background:var(--fg-border);margin:0 auto 14px}
+}
+.sg-profile{margin-top:16px;padding-top:14px;border-top:1px solid var(--fg-border)}
+.sg-profile-line{color:var(--fg-muted);margin-top:0!important}
+.sg-profile dl{margin:12px 0 0;display:grid;gap:10px}
+.sg-profile dt{font-size:12px;color:var(--fg-muted)}
+.sg-profile dd{margin:2px 0 0;font-size:14px;line-height:1.5}
+.sg-profile-message{margin:14px 0 0;padding:12px 14px;border-radius:14px;background:var(--fg-selection)}
+.sg-profile-message p{margin:0!important;font-size:14px;line-height:1.55}
+.sg-profile-message cite{display:block;margin-top:6px;font-size:12px;color:var(--fg-muted);font-style:normal}
+.sg-profile-tag{color:var(--fg-muted);font-size:11px!important;margin-top:10px!important}
