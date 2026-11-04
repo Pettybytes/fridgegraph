@@ -38,7 +38,6 @@
 .demo-checklist__step[data-tried] .demo-checklist__action-state{color:color-mix(in srgb,var(--type-safe) 82%,var(--fg-ink))}
 .demo-checklist__results{display:flex;flex-wrap:wrap;gap:6px 16px}
 .demo-checklist__results a{font-size:.9rem;min-height:28px;display:inline-flex;align-items:center}
-.demo-checklist__action .demo-checklist__action-receipt{font-size:.86rem;color:var(--fg-muted)}
 .demo-checklist__reset{display:grid;justify-items:start;gap:8px;padding-top:14px;border-top:1px solid var(--fg-border)}
 .demo-checklist__reset p{font-size:.88rem}
 .demo-checklist__reset-confirm{display:grid;gap:10px;max-width:58ch}

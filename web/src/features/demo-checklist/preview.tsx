@@ -1,7 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import '../../index.css'
 import { DemoChecklist } from './DemoChecklist'
-import { DEMO_CHECKLIST_EVIDENCE } from './evidence'
 
 // Standalone layout preview only. No session, reset, model, or backend is connected.
 const params = new URLSearchParams(window.location.search)
@@ -16,7 +15,6 @@ createRoot(document.getElementById('root')!).render(<main style={{ maxWidth: 960
   <DemoChecklist
     personaId={guide ? 'demo-guide' : 'kendra'} childId="p_nora" demoRunId="fixture-preview" mode={guide ? 'guide' : 'parent'}
     availability={{ noticeConfirmReady: true, villageReady: true, orbitReady: true, voiceReady: false, photoReady: false }}
-    evidenceLinks={DEMO_CHECKLIST_EVIDENCE}
     onStartNotice={() => { /* preview only; no app action is connected */ }}
     noticeResult={noticeResult}
   />
