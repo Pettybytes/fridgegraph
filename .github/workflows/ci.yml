@@ -153,6 +153,9 @@ jobs:
       - name: Confirmed calendar and voice regressions
         run: npm --prefix web test -- --no-file-parallelism src/features/rosina/CalendarChangeCard.test.tsx src/features/rosina/calendarPanel.test.tsx src/features/voice/useRosinaVoice.test.tsx
 
+      - name: Invitation rendering and reference regressions
+        run: npm --prefix web test -- src/features/invites
+
       - name: Reset perspective and recovery regressions
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
