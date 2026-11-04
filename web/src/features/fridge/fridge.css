@@ -6,7 +6,7 @@
 .fridge-feature{color:var(--fg-ink,#262832);max-width:1100px;margin:auto;padding:24px;font-family:inherit}
 .fridge-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px}.fridge-toolbar h1{font-size:28px;margin:0}.fridge-toolbar p,.fridge-caption{color:var(--fg-muted,#62626b);font-size:14px}.fridge-toolbar>div:last-child{display:flex;gap:8px}
 .fridge-feature button{cursor:pointer}.fridge-toolbar button,.fridge-feature nav button,.fridge-read button,.fridge-dialog button{font:inherit;min-height:44px;border:1px solid var(--fg-border,#d0d0d8);border-radius:10px;background:var(--fg-surface,#fff);color:var(--fg-ink,#262832);padding:10px 16px}
-.fridge-feature nav{display:flex;justify-content:center;gap:8px;margin:20px 0}.fridge-feature button:focus-visible{outline:3px solid var(--fg-primary,#5c59a8);outline-offset:5px}.fridge-feature nav button[aria-pressed=true]{background:var(--fg-primary,#247eab);color:white}
+.fridge-feature nav{display:flex;justify-content:center;gap:8px;margin:20px 0}.fridge-feature button:focus-visible{outline:3px solid var(--fg-primary,#247eab);outline-offset:5px}.fridge-feature nav button[aria-pressed=true]{background:#d8eff8;color:#173c4d;border-color:#4389a4}
 .fridge-viewport{width:min(100%,700px);aspect-ratio:2/3;margin:auto;overflow:hidden;border-radius:18px;background:#d1ccc3;box-shadow:0 12px 40px #27252225;position:relative}.fridge-viewport.is-focused{width:min(100%,490px)}.fridge-scene{position:relative;width:100%;height:100%;container-type:inline-size;transform-origin:0 0}.fridge-background{width:100%;height:100%;display:block;pointer-events:none}.fridge-layer{position:absolute;inset:0;pointer-events:none}.fridge-layer>*{pointer-events:auto}.fridge-layer[inert],.fridge-layer[inert]>*{pointer-events:none}
 .fridge-door{position:absolute;border:0;background:transparent;border-radius:3px}.fridge-door:hover{box-shadow:inset 0 0 0 2px #ffffff60}
 .fridge-object,.fridge-feedback{position:absolute;display:block;border:0;padding:.5cqw .5cqw 1.3cqw;background:#fffdf8;transform:rotate(var(--turn));box-shadow:.1cqw .2cqw .2cqw #20180c55,.15cqw .65cqw .7cqw #20180c2e;border-radius:0 0 3% 1%;color:#263a4a;text-align:left;min-width:44px;min-height:44px}
@@ -163,7 +163,7 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 .fridge-marker-swatch[aria-pressed=true]{outline:.25cqw solid var(--fg-primary,#247eab);outline-offset:1px}
 .fridge-marker-picker button:not(.fridge-marker-swatch){font:600 .9cqw/1.1 var(--font-sans,Arial,sans-serif);min-height:0;min-width:0;padding:.25cqw .55cqw;border:1px solid #c7bfb1;border-radius:.35cqw;background:#ffffffcc;color:#2e3339;cursor:pointer}
 .fridge-marker-picker button.fridge-marker-caveat{font-family:FridgeCaveat,cursive;font-size:1.15cqw}
-.fridge-marker-picker button[aria-pressed=true]{background:var(--fg-primary,#247eab);color:#fff;border-color:var(--fg-primary,#247eab)}
+.fridge-marker-picker button[aria-pressed=true]{background:#d8eff8;color:#173c4d;border-color:#4389a4}
 .is-focused .fridge-marker-picker button:not(.fridge-marker-swatch){font-size:.9cqw}
 
 .fridge-posted-paper>img{display:block;width:100%;max-height:12cqw;object-fit:contain;pointer-events:none}
