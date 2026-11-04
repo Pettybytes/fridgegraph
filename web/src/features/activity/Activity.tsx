@@ -5,11 +5,48 @@ import type {FrontendAdapter} from '@/lib/frontendData/types'
 import type {StoredMissionControl} from '@/lib/frontendData/deliveredAdapter'
 import {useSession} from '@/features/personas/Session'
 import {formatDay,localDay} from '@/features/calendar/time'
-import {activityEntries,localMoment,mayReadFamilyActivity,orbitStatusCopy,type Slip} from './model'
+import {activityEntries,localMoment,mayReadFamilyActivity,orbitStatusCopy,type Slip,type Entry} from './model'
 import {readSchoolReports,type SchoolReport} from './schoolReports'
 import {readVillagerAdditions,type VillagerAddition} from './villagerAdditions'
 import {attempt,sourceNotice,type ReadState,type Source} from './readState'
+import {TypeNode,type CardType} from '@/components/fg/cards'
+import {Car,GraduationCap,Siren,Check,HeartPulse,Phone,Users,ArrowUpRight} from 'lucide-react'
+import type {ReactNode} from 'react'
 import './activity.css'
+
+/* Each recorded event becomes a horizontal card; its TYPE drives the icon chip colour
+   (design.md §12 legend). Honest labels are preserved exactly (the detail is the recorded
+   wording; Simulated stays Simulated). */
+function activityType(e:Entry):CardType{
+ if(e.place==='Orbit')return 'orbit'
+ if(e.id.startsWith('school:'))return 'school'
+ if(e.id.startsWith('villager:'))return 'neutral'
+ if(e.kind==='SIMULATED')return 'pending'                               // test responder = gray
+ if(e.place==='Mission Control'&&e.kind==='RECORDED')return 'pending'   // outreach = gray
+ if(e.kind==='PROPOSED'||e.kind==='CONFIRMED'||e.kind==='APPROVED'||e.kind==='DECLINED')return 'pickup'
+ return 'neutral'
+}
+const TYPE_ICON:Record<CardType,ReactNode>={pickup:<Car/>,school:<GraduationCap/>,orbit:<Siren/>,safe:<Check/>,care:<HeartPulse/>,pending:<Phone/>,neutral:<Users/>,invite:<Users/>,fridge:<Users/>,rosina:<Users/>}
+function activityTitle(e:Entry):string{
+ if(e.place==='Orbit')return 'Orbit response'
+ if(e.id.startsWith('school:'))return 'School report'
+ if(e.id.startsWith('villager:'))return 'Village update'
+ switch(e.kind){case 'PROPOSED':return 'Pickup requested';case 'SIMULATED':return 'Outreach (test responder)';case 'RECORDED':return 'Outreach';case 'CONFIRMED':return 'Confirmation';case 'APPROVED':return 'Approved';case 'DECLINED':return 'Declined';default:return 'Recorded'}
+}
+const STATUS_BADGE:Record<Entry['kind'],string>={PROPOSED:'Proposed',SIMULATED:'Simulated',REPORTED:'Reported',RECORDED:'Recorded',CONFIRMED:'Recorded',APPROVED:'Recorded',DECLINED:'Recorded'}
+function ActivityCard({e}:{e:Entry}){
+ const type=activityType(e),person=e.id.startsWith('school:')?null:e.who,badge=STATUS_BADGE[e.kind]
+ return <article className="activity-card" data-fgc-type={type}>
+  <TypeNode type={type}>{TYPE_ICON[type]}</TypeNode>
+  <div className="activity-card-body">
+   <div className="activity-card-head"><span className="activity-card-title">{activityTitle(e)}</span><span className="activity-badge" data-status={badge.toLowerCase()}>{badge}</span></div>
+   {person?<span className="activity-card-person">{person}</span>:null}
+   <p className="activity-card-detail">{e.what}</p>
+   {e.href?<a className="activity-card-open" href={e.href}>Open in {e.place}<ArrowUpRight size={14} aria-hidden /></a>:null}
+  </div>
+  <time className="activity-card-time" dateTime={e.at}>{localMoment(e.at)}</time>
+ </article>
+}
 const SLIPS=gql`query WebActivitySlips($childId:ID!){permissionSlips(childId:$childId){id title history{decision at approver{id}}}}`
 const STATUS=gql`query WebActivityOrbit($childId:ID!){orbitStatus(childId:$childId){alertId status closeOutcome thankyou latestResponses{person{id displayName} respondedAt response}}}`
 const CHECK=gql`query WebActivityCheck($childId:ID!){checkInStatus(childId:$childId){recorded}}`
@@ -51,10 +88,10 @@ export function Activity({client,adapter}:{client:ReturnType<typeof createGraphC
  const days=[...new Set(entries.map(e=>e.day))]
  // A source that failed is reported by name; a source that succeeded and returned nothing is empty.
  const failed=NAMED.map(([key,label])=>({key,label,state:view[key].state})).filter((source):source is {key:keyof View;label:string;state:Exclude<ReadState,'ready'>}=>source.state!=='ready')
- return <section className="activity" aria-label={`${session!.scope.childName} activity`}><p>Recorded activity for {session!.scope.childName}. Times shown in Detroit local time.</p>
+ return <section className="activity" aria-label={`${session!.scope.childName} activity`}><p className="activity-lead">Recorded activity for {session!.scope.childName}. Times shown in Detroit local time.</p>
  {failed.map(({key,label,state})=>{const notice=sourceNotice(label,state);return <aside key={key} className="activity-status" role={state==='privilege'?'status':'alert'}><h2>{notice.heading}</h2><p>{notice.body}</p></aside>})}
  {view.orbit.state==='ready'&&view.orbit.data?.status&&<aside className="activity-status"><h2>Orbit status</h2><p>{orbitStatusCopy(view.orbit.data)}</p><a href="#/orbit">Open Orbit</a></aside>}
  {view.check.state==='ready'&&view.check.data?.recorded===false&&<p className="activity-status">Check-in not recorded. <a href="#/orbit">Open Orbit</a></p>}
- {!entries.length?(failed.length?<p className="activity-status">No records could be loaded for this view. {failed.length} source{failed.length===1?'':'s'} unavailable above.</p>:<p className="activity-status">No records are available to this view</p>):days.map(day=><section key={day} className="activity-day"><h2>{formatDay(day,true)}</h2><ol>{entries.filter(e=>e.day===day).map(e=><li key={e.id}><time dateTime={e.at}>{localMoment(e.at)}</time><div><strong>{e.kind}</strong><h3>{e.who}</h3><p>{e.what}</p>{e.href&&<a href={e.href}>Open in {e.place}</a>}</div></li>)}</ol></section>)}
+ {!entries.length?(failed.length?<p className="activity-status">No records could be loaded for this view. {failed.length} source{failed.length===1?'':'s'} unavailable above.</p>:<p className="activity-status">No records are available to this view</p>):days.map(day=><section key={day} className="activity-day"><h2 className="activity-day-head">{formatDay(day,true)}</h2><div className="activity-cards">{entries.filter(e=>e.day===day).map(e=><ActivityCard key={e.id} e={e}/>)}</div></section>)}
  </section>
 }

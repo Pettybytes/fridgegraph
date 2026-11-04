@@ -1,1 +1,49 @@
-.activity{max-width:900px;color:var(--fg-ink,#26344c);line-height:1.55}.activity>p{margin-bottom:1.5rem}.activity-status,.activity-day{background:var(--fg-surface,#fff);border:1px solid var(--fg-border,#dce3ed);border-radius:.75rem;padding:1rem;margin:1rem 0}.activity-day h2{font-size:1.1rem;font-weight:650}.activity-day ol{list-style:none;padding:0;margin:0}.activity-day li{display:grid;grid-template-columns:110px 1fr;gap:1rem;padding:1rem 0;border-top:1px solid var(--fg-border,#dce3ed)}.activity-day time{font-size:.8rem;font-variant-numeric:tabular-nums}.activity-day strong{font-size:.7rem;letter-spacing:.05em}.activity-day h3{font-size:1rem;font-weight:650}.activity-day p{margin:.3rem 0}.activity a{color:var(--fg-primary,#7559a1);text-decoration:underline}@media(max-width:600px){.activity-day li{grid-template-columns:1fr;gap:.25rem}}
+/* Activity — recorded events as horizontal type-coloured cards (design-v2).
+   One card per event in a day group; the TYPE drives the icon-chip colour.
+   Honest labels preserved (Simulated stays Simulated; "not recorded" stays). */
+.activity { max-width: 760px; color: var(--fg-ink); }
+/* Intro sits over the backdrop, so keep it dark for AA (muted body text is on cards). */
+.activity-lead { font-size: var(--text-body); color: color-mix(in oklch, var(--fg-ink) 72%, var(--fg-muted)); margin: 0 0 18px; }
+
+/* Loading / refused / unavailable states as a calm notice card. */
+.activity[role='status'], .activity[role='alert'], .activity[data-state='unavailable'] {
+  max-width: 560px; background: var(--fg-surface); border: 1px solid var(--fg-border);
+  border-radius: var(--radius-card-v2); box-shadow: var(--card-elev-1); padding: 26px 28px;
+}
+.activity[role='alert'] h2, .activity[data-state='unavailable'] h2 { font-size: var(--text-title); letter-spacing: -0.02em; margin: 0 0 8px; }
+.activity[role='alert'] p, .activity[data-state='unavailable'] p { font-size: var(--text-body); color: var(--fg-muted); line-height: 1.55; margin: 0; }
+
+/* Source-notice asides (a failed read is named; an empty success is empty). */
+.activity-status { background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: var(--radius-card-v2); box-shadow: var(--card-elev-1); padding: 14px 16px; margin: 0 0 12px; }
+.activity-status h2 { font-size: var(--text-heading); margin: 0 0 4px; }
+.activity-status p { font-size: var(--text-body); color: var(--fg-muted); margin: 0; line-height: 1.5; }
+.activity-status a { color: var(--fg-primary); font-size: var(--text-body); font-weight: 550; text-underline-offset: 4px; display: inline-block; margin-top: 8px; }
+
+/* Day groups. */
+.activity-day { margin-top: 24px; }
+.activity-day-head { font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 650; color: var(--fg-muted); margin: 0 0 12px; }
+.activity-cards { display: grid; gap: 10px; }
+
+/* Horizontal event card: [icon chip] [title/person/detail/action] [time]. */
+.activity-card { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: var(--radius-card-v2); box-shadow: var(--card-elev-1); padding: 14px 16px; }
+.activity-card-body { min-width: 0; display: grid; gap: 4px; }
+.activity-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.activity-card-title { font-size: var(--text-body); font-weight: 600; color: var(--fg-ink); letter-spacing: -0.01em; }
+.activity-card-person { font-size: var(--text-caption); color: var(--fg-muted); }
+.activity-card-detail { font-size: var(--text-body); color: var(--fg-ink); line-height: 1.5; margin: 2px 0 0; text-wrap: pretty; }
+.activity-card-time { font-size: var(--text-caption); color: var(--fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 3px; text-align: right; }
+/* "Open in X" as a self-contained secondary pill (no dependency on fg.css). */
+.activity-card-open { display: inline-flex; align-items: center; gap: 6px; width: fit-content; margin-top: 8px; padding: 0 14px; min-height: 34px; border-radius: var(--radius-pill); border: 1px solid var(--fg-border); background: var(--fg-surface); box-shadow: var(--card-elev-1); color: var(--fg-ink); font-size: 13px; font-weight: 600; text-decoration: none; transition: background-color var(--dur-feedback) var(--ease-out), box-shadow var(--dur-feedback) var(--ease-out); }
+.activity-card-open:hover { background: color-mix(in oklch, var(--fg-ink) 3%, var(--fg-surface)); box-shadow: var(--card-elev-2); }
+.activity-card-open:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--fg-focus) 40%, transparent); }
+@media (hover: none) { .activity-card-open:hover { background: var(--fg-surface); box-shadow: var(--card-elev-1); } }
+
+/* Status badge (Recorded / Simulated / Proposed / Reported). */
+.activity-badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; line-height: 1.4; border: 1px solid var(--fg-border); background: color-mix(in oklch, var(--fg-ink) 4%, var(--fg-surface)); color: var(--fg-muted); white-space: nowrap; }
+.activity-badge[data-status='simulated'] { border-style: dashed; }
+.activity-badge[data-status='reported'] { color: color-mix(in oklch, var(--type-school) 70%, var(--fg-ink)); background: color-mix(in oklch, var(--type-school) 10%, var(--fg-surface)); border-color: color-mix(in oklch, var(--type-school) 28%, var(--fg-border)); }
+
+@media (max-width: 560px) {
+  .activity-card { grid-template-columns: auto 1fr; }
+  .activity-card-time { grid-column: 2; text-align: left; padding-top: 0; }
+}
