@@ -33,15 +33,14 @@ This begins with single mothers, but it is not limited to one family shape. A ch
 
 <table>
   <tr>
-    <td width="50%"><a href="web/evidence/design/run-appsky-after/today-desktop.png"><img src="web/evidence/design/run-appsky-after/today-desktop.png" alt="FridgeGraph Today design capture with sky canvas, the family village, Rosina and the guide" width="100%"></a><br><strong>Today</strong> · Rosina and the village, in the app's sky and ink visual language.</td>
-    <td width="50%"><a href="web/evidence/design/run-appsky-after/activity-cards-desktop.png"><img src="web/evidence/design/run-appsky-after/activity-cards-desktop.png" alt="FridgeGraph Activity design capture showing recorded events as white cards on the sky canvas" width="100%"></a><br><strong>Activity</strong> · A record of who did what, with simulated outreach labeled as such.</td>
-  </tr>
-  <tr>
-    <td colspan="2"><a href="web/evidence/orbit-climax/take-06/1440-light-alert.png"><img src="web/evidence/orbit-climax/take-06/1440-light-alert.png" alt="Fictional Orbit Alert takeover design with Nora's photo and trusted village response choices" width="100%"></a><br><strong>Orbit Alert</strong> · A controlled offline visual fixture of the high-stakes state. It is not evidence of an outbound alert. The [Village map browser capture](web/evidence/map-live/kendra-desktop-map.png) shows a route estimate, never live child tracking.</td>
+    <td width="42%" align="center"><a href="docs/assets/readme/nora-current.png"><img src="docs/assets/readme/nora-current.png" alt="Nora Ellison, the current fictional demo portrait supplied by Bryan" width="320"></a><br><strong>Meet Nora Ellison.</strong><br>A child at the center of a whole village of care.</td>
+    <td width="58%"><a href="web/evidence/design/run-appsky-after/activity-cards-desktop.png"><img src="web/evidence/design/run-appsky-after/activity-cards-desktop.png" alt="FridgeGraph Activity design capture showing recorded events as white cards on the sky canvas" width="100%"></a><br><strong>Activity</strong> · A record of who did what, with simulated outreach labeled as such.</td>
   </tr>
 </table>
 
-*These are source-controlled design and controlled-test captures from different builds. The [hosted app](https://fridgegraph.loomz.stream) is the source for what judges can click now; the six-step guide was verified separately on the served build. The [notice-to-confirm browser receipt](web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png) shows the recorded pickup request.*
+**One child. Many people who care. One place to coordinate.** Nora's parents, grandmother, sitter, and trusted village each see the information their role permits. When a check-in is missing, Orbit gives her parent one place to review the audience, prepare an alert, and bring the village together.
+
+*Nora's portrait above is the current image supplied for this presentation, reproduced without alteration. The Activity image is a source-controlled design capture. Historical screenshots remain in the evidence folders and may show retired portraits; they are not the current visual reference. The [hosted app](https://fridgegraph.loomz.stream) is the source for what judges can click now. The [notice-to-confirm browser receipt](web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png) records the earlier pickup-request test.*
 
 ## One change, visible across the village
 

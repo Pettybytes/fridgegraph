@@ -6,6 +6,8 @@ Tori, a single-mother friend, sent Bryan the August 11 message reproduced in ful
 
 The original screenshot is committed as `docs/assets/origin/tori-message-original.jpg` with its full 1312 × 2048 composition, no crop or retouch. Its SHA-256 before upload was `10a23f6fdfdcaba12f4897b68e7c17282ca1efc6f319dcc0c9004f2250ad9afa`.
 
+The current Nora demo portrait was supplied by Bryan and is preserved without alteration at `docs/assets/readme/nora-current.png` (384 × 384). Its original Git blob hash is `b592188d90d3de79c4f41345165dafe569ef27e5`. Historical test captures may contain a retired portrait and remain unchanged as evidence. No model authorship is inferred from the supplied image.
+
 ## What is produced by which model
 
 | Source | Role | Boundary |
