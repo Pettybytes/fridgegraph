@@ -140,18 +140,36 @@ test('whiteboard create, edit, horizon and marker choices survive reload',async(
  }
 })
 
-test('photo drag persists after reload and in a second browser',async({page,browser})=>{
+for(const kind of ['photo','sticky'] as const)test(`${kind} drag persists after reload and in a second browser`,async({page,browser})=>{
+ const text=stamp()
  await enter(page);await page.getByRole('button',{name:'Open collage door'}).click()
- const photo=page.getByRole('button',{name:'The family dog',exact:true})
- const before=await photo.getAttribute('style'),box=await photo.boundingBox();expect(box).not.toBeNull()
- await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2)
- await page.mouse.down();await page.mouse.move(box!.x+box!.width/2+24,box!.y+box!.height/2+35,{steps:10});await page.mouse.up()
- const moved=await photo.getAttribute('style');expect(moved).not.toBe(before)
- await reload(page);await expect(photo).toHaveAttribute('style',moved!)
  const other=await browser.newContext()
  try{
+  if(kind==='sticky'){
+   await page.getByRole('button',{name:'Add sticky note',exact:true}).click()
+   await page.getByRole('textbox',{name:'Note text',exact:true}).fill(text)
+   await page.getByRole('button',{name:'Post privately'}).click()
+   await expect(page.getByText('Saved.',{exact:true})).toBeVisible()
+   await page.getByRole('button',{name:'Close editor'}).click()
+  }
+  const name=kind==='photo'?'The family dog':`Open posted note: ${text}`
+  const item=page.getByRole('button',{name,exact:true})
+  await item.scrollIntoViewIfNeeded()
+  const before=await item.getAttribute('style'),box=await item.boundingBox();expect(box).not.toBeNull()
+  await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2)
+  await page.mouse.down();await page.mouse.move(box!.x+box!.width/2+24,box!.y+box!.height/2+35,{steps:10});await page.mouse.up()
+  const moved=await item.getAttribute('style');expect(moved).not.toBe(before)
+  await reload(page);await expect(item).toHaveAttribute('style',moved!)
+  await page.getByRole('button',{name:'Arrange items'}).click()
+  await item.focus();await page.keyboard.press('Alt+ArrowLeft')
+  const arranged=await item.getAttribute('style');expect(arranged).not.toBe(moved)
+  await reload(page);await expect(item).toHaveAttribute('style',arranged!)
   const second=await other.newPage();await enter(second)
   await second.getByRole('button',{name:'Open collage door'}).click()
-  await expect(second.getByRole('button',{name:'The family dog',exact:true})).toHaveAttribute('style',moved!)
- }finally{await other.close();await page.getByRole('button',{name:'Tidy up'}).click()}
+  await expect(second.getByRole('button',{name,exact:true})).toHaveAttribute('style',arranged!)
+ }finally{
+  await other.close()
+  await page.getByRole('button',{name:'Tidy up'}).click()
+  if(kind==='sticky')await removeNote(page,text)
+ }
 })
