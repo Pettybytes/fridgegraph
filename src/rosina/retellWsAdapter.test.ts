@@ -218,3 +218,27 @@ test('an expired binding is refused and the turn runner is never reached', async
   assert.equal(runnerCalls, 0);
   assert.match(socket.spoken(), /can't verify this caller's session/i);
 });
+
+test('bind design gap: a key-only URL resolves the session carried in call_details metadata', async () => {
+  const socket = new FakeSocket();
+  createRetellWsHandler({ bridge: makeBridge(), secret: SECRET, pathSecret: 'test-only-ws-secret',
+    resolveSession: ({ sessionToken }) => (sessionToken === 'call-carried-token' ? kendra : null) })(
+    socket, { url: '/gate-b/llm/call_7?key=test-only-ws-secret', headers: {} });
+  socket.receive({ interaction_type: 'call_details', call: { call_id: 'call_7', metadata: { gate_b_session: 'call-carried-token' } } });
+  socket.receive({ interaction_type: 'response_required', response_id: 1, transcript: [{ role: 'user', content: 'Add a pickup for Nora tomorrow' }] });
+  await tick();
+  assert.match(socket.spoken(), /Here's an option/);
+});
+
+test('bind design gap: a key-only URL with no call-carried session stays unbound', async () => {
+  let runnerCalls = 0;
+  const bridge = makeBridge(async () => { runnerCalls += 1; return { reply: 'x', actions: [] }; });
+  const socket = new FakeSocket();
+  createRetellWsHandler({ bridge, secret: SECRET, resolveSession: () => null })(
+    socket, { url: '/gate-b/llm/call_8?key=test-only-ws-secret', headers: {} });
+  socket.receive({ interaction_type: 'call_details', call: { call_id: 'call_8' } });
+  socket.receive({ interaction_type: 'response_required', response_id: 1, transcript: [{ role: 'user', content: 'Who picks Nora up today?' }] });
+  await tick();
+  assert.equal(runnerCalls, 0);
+  assert.match(socket.spoken(), /can't verify this caller's session/i);
+});

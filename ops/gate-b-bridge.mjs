@@ -1,6 +1,6 @@
 /**
  * Gate B test bridge — isolated, OFF by default.
- * Runs the pinned #280 core (9fc40f92) as its own process on PORT (default 4231).
+ * Runs the pinned #280 core (df4a21d) as its own process on PORT (default 4231).
  * No baseline service (web 5189, Rosina 4200, router, backend, DB) is touched.
  *
  * This repo copy mirrors the wiring Bentley deployed on 2026-11-04 and adds
@@ -18,9 +18,9 @@ import { handleRetellWsUpgrade } from '../src/rosina/retellWsAdapter.ts';
 
 try { process.loadEnvFile('.env'); } catch { /* env may be exported */ }
 const PORT = Number(process.env.GATE_B_PORT ?? 4231);
-const BRIDGE_SHA = '9fc40f92';
+const BRIDGE_SHA = (process.env.BRIDGE_SHA ?? 'df4a21d').trim();
 const ENABLED = process.env.GATE_B_ENABLED === '1';
-if (!ENABLED) { console.log('[gate-b] disabled (GATE_B_ENABLED!=1); no listener started'); process.exit(0); }
+if (!ENABLED) { console.log(new Date().toISOString(), '[gate-b] disabled (GATE_B_ENABLED!=1); no listener started'); process.exit(0); }
 const SECRET = process.env.GATE_B_BRIDGE_SECRET;
 // Socket credential Retell carries as ?key= (it sends no auth headers). The
 // per-call bound session token stays the authorization; this is a second,
@@ -128,15 +128,19 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.on('upgrade', (req, socket) => {
+  const safeUrl = String(req.url ?? '').replace(/((?:key|session)=)[^&]*/g, '$1<redacted>');
+  console.log(new Date().toISOString(), `[gate-b] ws upgrade ${safeUrl}`);
   const handled = handleRetellWsUpgrade(req, socket, {
     bridge,
     secret: SECRET,
     pathSecret: WS_SECRET,
     resolveSession: ({ sessionToken }) => {
       const rec = sessionToken ? readSession(sessionToken) : null;
+      console.log(new Date().toISOString(), `[gate-b] ws session ${rec ? 'RESOLVED' : 'UNRESOLVED'}`);
       return rec ? rec.session : null;
     },
   });
-  if (!handled) socket.destroy();
+  if (!handled) { console.log(new Date().toISOString(), '[gate-b] ws upgrade not handled'); socket.destroy(); }
+  else socket.on('close', () => console.log(new Date().toISOString(), '[gate-b] ws socket closed'));
 });
-server.listen(PORT, '127.0.0.1', () => console.log(`[gate-b] bridge ${BRIDGE_SHA} on 127.0.0.1:${PORT}`));
+server.listen(PORT, '127.0.0.1', () => console.log(new Date().toISOString(), `[gate-b] bridge ${BRIDGE_SHA} on 127.0.0.1:${PORT}`));

@@ -67,6 +67,23 @@ export function sessionTokenFromUrl(url: string): string | null {
   return new URLSearchParams(q).get('session');
 }
 
+type RetellCallLike = {
+  metadata?: Record<string, unknown>;
+  retell_llm_dynamic_variables?: Record<string, unknown>;
+} | undefined;
+
+/** The saved clone URL carries only ?key= (no session). The per-call bind
+ *  token therefore arrives with the call itself: in call_details metadata
+ *  (or dynamic variables) set at web-call creation, or an x-gate-b-session
+ *  header. Returns null when the call carries no bind token. */
+export function sessionTokenFromCall(call: RetellCallLike): string | null {
+  for (const bag of [call?.metadata, call?.retell_llm_dynamic_variables]) {
+    const v = bag?.gate_b_session ?? bag?.gateBSession ?? bag?.session;
+    if (typeof v === 'string' && v) return v;
+  }
+  return null;
+}
+
 export function wsKeyFromUrl(url: string): string | null {
   const q = url.split('?')[1];
   if (!q) return null;
@@ -89,6 +106,7 @@ function sentenceChunks(text: string): string[] {
 export function createRetellWsHandler(deps: RetellWsDeps) {
   return function handleRetellWsConnection(socket: RetellWsSocket, info: RetellWsInfo): void {
     let callId = retellCallIdFromUrl(info.url);
+    let callSession: string | null = null; // bind token carried by call_details
     let session: BridgeSession | null | undefined; // undefined = not resolved yet
     let turn = 0;
     let generation = 0;
@@ -98,7 +116,9 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
       if (session !== undefined) return session;
       session = await deps.resolveSession({
         callId,
-        sessionToken: sessionTokenFromUrl(info.url),
+        sessionToken: sessionTokenFromUrl(info.url)
+          ?? info.headers['x-gate-b-session']
+          ?? callSession,
         url: info.url,
         headers: info.headers,
       });
@@ -134,6 +154,8 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
       // the bridge worked. Retell discards stale ids; never emit them.
       if (gen !== generation) return;
       const body = out.body;
+      console.log(new Date().toISOString(), `[gate-b] turn done status=${out.status} reply_len=${String(body.reply ?? '').length} executed=${String(body.executed)}`);
+
       // Never speak a save the backend has not returned: the bridge never
       // executes, and if a future body claimed otherwise we refuse the line.
       const reply = body.executed ? "I couldn't put that together, so nothing has changed." : body.reply;
@@ -149,9 +171,12 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
       let msg: Record<string, unknown>;
       try { msg = JSON.parse(data) as Record<string, unknown>; } catch { return; }
       const type = msg.interaction_type;
+      console.log(new Date().toISOString(), `[gate-b] inbound type=${String(type)} call=${String(callId ?? 'none')} resp=${String(msg.response_id ?? '-')}`);
       if (type === 'call_details') {
-        const call = msg.call as { call_id?: string } | undefined;
+        const call = msg.call as { call_id?: string } & RetellCallLike;
         if (call?.call_id) callId = call.call_id;
+        callSession = sessionTokenFromCall(call) ?? callSession;
+        console.log(new Date().toISOString(), `[gate-b] call_details call_id=${callId ?? 'none'}`);
         socket.send(JSON.stringify({ response_type: 'config', config: { auto_reconnect: true, call_details: false } }));
         return;
       }
@@ -276,6 +301,8 @@ export function handleRetellWsUpgrade(
         const head = Buffer.from([0x8a, payload.length]);
         rawSocket.write(Buffer.concat([head, payload]));
       } else if (opcode === 0x8) { // close
+        const closeCode = payload.length >= 2 ? payload.readUInt16BE(0) : 1005;
+        console.log(new Date().toISOString(), `[gate-b] ws close code=${closeCode}`);
         rawSocket.write(Buffer.from([0x88, 0x00]));
         rawSocket.end();
         listeners.close.forEach((f) => f(undefined as never));
