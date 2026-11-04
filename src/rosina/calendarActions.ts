@@ -47,9 +47,26 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
  let event:Event|undefined;
  if(operation!=='create'){
   const previousTitle=reference.match(/^Done: (?:added|moved) (.+) for /)?.[1];
-  const words=text.toLowerCase().replace(/\b(move|reschedule|cancel|delete|please|the|event|calendar|to|until|through|at|on|for|today|tomorrow|it|that)\b/g,' ').replace(/\d+(?::\d+)?\s*(am|pm)?/g,' ').split(/\s+/).filter(w=>w.length>2&&!child.displayName!.toLowerCase().includes(w.replace(/[’']s$/,'')));
-  const requestedDay=text.match(/\bon (\d{4}-\d{2}-\d{2})\b/i)?.[1];
-  const found=events.filter(e=>(!requestedDay||e.start.startsWith(requestedDay))&&(previousTitle?e.title===previousTitle:words.length>0&&words.every(w=>e.title.toLowerCase().includes(w))));
+  // Resolve the existing event from the words the caller actually used: a quoted title, or
+  // every significant title word appearing in the request, plus the day when they gave one
+  // (ISO, today/tomorrow, or a written-out date like "Thursday, November 5, 2026"). Extra
+  // request words (instructions, times, the child's name) must not veto a title match.
+  const MONTHS:Record<string,string>={january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',jan:'01',feb:'02',mar:'03',apr:'04',jun:'06',jul:'07',aug:'08',sep:'09',sept:'09',oct:'10',nov:'11',dec:'12'};
+  const written=text.match(new RegExp(`\\b(${Object.keys(MONTHS).join('|')})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`,'i'));
+  const requestedDay=text.match(/\b(\d{4}-\d{2}-\d{2})\b/)?.[1]??(/\btomorrow\b/i.test(text)?plus(today,1):/\btoday\b/i.test(text)?today:undefined);
+  const requestedMonthDay=!requestedDay&&written?`${MONTHS[written[1].toLowerCase()]}-${written[2].padStart(2,'0')}`:undefined;
+  const onRequestedDay=(e:Event)=>requestedDay?e.start.startsWith(requestedDay):requestedMonthDay?e.start.slice(5,10)===requestedMonthDay:true;
+  const norm=(v:string)=>v.toLowerCase().replace(/[’]/g,"'").replace(/[^a-z0-9' ]/g,' ').replace(/\s+/g,' ').trim();
+  const quoted=text.match(/["“]([^"”]+)["”]/)?.[1];
+  const requestWords=new Set(norm(text).split(' '));
+  const childWords=new Set(norm(child.displayName).split(' ').map(w=>w.replace(/'s$/,'')));
+  const titleMatches=(e:Event)=>{
+   if(previousTitle)return e.title===previousTitle;
+   if(quoted)return norm(e.title)===norm(quoted);
+   const titleWords=norm(e.title).split(' ').filter(w=>w.length>1&&!childWords.has(w.replace(/'s$/,'')));
+   return titleWords.length>0&&titleWords.every(w=>requestWords.has(w)||requestWords.has(w.replace(/'s$/,'')));
+  };
+  const found=events.filter(e=>onRequestedDay(e)&&titleMatches(e));
   if(found.length!==1)return reply(found.length?'There is more than one matching event. Which title and date should I change?':'Which existing event should I change? Please give its title and date.');
   event=found[0];
  }

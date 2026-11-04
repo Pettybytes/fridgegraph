@@ -29,3 +29,18 @@ test('rejects nonexistent and ambiguous Detroit wall times and invalid dates',as
   assert.equal(r?.actions.length,0);
  }
 });
+test('cancel resolves a quoted title plus tomorrow and ignores trailing instructions',async()=>{
+ const rows=[{id:'ev-violin',title:'WonderGate violin lesson',start:'2026-11-05T16:00:00',end:'2026-11-05T17:00:00',location:'Studio',notes:'',color:'',status:'confirmed'}];
+ const r=await calendarProposal({...base,request:request(true,rows) as typeof fetch,message:'Please cancel the calendar event "WonderGate violin lesson" for Nora tomorrow at 4:00 PM. Propose the cancellation and I will confirm.'});
+ assert.equal(r?.actions[0]?.args.operation,'delete');assert.equal(r?.actions[0]?.args.eventId,'ev-violin');
+});
+test('cancel resolves an unquoted title with a written-out date',async()=>{
+ const rows=[{id:'ev-qa',title:'QA Journey Event 2107',start:'2026-11-05T16:00:00',end:'2026-11-05T17:00:00',location:'',notes:'',color:'',status:'confirmed'}];
+ const r=await calendarProposal({...base,request:request(true,rows) as typeof fetch,message:'Cancel QA Journey Event 2107 on Thursday, November 5, 2026 at 4:00 PM'});
+ assert.equal(r?.actions[0]?.args.operation,'delete');assert.equal(r?.actions[0]?.args.eventId,'ev-qa');
+});
+test('cancel with a title that matches two events on the day still asks',async()=>{
+ const rows=[0,1].map(i=>({id:`ev-dup-${i}`,title:'WonderGate violin lesson',start:'2026-11-05T16:00:00',end:'2026-11-05T17:00:00',location:'',notes:'',color:'',status:'confirmed'}));
+ const r=await calendarProposal({...base,request:request(true,rows) as typeof fetch,message:'cancel "WonderGate violin lesson" for Nora tomorrow'});
+ assert.equal(r?.actions.length,0);
+});
