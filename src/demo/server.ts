@@ -30,6 +30,7 @@ import { basename, join } from 'node:path';
 import { verifyBearer } from '../auth/verify';
 import { createVoiceNoteHandler } from './voiceNoteEndpoint';
 import { cooldownRefusal, identityRefusal, isLoopback, NO_STORE } from './guards';
+import { runTestOutreach } from './testOutreach';
 import { InFlightLocks, RESET_IN_FLIGHT, SHARED_RESET_LOCK, windowRefusal } from './guards';
 import { resolveClientIp, isResolvedClient } from './client-ip';
 import {
@@ -260,6 +261,27 @@ export function createDemoLoginApp() {
       console.error(`[demo-login] ${personaId} -> ${code}`);
       res.status(503).json({ status: 'UNAVAILABLE', personaId, reason: code });
     }
+  });
+
+  // ---------------------------------------------------------------- In-app TEST outreach
+  // Judge step 2 without SMS: gates and mechanics in src/demo/testOutreach.ts. Parent bearer
+  // only; the candidate comes from the fixed TEST roster; the simulated reply arrives seconds
+  // later through the SAME webhook RPC the SMS path uses. Nothing here contacts anyone.
+  const outreachCooldown = new Map<string, number>();
+  app.post('/api/demo/test-outreach', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', NO_STORE);
+    const identity = await verifyBearer(req.header('authorization'));
+    if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    const last = outreachCooldown.get(identity.personId) ?? 0;
+    if (Date.now() - last < 5_000) { res.status(429).json({ error: 'RATE_LIMITED' }); return; }
+    outreachCooldown.set(identity.personId, Date.now());
+    const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) { res.status(503).json({ error: 'NOT_CONFIGURED' }); return; }
+    const service = (path: string, init?: RequestInit) => fetch(`${url}${path}`, { ...init, headers: { apikey: key, authorization: `Bearer ${key}`, ...(init?.headers ?? {}) } });
+    const jobId = typeof (req.body as { jobId?: unknown } | undefined)?.jobId === 'string' ? (req.body as { jobId: string }).jobId : '';
+    const outcome = await runTestOutreach({ service }, identity.personId, jobId);
+    res.status(outcome.status).json(outcome.body);
   });
 
   // ---------------------------------------------------------------- Orbit media

@@ -25,10 +25,36 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
  <header className="mcv-job"><div><p>{run.timeline.length?'Sample activity':'Pickup record · event times not recorded'}</p><h2>{session?.scope.childName.split(' ')[0]}’s pickup</h2><p>{pickupStatusLabel(run.job.status)}</p></div></header>
  <div className="mcv-lane-grid">{run.attempts.map(a=><article key={a.id} className="mcv-lane"><h3>{a.candidate?.displayName??'Caregiver not recorded'}</h3><span className="mcv-contact">{contactBadge(a.destinationMode)}</span><p>{contactChannelLabel(a.channel)}</p><time dateTime={a.at}>{formatRecordedTime(a.at)}</time><p>{a.closedAt?'Attempt ended · see recorded activity':'Attempt open · no reply recorded'}</p>{a.closedAt&&<time dateTime={a.closedAt}>{formatRecordedTime(a.closedAt)}</time>}</article>)}</div>
  <section className="mcv-decision"><h3>Current caregiver information</h3>{!run.job.candidateEvaluations.length&&<p>No caregiver evaluation has been recorded.</p>}{run.job.candidateEvaluations.map(e=><p key={e.candidate.id}>{e.candidate.displayName}: {reasonLabel(e.reasonCode)}. {e.available===true?'Available':e.available===false?'Not available':'Availability not recorded'}.</p>)}</section>
+ <TestOutreachControl run={run} canAct={Boolean(session?.persona.parent&&!session?.marks?.demoGuide)} token={session?.accessToken??null} refetch={()=>{void result.refetch()}}/>
  <LiveApproval run={run} canApprove={Boolean(session?.persona.parent&&!session?.marks?.demoGuide)} refetch={()=>{void result.refetch()}}/>
  <section className="mcv-timeline"><h3>Recorded activity</h3>{!run.timeline.length?<p>Event times not recorded.</p>:<ol>{run.timeline.map((e,i)=><li key={`${e.at}:${e.kind}:${i}`}><time dateTime={e.at}>{formatRecordedTime(e.at)}</time><div><h4>{title[e.kind]??'Recorded activity'}</h4>{e.candidate&&<p>{e.candidate.displayName}</p>}{e.kind==='ATTEMPT_OPENED'&&<p>{contactChannelLabel(e.detail??'Unknown')}</p>}{e.kind==='ATTEMPT_CLOSED'&&<p>Contact attempt ended. No decline is inferred from silence.</p>}</div></li>)}</ol>}</section>
  </>}
  </section>
+}
+
+/** Judge step 2 without SMS: reach the labeled TEST caregiver through the demo sandbox. The
+ * endpoint inserts the same recorded attempt the SMS path would and the simulated reply lands a
+ * few seconds later through the same webhook RPC. Honest labels; no real call or text. */
+function TestOutreachControl({run,canAct,token,refetch}:{run:StoredRun;canAct:boolean;token:string|null;refetch:()=>void}){
+ const [phase,setPhase]=useState<'idle'|'busy'|'sent'|'failed'>('idle')
+ if(run.job.status!=='discovering'||!canAct||!token)return null
+ if(phase==='idle'&&run.attempts.some(a=>!a.closedAt))return null
+ async function send(){
+  setPhase('busy')
+  try{
+   const res=await fetch('/api/demo/test-outreach',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({jobId:run.job.id})})
+   if(!res.ok)throw new Error(String(res.status))
+   setPhase('sent');refetch()
+  }catch{setPhase('failed')}
+ }
+ return <aside className="mcv-decision" aria-label="Test outreach">
+  <h3>Reach the test caregiver</h3>
+  <p>Simulated: this records outreach to a labeled TEST responder inside the demo sandbox. No real call or text goes out.</p>
+  {phase==='idle'&&<button type="button" className="mcv-primary" onClick={()=>{void send()}}>Send the test outreach (simulated)</button>}
+  {phase==='busy'&&<p role="status">Recording the outreach…</p>}
+  {phase==='sent'&&<p role="status">Outreach recorded. The test caregiver's reply lands here in a few seconds.</p>}
+  {phase==='failed'&&<p role="alert">That did not go through. Nothing was sent. Try again in a moment.</p>}
+ </aside>
 }
 
 /** The parent's one-tap approval for a LIVE job awaiting it. Two deliberate taps (review, then
@@ -37,13 +63,15 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
 function LiveApproval({run,canApprove,refetch}:{run:StoredRun;canApprove:boolean;refetch:()=>void}){
  const {adapter,scope}=useDataContext()
  const [phase,setPhase]=useState<'idle'|'review'|'busy'|'done'|'failed'>('idle')
+ const [overLimitAccepted,setOverLimitAccepted]=useState(false)
  if(!adapter.approvePickup)return null
  if(run.job.status!=='awaiting_approval'&&phase!=='done')return null
  const recommended=run.job.candidateEvaluations.find(e=>e.available===true)??run.job.candidateEvaluations[0]
+ const overLimit=run.job.overLimitCandidate
  async function approve(){
   if(!adapter.approvePickup)return
   setPhase('busy')
-  try{await adapter.approvePickup(scope,{jobId:run.job.id,version:run.job.version,decision:'APPROVED'});setPhase('done');refetch()}
+  try{await adapter.approvePickup(scope,{jobId:run.job.id,version:run.job.version,decision:'APPROVED',...(overLimit?{acceptOverLimit:true}:{})});setPhase('done');refetch()}
   catch{setPhase('failed')}
  }
  return <aside className="mcv-decision" aria-label="Parent decision">
@@ -52,7 +80,7 @@ function LiveApproval({run,canApprove,refetch}:{run:StoredRun;canApprove:boolean
   <p>{recommended?`${recommended.candidate.displayName} is the recorded option for this pickup.`:'This request is waiting for your decision.'} Nothing is arranged until you approve.</p>
   {!canApprove&&<p>Only this child's parent can approve.</p>}
   {phase==='idle'&&<button type="button" className="mcv-primary" disabled={!canApprove} onClick={()=>setPhase('review')}>Review and approve</button>}
-  {phase==='review'&&<><p>Approving records your decision{recommended?` for ${recommended.candidate.displayName}`:''}. It does not contact anyone and does not mark the pickup done.</p><button type="button" className="mcv-primary" onClick={()=>{void approve()}}>Confirm approval</button> <button type="button" className="mcv-secondary" onClick={()=>setPhase('idle')}>Back</button></>}
+  {phase==='review'&&<><p>Approving records your decision{recommended?` for ${recommended.candidate.displayName}`:''}. It does not contact anyone and does not mark the pickup done.</p>{overLimit&&<label className="mcv-consent"><input type="checkbox" checked={overLimitAccepted} onChange={e=>setOverLimitAccepted(e.target.checked)}/>I accept {overLimit.displayName}'s option above my recorded travel limit</label>}<button type="button" className="mcv-primary" disabled={Boolean(overLimit)&&!overLimitAccepted} onClick={()=>{void approve()}}>Confirm approval</button> <button type="button" className="mcv-secondary" onClick={()=>setPhase('idle')}>Back</button></>}
   {phase==='busy'&&<p role="status">Recording your approval…</p>}
   {phase==='failed'&&<p role="alert">That approval did not go through. Nothing was recorded. Try again in a moment.</p>}
   </>}
