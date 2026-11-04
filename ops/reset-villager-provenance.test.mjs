@@ -38,9 +38,13 @@ test('it is atomic, locked down, and called inside the reset transaction', () =>
   assert.match(migration, /revoke all on function public\.reset_demo_villager_provenance\(\) from public, anon, authenticated/);
   assert.ok(!/grant execute on function public\.reset_demo_villager_provenance/.test(migration),
     'a reset primitive must not be executable by an API caller');
-  assert.match(reset, /select reset_demo_villager_provenance\(\) as r/);
+  assert.match(reset, /select public\.restore_demo_snapshot\(/);
+  const fast = readFileSync(new URL('../supabase/migrations/0096_fast_demo_restore.sql', import.meta.url), 'utf8');
+  assert.match(fast, /counts := public\.reset_demo_villager_provenance\(\)/);
+  assert.match(fast, /pg_try_advisory_xact_lock\(918273645\)/);
+  assert.ok(fast.indexOf('reset_demo_villager_provenance()') < fast.indexOf('insert into public.demo_reset_runs'));
   // wired before the orbit audit so its counts ride in the reset report
-  assert.ok(reset.indexOf('reset_demo_villager_provenance') < reset.indexOf("select reset_demo_orbit("));
+  assert.ok(fast.indexOf('reset_demo_villager_provenance()') < fast.indexOf('reset_demo_orbit(p_actor'));
 });
 
 test('the cast checksum inputs explain the drift: grants are digested', () => {

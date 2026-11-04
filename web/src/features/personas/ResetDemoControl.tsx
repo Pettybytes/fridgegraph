@@ -1,19 +1,24 @@
-import {useState} from 'react'
-import {Dialog} from 'radix-ui'
+import {useEffect,useRef,useState} from 'react'
+import {AlertDialog} from 'radix-ui'
+import {FgButton} from '@/components/fg/primitives'
 import {useSession} from './Session'
+import {canResetDemo} from './auth'
 import './reset-demo.css'
-export function ResetDemoControl(){const {getSessionGeneration}=useSession();return <ResetDialog key={getSessionGeneration()}/>}
+export function ResetDemoControl(){
+ const {getSessionGeneration,notice}=useSession()
+ return <><ResetDialog key={getSessionGeneration()}/>{notice&&<p className="reset-demo-toast" role="status">{notice}</p>}</>
+}
 function ResetDialog(){
- const {session,authMode,resetting,resetError,resetRetryAt,resetDemo,switching}=useSession(),[open,setOpen]=useState(false)
- if(session?.marks?.demoGuide||session?.persona.id==='demo-guide'||(authMode==='live'&&session?.marks?.demo!==true))return null
- return <>
-  <button type="button" disabled={switching||resetting} onClick={()=>setOpen(true)}>Reset demo</button>
-  <Dialog.Root open={open} onOpenChange={value=>{if(!resetting)setOpen(value)}}><Dialog.Portal><Dialog.Overlay className="reset-demo-backdrop"/><Dialog.Content className="reset-demo-dialog" data-state={authMode==='live'?'live':'unavailable'} aria-busy={resetting}>
-   {authMode==='mock'&&<p className="reset-demo-sample">Sample action</p>}
-   <Dialog.Title>Reset the demo village for everyone?</Dialog.Title>
-   <Dialog.Description>This clears alerts, responses and changes made by visitors.</Dialog.Description>
+ const {session,authMode,resetting,resetError,resetRetryAt,resetDemo,switching,notice}=useSession(),[open,setOpen]=useState(!!resetError),trigger=useRef<HTMLButtonElement>(null)
+ useEffect(()=>{if(notice)trigger.current?.focus()},[notice])
+ if(!canResetDemo(session?.persona)||(authMode==='live'&&session?.marks?.demo!==true))return null
+ return <AlertDialog.Root open={open} onOpenChange={value=>{if(!resetting)setOpen(value)}}>
+  <AlertDialog.Trigger asChild><FgButton ref={trigger} className="reset-demo-trigger" variant="ghost" disabled={switching||resetting}>Reset demo</FgButton></AlertDialog.Trigger>
+  <AlertDialog.Portal><AlertDialog.Overlay className="reset-demo-backdrop"/><AlertDialog.Content className="reset-demo-dialog" data-mode={authMode==='live'?'live':'unavailable'} aria-busy={resetting}>
+   <AlertDialog.Title>Reset the demo village for everyone?</AlertDialog.Title>
+   <AlertDialog.Description>This clears alerts, responses and changes made by visitors.{authMode==='mock'?' Sample action.':''}</AlertDialog.Description>
    {resetError&&<p className="reset-demo-error" role="alert">{resetError}</p>}
-   <div className="reset-demo-actions"><Dialog.Close disabled={resetting}>Cancel</Dialog.Close><button className="reset-demo-confirm" disabled={resetting||Date.now()<resetRetryAt} onClick={()=>{void resetDemo().then(ok=>{if(ok)setOpen(false)})}}>{resetting?'Resetting demo…':'Reset demo for everyone'}</button></div>
-  </Dialog.Content></Dialog.Portal></Dialog.Root>
- </>
+   <div className="reset-demo-actions"><AlertDialog.Cancel asChild><FgButton variant="secondary" disabled={resetting}>Cancel</FgButton></AlertDialog.Cancel><FgButton className="reset-demo-confirm" aria-busy={resetting} disabled={resetting||Date.now()<resetRetryAt} disabledReason="Wait a moment before resetting again" onClick={()=>{void resetDemo().then(ok=>{if(ok)setOpen(false)})}}>{resetting?'Resetting demo…':'Reset demo for everyone'}</FgButton></div>
+  </AlertDialog.Content></AlertDialog.Portal>
+ </AlertDialog.Root>
 }

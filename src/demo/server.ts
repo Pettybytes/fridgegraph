@@ -22,6 +22,8 @@ import { MintError } from './session';
 import { getPersonaSession, publicPersonaSession, dropPersonaSessionCache } from './persona-sessions';
 import { createDemoFamily, familyPersona, listFamilyPersonas, FamilyError, cleanName } from './family';
 import { createHash } from 'node:crypto';
+import { createResetOperations, validResetRunId, resetPersona } from './resetOperation';
+import { resetDemo, committedResetRun } from './reset';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -161,7 +163,9 @@ export function createDemoLoginApp() {
   const RESET_IP_WINDOW_MS = 60_000;
   const RESET_IP_MAX = 5;
   const resetIpHits = new Map<string, number[]>();
+  const resetStatusHits = new Map<string, number[]>();
   const resetLocks = new InFlightLocks();
+  const resets = createResetOperations({ restore: (actor,runId) => resetDemo(actor,{runId}), committed: committedResetRun, session: getPersonaSession });
   const lastFamilyAt = new Map<string, number>();
   const FAMILY_COOLDOWN_MS = 5_000;
   app.disable('x-powered-by');
@@ -496,6 +500,24 @@ export function createDemoLoginApp() {
     res.status(200).json({ childId, date: read.plan.date, items: read.plan.items });
   });
 
+  // Reset is the sole guide-write exception. Authority comes from verified identity + server cast.
+  app.get('/api/demo/reset/:runId', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control',NO_STORE);
+    if (!isLoopback(req.socket.remoteAddress ?? '')) { res.status(403).json({error:'LOOPBACK_ONLY'}); return; }
+    const identity = await verifyBearer(req.header('authorization'));
+    if (!identity.ok) { res.status(401).json({error:'UNAUTHENTICATED'}); return; }
+    const persona = resetPersona(identity);
+    if (!persona) { res.status(403).json({error:'RESET_NOT_ALLOWED'}); return; }
+    if (!validResetRunId(req.params.runId)) { res.status(400).json({error:'INVALID_RESET_RUN'}); return; }
+    const ip = resolveClientIp(req.socket.remoteAddress ?? '', req.header('x-forwarded-for'));
+    const hits = (resetStatusHits.get(ip) ?? []).filter(at => Date.now()-at < 60_000);
+    const limited = windowRefusal(Date.now(),hits,60_000,60,'RESET_STATUS_RATE_LIMITED');
+    if (limited) { res.status(limited.status).json(limited.body); return; }
+    hits.push(Date.now());resetStatusHits.set(ip,hits);
+    try { res.json(await resets.status(persona,req.params.runId)); }
+    catch { res.status(503).json({runId:req.params.runId,status:'unknown'}); }
+  });
+
   app.post('/api/demo/reset', async (req: Request, res: Response) => {
     // A reset response describes state that is about to change; caching it would outlive its truth.
     res.setHeader('Cache-Control', NO_STORE);
@@ -503,11 +525,11 @@ export function createDemoLoginApp() {
       res.status(403).json({ error: 'LOOPBACK_ONLY' }); return;
     }
     const identity = await verifyBearer(req.header('authorization'));
-    const refusal = identityRefusal(identity);
-    if (refusal) { res.status(refusal.status).json(refusal.body); return; }
-    // Defensive narrowing: `identityRefusal` refuses every non-ok case, so this is unreachable — but the
-    // compiler needs the discriminated union narrowed before `personId` can be read.
-    if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
+    if (!identity.ok) { res.status(401).json({error:'UNAUTHENTICATED'}); return; }
+    const persona = resetPersona(identity);
+    if (!persona) { res.status(403).json({error:'RESET_NOT_ALLOWED'}); return; }
+    const runId = req.body?.runId;
+    if (!validResetRunId(runId)) { res.status(400).json({error:'INVALID_RESET_RUN'}); return; }
 
     const now = Date.now();
     const clientIp = resolveClientIp(req.socket.remoteAddress ?? '', req.header('x-forwarded-for'));
@@ -529,14 +551,12 @@ export function createDemoLoginApp() {
     resetIpHits.set(clientIp, ipHits);
 
     try {
-      const { resetDemo } = await import('./reset');
-      const report = await resetDemo(identity.personId);
-      // Order matters: restore first, then drop the cache this process actually owns.
-      dropPersonaSessionCache();
-      res.status(200).json({ ok: true, ...report });
-    } catch (error) {
-      console.error(`[demo] reset failed: ${error instanceof Error ? error.message : 'unknown'}`);
-      res.status(500).json({ error: 'RESET_FAILED' });
+      const result = await resets.start(persona,runId);
+      if (result.status === 'committed') res.status(200).json(result);
+      else if (result.status === 'failed') res.status(500).json({error:'RESET_FAILED',runId,status:'failed'});
+      else res.status(202).json(result);
+    } catch {
+      res.status(503).json({error:'RESET_UNKNOWN',runId,status:'unknown'});
     } finally {
       // Released on EVERY path, so a failed reset cannot wedge the shared lock out of future attempts.
       resetLocks.release(SHARED_RESET_LOCK);

@@ -144,7 +144,7 @@ const VOCABULARY = [
     .map((value) => ({ kind: 'CARRY_ITEM', value, version: 1 })),
 ];
 
-function baseline() {
+export function baseline() {
   const s = createSeed();
   return {
     orbit_vocabulary: VOCABULARY,

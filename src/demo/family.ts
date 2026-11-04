@@ -40,6 +40,7 @@ export type FamilyRow = {
   parent_name: string;
   child_name: string;
   status?: 'pending' | 'active' | 'aborted';
+  created_at?: string;
 };
 
 export class FamilyError extends Error {
@@ -155,6 +156,12 @@ function removeMapEntry(authUserId: string): void {
   writeMap(map);
 }
 
+/** Reset may remove a pending marker while Auth creation is in flight. Never commit unregistered data. */
+export async function activateCreatedFamily(c: Pick<pg.Client,'query'>, personaId: string, authUserId: string): Promise<void> {
+  const activation = await c.query(`update demo_families set auth_user_id=$2,status='active' where id=$1 and status='pending' returning id`,[personaId,authUserId]);
+  if (activation.rowCount !== 1) throw new FamilyError('FAMILY_RESET_IN_PROGRESS',409);
+}
+
 export async function createDemoFamily(input: { parentName: unknown; childName: unknown }): Promise<CreatedFamily> {
   const parentName = cleanName(input.parentName);
   const childName = cleanName(input.childName);
@@ -243,12 +250,7 @@ export async function createDemoFamily(input: { parentName: unknown; childName: 
     await c.query(`insert into identity_map (user_id, person_id) values ($1, $2)`, [authUserId, personId]);
     // The registry row and the family rows commit together: a family with data but no active
     // registry row can never be served, and a registry row without data is reconcilable.
-    await c.query(
-      `update demo_families
-          set auth_user_id = $2, status = 'active'
-        where id = $1 and status = 'pending'`,
-      [personaId, authUserId],
-    );
+    await activateCreatedFamily(c,personaId,authUserId);
 
     await passStage('before-commit');
     await c.query('commit');
@@ -357,7 +359,7 @@ export async function deleteCreatedFamilies(c: pg.Client): Promise<FamilyRow[]> 
 
 
 /** After the reset transaction commits: drop the mappings, then best-effort delete the users. */
-export async function purgeFamilyArtifacts(rows: FamilyRow[]): Promise<void> {
+export async function purgeFamilyArtifacts(rows: FamilyRow[], options: { sweep?: boolean } = {}): Promise<void> {
   const map = readMap();
   let changed = false;
   for (const f of rows) {
@@ -365,10 +367,10 @@ export async function purgeFamilyArtifacts(rows: FamilyRow[]): Promise<void> {
   }
   // The reverse orphan: a FILE entry that maps to a `p_family_*` persona the registry does not have.
   // Only namespaced ids are considered, so no seeded persona can ever be swept away.
-  const registry = await registryPersonIds();
+  const registry = options.sweep === false ? null : await registryPersonIds();
   const sweptSubs: string[] = [];
   for (const [sub, person] of Object.entries(map)) {
-    if (typeof person !== 'string' || !person.startsWith('p_family_')) continue;
+    if (!registry || typeof person !== 'string' || !person.startsWith('p_family_')) continue;
     if (registry.has(person)) continue;
     delete map[sub];
     sweptSubs.push(sub);
@@ -381,19 +383,19 @@ export async function purgeFamilyArtifacts(rows: FamilyRow[]): Promise<void> {
 }
 
 /** Demo-family auth accounts, read from the admin API (paged). Counts only are ever logged. */
-async function listFamilyAuthUsers(): Promise<Array<{ id: string; email: string }>> {
+async function listFamilyAuthUsers(): Promise<Array<{ id: string; email: string; createdAt?: string }>> {
   const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !service) return [];
-  const out: Array<{ id: string; email: string }> = [];
+  const out: Array<{ id: string; email: string; createdAt?: string }> = [];
   for (let page = 1; page <= 50; page += 1) {
     const res = await fetch(`${url}/auth/v1/admin/users?page=${page}&per_page=200`, {
       headers: { apikey: service, authorization: `${'Bea'}${'rer'} ${service}` },
     });
     if (!res.ok) break;
-    const body = (await res.json()) as { users?: Array<{ id?: string; email?: string }> };
+    const body = (await res.json()) as { users?: Array<{ id?: string; email?: string; created_at?: string }> };
     const users = body.users ?? [];
-    for (const u of users) if (u.id && u.email) out.push({ id: u.id, email: u.email });
+    for (const u of users) if (u.id && u.email) out.push({ id: u.id, email: u.email, createdAt: u.created_at });
     if (users.length < 200) break;
   }
   return out;
@@ -421,7 +423,7 @@ async function deleteFamilyRows(c: pg.Client, row: FamilyRow): Promise<void> {
  *
  * Returns counts only; no ids and no emails are logged.
  */
-export async function reconcileAbandonedFamilies(): Promise<{
+export async function reconcileAbandonedFamilies(before?: number): Promise<{
   reconciled: number;
   markersCleared: number;
   active: number;
@@ -430,13 +432,15 @@ export async function reconcileAbandonedFamilies(): Promise<{
   await c.connect();
   try {
     const rows = (await c.query(`select * from demo_families`)).rows as FamilyRow[];
-    const active = rows.filter((r) => r.status === 'active' && r.auth_user_id);
+    // A post-commit cleanup must never sweep a family created after this reset.
+    const recent = (at?: string) => before !== undefined && (!at || !Number.isFinite(Date.parse(at)) || Date.parse(at) > before);
+    const active = rows.filter((r) => (r.status === 'active' || recent(r.created_at)) && r.auth_user_id);
     const keepIds = new Set(active.map((r) => String(r.auth_user_id)));
     const keepEmails = new Set(active.map((r) => String(r.email)));
 
     const users = await listFamilyAuthUsers();
     const strays = users.filter(
-      (u) => FAMILY_EMAIL.test(u.email) && !keepIds.has(u.id) && !keepEmails.has(u.email),
+      (u) => FAMILY_EMAIL.test(u.email) && !recent(u.createdAt) && !keepIds.has(u.id) && !keepEmails.has(u.email),
     );
 
     let reconciled = 0;
@@ -454,7 +458,7 @@ export async function reconcileAbandonedFamilies(): Promise<{
     const strayEmails = new Set(strays.map((u) => u.email));
     let markersCleared = 0;
     for (const m of rows) {
-      if (m.status === 'active') continue;
+      if (m.status === 'active' || recent(m.created_at)) continue;
       if (strayEmails.has(String(m.email))) continue; // already removed with its account
       await deleteFamilyRows(c, m);
       await c.query(`delete from demo_families where id = $1`, [m.id]).catch(() => undefined);
