@@ -137,9 +137,16 @@
 /* ACTIVE pulse: a soft red wash fades in and out at ~1 Hz with glowing edges, over the warp
    entrance. It is one shared flash layer, well under three flashes/second. Reduced motion holds a
    static red tint and never pulses. Blend keeps the type readable while the edges glow. */
-.orbit-facts-card::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:4;mix-blend-mode:screen;background:radial-gradient(130% 120% at 50% 38%,transparent 44%,rgba(255,60,86,.26));box-shadow:inset 0 0 44px rgba(255,92,116,.55),0 0 26px rgba(255,60,86,.38);animation:orbit-card-flash 1.05s ease-in-out infinite}
+.orbit-facts-card:not(.orbit-facts-safe)::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:4;mix-blend-mode:screen;background:radial-gradient(130% 120% at 50% 38%,transparent 44%,rgba(255,60,86,.26));box-shadow:inset 0 0 44px rgba(255,92,116,.55),0 0 26px rgba(255,60,86,.38);animation:orbit-card-flash 1.05s ease-in-out infinite}
 @keyframes orbit-card-flash{0%,100%{opacity:.22}50%{opacity:.85}}
-@media(prefers-reduced-motion:reduce){.orbit-facts-card::after{animation:none;opacity:.4}}
+@media(prefers-reduced-motion:reduce){.orbit-facts-card:not(.orbit-facts-safe)::after{animation:none;opacity:.4}}
+/* The resolved (found-safe) card: green glass, no pulse. Reused inside the green payoff. */
+.orbit-facts-safe{background:rgba(7,66,45,.52);border-color:rgba(198,255,224,.4);box-shadow:0 26px 64px rgba(2,36,22,.42),inset 0 1px rgba(255,255,255,.16)}
+.orbit-facts-safe .orbit-facts-eyebrow{color:#bdf3d2}
+.orbit-facts-safe .orbit-tile dt{color:#c9f3da}
+.orbit-facts-safe .orbit-photo-unavailable{color:#d6f6e4}
+.orbit-found .orbit-facts-card{margin:4px auto 6px;text-align:left}
+.orbit-found-closer{font-weight:600}
 .orbit-facts-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .orbit-facts-eyebrow{margin:0;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#ffd4dc}
 /* Round dark button with a bright arrow, the deep-link affordance to the Orbit page. */

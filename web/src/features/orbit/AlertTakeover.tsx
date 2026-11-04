@@ -33,11 +33,16 @@ export function lastSeenCopy(alert: Alert) {
   }
 }
 
-export function FoundSafe({controller,recipient=false,childName}:{controller:OrbitController;recipient?:boolean;childName?:string}){
- const state=useOrbitState(controller),reduced=useReducedMotion(),[celebrate,setCelebrate]=useState(false)
+export function FoundSafe({controller,recipient=false,childName,closerName}:{controller:OrbitController;recipient?:boolean;childName?:string;closerName?:string|null}){
+ const state=useOrbitState(controller),reduced=useReducedMotion(),[celebrate,setCelebrate]=useState(false),alert=state.alert
+ // The parent keeps the record, so fetch the retained photo for its green facts card; the recipient
+ // view is sanitized and never requests a photo here.
+ const parentFound=!recipient&&!state.error&&alert?.status==='CLOSED'&&alert.closeOutcome==='FOUND_SAFE'
+ const image=useOrbitPhoto(controller,parentFound?alert?.share.photoId??undefined:undefined)
  useEffect(()=>{if(!controller.consumeCelebration())return;setCelebrate(true);const timer=setTimeout(()=>setCelebrate(false),3200);return()=>clearTimeout(timer)},[controller,state.celebrationKey])
- if(state.error||state.alert?.status!=='CLOSED'||state.alert.closeOutcome!=='FOUND_SAFE')return null
- return <OrbitResolution recipient={recipient} childName={childName} thankyou={state.alert.thankyou} closedAt={state.alert.closedAt} ownResponses={recipient?state.alert.responses.filter(r=>r.person.id===controller.scope.personId):[]} celebrate={celebrate&&!reduced} parentConfirmed={!recipient&&state.acknowledgedClosure?.alertId===state.alert.id&&state.acknowledgedClosure.personId===controller.scope.personId}/>
+ if(state.error||alert?.status!=='CLOSED'||alert.closeOutcome!=='FOUND_SAFE')return null
+ const factsCard=parentFound?<OrbitFactsCard tone="safe" eyebrow="Recorded details" childName={childName??'Name not shared'} lastSeen={lastSeenCopy(alert)} share={alert.share} image={image} photoAlt="Photo you shared" missingPhotoText="Photo not recorded." failedPhotoText="Couldn't display the shared photo." onOpen={()=>{location.hash='#/orbit'}}/>:undefined
+ return <OrbitResolution recipient={recipient} childName={childName} thankyou={alert.thankyou} closedAt={alert.closedAt} ownResponses={recipient?alert.responses.filter(r=>r.person.id===controller.scope.personId):[]} celebrate={celebrate&&!reduced} parentConfirmed={!recipient&&state.acknowledgedClosure?.alertId===alert.id&&state.acknowledgedClosure.personId===controller.scope.personId} factsCard={factsCard} closerName={recipient?undefined:closerName}/>
 }
 
 export function AlertTakeover({controller,childName}:{controller:OrbitController;childName:string}){

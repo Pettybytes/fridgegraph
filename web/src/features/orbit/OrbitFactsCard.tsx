@@ -17,7 +17,7 @@ export type LastSeenFacts = {placeText: string | null; timeText: string | null; 
  * time appears with its recorded provenance or is called out as not recorded, and up to two
  * descriptors fill the remaining tiles (N items, N cells). The photo slot states its own absence.
  */
-export function OrbitFactsCard({childName, lastSeen, share, image, photoAlt, missingPhotoText, failedPhotoText, onOpen}: {
+export function OrbitFactsCard({childName, lastSeen, share, image, photoAlt, missingPhotoText, failedPhotoText, onOpen, tone = 'alert', eyebrow = 'Orbit Alert'}: {
   childName: string
   lastSeen: LastSeenFacts
   share: Alert['share']
@@ -26,10 +26,14 @@ export function OrbitFactsCard({childName, lastSeen, share, image, photoAlt, mis
   missingPhotoText: string
   failedPhotoText: string
   onOpen: () => void
+  // 'alert' is the red active card (it carries the 1 Hz flash); 'safe' is the resolved green card
+  // reused for the found-safe closed state, so active and closed stay one design.
+  tone?: 'alert' | 'safe'
+  eyebrow?: string
 }) {
   const descriptors = descriptorKeys.filter(key => share[key]).slice(0, 2)
-  return <div className="orbit-facts-card">
-    <div className="orbit-facts-top"><p className="orbit-facts-eyebrow">Orbit Alert</p><button type="button" className="orbit-facts-link" aria-label={`Open the Orbit page for ${childName}`} onClick={onOpen}><ArrowUpRight size={20}/></button></div>
+  return <div className={`orbit-facts-card${tone === 'safe' ? ' orbit-facts-safe' : ''}`}>
+    <div className="orbit-facts-top"><p className="orbit-facts-eyebrow">{eyebrow}</p><button type="button" className="orbit-facts-link" aria-label={`Open the Orbit page for ${childName}`} onClick={onOpen}><ArrowUpRight size={20}/></button></div>
     <div className="orbit-facts-photo">{image.url ? <img src={image.url} alt={photoAlt} onError={image.onError}/> : <p className="orbit-photo-unavailable">{image.failed ? failedPhotoText : missingPhotoText}</p>}</div>
     <h2 className="orbit-facts-name">{childName}</h2>
     <dl className="orbit-facts-tiles">
