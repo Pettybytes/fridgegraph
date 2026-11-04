@@ -161,12 +161,12 @@
   /* Interactive accent = landing sky-blue (NO purple anywhere; colour is reserved
      for card TYPE). Primary buttons are solid near-black pills (see fg.css); this
      accent carries links, focus, selection and the brand mark. */
-  --fg-primary: oklch(0.58 0.13 237);
-  --fg-primary-hover: oklch(0.52 0.13 237);
+  --fg-primary: oklch(0.54 0.14 237);
+  --fg-primary-hover: oklch(0.49 0.14 237);
   --fg-on-primary: oklch(0.99 0.006 237);
   --fg-accent: var(--fg-primary);
   --fg-selection: oklch(0.95 0.028 237);
-  --fg-focus: oklch(0.58 0.13 237);
+  --fg-focus: oklch(0.54 0.14 237);
   --fg-onway: oklch(0.70 0.12 75);
   --fg-onway-ink: oklch(0.42 0.09 68);
   --fg-withme: oklch(0.58 0.12 158);
@@ -387,7 +387,9 @@ body,
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .sidebar, .topbar { background: var(--fg-surface); } }
 @media (prefers-reduced-transparency: reduce) { .sidebar, .topbar { background: var(--fg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 .demo-badge { background: color-mix(in oklch, var(--fg-primary) 10%, var(--fg-surface)); color: var(--fg-muted); padding: 6px 11px; border-radius: var(--radius-chip); font-size: 11px; }
-.workspace main { padding: 42px 44px; flex: 1; }
+/* One consistent content column on every page; the cloud-sky backdrop (body::before)
+   shows behind it on wide screens. */
+.workspace main { padding: 42px 44px; flex: 1; width: 100%; max-width: 1200px; margin-inline: auto; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; gap: 20px; }
 .page-heading p { font-size: 12px; color: var(--fg-muted); margin: 0 0 10px; }
 h1 { margin: 0; font-size: var(--text-display); font-weight: var(--text-display--font-weight); letter-spacing: var(--text-display--letter-spacing); line-height: var(--text-display--line-height); text-wrap: balance; }
