@@ -44,3 +44,26 @@ test('cancel with a title that matches two events on the day still asks',async()
  const r=await calendarProposal({...base,request:request(true,rows) as typeof fetch,message:'cancel "WonderGate violin lesson" for Nora tomorrow'});
  assert.equal(r?.actions.length,0);
 });
+// Live-shaped regression (served 7f1d57d, verified by read-only calendar scrape):
+// the create path stored the title verbatim as 'calendar event titled "Gate7 violin
+// practice"', and the exact gate cancel phrasing then fell back to "Which existing
+// event should I change?" because quoted matching required exact title equality.
+const liveEvent={id:'ev-gate7',title:'calendar event titled "Gate7 violin practice"',start:'2026-11-05T16:00:00',end:'2026-11-05T17:00:00',location:'',notes:'',color:'',status:'confirmed'};
+test('cancel resolves the live-shaped stored title from the exact gate phrasing',async()=>{
+ const r=await calendarProposal({...base,request:request(true,[liveEvent]) as typeof fetch,message:'Please cancel the calendar event "Gate7 violin practice" for Nora tomorrow at 4:00 PM. Propose the cancellation and I will confirm.'});
+ assert.equal(r?.actions[0]?.args.operation,'delete');assert.equal(r?.actions[0]?.args.eventId,'ev-gate7');
+});
+test('cancel resolves the live-shaped stored title without quotes',async()=>{
+ const r=await calendarProposal({...base,request:request(true,[liveEvent]) as typeof fetch,message:'Please cancel Gate7 violin practice for Nora tomorrow'});
+ assert.equal(r?.actions[0]?.args.operation,'delete');assert.equal(r?.actions[0]?.args.eventId,'ev-gate7');
+});
+test('create stores the clean quoted title, not the instruction text',async()=>{
+ const r=await calendarProposal({...base,request:request(true,[]) as typeof fetch,message:'Please add a calendar event titled "Gate7 violin practice" for Nora tomorrow at 4:00 PM. Propose it and I will confirm.'});
+ assert.equal(r?.actions[0]?.args.operation,'create');assert.equal(r?.actions[0]?.args.title,'Gate7 violin practice');
+ assert.equal(r?.actions[0]?.args.start,'2026-11-05T16:00:00');
+});
+test('quoted cancel that matches two live-shaped events on the day still asks',async()=>{
+ const rows=[liveEvent,{...liveEvent,id:'ev-gate7-b'}];
+ const r=await calendarProposal({...base,request:request(true,rows) as typeof fetch,message:'Please cancel the calendar event "Gate7 violin practice" for Nora tomorrow at 4:00 PM.'});
+ assert.equal(r?.actions.length,0);
+});

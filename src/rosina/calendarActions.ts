@@ -62,8 +62,8 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
   const childWords=new Set(norm(child.displayName).split(' ').map(w=>w.replace(/'s$/,'')));
   const titleMatches=(e:Event)=>{
    if(previousTitle)return e.title===previousTitle;
-   if(quoted)return norm(e.title)===norm(quoted);
-   const titleWords=norm(e.title).split(' ').filter(w=>w.length>1&&!childWords.has(w.replace(/'s$/,'')));
+   if(quoted){const t=norm(e.title),q=norm(quoted);return t===q||(` ${t} `).includes(` ${q} `);}
+   const titleWords=norm(e.title).split(' ').filter(w=>w.length>1&&!['calendar','event','titled','the'].includes(w)&&!childWords.has(w.replace(/'s$/,'')));
    return titleWords.length>0&&titleWords.every(w=>requestWords.has(w)||requestWords.has(w.replace(/'s$/,'')));
   };
   const found=events.filter(e=>onRequestedDay(e)&&titleMatches(e));
@@ -89,7 +89,8 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
   }
   if(!unambiguousDetroit(start)||!unambiguousDetroit(end))return reply('That time falls in a Detroit clock change or is not a valid date. Please choose another start time.');
  }
- const title=event?.title??text.replace(/^(?:please\s+)?(?:book|add|schedule|create)\s+(?:an?\s+)?/i,'').split(/\s+for\s+|\s+at\s+|\s+tomorrow\b|\s+today\b/i)[0].trim();
+ const quotedTitle=text.match(/["“]([^"”]+)["”]/)?.[1]?.trim();
+ const title=event?.title??(quotedTitle||text.replace(/^(?:please\s+)?(?:book|add|schedule|create)\s+(?:an?\s+)?/i,'').split(/\s+for\s+|\s+at\s+|\s+tomorrow\b|\s+today\b/i)[0].trim());
  const placeText=text.replace(/\b(?:at|from|until|to)\s+\d+(?::\d+)?\s*(am|pm)\b/ig,'').replace(/\b(tomorrow|today)\b|\b\d{4}-\d{2}-\d{2}\b/ig,'');
  const place=event?.location??placeText.match(/\b(?:at|in)\s+(.+)$/i)?.[1]?.trim()??'';
  const args:CalendarChangeArgs={operation,childId:child.id,childName:child.displayName,eventId:event?.id??'',title,start,end,location:place,notes:event?.notes??'',color:event?.color??'',status:event?.status??'confirmed'};
