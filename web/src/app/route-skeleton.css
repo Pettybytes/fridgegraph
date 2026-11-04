@@ -1,0 +1,10 @@
+.route-skeleton { padding: 24px; min-block-size: 440px; }
+.route-skeleton-heading { inline-size: 38%; block-size: 28px; margin-block-end: 24px; border-radius: 8px; background: var(--fg-border); }
+.route-skeleton-grid { display: grid; gap: 16px; }
+.route-skeleton-card { min-block-size: 112px; padding: 24px; border-radius: 24px; background: var(--fg-surface); }
+.route-skeleton-card span { display: block; block-size: 14px; margin-block-end: 12px; inline-size: 68%; border-radius: 6px; background: var(--fg-border); }
+.route-skeleton-card span:first-child { inline-size: 36%; }
+.route-skeleton-card span:last-child { inline-size: 52%; }
+.route-skeleton-calendar .route-skeleton-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); min-block-size: 560px; }
+.route-skeleton-calendar .route-skeleton-card { padding: 8px; }
+@media (max-width: 600px) { .route-skeleton { padding: 16px; } }

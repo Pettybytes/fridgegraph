@@ -21,14 +21,19 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
   const currentScope = useRef(scopeKey)
   const alive = useRef(true)
   const busy = useRef<Section | null>(null)
-  const [goals, setGoals] = useState<ReadState<GoalRecord>>({ kind: 'loading' })
-  const [notes, setNotes] = useState<ReadState<FridgeNoteRecord>>({ kind: 'loading' })
+  const [goals, setGoals] = useState<ReadState<GoalRecord>>(()=>{const items=adapter.peekGoals?.(childId);return items?{kind:'ready',items}:{kind:'loading'}})
+  const [notes, setNotes] = useState<ReadState<FridgeNoteRecord>>(()=>{const items=adapter.peekNotes?.(childId);return items?{kind:'ready',items}:{kind:'loading'}})
   const [pending, setPending] = useState<Section | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const canWrite = isParent(viewer)
   const preferences=useFridgePreferences(childId)
 
+  useEffect(()=>{
+    if(pending)return
+    if(goals.kind==='ready')adapter.rememberGoals?.(childId,goals.items)
+    if(notes.kind==='ready')adapter.rememberNotes?.(childId,notes.items)
+  },[adapter,childId,goals,notes,pending])
   useEffect(() => {
     const abort = new AbortController()
     currentScope.current = scopeKey
@@ -39,11 +44,12 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
     return () => { alive.current = false; abort.abort() }
   }, [adapter, childId, viewer.personId, viewer.role, viewer.sessionKey, scopeKey, reloadKey])
 
-  async function change<T>(section: Section, call: () => Promise<T>, accept: (result: T) => void): Promise<boolean> {
+  async function change<T>(section: Section, call: () => Promise<T>, accept: (result: T) => void, optimistic?: () => () => void): Promise<boolean> {
     if (!canWrite || !alive.current || busy.current) return false
     busy.current = section
     setPending(section)
     setNotice(null)
+    const rollback=optimistic?.()
     try {
       const result = await call()
       if (!alive.current || currentScope.current !== scopeKey) return false
@@ -51,7 +57,7 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
       setNotice({ section, kind: 'saved', text: 'Saved.' })
       return true
     } catch (error) {
-      if (alive.current && currentScope.current === scopeKey) setNotice({ section, kind: 'failed', text: writeError(error) })
+      if (alive.current && currentScope.current === scopeKey) {rollback?.();setNotice({ section, kind: 'failed', text: writeError(error) })}
       return false
     } finally {
       if (alive.current && currentScope.current === scopeKey) { busy.current = null; setPending(null) }
@@ -60,6 +66,16 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
   const putGoal = (result: GoalRecord) => setGoals(state => state.kind === 'ready' ? { kind: 'ready', items: state.items.map(item => item.id === result.id ? result : item) } : state)
   const putNote = (result: FridgeNoteRecord) => setNotes(state => state.kind === 'ready' ? { kind: 'ready', items: state.items.map(item => item.id === result.id ? result : item) } : state)
   const checkId = <T extends { id: string }>(result: T, id: string) => { if (result?.id !== id) throw new Error('MISMATCHED_RECORD'); return result }
+  function optimisticNote(fields:NoteFields & {attachmentRef?:string},id?:string){
+    const previous=notes
+    if(notes.kind==='ready'){
+      const at=new Date().toISOString()
+      const existing=id?notes.items.find(note=>note.id===id):undefined
+      const item:FridgeNoteRecord=existing?{...existing,...fields,updatedAt:at}:{id:'pending-note',author:{id:viewer.personId,displayName:'Saving…'},...fields,audience:'PARENTS_ONLY',createdAt:at,updatedAt:at,revision:0}
+      setNotes({kind:'ready',items:[...notes.items.filter(note=>note.id!==item.id),item]})
+    }
+    return ()=>setNotes(previous)
+  }
   return {
     goals, notes, pending, notice, canWrite, preferences,
     saveCaption: (slotId:string,text:string) => change('notes',async()=>{
@@ -72,7 +88,7 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
       const result=existing?checkId(await adapter.updateFridgeNote({id:existing.id,text,paperColor:existing.paperColor}),existing.id):await adapter.postFridgeNote({childId,text,paperColor:'WHITE',attachmentRef,audience:'PARENTS_ONLY'})
       if(!result?.id||result.attachmentRef!==attachmentRef||(!existing&&result.audience!=='PARENTS_ONLY'))throw Error('CAPTION_NOT_CONFIRMED')
       return [...current.filter(note=>note.id!==result.id),result]
-    },items=>setNotes({kind:'ready',items})),
+    },items=>setNotes({kind:'ready',items}),()=>optimisticNote({text,paperColor:'WHITE',attachmentRef:`fridge-art:${slotId}`},notes.kind==='ready'?latestCaptions(notes.items).find(note=>note.attachmentRef===`fridge-art:${slotId}`)?.id:undefined)),
     saveGoal: async (fields: GoalFields, marker: MarkerStyle, id?: string) => {
       let savedId=id
       const saved=await change('goals',async()=>{
@@ -92,8 +108,8 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
     completeGoal: (id: string) => change('goals', () => adapter.completeGoal({ id }), result => { checkId(result, id); if (!result.completedAt) throw new Error('COMPLETION_NOT_RECORDED'); putGoal(result) }),
     uncompleteGoal: (id: string) => change('goals', () => adapter.uncompleteGoal({ id }), result => { checkId(result, id); if (result.completedAt !== null) throw new Error('COMPLETION_NOT_CLEARED'); putGoal(result) }),
     deleteGoal: (id: string) => change('goals', () => adapter.deleteGoal({ id }), result => { if (result !== true) throw new Error('DELETE_NOT_CONFIRMED'); setGoals(state => state.kind === 'ready' ? { kind: 'ready', items: state.items.filter(item => item.id !== id) } : state) }),
-    postNote: (fields: NoteFields & {attachmentRef?:string}) => change('notes', () => adapter.postFridgeNote({ childId, ...fields, audience: 'PARENTS_ONLY' }), result => { if (!result?.id || result.audience !== 'PARENTS_ONLY') throw new Error('NOTE_NOT_PRIVATE'); setNotes(state => state.kind === 'ready' ? { kind: 'ready', items: [...state.items, result] } : state) }),
-    updateNote: (id: string, fields: NoteFields) => change('notes', () => adapter.updateFridgeNote({ id, ...fields }), result => putNote(checkId(result, id))),
+    postNote: (fields: NoteFields & {attachmentRef?:string}) => change('notes', () => adapter.postFridgeNote({ childId, ...fields, audience: 'PARENTS_ONLY' }), result => { if (!result?.id || result.audience !== 'PARENTS_ONLY') throw new Error('NOTE_NOT_PRIVATE'); setNotes(state => state.kind === 'ready' ? { kind: 'ready', items: [...state.items.filter(item=>item.id!=='pending-note'), result] } : state) },()=>optimisticNote(fields)),
+    updateNote: (id: string, fields: NoteFields) => change('notes', () => adapter.updateFridgeNote({ id, ...fields }), result => putNote(checkId(result, id)),()=>optimisticNote(fields,id)),
     setAudience: (id: string, audience: NoteAudience) => change('notes', () => adapter.setFridgeNoteAudience({ id, audience }), result => { checkId(result, id); if (result.audience !== audience) throw new Error('AUDIENCE_NOT_RECORDED'); putNote(result) }),
     removeNote: (id: string) => change('notes', () => adapter.removeFridgeNote({ id }), result => { if (result !== true) throw new Error('DELETE_NOT_CONFIRMED'); setNotes(state => state.kind === 'ready' ? { kind: 'ready', items: state.items.filter(item => item.id !== id) } : state) }),
   }

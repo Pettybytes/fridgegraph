@@ -19,6 +19,7 @@ async function fixture(options:{empty?:boolean;refused?:boolean;failed?:boolean}
   let data
   if(op.operationName==='WebChildEvents')data={childEvents:options.empty?[]:[baseEvent,{...baseEvent,id:'proposal',title:'Proposed commitment',status:'proposed'},...(v.includeCancelled?[{...baseEvent,id:'cancelled',title:'Cancelled commitment',status:'cancelled'}]:[])]}
   else if(op.operationName==='WebEffectiveSchedule')data={effectiveScheduleFor:{parent:options.empty?null:{id:v.date>='2026-11-25'&&v.date<='2026-11-27'?'p_dad':'p_mom',displayName:v.date>='2026-11-25'&&v.date<='2026-11-27'?'Andre Ellison':'Kendra Ellison'},source:v.date>='2026-11-25'&&v.date<='2026-11-27'?'ARRANGEMENT':'WEEKLY',arrangementId:v.date>='2026-11-25'&&v.date<='2026-11-27'?'recorded-arrangement':null}}
+  else if(op.operationName==='WebEffectiveScheduleWindow')data=Object.fromEntries(Object.entries(v).filter(([key])=>key.startsWith('date')).map(([key,date])=>[`day${key.slice(4)}`,{parent:options.empty?null:{id:date>='2026-11-25'&&date<='2026-11-27'?'p_dad':'p_mom',displayName:date>='2026-11-25'&&date<='2026-11-27'?'Andre Ellison':'Kendra Ellison'},source:date>='2026-11-25'&&date<='2026-11-27'?'ARRANGEMENT':'WEEKLY',arrangementId:date>='2026-11-25'&&date<='2026-11-27'?'recorded-arrangement':null}]))
   else if(op.operationName==='WebScheduleConflicts')data={scheduleConflicts:options.empty?[]:[{kind:'OVERLAP',onDay:'2026-11-26',arrangementIds:['recorded-arrangement','other-arrangement']}]}
   else if(op.operationName==='WebCreateEvent')data={createCalendarEvent:{id:'new1',child:{id:v.childId},title:v.title,start:v.start,end:v.end,location:v.location??null,status:v.status??'confirmed',notes:v.notes??null,color:v.color??null}}
   else if(op.operationName==='WebUpdateEvent')data={updateCalendarEvent:{id:v.id,child:{id:'p_nora'},title:v.title,start:v.start,end:v.end,location:v.location??null,status:v.status??'confirmed',notes:v.notes??null,color:v.color??null}}
@@ -42,11 +43,11 @@ it('uses the delivered fields only; availability never requests a private reason
 it('composes daily WEEKLY/ARRANGEMENT answers without manufacturing weekly rules or holiday objects',async()=>{
  const {adapter,calls,client}=await fixture(),data=await adapter.readWindow({childId:'p_nora',from:'2026-11-23',to:'2026-11-29'})
  expect(data.care['2026-11-25']).toMatchObject({state:'ready',value:{source:'ARRANGEMENT',parent:{id:'p_dad'}}});expect(data.care['2026-11-27']).toMatchObject({state:'ready',value:{source:'ARRANGEMENT'}});expect(data.care['2026-11-28']).toMatchObject({state:'ready',value:{source:'WEEKLY',parent:{id:'p_mom'}}})
- expect(calls.filter(c=>c.name==='WebEffectiveSchedule')).toHaveLength(7);expect(data.conflicts).toMatchObject({state:'ready',value:[{kind:'OVERLAP'}]});expect(adapter.getActionScope().calendarEventIds.has('confirmed')).toBe(true);adapter.clear();expect(adapter.knownEvent('confirmed')).toBeUndefined();client.stop()
+ expect(calls.filter(c=>c.name==='WebEffectiveScheduleWindow')).toHaveLength(1);expect(data.conflicts).toMatchObject({state:'ready',value:[{kind:'OVERLAP'}]});expect(adapter.getActionScope().calendarEventIds.has('confirmed')).toBe(true);adapter.clear();expect(adapter.knownEvent('confirmed')).toBeUndefined();client.stop()
 })
 it('accepts a complete six-week month grid without exceeding its read-window limit',async()=>{
  const f=await fixture(),data=await f.adapter.readWindow({childId:'p_nora',from:'2026-10-26',to:'2026-12-06'})
- expect(data.days).toHaveLength(42);expect(data.events.state).toBe('ready');expect(f.calls.filter(c=>c.name==='WebEffectiveSchedule')).toHaveLength(42);f.client.stop()
+ expect(data.days).toHaveLength(42);expect(data.events.state).toBe('ready');expect(f.calls.filter(c=>c.name==='WebEffectiveScheduleWindow')).toHaveLength(2);f.client.stop()
 })
 it('renders the approved holiday band, weekly return, proposals, conflict and Busy/Free honestly',async()=>{
  const {adapter,client}=await fixture();mount(adapter)

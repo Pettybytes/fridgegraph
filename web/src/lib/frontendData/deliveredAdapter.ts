@@ -1,4 +1,5 @@
 import {gql} from '@apollo/client'
+import {readJobRecords} from './recordBatch'
 import {createGraphqlAdapter,JOBS} from './graphqlAdapter'
 import type {JobRead} from './graphqlAdapter'
 import type {createGraphClient} from './graphqlAdapter'
@@ -12,17 +13,20 @@ export type StoredMissionControl=MissionControlData&{recordedRuns:StoredRun[]}
 export function createDeliveredAdapter(client:ReturnType<typeof createGraphClient>,runRead:<T>(read:()=>Promise<T>)=>Promise<T>):FrontendAdapter{
  const base=createGraphqlAdapter(client)
  async function read<T>(query:Parameters<typeof client.query>[0]['query'],variables:Record<string,string>):Promise<T>{
-  return runRead(async()=>{const result=await client.query<T>({query,variables,fetchPolicy:'no-cache'});if(!result.data)throw new Error('READ_UNAVAILABLE');return result.data})
+  return runRead(async()=>{const result=await client.query<T>({query,variables,fetchPolicy:'network-only'});if(!result.data)throw new Error('READ_UNAVAILABLE');return result.data})
  }
  return {...base,
   async clearStore(){client.stop();await client.clearStore()},
   readVillage:scope=>runRead(()=>base.readVillage(scope)),
   async readMissionControl(scope:Scope):Promise<StoredMissionControl>{
    const data=await read<{coordinationJobs:JobRead[]}>(JOBS,{childId:scope.childId})
-   const recordedRuns=await Promise.all(data.coordinationJobs.map(async job=>{
-    const [attempts,timeline]=await Promise.all([read<{attempts:StoredAttempt[]}>(STORED_ATTEMPTS,{jobId:job.id}),read<{jobTimeline:StoredMoment[]}>(STORED_TIMELINE,{jobId:job.id})])
-    return {job,attempts:attempts.attempts,timeline:[...timeline.jobTimeline].sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))}
-   }))
+   const records=await readJobRecords<StoredAttempt,StoredMoment>(client,data.coordinationJobs.map(job=>job.id),runRead,
+    'id channel at candidate{id displayName} destinationMode closedAt closedReason',
+    'at kind attemptId candidate{id displayName} detail')
+   const recordedRuns=data.coordinationJobs.map(job=>{
+    const record=records.get(job.id)!
+    return {job,attempts:record.attempts,timeline:[...record.timeline].sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))}
+   })
    return {provenance:'live',recordedRuns,candidates:[],events:[],coordinationJobs:data.coordinationJobs,confirmations:data.coordinationJobs.flatMap(j=>j.confirmation?[j.confirmation]:[])}
   },
  }

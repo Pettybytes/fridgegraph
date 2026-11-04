@@ -8,11 +8,11 @@ it('joins only persisted attempts and timeline records, keeping missing candidat
  const operations:string[]=[]
  const client=createGraphClient(async()=> 'test-only-bearer',new ApolloLink(op=>new Observable(observer=>{
   operations.push(op.operationName??'')
-  const data=op.operationName==='WebCoordinationJobs'?{coordinationJobs:[{id:'stored-job',status:'AWAITING_APPROVAL',version:1,idempotencyKey:'stored-key',overLimitCandidate:null,candidateEvaluations:[],confirmation:null}]}:op.operationName==='WebStoredAttempts'?{attempts:[{id:'attempt',channel:'CALL',at:'2026-10-30T20:00:00Z',candidate:null,destinationMode:'TEST_RESPONDER',closedAt:null,closedReason:null}]}:{jobTimeline:[{at:'2026-10-30T20:00:00Z',kind:'ATTEMPT_OPENED',attemptId:'attempt',candidate:null,detail:'CALL'},{at:'2026-10-30T19:59:00Z',kind:'JOB_CREATED',attemptId:null,candidate:null,detail:null}]}
+  const data=op.operationName==='WebCoordinationJobs'?{coordinationJobs:[{id:'stored-job',status:'AWAITING_APPROVAL',version:1,idempotencyKey:'stored-key',overLimitCandidate:null,candidateEvaluations:[],confirmation:null}]}:op.operationName==='WebStoredRecords'?{a0:[{id:'attempt',channel:'CALL',at:'2026-10-30T20:00:00Z',candidate:null,destinationMode:'TEST_RESPONDER',closedAt:null,closedReason:null}],t0:[{at:'2026-10-30T20:00:00Z',kind:'ATTEMPT_OPENED',attemptId:'attempt',candidate:null,detail:'CALL'},{at:'2026-10-30T19:59:00Z',kind:'JOB_CREATED',attemptId:null,candidate:null,detail:null}]}:{}
   observer.next({data});observer.complete()
  })))
  const adapter=createDeliveredAdapter(client,read=>read()),data=await adapter.readMissionControl(scope) as StoredMissionControl
- expect(operations).toEqual(['WebCoordinationJobs','WebStoredAttempts','WebStoredTimeline']);expect(data.provenance).toBe('live')
+ expect(operations).toEqual(['WebCoordinationJobs','WebStoredRecords']);expect(data.provenance).toBe('live')
  expect(data.recordedRuns[0].attempts[0].candidate).toBeNull();expect(data.recordedRuns[0].timeline.map(e=>e.kind)).toEqual(['JOB_CREATED','ATTEMPT_OPENED']);expect(data.events).toEqual([]);expect(data.candidates).toEqual([])
  await adapter.clearStore?.()
 })

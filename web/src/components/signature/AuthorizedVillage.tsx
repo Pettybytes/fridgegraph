@@ -1,4 +1,6 @@
-import {useEffect,useState} from 'react'
+import {useCallback,useState} from 'react'
+import {useCachedResource} from '@/lib/frontendData/resourceCache'
+import {RouteSkeleton} from '@/app/RouteSkeleton'
 import type {ApolloClient} from '@apollo/client'
 import {RefreshCw} from 'lucide-react'
 import type {VillageChild} from './types'
@@ -9,17 +11,12 @@ type Read=<T>(read:()=>Promise<T>)=>Promise<T>
 export type AuthorizedVillageProps={client:ApolloClient|null;child:VillageChild|null;runRead:Read;portraitFor?:(id:string)=>string|undefined}
 type SceneState={owner:ApolloClient|null;childId:string;status:'loading'|'ready'|'refused'|'error';scene?:VillageScene}
 function useScene({client,child,runRead}:AuthorizedVillageProps,revision:number){
- const [state,setState]=useState<SceneState|null>(null)
- useEffect(()=>{
-  if(!client||!child)return
-  let current=true;const abort=new AbortController(),owner=client,childId=child.id
-  setState(previous=>({owner,childId,status:'loading',scene:previous?.owner===owner&&previous.childId===childId?previous.scene:undefined}))
-  readSignatureVillage(client,childId,runRead,abort.signal).then(scene=>{if(current)setState({owner,childId,status:'ready',scene})},error=>{if(current)setState({owner,childId,status:/UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(error.message??'')?'refused':'error'})})
-  return()=>{current=false;abort.abort()}
- },[client,child?.id,runRead,revision])
- return state?.owner===client&&state?.childId===child?.id?state:null
+ const load=useCallback(()=>readSignatureVillage(client!,child!.id,runRead,new AbortController().signal),[client,child?.id,runRead,revision])
+ const cached=useCachedResource(child?client:null,`village:${child?.id}`,load,2500)
+ const state:SceneState|null=!child||!client?null:{owner:client,childId:child.id,status:cached?.error?/UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(cached.error)?'refused':'error':cached?.value?'ready':'loading',scene:cached?.value}
+ return state
 }
-function VillageFeedback({status}:{status:'loading'|'refused'|'error'}){return <p className="sg-feedback" role={status==='error'?'alert':'status'}>{status==='loading'?'Loading the village shared with you…':status==='refused'?"This isn't shared with you":"Couldn't load this just now"}</p>}
+function VillageFeedback({status}:{status:'loading'|'refused'|'error'}){if(status==='loading')return <RouteSkeleton />;return <p className="sg-feedback" role={status==='error'?'alert':'status'}>{status==='refused'?"This isn't shared with you":"Couldn't load this just now"}</p>}
 function ConnectedVillage({variant='full',...props}:AuthorizedVillageProps&{variant?:'full'|'compact'}){
  const [revision,setRevision]=useState(0),state=useScene(props,revision)
  if(!props.client)return <p className="sg-feedback" data-state="unavailable">Choose a live perspective to see the village shared with you.</p>

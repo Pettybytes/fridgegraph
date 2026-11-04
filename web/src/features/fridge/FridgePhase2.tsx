@@ -18,8 +18,8 @@ export const usePhase2Preview=()=>useContext(FridgePhase2Preview)
 type Props={fridge:ComponentProps<typeof Fridge>;viewer:FridgeViewer;service:Phase2Service|null;enabled:boolean}
 export function FridgePhase2(props:Props){return <Boundary key={`${props.viewer.sessionKey}:${props.viewer.personId}:${props.viewer.role}:${props.fridge.childId}`} {...props}/>}
 function Boundary({fridge,viewer,service,enabled}:Props){
- const [state,setState]=useState<Compatibility|{kind:'loading'}>({kind:'loading'}),[retry,setRetry]=useState(0)
- useEffect(()=>{if(!enabled||!service)return;const abort=new AbortController();setState({kind:'loading'});void service.check(fridge.childId,abort.signal).then(next=>{if(!abort.signal.aborted)setState(next)},()=>{if(!abort.signal.aborted)setState({kind:'failed'})});return()=>abort.abort()},[service,enabled,fridge.childId,retry])
+ const [state,setState]=useState<Compatibility|{kind:'loading'}>(()=>service?.peekCompatibility?.(fridge.childId)??{kind:'loading'}),[retry,setRetry]=useState(0)
+ useEffect(()=>{if(!enabled||!service)return;const abort=new AbortController();if(!service.peekCompatibility?.(fridge.childId))setState({kind:'loading'});void service.check(fridge.childId,abort.signal).then(next=>{if(!abort.signal.aborted)setState(next)},()=>{if(!abort.signal.aborted)setState({kind:'failed'})});return()=>abort.abort()},[service,enabled,fridge.childId,retry])
  if(enabled&&service&&state.kind==='ready')return <Ready fridge={fridge} viewer={viewer} service={service}/>
  const error=state.kind!=='loading'&&state.kind!=='absent'&&state.kind!=='ready'
  const text=!enabled?'Editing is not enabled yet.':!service?'Choose a live perspective to check editing.':state.kind==='loading'?'Checking editing compatibility…':state.kind==='absent'?'Editing isn’t available on this version. The fridge is read-only.':state.kind in phase2Message?phase2Message[state.kind as keyof typeof phase2Message]:''
@@ -46,6 +46,7 @@ function Ready({fridge,viewer,service}:Omit<Props,'enabled'> & {service:Phase2Se
   {inlineGoal&&<><GoalForm label="Write a goal on the whiteboard" pending={editing.pending==='goals'} onSave={async(fields,marker,id)=>{const result=await editing.saveGoal(fields,marker,id);if(result.saved)setInlineGoal(false);return result}} onCancel={()=>setInlineGoal(false)}/>{editing.notice?.section==='goals'&&<p role={editing.notice.kind==='failed'?'alert':'status'}>{editing.notice.text}</p>}<FgButton variant="quiet" onClick={()=>{setInlineGoal(false);openSection('goals')}}>Open full-size editor</FgButton></>}
  </>:undefined}
  postedNotes={notes.filter(note=>!note.attachmentRef?.startsWith('fridge-art:'))} openPostedNotes={()=>openSection('notes')} goalsOverride={goalsOverride} boardReadOnly={!editing.canWrite} editingControls={<>
+  {editing.pending&&<p role="status">Saving {editing.pending}…</p>}
   {section===null&&!inlineGoal&&editing.notice?.section==='goals'&&<p role={editing.notice.kind==='failed'?'alert':'status'}>{editing.notice.text}</p>}
   {editing.canWrite&&editing.notes.kind==='ready'&&<FgButton disabled={editing.pending!==null} onClick={()=>openSection('notes')}>Add sticky note</FgButton>}
   <FgButton variant="secondary" disabled={editing.pending!==null} onClick={()=>openSection('goals')}>{editing.canWrite?'Manage goals':'Goal details'}</FgButton>

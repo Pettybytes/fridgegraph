@@ -1,3 +1,4 @@
+import {RouteSkeleton} from '@/app/RouteSkeleton'
 import {useState} from 'react'
 import type {ReactNode} from 'react'
 import {useSurfaceData,useDataContext,dataErrorMessage} from '@/lib/frontendData/provider'
@@ -20,7 +21,7 @@ export function LiveMissionControl({accessDenied}:{accessDenied:ReactNode}){
  <p className="mcv-missing">Sample activity from stored demo records. Calls and texts are simulated in this example; sending isn’t verified here.</p>
  {session?.marks?.demoGuide&&<p className="mcv-missing">Demo guide is read-only</p>}
  <VillagePulse result={result}/>
- {result.loading&&!data?<p role="status">Loading recorded pickup activity…</p>:result.error?/UNAUTHORIZED/.test(result.error.message)?accessDenied:<p role="alert">{dataErrorMessage(result.error)}</p>:!run?<div className="mcv-empty"><h2>No recorded pickup run</h2><p>No records are available to this view</p>{!(session?.persona.parent||session?.marks?.demoGuide)&&accessDenied}</div>:<>
+ {result.loading&&!data?<RouteSkeleton />:result.error?/UNAUTHORIZED/.test(result.error.message)?accessDenied:<p role="alert">{dataErrorMessage(result.error)}</p>:!run?<div className="mcv-empty"><h2>No recorded pickup run</h2><p>No records are available to this view</p>{!(session?.persona.parent||session?.marks?.demoGuide)&&accessDenied}</div>:<>
  <label>Pickup record<select aria-label="Pickup record" value={run.job.id} onChange={e=>setSelected(e.target.value)}>{runs.map((r,i)=><option key={r.job.id} value={r.job.id}>Pickup {i+1} · {pickupStatusLabel(r.job.status)}</option>)}</select></label>
  <header className="mcv-job"><div><p>{run.timeline.length?'Sample activity':'Pickup record · event times not recorded'}</p><h2>{session?.scope.childName.split(' ')[0]}’s pickup</h2><p>{pickupStatusLabel(run.job.status)}</p></div></header>
  <div className="mcv-lane-grid">{run.attempts.map(a=><article key={a.id} className="mcv-lane"><h3>{a.candidate?.displayName??'Caregiver not recorded'}</h3><span className="mcv-contact">{contactBadge(a.destinationMode)}</span><p>{contactChannelLabel(a.channel)}</p><time dateTime={a.at}>{formatRecordedTime(a.at)}</time><p>{a.closedAt?'Attempt ended · see recorded activity':'Attempt open · no reply recorded'}</p>{a.closedAt&&<time dateTime={a.closedAt}>{formatRecordedTime(a.closedAt)}</time>}</article>)}</div>

@@ -9,7 +9,7 @@ async function enterToday() {
   render(<App authAdapter={createMockAuthAdapter()} />)
   fireEvent.click(screen.getByRole('button', { name: 'Explore as Kendra' }))
   await screen.findByText('Signed in as Kendra')
-  return screen.getByRole('region', { name: /Today for Kendra/ })
+  return screen.findByRole('region', { name: /Today for Kendra/ })
 }
 
 it('sends the typed Today question once into the existing Rosina conversation', async () => {

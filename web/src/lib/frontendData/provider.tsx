@@ -1,20 +1,20 @@
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { ApolloClient, ApolloLink, InMemoryCache, Observable, gql } from '@apollo/client'
+import { ApolloClient, ApolloLink, InMemoryCache, Observable, gql, type ApolloCache } from '@apollo/client'
 import { ApolloProvider, useQuery } from '@apollo/client/react'
 import type { FrontendAdapter, MissionControlData, ParentChatData, Scope, VillageData } from './types'
 
 // These documents are LOCAL adapter messages, never operations sent to the graph.
 // A real adapter composes primitive GraphQL reads via Apollo Client behind this seam.
-const SNAPSHOT = gql`query LocalFrontendSnapshot($scope: FrontendScope!, $surface: String!) {
+export const SNAPSHOT = gql`query LocalFrontendSnapshot($scope: FrontendScope!, $surface: String!) {
   frontendSnapshot(scope: $scope, surface: $surface)
 }`
 export const POLL_INTERVAL_MS = 2500
 export const VILLAGE_POLL_INTERVAL_MS = 30000
 const DataContext = createContext<{ scope: Scope; mode: FrontendAdapter['mode']; adapter: FrontendAdapter } | null>(null)
-export function DataProvider({ adapter, scope, children }: { adapter: FrontendAdapter; scope: Scope; children: ReactNode }) {
+export function DataProvider({ adapter, scope, children, cache }: { adapter: FrontendAdapter; scope: Scope; children: ReactNode; cache?: ApolloCache }) {
   const client = useMemo(() => new ApolloClient({
-    cache: new InMemoryCache(),
+    cache: cache ?? new InMemoryCache(),
     dataMasking: true,
     link: new ApolloLink(operation => new Observable(observer => {
       let active = true
@@ -28,7 +28,7 @@ export function DataProvider({ adapter, scope, children }: { adapter: FrontendAd
       }, error => { if (active) observer.error(error) })
       return () => { active = false }
     })),
-  }), [adapter])
+  }), [adapter, cache])
   return <DataContext.Provider value={{ scope, mode: adapter.mode, adapter }}><ApolloProvider client={client}>{children}</ApolloProvider></DataContext.Provider>
 }
 export function useDataContext() {
@@ -40,13 +40,18 @@ export function useSurfaceData<T extends MissionControlData | ParentChatData | V
   const { scope } = useDataContext()
   const result = useQuery<{ frontendSnapshot: T }>(SNAPSHOT, {
     variables: { scope, surface }, pollInterval: surface === 'village' ? VILLAGE_POLL_INTERVAL_MS : POLL_INTERVAL_MS,
-    fetchPolicy: 'network-only', notifyOnNetworkStatusChange: false,
+    fetchPolicy: 'cache-and-network', notifyOnNetworkStatusChange: false,
     skipPollAttempt: () => document.visibilityState === 'hidden',
   })
   useEffect(() => {
     if (result.error && /UNAUTHORIZED|UNAUTHENTICATED|AUTH_ERROR/.test(result.error.message)) result.stopPolling()
   }, [result.error, result.stopPolling])
-  return result
+  useEffect(() => {
+    const refresh=()=>{void result.refetch().catch(()=>{})}
+    window.addEventListener('frontend:changed',refresh)
+    return()=>window.removeEventListener('frontend:changed',refresh)
+  },[result.refetch])
+  return { ...result, loading: result.loading && !result.data }
 }
 export function dataErrorMessage(error: { message: string }): string {
   if(error.message.includes('DEMO_GUIDE_READ_ONLY'))return 'Demo guide is read-only'

@@ -1,5 +1,7 @@
 import { gql, type ApolloClient } from '@apollo/client'
-import { useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useCachedResource } from '@/lib/frontendData/resourceCache'
+import { RouteSkeleton } from '@/app/RouteSkeleton'
 import { useChildAccess } from './childContext'
 import { useSession } from './Session'
 // Derived from the recorded demo care plans. No author metadata exists in today's records.
@@ -27,25 +29,21 @@ export function CareInformation() {
   return <section className="care-information" aria-label="Care information" data-state="derived" data-source="mock"><h2>Care information for {childName}</h2><p>{sample.text}</p><p>{sourceCitation(sample.source)}</p></section>
 }
 
-const CARE_PLAN = gql`query WebCareInformation($childId: ID!) { carePlan(childId: $childId) { text } careFacts(childId: $childId) { id key value source { kind ref } } }`
+export const CARE_PLAN = gql`query WebCareInformation($childId: ID!) { carePlan(childId: $childId) { text } careFacts(childId: $childId) { id key value source { kind ref } } }`
 type CarePlanState = {status:'loading'|'ready'|'empty'|'refused'|'error'; text?:string; facts?:{id:string;key:string;value:string;source:{kind:string;ref:string}}[]}
+export async function readCareInformation(client:ApolloClient|null,childId:string,runRead?:<T>(read:()=>Promise<T>)=>Promise<T>){
+  if(!client||!runRead)throw Error('READ_UNAVAILABLE')
+  return runRead(async()=>{
+    const result=await client.query<{carePlan:{text:string}|null;careFacts?:NonNullable<CarePlanState['facts']>}>({query:CARE_PLAN,variables:{childId},fetchPolicy:'network-only'})
+    return {plan:result.data?.carePlan??null,facts:result.data?.careFacts??[]}
+  })
+}
 function LiveCareInformation({childId,childName,client,runRead}:{childId:string;childName:string;client:ApolloClient|null;runRead?:<T>(read:()=>Promise<T>)=>Promise<T>}) {
-  const [state,setState]=useState<CarePlanState>({status:'loading'})
-  useEffect(()=>{
-    if(!client||!runRead){setState({status:'error'});return}
-    let current=true
-    const controller=new AbortController()
-    void runRead(async()=>{
-      const result=await client.query<{carePlan:{text:string}|null;careFacts?:NonNullable<CarePlanState['facts']>}>({query:CARE_PLAN,variables:{childId},fetchPolicy:'no-cache',context:{fetchOptions:{signal:controller.signal}}})
-      return {plan:result.data?.carePlan ?? null,facts:result.data?.careFacts??[]}
-    }).then(({plan,facts})=>{if(current)setState(plan||facts.length?{status:'ready',text:plan?.text,facts}:{status:'empty'})},error=>{
-      if(!current||controller.signal.aborted)return
-      setState({status:/UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|AUTH_ERROR/.test(error instanceof Error?error.message:'')?'refused':'error'})
-    })
-    return()=>{current=false;controller.abort()}
-  },[client,childId,runRead])
+  const load=useCallback(()=>readCareInformation(client,childId,runRead),[client,childId,runRead])
+  const cached=useCachedResource(client,`care:${childId}`,load,2500)
+  const state:CarePlanState=!client?{status:'error'}:cached?.error?{status:/UNAUTHORIZED|UNAUTHENTICATED|FORBIDDEN|AUTH_ERROR/.test(cached.error)?'refused':'error'}:!cached?{status:'loading'}:cached.value&&(cached.value.plan||cached.value.facts.length)?{status:'ready',text:cached.value.plan?.text,facts:cached.value.facts}:{status:'empty'}
   const firstName=childName.split(' ')[0]
-  if(state.status==='loading')return <section className="care-information" role="status">Loading care information shared with you…</section>
+  if(state.status==='loading')return <RouteSkeleton />
   if(state.status==='refused')return <section className="care-information" role="alert">This isn't shared with you.</section>
   if(state.status==='error')return <section className="care-information" role="alert">Couldn't load this just now.</section>
   if(state.status==='empty')return <section className="care-information" data-state="empty">No records are available to this view.</section>

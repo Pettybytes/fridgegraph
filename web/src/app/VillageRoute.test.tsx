@@ -15,7 +15,7 @@ it('keeps the village module deferred until its route is selected', async () => 
   expect(moduleLoad.count).toBe(0)
   window.location.hash = '#/village'
   fireEvent(window, new HashChangeEvent('hashchange'))
-  expect(screen.getByText('Loading the village…')).toHaveAttribute('role', 'status')
+  expect(screen.getByRole('status', { name: 'Loading shared records' })).toHaveAttribute('role', 'status')
   expect(await screen.findByText('Village module rendered')).toBeVisible()
   expect(moduleLoad.count).toBe(1)
   window.location.hash = '#/mission-control'

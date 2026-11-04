@@ -32,7 +32,7 @@ describe('Mission Control UI', () => {
     expect(within(dialog).getByRole('heading', { name: 'Review Loretta Brooks' })).toBeVisible()
     expect(within(dialog).getByText(/Rideshare to school/)).toBeVisible()
     expect(within(dialog).getByText(/Est. \$12.40/)).toBeVisible()
-    expect(within(dialog).getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+    expect(within(dialog).getByText('Straight-line approximation, may understate road cost')).toBeVisible()
     expect(within(dialog).queryByRole('button', { name: 'Replay recorded approval' })).not.toBeInTheDocument()
   })
   it('omits all paid-ride labels and bases on a normal night', async () => {
