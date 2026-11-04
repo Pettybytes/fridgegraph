@@ -12,3 +12,16 @@ it('keeps distinct recorded statuses for multiple roles and assigns a stable doc
  const edges=[{id:'two',from:{id:'person',displayName:'Person'},to:{id:'child'},type:'sitter',status:'DISCOVERED'},{id:'one',from:{id:'person',displayName:'Person'},to:{id:'child'},type:'aunt',status:'ACTIVE'}]
  let reversed=false;const client=new ApolloClient({cache:new InMemoryCache(),link:new ApolloLink(()=>new Observable(observer=>{observer.next({data:{child:{person:{id:'child',displayName:'Child'}},householdMembers:[],relationships:reversed?[...edges].reverse():edges}});observer.complete()}))});const first=await readSignatureVillage(client,'child',fn=>fn());reversed=true;const second=await readSignatureVillage(client,'child',fn=>fn());expect(first.people[0].relationshipStatus).toBeUndefined();expect(first.people[0].relationshipDetails).toEqual([{type:'aunt',status:'ACTIVE'},{type:'sitter',status:'DISCOVERED'}]);expect(first.people[0].group).toBe('Family');expect(second.people).toEqual(first.people);client.stop()
 })
+it('reads only the authorized child directory and the current caregiver identity',async()=>{
+ const operations:string[]=[]
+ const client=new ApolloClient({cache:new InMemoryCache(),link:new ApolloLink(operation=>new Observable(observer=>{
+  operations.push(operation.operationName??'')
+  observer.next({data:{myChildren:[{child:{id:'child',person:{id:'child',displayName:'Child'}}}],person:{id:'caregiver',displayName:'Caregiver'}}});observer.complete()
+ }))})
+ const scene=await readSignatureVillage(client,'child',fn=>fn(),undefined,false,'caregiver')
+ expect(operations).toEqual(['WebSharedVillage'])
+ expect(scene.people).toEqual([{id:'caregiver',name:'Caregiver',relationship:'Shared village member',group:'Care'}])
+ expect(scene.people[0].relationshipStatus).toBeUndefined()
+ await expect(readSignatureVillage(client,'foreign',fn=>fn(),undefined,false,'caregiver')).rejects.toThrow('UNAUTHORIZED')
+ client.stop()
+})
