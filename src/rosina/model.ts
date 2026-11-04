@@ -298,6 +298,8 @@ const ALLOWED_MCP_TOOL_NAMES = new Set([
   'ProposeSchoolDayReport',
   'ProposeAddVillager',
 ]);
+const STAGING_TOOL_NAMES = new Set(['ProposeSchoolDayReport', 'ProposeAddVillager']);
+const GUIDE_READ_ACTIONS = new Set(['open-screen', 'explain-screen']);
 
 /**
  * TASK R-TOOLS-2: "ID authorization is a code rule." For these tools, the id argument (child or
@@ -551,7 +553,9 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   const cachedTools = options.toolListCache?.get(options.mcpUrl) ?? null;
   const mcpTools = cachedTools ?? await mcp.listTools();
   if (!cachedTools && mcpTools.length > 0) options.toolListCache?.set(options.mcpUrl, mcpTools);
-  const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS];
+  const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS].filter(tool =>
+    !options.isGuide || (!STAGING_TOOL_NAMES.has(tool.function.name) &&
+      (!tool.function.name.startsWith(ACTION_TOOL_PREFIX) || GUIDE_READ_ACTIONS.has(tool.function.name.slice(ACTION_TOOL_PREFIX.length)))));
 
   // FAMILY LENS (playbook 3/7): served from the per-bearer cache when fresh; a cold build races a
   // short wait so it can never hold the first token hostage (the build keeps running in the
@@ -636,6 +640,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   let addVillagerProposal: AddVillagerProposalResult | null = null;
 
   let finalContent = '';
+  let guideWriteRefused = false;
 
   for (let round = 1; round <= maxRounds; round += 1) {
     const result = await runChat(messages, tools, 3000);
@@ -737,6 +742,12 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         continue;
       }
 
+      if (options.isGuide && STAGING_TOOL_NAMES.has(call.name)) {
+        guideWriteRefused = true;
+        toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['GUIDE_READ_ONLY'] });
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'GUIDE_READ_ONLY' }) });
+        continue;
+      }
       if (!ALLOWED_MCP_TOOL_NAMES.has(call.name)) {
         toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['TOOL_NOT_ALLOWED'] });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'TOOL_NOT_ALLOWED' }) });
@@ -833,6 +844,12 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
 
     for (const { call, args } of actionCalls) {
       const id = call.name.slice(ACTION_TOOL_PREFIX.length);
+      if (options.isGuide && !GUIDE_READ_ACTIONS.has(id)) {
+        guideWriteRefused = true;
+        toolCallEvidence.push({ round, kind: 'refused', name: call.name, argsPreview: args, isError: true, errorCodes: ['GUIDE_READ_ONLY'] });
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'GUIDE_READ_ONLY' }) });
+        continue;
+      }
 
       if (id === 'prepareOrbitAlert') {
         // Gate first — parent authority + vocabulary membership — and that gate is NEVER
@@ -901,6 +918,10 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   } else if (options.graphqlUrl && isPickupStatusQuestion(options.message) && !lens) {
     if (onEvent) onEvent({ kind: 'replace' });
     finalContent = "I couldn't check the current pickup state just now.";
+  }
+  if (guideWriteRefused) {
+    onEvent?.({ kind: 'replace' });
+    finalContent = 'The Demo guide can read shared demo records, but cannot prepare or confirm changes.';
   }
   const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", toolResultTexts.join('\n'));
   // Streamed tokens are provisional; when the guard rewrote the reply the client must not keep them.

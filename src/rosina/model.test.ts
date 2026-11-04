@@ -85,6 +85,21 @@ const CANDIDATES_OK: McpToolCall = { data: { pickupCandidates: [{ person: { id: 
 
 const baseOptions = { message: 'test', currentRoute: '#/mission-control', history: [], bearer: 'unused-test-token', personId: 'p_mom', isGuide: false, provider: 'meta' as const, mcpUrl: 'http://unused/mcp', providerConfig: FAKE_CONFIG };
 
+test('Demo guide cannot stage mutations or offer a pickup review even after a successful sandbox read', async () => {
+  const mcp = stubMcp(myChildren([]), { p_nora: CANDIDATES_OK });
+  const chatFn = scriptedChat([
+    chatResult({ toolCalls: [toolCall('read', 'PickupCandidates', { childId: 'p_nora' })] }),
+    chatResult({ toolCalls: [toolCall('stage', 'ProposeAddVillager', { childId: 'p_nora' }), toolCall('propose', 'proposeAction_start-pickup', { childId: 'p_nora', date: '2026-11-05', window: 'afternoon' })] }),
+    chatResult({ content: 'I prepared your review card.' }),
+  ]);
+  const result = await runRosinaTurn({ ...baseOptions, personId: 'p_demo_guide', isGuide: true, mcpClientFactory: () => mcp, chatFn });
+  assert.equal(mcp.calls.some(c => c.name === 'ProposeAddVillager'), false);
+  assert.deepEqual(result.actions, []);
+  assert.equal(result.addVillagerProposal, null);
+  assert.doesNotMatch(result.reply, /prepared your review card/);
+  assert.match(result.reply, /cannot prepare or confirm changes/);
+});
+
 test('an unauthorized persona (Priya case): start-pickup proposed with no PickupCandidates call at all is dropped', async () => {
   const mcp = stubMcp(KENDRA_HAS_NORA);
   const chatFn = scriptedChat([
