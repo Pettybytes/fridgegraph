@@ -14,6 +14,12 @@ test('confirmed means parent approval, never pickup completion', () => {
   assert.ok(module?.pickupStatusReply, 'authoritative pickup status formatting is missing');
   assert.match(module.pickupStatusReply('What is pickup job_approved status?', 'p_nora', children, lens)!, /approval does not establish pickup completion/);
 });
+test('a delivered fixture job ID selects only that job', () => {
+  const fixtureLens = JSON.stringify({ p_nora_pickups: [{ id: 'fx_job_p_nora_2026-11-04', status: 'awaiting_approval' }, { id: 'fx_job_p_nora_2026-11-05', status: 'confirmed' }] });
+  const reply = module!.pickupStatusReply('What is pickup fx_job_p_nora_2026-11-04 status?', 'p_nora', children, fixtureLens)!;
+  assert.match(reply, /fx_job_p_nora_2026-11-04/);
+  assert.doesNotMatch(reply, /fx_job_p_nora_2026-11-05|parent approved/);
+});
 test('an explicit other authorized child overrides the selected child', () => {
   assert.ok(module?.pickupStatusReply, 'authoritative pickup status formatting is missing');
   const reply = module.pickupStatusReply('What is the status of Leo pickup?', 'p_nora', children, lens);

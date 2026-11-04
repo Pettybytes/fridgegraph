@@ -17,7 +17,7 @@ export function pickupStatusReply(message: string, selectedChildId: string | und
   let data: Record<string, unknown>; try { data = JSON.parse(lensText) } catch { return null }
   const rows = data[child.id.replace(/[^a-zA-Z0-9_]/g, '_') + '_pickups'];
   if (!Array.isArray(rows)) return null;
-  const requestedId = message.match(/\bjob_[a-zA-Z0-9_-]+\b|\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/i)?.[0];
+  const requestedId = message.match(/\b(?:fx_)?job_[a-zA-Z0-9_-]+\b|\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/i)?.[0];
   const matching = rows.filter((r): r is { id: string; status: string } => typeof r?.id === 'string' && typeof r?.status === 'string')
     .filter(r => requestedId ? r.id === requestedId : /\bopen\b/i.test(message) ? !['confirmed', 'failed'].includes(r.status) : true);
   if (requestedId && !matching.length) return null;
