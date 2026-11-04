@@ -500,7 +500,7 @@ export function createDemoLoginApp() {
     res.status(200).json({ childId, date: read.plan.date, items: read.plan.items });
   });
 
-  // Reset is the sole guide-write exception. Authority comes from verified identity + server cast.
+  // Reset is a parent/guardian write. Showcase read authority never grants reset authority.
   app.get('/api/demo/reset/:runId', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control',NO_STORE);
     if (!isLoopback(req.socket.remoteAddress ?? '')) { res.status(403).json({error:'LOOPBACK_ONLY'}); return; }

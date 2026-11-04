@@ -29,3 +29,5 @@ The served-build harness uses the production web bundle, actual subgraph resolve
 Bentley must apply migration 0098 and deploy the matching application revision together. Claude's post-deploy verification must use Demo guide, Kendra and Dana. Local tests are not evidence of a production deploy.
 
 Integration: PRs #239, #241, #242 and #243 landed during verification. The showcase migration is now 0098. The existing 0097 Fridge policies remain in force, including fictional-note provenance; this change does not grant visibility to unmarked parent posts. Reset CI jobs are retained.
+
+The integrated browser test also caught the guide-reset exception introduced by #239. The server eligibility helper and frontend control now refuse guide reset, as required by this task. Parent/guardian reset, receipt recovery and transaction tests remain.
