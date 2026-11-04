@@ -172,3 +172,14 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
 
 .fridge-viewport[data-editable=true] .fridge-object,.fridge-viewport[data-editable=true] .fridge-posted-paper{touch-action:none;cursor:grab}
 .fridge-viewport[data-editable=true] .fridge-object:active,.fridge-viewport[data-editable=true] .fridge-posted-paper:active{cursor:grabbing}
+
+/* Keep save feedback and focused whiteboard controls readable over the sky canvas. */
+.fridge-toolbar p,.fridge-caption{color:#334155}
+.fridge-arrangement-status{margin:12px max(12px,6%);font-size:14px;color:#334155}
+@media(max-width:600px){
+ .is-focused .fridge-whiteboard h3{font-size:max(1.8cqw,9px)}
+ .is-focused .fridge-horizon{font-size:max(1.02cqw,7px)}
+ .is-focused .fridge-goal-status{font-size:max(.9cqw,6px)}
+ .is-focused .fridge-marker-picker button{min-width:21px;min-height:21px}
+ .is-focused .fridge-marker-picker button:not(.fridge-marker-swatch){font-size:max(.9cqw,7px)}
+}
