@@ -6,7 +6,7 @@ import type { LiveEvent } from './liveAdapter'
 function mockEvent(over: Partial<CalendarEvent> = {}): CalendarEvent {
   return { id: 'e1', child: { id: 'p_nora', displayName: 'Nora Ellison' }, title: 'Practice', category: 'PRACTICE', status: 'CONFIRMED', start: '2026-10-27T20:30:00Z', end: '2026-10-27T21:30:00Z', participants: [], location: { state: 'missing' }, confirmedBy: { state: 'missing' }, confirmedAt: { state: 'missing' }, linkedRecords: { state: 'missing' }, attention: [], ...over }
 }
-const liveEvent: LiveEvent = { id: 'L1', title: 'Confirmed commitment', start: '2026-11-26T18:00:00Z', end: '2026-11-26T19:00:00Z', location: null, status: 'confirmed' }
+const liveEvent: LiveEvent = { id: 'L1', title: 'Confirmed commitment', start: '2026-11-26T18:00:00Z', end: '2026-11-26T19:00:00Z', location: null, status: 'confirmed', notes: null, color: null }
 describe('design-v2 type-color mapping', () => {
   it('maps every category to its design-v2 type color (docs/design.md §2)', () => {
     const expected: Record<EventCategory, string> = {

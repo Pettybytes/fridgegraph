@@ -49,6 +49,7 @@ export type IlamyInputEvent = {
     kind: 'mock' | 'live'
     type: CalType
     category: EventCategory | null
+    color?: string // a parent-chosen CSS colour; overrides the type hue in the pill
     status: string // normalized lowercase: proposed | confirmed | cancelled
     original: CalendarEvent | LiveEvent
   }
@@ -93,6 +94,7 @@ export function liveToIlamy(event: LiveEvent, canEdit: boolean): IlamyInputEvent
       kind: 'live',
       type: calTypeOf(null),
       category: null,
+      color: event.color ?? undefined, // a parent-chosen colour overrides the neutral default
       status: normalizeStatus(event.status),
       original: event,
     },

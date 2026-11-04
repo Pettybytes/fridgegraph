@@ -2,12 +2,19 @@ import {gql} from '@apollo/client'
 import type {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
 import type {AuthSession} from '@/features/personas/auth'
 import {addDays,validDay} from './time'
-export const CHILD_EVENTS=gql`query WebChildEvents($childId:ID!,$from:String!,$to:String!,$includeCancelled:Boolean!){childEvents(childId:$childId,from:$from,to:$to,includeCancelled:$includeCancelled){id title start end location status}}`
+const EVENT_FIELDS=`id title start end location status notes color`
+export const CHILD_EVENTS=gql`query WebChildEvents($childId:ID!,$from:String!,$to:String!,$includeCancelled:Boolean!){childEvents(childId:$childId,from:$from,to:$to,includeCancelled:$includeCancelled){${EVENT_FIELDS}}}`
 export const EFFECTIVE_SCHEDULE=gql`query WebEffectiveSchedule($childId:ID!,$date:String!){effectiveScheduleFor(childId:$childId,date:$date){parent{id displayName} source arrangementId}}`
 export const SCHEDULE_CONFLICTS=gql`query WebScheduleConflicts($childId:ID!,$from:String!,$to:String!){scheduleConflicts(childId:$childId,from:$from,to:$to){kind onDay arrangementIds}}`
 export const ADULT_AVAILABILITY=gql`query WebAdultAvailability($personId:ID!,$from:String!,$to:String!){adultAvailability(personId:$personId,from:$from,to:$to){person{id displayName} start end state}}`
+export const CREATE_EVENT=gql`mutation WebCreateEvent($childId:ID!,$title:String!,$start:String!,$end:String!,$location:String,$notes:String,$color:String,$status:String){createCalendarEvent(childId:$childId,title:$title,start:$start,end:$end,location:$location,notes:$notes,color:$color,status:$status){${EVENT_FIELDS}}}`
+export const UPDATE_EVENT=gql`mutation WebUpdateEvent($id:ID!,$title:String!,$start:String!,$end:String!,$location:String,$notes:String,$color:String,$status:String){updateCalendarEvent(id:$id,title:$title,start:$start,end:$end,location:$location,notes:$notes,color:$color,status:$status){${EVENT_FIELDS}}}`
+export const DELETE_EVENT=gql`mutation WebDeleteEvent($id:ID!){deleteCalendarEvent(id:$id)}`
 export type ReadOutcome<T>={state:'ready';value:T}|{state:'refused'}|{state:'failed'}
-export type LiveEvent={id:string;title:string;start:string;end:string;location:string|null;status:string}
+export type LiveEvent={id:string;title:string;start:string;end:string;location:string|null;status:string;notes:string|null;color:string|null}
+// What the event form collects. childId is required to create; an edit targets an existing id.
+export type EventDraft={title:string;start:string;end:string;location:string|null;notes:string|null;color:string|null;status:string}
+export type WriteResult<T>={ok:true;value:T}|{ok:false;reason:'refused'|'failed'}
 export type EffectiveCare={parent:{id:string;displayName:string}|null;source:string;arrangementId:string|null}
 export type ScheduleConflict={kind:string;onDay:string;arrangementIds:string[]}
 export type Availability={person:{id:string;displayName:string};start:string;end:string;state:'BUSY'|'FREE'}
@@ -27,6 +34,20 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
    if(getGeneration()!==generation)throw Error('SESSION_CHANGED')
    const e=error as {message?:string;errors?:{extensions?:{code?:string}}[]}
    return /UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?{state:'refused'}:{state:'failed'}
+  }
+ }
+ // Mutations go through the parent-only schedule RPCs. A refusal (non-parent, demo guide) comes
+ // back as UNAUTHORIZED and is surfaced as 'refused'; anything else is 'failed'. The caller re-reads
+ // the window on success so the new row (shared across tenants) appears.
+ async function write<T>(mutation:Parameters<typeof client.mutate>[0]['mutation'],variables:Record<string,string|null>,field:string):Promise<WriteResult<T>>{
+  try{
+   const value=await runRead(async()=>{const result=await client.mutate<Record<string,T>>({mutation,variables});if(!result.data||result.data[field]===undefined)throw Error('WRITE_UNAVAILABLE');return result.data[field]})
+   if(getGeneration()!==generation)throw Error('SESSION_CHANGED')
+   return {ok:true,value}
+  }catch(error){
+   if(getGeneration()!==generation)throw Error('SESSION_CHANGED')
+   const e=error as {message?:string;errors?:{extensions?:{code?:string}}[]}
+   return /UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?{ok:false,reason:'refused'}:{ok:false,reason:'failed'}
   }
  }
  async function readWindow({childId,from,to,includeCancelled=false}:{childId:string;from:string;to:string;includeCancelled?:boolean}):Promise<LiveWindow>{
@@ -52,5 +73,9 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
  // A parent may drag to move/resize; caregivers and read-only personas may not.
  // There is no move/resize mutation here (reads only), so a parent's drag is still
  // reverted and shown as "not saved" by the view - never a silent fake save.
- return {mode:'live' as const,scope:session.scope,parent:session.persona.parent===true,readWindow,knownEvent:(id:string)=>events.get(id),knownChild:(id:string)=>eventChildren.get(id),getActionScope:()=>actionScope,subscribe:(notify:()=>void)=>{listeners.add(notify);return()=>{listeners.delete(notify)}},clear(){events.clear();eventChildren.clear();actionScope.calendarChildIds.clear();publish()}}
+ return {mode:'live' as const,scope:session.scope,parent:session.persona.parent===true,readWindow,
+  createEvent:(childId:string,draft:EventDraft):Promise<WriteResult<LiveEvent>>=>write<LiveEvent>(CREATE_EVENT,{childId,...draft},'createCalendarEvent'),
+  updateEvent:(id:string,draft:EventDraft):Promise<WriteResult<LiveEvent>>=>write<LiveEvent>(UPDATE_EVENT,{id,...draft},'updateCalendarEvent'),
+  deleteEvent:(id:string):Promise<WriteResult<string>>=>write<string>(DELETE_EVENT,{id},'deleteCalendarEvent'),
+  knownEvent:(id:string)=>events.get(id),knownChild:(id:string)=>eventChildren.get(id),getActionScope:()=>actionScope,subscribe:(notify:()=>void)=>{listeners.add(notify);return()=>{listeners.delete(notify)}},clear(){events.clear();eventChildren.clear();actionScope.calendarChildIds.clear();publish()}}
 }
