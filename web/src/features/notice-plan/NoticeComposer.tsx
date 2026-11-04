@@ -80,6 +80,7 @@ function LocalNoticeDraft({registerCleanup,adapter,childId,canConfirm=false,read
  return <details className="notice-draft" aria-label="Notice draft">
   <summary><FileText size={18} aria-hidden="true"/><span>Add a notice</span><strong>{adapter?.mode==='live'?'Live':'Mock'}</strong></summary>
   <div className="notice-draft-body">
+   <Button type="button" variant="ghost" className="notice-control" onClick={event=>{const details=event.currentTarget.closest('details');if(details){details.open=false;details.querySelector('summary')?.focus()}}}>Close notice</Button>
    <p className="notice-local-note">{adapter?.mode==='live'?'Reviewing sends the notice securely. Nothing changes until you confirm.':'Local draft only. Nothing is uploaded or created.'}</p>
    <div className={`notice-drop ${dragging?'is-dragging':''}`} onDragOver={event=>{event.preventDefault();event.stopPropagation();setDragging(true)}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDragging(false)}} onDrop={event=>{event.preventDefault();event.stopPropagation();setDragging(false);chooseFiles(Array.from(event.dataTransfer.files))}}>
     <Upload size={22} aria-hidden="true"/><p>Drop a notice here</p>

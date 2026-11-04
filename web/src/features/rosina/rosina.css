@@ -141,3 +141,7 @@ body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
 @keyframes rosina-typing{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
 .rosina-progress-inline{font-size:.8rem;color:var(--fg-muted);margin:4px 0 0}
 @media(prefers-reduced-motion:reduce){.rosina-caret,.rosina-typing i{animation:none}}
+/* Keep notice review controls inside the mobile viewport when the tool pill wraps. */
+@media(max-width:600px){
+ .rosina-notice-attach .notice-draft[open]>.notice-draft-body{position:fixed;left:16px;right:16px;bottom:calc(88px + env(safe-area-inset-bottom));width:auto;max-height:60dvh}
+}

@@ -135,6 +135,7 @@ test('Guide confirms a notice, receives a test reply, and approves the pickup',a
  const receipt=await (await confirmed).json()
  expect(receipt.job?.id).toBeTruthy()
  await expect(page.getByText('Pickup request created',{exact:true})).toBeVisible()
+ await page.getByRole('button',{name:'Close notice',exact:true}).click()
  await page.getByRole('button',{name:'Close Ask Rosina',exact:true}).click()
  const main=await open(page,'mission-control')
  await main.getByRole('combobox',{name:'Pickup record',exact:true}).selectOption(receipt.job.id)
