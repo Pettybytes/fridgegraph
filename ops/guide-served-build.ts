@@ -10,7 +10,7 @@ import { DEMO_PERSONAS } from '../src/demo/personas';
 import { createFridgeSeed } from '../src/fixtures-fridge';
 import { resetSnapshot } from '../src/demo/reset';
 import { createDemoHistory } from '../src/fixtures-demo-history';
-import { createSimulatedPrivate, createSimulatedCoordination, createSimulatedCalendar, createSimulatedCheckIn, createSimulatedCareFacts } from '../src/fixtures-simulated';
+import { createSimulatedOrbit, createSimulatedPrivate, createSimulatedCoordination, createSimulatedCalendar, createSimulatedCheckIn, createSimulatedCareFacts } from '../src/fixtures-simulated';
 import village from '../src/subgraphs/village';
 import access from '../src/subgraphs/access';
 import coordination from '../src/subgraphs/coordination';
@@ -34,6 +34,8 @@ import {createInviteRateLimiter} from '../src/rosina/inviteBudget';
 import {createInviteDedup} from '../src/rosina/inviteDedup';
 // PostgREST returns SQL dates as YYYY-MM-DD strings, not JavaScript Date objects.
 pg.types.setTypeParser(1082, value => value);
+pg.types.setTypeParser(1114,value=>value.replace(' ','T'));
+pg.types.setTypeParser(1184,value=>new Date(value).toISOString());
 const db = await guideDatabase();
 process.once('uncaughtException',async error=>{console.error(error.message);await db.close();process.exit(1)});
 process.once('unhandledRejection',async error=>{console.error(error);await db.close();process.exit(1)});
@@ -42,6 +44,7 @@ for (const source of [createSimulatedPrivate(),createSimulatedCalendar(),createS
 }
 const snapshot = resetSnapshot();
 await db.admin.query('select restore_demo_snapshot($1,$2,$3,$4)', ['served-calendar', randomUUID(), JSON.stringify(snapshot.fixtures), JSON.stringify(snapshot.cast)]);
+await insertRows(db.admin,'household_policies',createSimulatedOrbit().household_policies);
 await db.admin.query('select seed_recorded_places(); select seed_event_place_links()');
 const ids = new Map<string,string>();
 for (const persona of DEMO_PERSONAS) {
@@ -104,10 +107,18 @@ app.post('/api/demo/login',(req,res)=>{
  const p=DEMO_PERSONAS.find(p=>p.id===req.body.personaId);if(!p){res.sendStatus(401);return}
  res.json({status:'READY',personaId:p.id,personId:p.personId,persona:p,scope:{childId:p.childId,childName:p.childName,parentName:p.name,villageId:p.villageId},session:{access_token:`fixture-${p.id}`,token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600},marks:{demo:true,demoGuide:p.id==='demo-guide'}});
 });
+const resetRuns=new Map<string,{personaId:string;status:string;report?:unknown}>();
+app.get('/api/demo/reset/:runId',(req,res)=>{
+ const persona=personaFor(req.headers.authorization),run=resetRuns.get(req.params.runId);
+ if(!persona||run?.personaId!==persona.id){res.sendStatus(404);return}
+ res.json({...run,runId:req.params.runId,session:null});
+});
 app.post('/api/demo/reset',async(req,res)=>{
  const persona=personaFor(req.headers.authorization);if(persona?.id!=='demo-guide'){res.sendStatus(403);return}
  const runId=req.body.runId;
+ resetRuns.set(runId,{personaId:persona.id,status:'running'});
  const result=await db.admin.query('select restore_showcase_snapshot($1,$2::uuid,$3::jsonb) as report',[persona.personId,runId,JSON.stringify(showcaseSnapshot())]);
+ resetRuns.set(runId,{personaId:persona.id,status:'committed',report:result.rows[0].report});
  res.json({ok:true,runId,status:'committed',personaId:persona.id,session:null,report:result.rows[0].report});
 });
 app.post('/graphql',async(req,res)=>{

@@ -131,6 +131,7 @@ export function resetSnapshot() { return { fixtures: fixtures(), cast: castRowsB
 export function showcaseSnapshot() {
   const base=createSeed(), {fixtures,cast}=resetSnapshot();
   const snapshot: Record<string, Row[]> = {
+    events: base.events.map(e=>({id:e.id,child_id:e.childId,title:e.title,start_at:e.start,end_at:e.end,location:e.location})),
     relationships: base.relationships.map(r=>({id:r.id,from_id:r.fromId,to_id:r.toId,type:r.type,status:r.status,created_at:r.createdAt,history:r.history})),
     care_plans: base.carePlans.map(c=>({child_id:c.childId,text:c.text})),
     grants: base.grants.map(g=>({id:g.id,actor_id:g.actorId,child_id:g.childId,scopes:g.scopes,valid_from:g.validFrom??null,valid_until:g.validUntil??null,granted_by:g.grantedBy})),

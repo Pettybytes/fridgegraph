@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+test.beforeEach(async({page})=>{page.on('pageerror',error=>console.error('Browser error:',error.message))})
 const denied=/refused|not shared|isn't shared|Couldn['’]t load|unavailable/i
 async function open(page:Page,route:string){
  await page.evaluate(route=>{location.hash='/'+route},route)

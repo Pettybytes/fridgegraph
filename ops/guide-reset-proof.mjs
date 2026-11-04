@@ -24,6 +24,7 @@ try{
  const first=(await reset()).rows[0].report;
  assert.equal(await unrelated(),before,'other families and unmarked rows are byte-for-byte unchanged');
  assert.equal((await db.admin.query("select text from care_plans where child_id='p_nora'")).rows[0].text,snapshot.care_plans.find(r=>r.child_id==='p_nora').text);
+ assert.equal((await db.admin.query("select count(*)::int as n from events where id='e_school_1026' and child_id='p_nora'")).rows[0].n,1,'sample notice school day survives Reset');
  assert.deepEqual((await reset()).rows[0].report,first,'same run is idempotent');
  await assert.rejects(db.admin.query('select restore_showcase_snapshot($1,$2,$3::jsonb)',['p_dana',randomUUID(),JSON.stringify(snapshot)]),/ACTOR_REFUSED/);
  const failedRun=randomUUID();
