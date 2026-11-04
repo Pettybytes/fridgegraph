@@ -36,7 +36,7 @@ describe('replay story model', () => {
     expect(PARENT_JOURNEY.at(-1)!.atMs).toBeLessThan(REPLAY_DURATION_MS)
     expect(journeyAt(0)).toHaveLength(0)
     expect(journeyAt(20000).some(event => event.kind === 'confirmed')).toBe(false)
-    expect(journeyAt(31000).some(event => event.kind === 'confirmed')).toBe(true)
+    expect(journeyAt(26000).some(event => event.kind === 'confirmed')).toBe(true)
     expect(PARENT_JOURNEY.some(event => /picked up|completed pickup/i.test(event.title))).toBe(false)
   })
 
@@ -53,8 +53,8 @@ describe('replay story model', () => {
     expect(text).toMatch(/PickupCandidates/)
     expect(text).toMatch(/TEST_RESPONDER/)
     expect(text).not.toMatch(/secret|bearer|password|api[_-]?key|service[_-]?role|\+1\d|[0-9a-f]{8}-[0-9a-f]{4}/i)
-    const early = traceAt(9000).find(entry => entry.line.id === 't-mychildren')!
-    const later = traceAt(9400).find(entry => entry.line.id === 't-mychildren')!
+    const early = traceAt(7600).find(entry => entry.line.id === 't-mychildren')!
+    const later = traceAt(8000).find(entry => entry.line.id === 't-mychildren')!
     expect(later.chars).toBeGreaterThan(early.chars)
     expect(traceAt(REPLAY_DURATION_MS).every(entry => !entry.typing)).toBe(true)
     expect(traceClock(0)).toBe('13:29:56.0')
@@ -62,26 +62,24 @@ describe('replay story model', () => {
     expect(traceTokens('mutation requestPickup(childId: "child_nora")').map(token => token.cls).join(' ')).toContain('kw')
   })
 
-  it('keeps one narration track whose segments fit the replay and never overlap', () => {
+  it('keeps one Rosina narration track whose segments fit the replay and never overlap', () => {
     expect(REPLAY_NARRATION.durationMs).toBeLessThan(REPLAY_DURATION_MS)
     const segments = REPLAY_NARRATION.segments
-    expect(segments.length).toBe(6)
+    expect(segments.length).toBe(5)
+    expect(segments.every(segment => segment.speaker === 'rosina')).toBe(true)
     for (let index = 1; index < segments.length; index += 1) expect(segments[index].startMs).toBeGreaterThanOrEqual(segments[index - 1].endMs)
-    const loretta = segments.find(segment => segment.speaker === 'loretta')!
-    expect(loretta.endMs - loretta.startMs).toBe(4133)
-    expect(loretta.text).toContain('I can be there at 1.20')
-    expect(speakerAt(REPLAY_NARRATION, loretta.startMs + 100)).toBe('loretta')
     expect(speakerAt(REPLAY_NARRATION, segments[0].startMs + 100)).toBe('rosina')
+    expect(speakerAt(REPLAY_NARRATION, segments[0].endMs + 50)).toBeNull()
     expect(speakerAt(REPLAY_NARRATION, REPLAY_DURATION_MS - 1)).toBeNull()
     expect(captionAt(0)).toContain('school notice')
     expect(captionAt(REPLAY_DURATION_MS)).toContain('Mission Control')
   })
 
-  it('traces the route from start to end monotonically', () => {
+  it('traces the pickup route over the real map from start to end monotonically', () => {
     const [startX, startY] = routePoint(0)
     const [endX, endY] = routePoint(1)
-    expect([startX, startY]).toEqual([52, 288])
-    expect([endX, endY]).toEqual([196, 312])
+    expect([startX, startY]).toEqual([66, 252])
+    expect([endX, endY]).toEqual([214, 300])
     expect(routePoint(0.5)).not.toEqual([startX, startY])
   })
 })
@@ -91,7 +89,7 @@ describe('ThreePhoneStory playback', () => {
     render(<ThreePhoneStory initialAutoplay={false} />)
     expect(screen.getByText('Good afternoon, Kendra')).toBeInTheDocument()
     expect(screen.getByText(/replay trace · demo flow/)).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: /Village map replay/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /real Village map/ })).toBeInTheDocument()
     expect(screen.getByText(/Pickup route · waiting/)).toBeInTheDocument()
     const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
     expect(section.querySelectorAll('audio')).toHaveLength(1)
@@ -122,12 +120,12 @@ describe('ThreePhoneStory playback', () => {
     const play = mockAudio(audio)
     fireEvent.click(screen.getByRole('button', { name: 'Sound off' }))
     expect(screen.getByRole('button', { name: 'Sound on' })).toHaveAttribute('aria-pressed', 'true')
-    act(() => { vi.advanceTimersByTime(2000) })
+    act(() => { vi.advanceTimersByTime(2000) })               // within segment s1 (700-5715)
     expect(screen.getByRole('img', { name: 'Rosina, speaking' })).toBeInTheDocument()
-    act(() => { vi.advanceTimersByTime(21000) })
+    act(() => { vi.advanceTimersByTime(4500) })               // 6500ms: gap between s1 and s2
     expect(screen.getByRole('img', { name: 'Rosina, ready' })).toBeInTheDocument()
     const callsBeforeLoop = play.mock.calls.length
-    for (let second = 0; second < 25; second++) act(() => { vi.advanceTimersByTime(1000) })
+    for (let second = 0; second < 30; second++) act(() => { vi.advanceTimersByTime(1000) })  // cross 34s duration
     expect(section).toHaveAttribute('data-loop-count', '1')
     expect(play.mock.calls.length).toBeGreaterThan(callsBeforeLoop)
     expect(section.querySelectorAll('audio')).toHaveLength(1)
@@ -171,9 +169,9 @@ describe('ThreePhoneStory playback', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
     render(<ThreePhoneStory />)
     const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
-    expect(within(section).getByText(/Demo story replay · fictional people/)).toBeInTheDocument()
+    expect(within(section).getByText(/Demo replay · fictional people/)).toBeInTheDocument()
     expect(section.querySelectorAll('.sr-replay-chip')).toHaveLength(3)
-    expect(section.textContent).toContain('pickup completion is not recorded')
+    expect(section.textContent).toMatch(/pickup completion is not recorded|no pickup is actually arranged/i)
     const journey = within(section).getByLabelText('Kendra’s replayed journey')
     expect(within(journey).getByText(/Confirm Loretta for the pickup/)).toBeInTheDocument()
     expect(within(journey).getByRole('img', { name: /Waveform derived/ })).toBeInTheDocument()

@@ -1,16 +1,15 @@
-import narrationUrl from './assets/replay-narration.mp3'
-import manifest from './assets/replay-narration.json'
+import narrationUrl from './assets/rosina-narration.mp3'
+import manifest from './assets/rosina-narration.json'
 import lorettaClip from './assets/voice-three-phone-loretta.json'
 
-export type NarrationSpeaker = 'rosina' | 'loretta'
+export type NarrationSpeaker = 'rosina'
 export type NarrationSegment = Readonly<{ id: string; speaker: NarrationSpeaker; startMs: number; endMs: number; text: string }>
 export type Narration = Readonly<{ src: string; durationMs: number; segments: readonly NarrationSegment[] }>
 
 /**
- * One preloaded track for the whole replay. Rosina's segments are synthesized
- * narration (macOS say, labeled in the manifest); segment s4 is the verbatim
- * illustrative Loretta clip spliced in unchanged, so her reply is the same
- * recorded audio the demo has always used. Built by web/scripts/build-replay-narration.sh.
+ * One preloaded track for the whole replay: Rosina's REAL ElevenLabs voice, generated
+ * once through the app's own voice path (/voice/speak) and committed as a static asset.
+ * See assets/rosina-narration.json for provenance. No key or token is stored.
  */
 export const REPLAY_NARRATION: Narration = {
   src: narrationUrl,
@@ -18,7 +17,7 @@ export const REPLAY_NARRATION: Narration = {
   segments: manifest.segments as readonly NarrationSegment[],
 }
 
-/** Waveform peaks derived from Loretta's approved clip, drawn in her reply bubble. */
+/** Waveform peaks from Loretta's recorded illustrative clip, drawn in her reply bubble on Phone 1. */
 export const LORETTA_PEAKS: readonly number[] = lorettaClip.peaks
 
 export function speakerAt(narration: Narration | null, elapsedMs: number): NarrationSpeaker | null {

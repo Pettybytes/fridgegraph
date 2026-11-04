@@ -59,17 +59,21 @@ export default function SignedInVillage({orbitNow}:{orbitNow:()=>number}) {
   const adapter=connection?.adapter
   if (switching) return <PersonaPicker key="switching" />
   if (!session || !adapter) return <PersonaPicker key="picker" />
+  // The Demo guide is the only perspective that sees the replay tab. marks.demoGuide is the
+  // authoritative live signal; the persona id identifies the same read-only guide under mock auth.
+  const isDemoGuide = session.marks?.demoGuide === true || session.persona.id === 'demo-guide'
   return <div key={session.generation} data-state={adapter.mode==='mock'?'unavailable':'derived'} data-mode={adapter.mode}>
     <VoiceProvider getAccessToken={() => getCurrentSession()?.accessToken ?? null} resetKey={`${session.persona.personId}:${session.scope.childId}:${session.generation}`}>
     {connection?.client&&<ResetSeededReads client={connection.client}/>}
     <OrbitProvider controller={connection?.orbit??null}><LiveCalendarContext.Provider value={connection?.calendar??null}><DataProvider adapter={adapter} scope={session.scope} cache={connection?.client?.cache}>
       <PageChildAccess client={connection?.client ?? null} selectedChildId={session.scope.childId} selectedChildName={session.scope.childName} runRead={runRead} generation={session.generation}>
       <VillageMapProvider><PrefetchRoutes client={connection?.client??null} calendar={connection?.calendar??null}/><ApolloSessionCleanup clearAdapter={adapter.clearStore} />
-      <Shell sessionChip={<SessionChip />} slots={{
+      <Shell sessionChip={<SessionChip />} showDemoReplay={isDemoGuide} slots={{
         map: <VillageMap/>,
         fridge: <Suspense fallback={<RouteSkeleton />}><FridgeRoute /></Suspense>,
         today: <><Today attention={session.accessToken&&authMode==='live'?<OrbitCheckInCard/>:null} now={orbitNow} /><VillageMapMini/></>,
-        'mission-control': <>{session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>}<Suspense fallback={<RouteSkeleton />}><ThreePhoneStory /></Suspense></>,
+        'mission-control': <>{session.accessToken&&authMode==='live'?<><OrbitCheckInCard/><LiveMissionControl accessDenied={<SharingBoundary surface="pickup"/>}/><VillageMapMini/></>:<><p className="persona-mock">Sample scenario · fictional replay</p><MissionControl accessDenied={<SharingBoundary surface="pickup" />} /><VillageMapMini/></>}</>,
+        ...(isDemoGuide ? { 'demo-replay': <Suspense fallback={<RouteSkeleton />}><ThreePhoneStory /></Suspense> } : {}),
         orbit:<Orbit/>,
         activity:<Activity client={connection?.client??null} adapter={adapter}/>,
         'ask-rosina': <div id="rosina-route-slot" className="rosina-route-page" />,

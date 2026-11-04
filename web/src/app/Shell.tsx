@@ -2,12 +2,12 @@ import {preloadRoute} from './routeModules'
 import {RouteSkeleton} from './RouteSkeleton'
 import { Suspense, startTransition, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, CalendarDays, Home, Map, List, Mail, Refrigerator } from 'lucide-react'
+import { LayoutDashboard, Radar, MessageCircle, HeartPulse, Network, ArrowUpRight, CalendarDays, Home, Map, List, Mail, Refrigerator, Clapperboard } from 'lucide-react'
 import { FridgeMark } from '@/components/fg/FridgeMark'
 import { cn } from '@/lib/utils'
 import { useDataContext } from '@/lib/frontendData/provider'
-export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map' | 'activity' | 'invitations' | 'fridge'
-const routes = [
+export type Route = 'today' | 'mission-control' | 'ask-rosina' | 'village' | 'care-information' | 'calendar' | 'orbit' | 'map' | 'activity' | 'invitations' | 'fridge' | 'demo-replay'
+const baseRoutes = [
   { path: 'map', label: 'Village map', icon: Map },
   { path: 'today', label: 'Today', icon: Home },
   { path: 'fridge', label: 'The Fridge', icon: Refrigerator },
@@ -20,8 +20,10 @@ const routes = [
   { path: 'care-information', label: 'Care information', icon: HeartPulse },
   { path: 'village', label: 'Living Village', icon: Network },
 ] as const
+// The Demo replay tab is appended ONLY for the Demo guide perspective (see App.tsx).
+const demoReplayRoute = { path: 'demo-replay', label: 'Demo replay', icon: Clapperboard } as const
 function readRoute(): string { const route = window.location.hash.slice(2).split('?')[0]; return ['fridge/notes', 'fridge/goals'].includes(route) ? 'fridge' : route === 'parent-chat' ? 'ask-rosina' : route || 'today' }
-export function Shell({ slots = {}, sessionChip }: { slots?: Partial<Record<Route, ReactNode>>; sessionChip?: ReactNode }) {
+export function Shell({ slots = {}, sessionChip, showDemoReplay = false }: { slots?: Partial<Record<Route, ReactNode>>; sessionChip?: ReactNode; showDemoReplay?: boolean }) {
   const [route, setRoute] = useState(readRoute)
   const { scope } = useDataContext()
   useEffect(() => {
@@ -30,6 +32,8 @@ export function Shell({ slots = {}, sessionChip }: { slots?: Partial<Record<Rout
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
+  const routes = showDemoReplay ? [...baseRoutes, demoReplayRoute] : baseRoutes
+  // A non-guide landing on #/demo-replay falls through to the normal not-found slot below.
   const current = routes.find(item => item.path === route)
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
