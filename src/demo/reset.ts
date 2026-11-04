@@ -7,6 +7,7 @@
  * audit history are never touched: every delete is scoped to `sandbox = true` or to fixture ids.
  */
 import pg from 'pg';
+import { createShowcaseCalendar } from '../fixtures';
 import { randomUUID } from 'node:crypto';
 import { createSimulatedCoordination } from '../fixtures-simulated';
 import { createSimulatedCalendar } from '../fixtures-simulated';
@@ -99,6 +100,7 @@ function castRowsByTable(): Record<string, Row[]> {
   const cv = createCastV2() as unknown as Record<string, Row[]>;
   const out: Record<string, Row[]> = {};
   for (const [table, rows] of Object.entries(cv)) if (Array.isArray(rows)) out[table] = rows;
+  Object.assign(out, createShowcaseCalendar());
   // Restore family Fridge rows after Cast has supplied every child and author.
   for (const [table, rows] of Object.entries(createFridgeSeed())) out[table] = [...(out[table] ?? []), ...rows];
   return out;

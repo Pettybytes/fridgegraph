@@ -9,6 +9,8 @@
  * "aunt" and "godmother" — two Relationship rows, one Person).
  */
 
+import { createCastV2 } from './fixtures-cast-v2';
+
 export type PersonRow = { id: string; displayName: string; birthDate: string };
 export type RelationshipRow = {
   id: string;
@@ -66,7 +68,7 @@ export type Seed = {
     at: string;
   }[];
   policies: { householdId: string; rule: string; value: string }[];
-  schedules: { childId: string; parentId: string; weekdays: string[] }[];
+  schedules: { childId: string; parentId: string; weekdays: string[]; handoffTime: string; handoffLocation: string }[];
   events: { id: string; childId: string; title: string; start: string; end: string; location: string }[];
   busRosters: { date: string; childId: string; route: string; riding: boolean }[];
   vehicles: {
@@ -349,11 +351,21 @@ export function createSeed(): Seed {
       lat: 42.2590, lng: -83.0458, source: 'ESTIMATED', capturedAt: '2026-09-01T00:00:00Z' },
   ];
 
-  const schedules = [
-    { childId: 'p_nora', parentId: 'p_mom', weekdays: ['MON', 'TUE', 'WED'] },
-    { childId: 'p_nora', parentId: 'p_dad', weekdays: ['THU', 'FRI', 'SAT', 'SUN'] },
-    { childId: 'p_jax', parentId: 'p_dana', weekdays: ['MON', 'TUE', 'WED', 'THU'] },
-    { childId: 'p_jax', parentId: 'p_ray', weekdays: ['FRI', 'SAT', 'SUN'] },
+  const schedules: Seed['schedules'] = [
+    ...['p_nora', 'p_leo', 'p_max'].flatMap(childId => [
+      { childId, parentId: 'p_mom', weekdays: ['MON', 'TUE', 'WED'], handoffTime: '08:00', handoffLocation: 'Ellison family home' },
+      { childId, parentId: 'p_dad', weekdays: ['THU', 'FRI', 'SAT', 'SUN'], handoffTime: '08:00', handoffLocation: 'Ellison family home' },
+    ]),
+    { childId: 'p_jax', parentId: 'p_dana', weekdays: ['MON', 'TUE', 'WED', 'THU'], handoffTime: '08:00', handoffLocation: 'Coleman family home' },
+    { childId: 'p_jax', parentId: 'p_ray', weekdays: ['FRI', 'SAT', 'SUN'], handoffTime: '08:00', handoffLocation: 'Coleman family home' },
+    { childId: 'p_emma', parentId: 'p_rosa', weekdays: ['MON', 'TUE', 'WED', 'THU'], handoffTime: '08:00', handoffLocation: 'Castellano family home' },
+    { childId: 'p_emma', parentId: 'p_tomas', weekdays: ['FRI', 'SAT', 'SUN'], handoffTime: '08:00', handoffLocation: 'Castellano family home' },
+    ...['p_taylor', 'p_skye'].map(childId => ({ childId, parentId: 'p_felicia', weekdays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], handoffTime: '08:00', handoffLocation: 'Reyes family home' })),
+    ...['p_micah', 'p_avery'].flatMap(childId => [
+      { childId, parentId: 'p_simone', weekdays: ['MON', 'TUE', 'WED'], handoffTime: '08:00', handoffLocation: 'Lee family home' },
+      { childId, parentId: 'p_denise', weekdays: ['THU', 'FRI', 'SAT', 'SUN'], handoffTime: '08:00', handoffLocation: 'Lee family home' },
+    ]),
+    { childId: 'p_malik', parentId: 'p_dwayne', weekdays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], handoffTime: '08:00', handoffLocation: 'Ferris family home' },
   ];
 
   const events = [
@@ -415,5 +427,50 @@ export function createSeed(): Seed {
     attempts: [],
     informationRequests: [],
     confirmations: [],
+  };
+}
+
+/** Canonical fictional calendar records shared by operator seed and Reset demo.
+ * BUSY windows describe attendance at actual seeded events. FREE is an explicit fixture
+ * declaration, never inferred from a calendar gap and never permission to provide care.
+ */
+export function createShowcaseCalendar() {
+  const schedules = createSeed().schedules;
+  const events = createCastV2().events;
+  const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const adult_availability: Record<string, unknown>[] = [];
+  for (const event of events.filter(e => e.id.startsWith('fx_pr_') && e.id.endsWith('_pickup'))) {
+    const day = event.start_at.slice(0, 10);
+    const weekday = weekdays[new Date(`${day}T12:00:00Z`).getUTCDay()];
+    const parent = schedules.find(s => s.childId === event.child_id && s.weekdays.includes(weekday));
+    if (!parent) continue;
+    // These fixed fixtures span October/November 2026: Detroit leaves DST November 1.
+    const offset = day < '2026-11-01' ? '-04:00' : '-05:00';
+    adult_availability.push({ id: `fx_calendar_busy_${event.id}`, person_id: parent.parentId,
+      start_at: event.start_at + offset, end_at: event.end_at + offset,
+      state: 'BUSY', reason: `Attending ${event.title} at ${event.location}`, fixture: true });
+  }
+  for (const person of new Set(schedules.map(s => s.parentId))) {
+    for (let day = 2; day <= 17; day++) {
+      const date = `2026-11-${String(day).padStart(2, '0')}`;
+      adult_availability.push({ id: `fx_calendar_free_${person}_${date}`, person_id: person,
+        start_at: `${date}T19:00:00-05:00`, end_at: `${date}T20:00:00-05:00`,
+        state: 'FREE', reason: null, fixture: true });
+    }
+  }
+  const holiday_arrangements = [...new Set(schedules.map(s => s.childId))].map(child => {
+    const parent = schedules.find(s => s.childId === child && s.weekdays.includes('WED'))!;
+    return { id: `fx_calendar_${child}_veterans`, child_id: child,
+      holiday_name: 'Veterans Day family care', date_start: '2026-11-11', date_end: '2026-11-11',
+      assigned_parent_id: parent.parentId, pickup_duty_parent_id: parent.parentId,
+      dropoff_duty_parent_id: parent.parentId, status: 'APPROVED', proposed_by_id: parent.parentId, fixture: true };
+  });
+  const jax = holiday_arrangements.find(r => r.child_id === 'p_jax')!;
+  Object.assign(jax, { id: 'fx_ha_jax_veterans', holiday_name: 'Veterans Day', assigned_parent_id: 'p_ray',
+    pickup_duty_parent_id: 'p_ray', dropoff_duty_parent_id: 'p_ray', proposed_by_id: 'p_dana' });
+  return {
+    parenting_schedules: schedules.map(p => ({ child_id: p.childId, parent_id: p.parentId,
+      weekdays: p.weekdays, handoff_time: p.handoffTime, handoff_location: p.handoffLocation })),
+    adult_availability, holiday_arrangements,
   };
 }
