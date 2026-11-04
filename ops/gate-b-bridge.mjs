@@ -22,6 +22,10 @@ const BRIDGE_SHA = '9fc40f92';
 const ENABLED = process.env.GATE_B_ENABLED === '1';
 if (!ENABLED) { console.log('[gate-b] disabled (GATE_B_ENABLED!=1); no listener started'); process.exit(0); }
 const SECRET = process.env.GATE_B_BRIDGE_SECRET;
+// Socket credential Retell carries as ?key= (it sends no auth headers). The
+// per-call bound session token stays the authorization; this is a second,
+// connection-level factor. Absent = not configured (session token only).
+const WS_SECRET = process.env.GATE_B_WS_SECRET || undefined;
 if (!SECRET) { console.error('[gate-b] GATE_B_BRIDGE_SECRET missing; refusing to start'); process.exit(2); }
 const GRAPHQL_URL = process.env.GATE_B_GRAPHQL_URL ?? 'http://127.0.0.1:4010/';
 const ROSINA_URL = process.env.GATE_B_ROSINA_URL ?? 'http://127.0.0.1:4200/api/rosina';
@@ -127,6 +131,7 @@ server.on('upgrade', (req, socket) => {
   const handled = handleRetellWsUpgrade(req, socket, {
     bridge,
     secret: SECRET,
+    pathSecret: WS_SECRET,
     resolveSession: ({ sessionToken }) => {
       const rec = sessionToken ? readSession(sessionToken) : null;
       return rec ? rec.session : null;

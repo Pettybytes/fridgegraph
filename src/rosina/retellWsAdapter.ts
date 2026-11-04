@@ -19,7 +19,7 @@
  *   body ever claimed execution, the spoken line is replaced with the
  *   state-4 refusal instead of repeating a save that did not happen.
  */
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { RetellBridge, signPayload, type BridgeSession } from './retellBridge';
 
 export type RetellWsSocket = {
@@ -38,6 +38,10 @@ export type RetellWsDeps = {
   bridge: RetellBridge;
   /** Bridge HMAC secret, supplied from the process env at runtime only. */
   secret: string;
+  /** Optional shared secret Retell carries as ?key= in the agent's LLM URL
+   *  (Retell sends no auth headers). When set, upgrades without it are
+   *  refused before the 101 handshake. Set via env at runtime, never logged. */
+  pathSecret?: string;
   /** Resolve the bound session for this call; null refuses the call. */
   resolveSession: (info: {
     callId: string | null;
@@ -63,6 +67,20 @@ export function sessionTokenFromUrl(url: string): string | null {
   return new URLSearchParams(q).get('session');
 }
 
+export function wsKeyFromUrl(url: string): string | null {
+  const q = url.split('?')[1];
+  if (!q) return null;
+  return new URLSearchParams(q).get('key');
+}
+
+/** Constant-time check of the ?key= socket credential. False when either side is absent. */
+export function wsKeyMatches(url: string, expected: string | undefined): boolean {
+  if (!expected) return true; // not configured: the bound session token remains the credential
+  const got = wsKeyFromUrl(url);
+  if (!got || got.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(got), Buffer.from(expected));
+}
+
 function sentenceChunks(text: string): string[] {
   const parts = text.match(/[^.!?]+[.!?]+\s*|[^.!?]+$/g) ?? [text];
   return parts.map((p) => p.trim()).filter(Boolean);
@@ -73,6 +91,7 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
     let callId = retellCallIdFromUrl(info.url);
     let session: BridgeSession | null | undefined; // undefined = not resolved yet
     let turn = 0;
+    let generation = 0;
     const answered = new Map<number, string[]>();
 
     async function resolve(): Promise<BridgeSession | null> {
@@ -98,6 +117,7 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
     }
 
     async function answer(responseId: number, message: string): Promise<void> {
+      const gen = generation;
       const bound = await resolve();
       if (!bound) {
         sendChunks(responseId, [UNBOUND_LINE]);
@@ -110,6 +130,9 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
         'x-bridge-timestamp': String(ts),
         'x-bridge-signature': signPayload(deps.secret, ts, raw),
       });
+      // Interruption: a newer response_required superseded this turn while
+      // the bridge worked. Retell discards stale ids; never emit them.
+      if (gen !== generation) return;
       const body = out.body;
       // Never speak a save the backend has not returned: the bridge never
       // executes, and if a future body claimed otherwise we refuse the line.
@@ -140,6 +163,7 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
       if (type === 'response_required' || type === 'reminder_required') {
         const responseId = typeof msg.response_id === 'number' ? msg.response_id : 0;
         if (answered.has(responseId)) { sendChunks(responseId, answered.get(responseId)!); return; }
+        generation += 1; // any newer turn cancels an in-flight older one
         const transcript = Array.isArray(msg.transcript) ? msg.transcript as { role?: string; content?: string }[] : [];
         const lastUser = [...transcript].reverse().find((t) => t.role === 'user')?.content?.trim() ?? '';
         if (type === 'reminder_required' || !lastUser) { sendChunks(responseId, [REMINDER_LINE]); return; }
@@ -232,6 +256,11 @@ export function handleRetellWsUpgrade(
 ): boolean {
   const url = req.url ?? '';
   if (!url.split('?')[0].startsWith('/gate-b/llm')) return false;
+  if (!wsKeyMatches(url, deps.pathSecret)) {
+    rawSocket.write(Buffer.from('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n', 'utf8'));
+    rawSocket.destroy();
+    return true;
+  }
   const key = req.headers['sec-websocket-key'];
   if (typeof key !== 'string' || !key) { rawSocket.destroy(); return true; }
   rawSocket.write(Buffer.from(

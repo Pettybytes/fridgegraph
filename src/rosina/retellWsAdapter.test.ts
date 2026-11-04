@@ -158,3 +158,63 @@ test('duplicate delivery of one response_id answers once from the bridge', async
   await tick();
   assert.equal(runnerCalls, 1, 'the bridge turn ran only once for a duplicated delivery');
 });
+
+test('interruption: a newer response_id cancels the in-flight response', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  let calls = 0;
+  const bridge = makeBridge(async () => {
+    calls += 1;
+    if (calls === 1) await gate; // first turn hangs until the parent interrupts
+    return { reply: 'fast model text', actions: [], intent: { description: "Add 'Early dismissal pickup' tomorrow 12:30 PM", sourceFacts: ['Nora has an early dismissal tomorrow at 12:30 PM'] } };
+  });
+  const socket = connect(bridge, () => kendra);
+  socket.receive({ interaction_type: 'response_required', response_id: 1, transcript: [{ role: 'user', content: 'Add a pickup for Nora tomorrow' }] });
+  await tick();
+  socket.receive({ interaction_type: 'response_required', response_id: 2, transcript: [{ role: 'user', content: 'Add a pickup for Nora tomorrow please' }] });
+  await tick();
+  release();
+  await tick();
+  const ids = socket.responses().map((r) => r.response_id);
+  assert.ok(ids.length > 0 && ids.every((id) => id === 2), `only the interrupting turn is spoken, got ${ids}`);
+});
+
+test('reconnect: a fresh socket with the same bound session keeps serving turns', async () => {
+  const bridge = makeBridge();
+  const first = connect(bridge, () => kendra);
+  first.receive({ interaction_type: 'call_details', call: { call_id: 'call_5' } });
+  const cfg = first.sent.map((s) => JSON.parse(s)).find((m) => m.response_type === 'config');
+  assert.equal(cfg.config.auto_reconnect, true);
+  const second = connect(bridge, () => kendra);
+  second.receive({ interaction_type: 'response_required', response_id: 1, transcript: [{ role: 'user', content: 'Add a pickup for Nora tomorrow' }] });
+  await tick();
+  assert.match(second.spoken(), /Here's an option/);
+});
+
+test('unauthenticated socket: a wrong or missing ?key= is refused before the 101 handshake', () => {
+  for (const url of ['/gate-b/llm/call_9?session=test-session-token', '/gate-b/llm/call_9?session=test-session-token&key=wrong']) {
+    const written: Buffer[] = [];
+    let destroyed = false;
+    const rawSocket = {
+      write: (b: Buffer) => { written.push(Buffer.from(b)); },
+      on: () => {},
+      end: () => {}, destroy: () => { destroyed = true; },
+    };
+    const handled = handleRetellWsUpgrade(
+      { url, headers: { 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==' } },
+      rawSocket, { bridge: makeBridge(), secret: SECRET, pathSecret: 'test-only-ws-secret', resolveSession: () => kendra });
+    assert.equal(handled, true);
+    assert.match(written[0].toString('utf8'), /401 Unauthorized/);
+    assert.equal(destroyed, true);
+  }
+});
+
+test('an expired binding is refused and the turn runner is never reached', async () => {
+  let runnerCalls = 0;
+  const bridge = makeBridge(async () => { runnerCalls += 1; return { reply: 'x', actions: [] }; });
+  const socket = connect(bridge, () => null); // expired sessions resolve to null, same as unbound
+  socket.receive({ interaction_type: 'response_required', response_id: 1, transcript: [{ role: 'user', content: 'Who picks Nora up today?' }] });
+  await tick();
+  assert.equal(runnerCalls, 0);
+  assert.match(socket.spoken(), /can't verify this caller's session/i);
+});
