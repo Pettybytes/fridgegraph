@@ -85,3 +85,17 @@ it('keeps voice status and text-progress status independently visible during a t
  expect(voiceStatus).toHaveTextContent('Tap to talk to Rosina')
  vi.unstubAllGlobals()
 })
+
+it('a streamed validated proposal renders its card before the reply finishes',async()=>{
+ let push!:(chunk:string)=>void,close!:()=>void
+ const stream=new ReadableStream<Uint8Array>({start(c){const enc=new TextEncoder();push=t=>c.enqueue(enc.encode(t));close=()=>c.close()}})
+ const request=vi.fn<typeof fetch>(async(url)=>url==='/api/rosina/warm'?new Response('{"ok":true}'):new Response(stream,{status:200,headers:{'content-type':'text/event-stream'}}))
+ vi.stubGlobal('fetch',request)
+ await enter();send('Open the village for me')
+ await act(async()=>{push('event: action\ndata: {"action":{"id":"open-screen","args":{"screen":"village"}}}\n\n')})
+ expect(await screen.findByRole('button',{name:'Open Living Village'})).toBeEnabled()
+ expect(screen.getByText('Ready for your review. Nothing happens until you confirm.')).toBeVisible()
+ await act(async()=>{push('event: final\ndata: {"reply":"Opening the village view.","actions":[{"id":"open-screen","args":{"screen":"village"}}]}\n\n');close()})
+ expect(await screen.findByText('Opening the village view.')).toBeVisible()
+ vi.unstubAllGlobals()
+})

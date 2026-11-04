@@ -118,7 +118,12 @@ export type ToolCallEvidence = {
 export type TurnEvent =
   | { kind: 'status'; label: string }
   | { kind: 'token'; text: string }
-  | { kind: 'replace' };
+  | { kind: 'replace' }
+  // A server-validated action proposal, streamed the moment it validates so the client can show
+  // the confirmation card a full model round before the closing reply text lands. Provisional
+  // like token text: the final result's actions stay authoritative (a tripped output guard drops
+  // them and the final `replace` clears what was streamed).
+  | { kind: 'action'; action: { id: string; args: Record<string, unknown> } };
 
 /** What Rosina is doing, in the caller's language, shown while a tool round runs. */
 const TOOL_STATUS_LABELS: Record<string, string> = {
@@ -835,6 +840,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         });
         if (decision.propose) {
           proposedActions.push({ id, args: shapeArgs as Record<string, unknown> });
+          onEvent?.({ kind: 'action', action: { id, args: shapeArgs as Record<string, unknown> } });
           toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: false, errorCodes: [] });
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: true }) });
           continue;
@@ -856,7 +862,10 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
           refusalReason = 'no verified access to this child yet — call PickupCandidates for this exact childId first';
         }
       }
-      if (validated.length) proposedActions.push(validated[0]);
+      if (validated.length) {
+        proposedActions.push(validated[0]);
+        onEvent?.({ kind: 'action', action: validated[0] as { id: string; args: Record<string, unknown> } });
+      }
       toolCallEvidence.push({ round, kind: 'action', name: id, argsPreview: args, isError: validated.length === 0, errorCodes: validated.length ? [] : [refusalReason ? 'UNVERIFIED_CHILD' : 'INVALID_ACTION'] });
       messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(validated.length ? { ok: true } : { ok: false, error: refusalReason ?? 'invalid or unimplemented action' }) });
     }

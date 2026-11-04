@@ -11,6 +11,10 @@ type Options={
  onToken?:(text:string)=>void
  onStatus?:(label:string)=>void
  onReplace?:()=>void
+ /** A server-validated action proposal streamed mid-turn, so the confirmation card can render a
+  * full model round before the closing text. Provisional like tokens: the resolved response's
+  * actions stay authoritative, and a `replace` event discards what was streamed. */
+ onAction?:(action:{id:string;args:Record<string,unknown>})=>void
  getGeneration?:()=>number|null
  request?:typeof fetch
  timeoutMs?:number
@@ -20,7 +24,7 @@ function parseFinal(body:unknown):RosinaResponse|null{
  return {reply:body.reply,actions:body.actions,schoolReportProposal:'schoolReportProposal'in body?parseSchoolReportProposal(body.schoolReportProposal):null,addVillagerProposal:'addVillagerProposal'in body?parseAddVillagerProposal(body.addVillagerProposal):null}
 }
 // Token and generation getters read the CURRENT in-memory session, never a captured bearer.
-export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined|Promise<string|null|undefined>,{getGeneration=()=>0,request=fetch,timeoutMs=35000,onProgress,onToken,onStatus,onReplace}:Options={}):RosinaAdapter {
+export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined|Promise<string|null|undefined>,{getGeneration=()=>0,request=fetch,timeoutMs=35000,onProgress,onToken,onStatus,onReplace,onAction}:Options={}):RosinaAdapter {
  return {mode:'live',async send(input:RosinaRequest,signal?:AbortSignal):Promise<RosinaResponse>{
   const generation=getGeneration(),controller=new AbortController()
   let timedOut=false
@@ -75,6 +79,7 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
        if(eventType==='token'&&payload&&typeof payload==='object'&&typeof (payload as {text?:unknown}).text==='string')onToken?.((payload as {text:string}).text)
        else if(eventType==='status'&&payload&&typeof payload==='object'&&typeof (payload as {label?:unknown}).label==='string')onStatus?.((payload as {label:string}).label)
        else if(eventType==='replace')onReplace?.()
+       else if(eventType==='action'&&payload&&typeof payload==='object'){const action=(payload as {action?:unknown}).action;if(action&&typeof action==='object'&&typeof (action as {id?:unknown}).id==='string')onAction?.(action as {id:string;args:Record<string,unknown>})}
        else if(eventType==='final'){final=parseFinal(payload);break readLoop}
       }
      }

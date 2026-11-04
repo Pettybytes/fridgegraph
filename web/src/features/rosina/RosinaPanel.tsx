@@ -46,14 +46,18 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   const [elapsed,setElapsed]=useState(0)
   // Provisional streamed reply: token text and the latest status label while a turn runs.
   // The resolved response is authoritative and replaces it (identical text in the normal case).
-  const [liveStream,setLiveStream]=useState<{text:string;status:string|null}|null>(null)
+  const [liveStream,setLiveStream]=useState<{text:string;status:string|null;actions:CatalogAction[]}|null>(null)
   const sessionRef = useRef(session)
   sessionRef.current = session
   const adapter = useMemo(() => service ?? (session?.accessToken
     ? createLiveRosinaAdapter(() => sessionRef.current?.accessToken, {getGeneration:getSessionGeneration,onProgress:setProgress,
-      onToken:text=>setLiveStream(prev=>({text:(prev?.text??'')+text,status:null})),
-      onStatus:label=>setLiveStream(prev=>({text:prev?.text??'',status:label})),
-      onReplace:()=>setLiveStream({text:'',status:null})})
+      onToken:text=>setLiveStream(prev=>({text:(prev?.text??'')+text,status:null,actions:prev?.actions??[]})),
+      onStatus:label=>setLiveStream(prev=>({text:prev?.text??'',status:label,actions:prev?.actions??[]})),
+      onReplace:()=>setLiveStream(prev=>({text:'',status:null,actions:prev?.actions??[]})),
+      // A streamed server-validated proposal renders its confirmation card a full model round
+      // before the closing text. Client-validated like any resolved action; the resolved
+      // response stays authoritative and replaces this provisional card.
+      onAction:raw=>{const valid=validateActions([raw]);if(valid.length)setLiveStream(prev=>({text:prev?.text??'',status:prev?.status??null,actions:[...(prev?.actions??[]),valid[0]]}))}})
     : createMockRosinaAdapter(session, dataAdapter)), [session, dataAdapter, service, getSessionGeneration])
   const confirmReport = useMemo(() => confirmSchoolReport ?? (adapter.mode === 'mock' ? createMockSchoolReportConfirm() : child?.client ? createLiveSchoolReportConfirm(child.client) : null), [confirmSchoolReport, adapter.mode, child?.client])
   const [messages, setMessages] = useState<ThreadMessage[]>([])
@@ -245,6 +249,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {busy && !!liveStream?.text && <article className="rosina-message is-streaming" aria-label="Rosina is replying"><span>Rosina</span><p>{liveStream.text}<span className="rosina-caret" aria-hidden="true"/></p></article>}
         {busy && !liveStream?.text && <div className="rosina-progress" role="status"><strong><span className="rosina-typing" aria-hidden="true"><i/><i/><i/></span>{adapter.mode==='live'?(liveStream?.status??(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…')):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
         {busy && !!liveStream?.text && !!liveStream.status && <p className="rosina-progress-inline" role="status">{liveStream.status}</p>}
+        {busy && !!liveStream?.actions.length && <article className="rosina-message is-streaming" aria-label="Ready for your review"><span>Rosina</span><p>Ready for your review. Nothing happens until you confirm.</p>{liveStream.actions.filter(action => catalog[action.id].implemented && actionAllowed(action, context)).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`live:${index}`)} onClick={() => { void execute(action, `live:${index}`) }}>{actionLabel(action)}</button>)}</article>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
       <form onSubmit={send} className="rosina-compose"><label htmlFor="rosina-message" className="sr-only">Message Rosina</label>{!dismissed&&<div className="rosina-compose-tools"><RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/><div className="rosina-notice-attach"><NoticeComposer/></div></div>}<div className="rosina-field"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={1} placeholder="Message Rosina…" /><button type="submit" className="rosina-send" aria-label="Send" disabled={busy || needsSignIn || !draft.trim()}><ArrowUp size={18} aria-hidden /></button></div><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span></form>
