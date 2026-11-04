@@ -11,7 +11,8 @@ describe('design-v2 type-color mapping', () => {
   it('maps every category to its design-v2 type color (docs/design.md §2)', () => {
     const expected: Record<EventCategory, string> = {
       PARENTING_HANDOFF: 'amber', // pickup/transport
-      PRACTICE: 'blue', GAME: 'blue', FIELD_TRIP: 'blue', SCHOOL_CLOSURE: 'blue', // school/activity
+      PRACTICE: 'green', GAME: 'green', // sports / activity
+      FIELD_TRIP: 'blue', SCHOOL_CLOSURE: 'blue', // school
       RECITAL: 'violet', PARTY: 'violet', // celebration
       SLEEPOVER: 'teal', HOLIDAY: 'teal', HOLIDAY_CAMP: 'teal', // care
     }

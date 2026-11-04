@@ -228,6 +228,7 @@
   --type-orbit:   oklch(0.57 0.22 25);    /* Orbit alert        — red    */
   --type-safe:    oklch(0.57 0.15 155);   /* found safe         — green  */
   --type-care:    oklch(0.60 0.10 195);   /* care information   — teal   */
+  --type-activity: oklch(0.57 0.13 155);  /* sports / activity  — green  */
   --type-invite:  oklch(0.57 0.20 330);   /* invitations        — violet-pink */
   --type-fridge:  oklch(0.63 0.16 50);    /* fridge / memories  — orange */
   --type-rosina:  oklch(0.54 0.18 276);   /* Rosina (AI)        — indigo */
