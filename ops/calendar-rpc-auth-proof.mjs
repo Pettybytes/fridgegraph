@@ -32,6 +32,8 @@ try {
  await refused(null,'p_nora','2026-11-04',{role:'anon'});
  await refused(null,'p_nora');
  await refused('p_demo_guide','p_private_calendar');
+ await db.admin.query("insert into grants(id,actor_id,child_id,scopes,granted_by) values('g_private_guide_probe','p_demo_guide','p_private_calendar',array['schedule.read'],'p_mom')");
+ await refused('p_demo_guide','p_private_calendar'); // Guide must stay showcase-only even if an ordinary grant exists.
  await refused('p_dana','p_nora','2026-11-04',{guide:true});
  await refused('p_demo_guide','p_nora','2026-11-04',{guide:false});
  const [holiday]=await call('p_mom','p_nora','2026-11-11');assert.equal(holiday.source,'ARRANGEMENT');assert.ok(holiday.arrangement_id);assert.equal(holiday.handoff_location,null);

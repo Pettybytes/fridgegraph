@@ -93,7 +93,8 @@ Scope table is authoritative in `docs/schema-plan.md` and must stay mirrored in 
 `effective_schedule_for` checks its caller inside the SECURITY DEFINER function, before
 reading schedule or handoff data. A mapped identity must be a parent/guardian (`is_parent_of`),
 hold a current `schedule.read` grant, or pass `guide_reads_child` (verified guide identity and
-sandbox child). A legitimate cross-family grant remains valid; household membership alone is
+sandbox child). The mapped guide identity cannot use ordinary grants to read private families.
+A legitimate cross-family grant for an ordinary caller remains valid; household membership alone is
 not the authorization rule. Anonymous, unmapped and unauthorized callers are refused. The
 repair grants no write permissions and preserves approved-holiday precedence over weekly care.
 

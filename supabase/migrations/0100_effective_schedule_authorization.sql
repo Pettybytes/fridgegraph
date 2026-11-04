@@ -7,9 +7,10 @@ language plpgsql stable security definer set search_path = pg_catalog, public
 as $$
 begin
   if public.current_person() is null or not coalesce(
-    public.is_parent_of(p_child)
-    or public.has_scope(p_child, 'schedule.read')
-    or public.guide_reads_child(p_child), false
+    -- The mapped guide identity never inherits ordinary grants into private families.
+    case when public.current_person() = 'p_demo_guide' then public.guide_reads_child(p_child)
+      else public.is_parent_of(p_child) or public.has_scope(p_child, 'schedule.read')
+    end, false
   ) then
     raise exception 'FORBIDDEN' using errcode = '42501';
   end if;
