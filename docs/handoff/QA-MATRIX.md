@@ -13,8 +13,8 @@ change the historical results below.
 | Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
 | Calendar | #220 light cards and fixtures; follow-up fixes month read range and extends all-child pickup fixtures through November 17 | Pending Bentley seed, deploy and Claude |
 | Orbit | Retained by Codex | Pending fix and Claude |
-| Map sample label | Retained by Codex; must follow actual provenance | Pending investigation |
-| Rosina live proof | Retained by Codex; requires served runtime | Pending Bentley runtime and Claude |
+| Map sample label | Actual mock provenance traced to the existing VITE_VILLAGE_MAP_LIVE build flag; live-map flag dependency handed to Bentley | Pending Bentley build flag and Claude |
+| Rosina live proof | Served text read returned HTTP 200 on the older asset; launcher and Send use shared buttons; close restores focus | Pending new served SHA, seed and Claude |
 | Today, Care information, Living Village | Owned by fix/pages-today-care-village | Separate PR and Claude |
 
 The new requests are recorded, ended coordination attempts. They do not assert a physical pickup
