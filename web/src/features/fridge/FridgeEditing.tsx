@@ -3,6 +3,7 @@ import { FgButton, Surface } from '@/components/fg/primitives'
 import type { FridgeEditingAdapter, FridgeNoteRecord, FridgeViewer, GoalFields, GoalPeriod, GoalRecord, NoteFields, PaperColor } from './editingContract'
 import { isParent } from './editingContract'
 import { useFridgeEditing, type ReadState } from './useFridgeEditing'
+import {MARKER_INK,type MarkerStyle} from './model'
 import './fridge-editing.css'
 
 export type FridgeEditingProps = { adapter: FridgeEditingAdapter; childId: string; viewer: FridgeViewer; section?: 'goals' | 'notes' | 'both'; childName?: string }
@@ -27,21 +28,28 @@ function Notice({ editing, section }: { editing: Editing; section: 'goals' | 'no
   return null
 }
 
-export function GoalForm({ initial, label, pending, onSave, onCancel }: { initial?: GoalRecord; label: string; pending: boolean; onSave: (fields: GoalFields) => Promise<boolean>; onCancel?: () => void }) {
+export function GoalForm({ initial, initialMarker, label, pending, onSave, onCancel }: { initial?: GoalRecord; initialMarker?: MarkerStyle; label: string; pending: boolean; onSave: (fields: GoalFields, marker: MarkerStyle, id?:string) => Promise<boolean|{saved:boolean;id?:string}>; onCancel?: () => void }) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [horizon, setHorizon] = useState(initial?.horizon ?? '')
   const [period, setPeriod] = useState<GoalPeriod | ''>(initial?.period ?? '')
+  const [marker,setMarker]=useState<MarkerStyle>(initialMarker??{color:'black',font:'kalam'})
+  const [savedId,setSavedId]=useState(initial?.id)
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim()) return
-    const saved = await onSave({ title: title.trim(), horizon: horizon === '' ? null : horizon, period: period || null })
-    if (saved && !initial) { setTitle(''); setHorizon(''); setPeriod('') }
+    const result = await onSave({ title: title.trim(), horizon: horizon === '' ? null : horizon, period: period || null },marker,savedId)
+    const saved=typeof result==='boolean'?result:result.saved
+    if(typeof result!=='boolean'&&result.id)setSavedId(result.id)
+    if (saved && !initial) { setTitle(''); setHorizon(''); setPeriod('');setSavedId(undefined) }
   }
   return <form className="fe-form" onSubmit={submit} aria-label={label}>
     <label>Goal title<input required value={title} onChange={event => setTitle(event.target.value)} disabled={pending} /></label>
     <label>Horizon <span className="fe-optional">optional · shown exactly as written</span><input value={horizon} onChange={event => setHorizon(event.target.value)} disabled={pending} /></label>
     <label>Period <span className="fe-optional">optional · chosen explicitly</span><select value={period} onChange={event => setPeriod(event.target.value as GoalPeriod | '')} disabled={pending}><option value="">No period selected</option>{periods.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-    <div className="fe-actions"><FgButton type="submit" disabled={pending || !title.trim()}>{initial ? 'Save goal' : 'Add goal'}</FgButton>{onCancel && <FgButton variant="quiet" onClick={onCancel} disabled={pending}>Cancel</FgButton>}</div>
+    <fieldset className="fe-marker" disabled={pending}><legend>Marker color</legend><div>{(['black','blue','red','green'] as const).map(color=><button type="button" key={color} aria-pressed={marker.color===color} onClick={()=>setMarker(value=>({...value,color}))}><span aria-hidden="true" style={{background:MARKER_INK[color]}}/>{color}</button>)}</div></fieldset>
+    <fieldset className="fe-marker" disabled={pending}><legend>Handwriting</legend><div>{(['kalam','caveat'] as const).map(font=><button type="button" key={font} aria-pressed={marker.font===font} className={`fe-font-${font}`} onClick={()=>setMarker(value=>({...value,font}))}>{font==='kalam'?'Kalam':'Caveat'}</button>)}</div></fieldset>
+    <p className={`fe-marker-preview fe-font-${marker.font}`} style={{color:MARKER_INK[marker.color]}} aria-label="Handwriting preview">Our next goal</p>
+    <div className="fe-actions"><FgButton type="submit" disabled={pending || !title.trim()}>{initial || savedId ? 'Save goal' : 'Add goal'}</FgButton>{onCancel && <FgButton variant="quiet" onClick={onCancel} disabled={pending}>Cancel</FgButton>}</div>
   </form>
 }
 
@@ -49,7 +57,7 @@ function GoalItem({ goal, editing }: { goal: GoalRecord; editing: Editing }) {
   const [mode, setMode] = useState<'view' | 'edit' | 'delete'>('view')
   const pending = editing.pending === 'goals'
   return <article className="fe-goal">
-    {mode === 'edit' ? <GoalForm key={goal.id} initial={goal} label={`Edit ${goal.title}`} pending={pending} onSave={async fields => { const saved = await editing.updateGoal(goal.id, fields); if (saved) setMode('view'); return saved }} onCancel={() => setMode('view')} /> : <>
+    {mode === 'edit' ? <GoalForm key={goal.id} initial={goal} initialMarker={editing.preferences.markers[goal.id]} label={`Edit ${goal.title}`} pending={pending} onSave={async(fields,marker,id)=>{const result=await editing.saveGoal(fields,marker,id??goal.id);if(result.saved)setMode('view');return result}} onCancel={() => setMode('view')} /> : <>
       <div className="fe-goal-head"><h4>{goal.title}</h4><span>{goal.status === 'APPROVED' ? 'Approved goal' : 'Proposed goal'}</span></div>
       {goal.horizon !== null && <p>Horizon: {goal.horizon}</p>}
       <p>{goal.completedAt ? <>Completed <time dateTime={goal.completedAt}>{completionTime(goal.completedAt)}</time></> : 'Not marked complete'}</p>
@@ -72,7 +80,7 @@ export function FridgeGoalsEditor({ editing }: { editing: Editing }) {
       {editing.goals.items.length === 0 && <p>No goals are available to this view.</p>}
       {groups.map(group => <section key={group.value} className="fe-goal-group" aria-label={`${group.label} goals`}><h3>{group.label}</h3>{group.items.map(goal => <GoalItem key={goal.id} goal={goal} editing={editing} />)}</section>)}
       {ungrouped.map(goal => <GoalItem key={goal.id} goal={goal} editing={editing} />)}
-      {editing.canWrite && <div className="fe-new"><h3>Add a goal</h3><GoalForm label="Add a goal" pending={editing.pending === 'goals'} onSave={editing.createGoal} /></div>}
+      {editing.canWrite && <div className="fe-new"><h3>Add a goal</h3><GoalForm label="Add a goal" pending={editing.pending === 'goals'} onSave={editing.saveGoal} /></div>}
     </>}
     <Notice editing={editing} section="goals" />
   </Surface>

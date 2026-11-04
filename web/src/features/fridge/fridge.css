@@ -183,3 +183,9 @@ body:has(.fridge-proof-banner) .fridge-view-controls{top:48px}
  .is-focused .fridge-marker-picker button{min-width:21px;min-height:21px}
  .is-focused .fridge-marker-picker button:not(.fridge-marker-swatch){font-size:max(.9cqw,7px)}
 }
+
+.fridge-caption-edit label{display:grid;gap:8px;width:100%;min-width:0}
+.fridge-caption-edit textarea{box-sizing:border-box;width:100%;font-size:16px}
+.fridge-photo-caption{display:block;color:#263a4a;background:#fffdf8;padding:5px 3px;font-family:FridgeKalam,cursive;font-size:9px;line-height:1.2;overflow-wrap:anywhere}
+
+.fridge-whiteboard h3.fridge-marker-caveat{font-family:FridgeCaveat,FridgeKalam,cursive}

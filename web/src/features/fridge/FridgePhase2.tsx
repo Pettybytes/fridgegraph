@@ -2,6 +2,7 @@ import {cloneElement,isValidElement,createContext,useContext,useEffect,useRef,us
 import {Dialog} from 'radix-ui'
 import {FgButton} from '@/components/fg/primitives'
 import {Fridge} from './Fridge'
+import {latestCaptions} from './captions'
 import {FridgeIntake} from './FridgeIntake'
 import {useFridgeMedia} from './FridgeMedia'
 import {FridgeGoalsEditor,FridgeNotesEditor,GoalForm} from './FridgeEditing'
@@ -35,16 +36,14 @@ function Ready({fridge,viewer,service}:Omit<Props,'enabled'> & {service:Phase2Se
  // Phase 1's whiteboard stays independently readable even if a Phase 2 read fails.
  const goalsOverride:Read<Goal[]>|undefined=editing.goals.kind==='ready'?(editing.goals.items.length?{status:'ready',value:editing.goals.items}:{status:'empty'}):undefined
  return <><Fridge {...fridge}
+ preferences={editing.preferences}
  intake={isValidElement<ComponentProps<typeof FridgeIntake>>(fridge.intake)&&fridge.intake.type===FridgeIntake?cloneElement(fridge.intake,{onPinned:()=>editing.retry()}):fridge.intake}
  mediaUrls={media}
- captionNotes={notes.filter(note=>note.attachmentRef?.startsWith('fridge-art:'))}
- saveCaption={editing.canWrite&&editing.notes.kind==='ready'?async(slot,text)=>{
-  const existing=notes.find(note=>note.attachmentRef===`fridge-art:${slot.id}`||note.id===slot.id)
-  return existing?editing.updateNote(existing.id,{text,paperColor:existing.paperColor}):editing.postNote({text,paperColor:'WHITE',attachmentRef:`fridge-art:${slot.id}`})
- }:undefined}
+ captionNotes={latestCaptions(notes)}
+ saveCaption={editing.canWrite&&editing.notes.kind==='ready'?(slot,text)=>editing.saveCaption(slot.id,text):undefined}
  boardEditor={editing.canWrite&&editing.goals.kind==='ready'?<>
   <FgButton disabled={editing.pending!==null} onClick={()=>{if(window.matchMedia('(max-width: 700px)').matches)openSection('goals');else setInlineGoal(value=>!value)}}>Write on the whiteboard</FgButton>
-  {inlineGoal&&<><GoalForm label="Write a goal on the whiteboard" pending={editing.pending==='goals'} onSave={async fields=>{const saved=await editing.createGoal(fields);if(saved)setInlineGoal(false);return saved}} onCancel={()=>setInlineGoal(false)}/>{editing.notice?.section==='goals'&&<p role={editing.notice.kind==='failed'?'alert':'status'}>{editing.notice.text}</p>}<FgButton variant="quiet" onClick={()=>{setInlineGoal(false);openSection('goals')}}>Open full-size editor</FgButton></>}
+  {inlineGoal&&<><GoalForm label="Write a goal on the whiteboard" pending={editing.pending==='goals'} onSave={async(fields,marker,id)=>{const result=await editing.saveGoal(fields,marker,id);if(result.saved)setInlineGoal(false);return result}} onCancel={()=>setInlineGoal(false)}/>{editing.notice?.section==='goals'&&<p role={editing.notice.kind==='failed'?'alert':'status'}>{editing.notice.text}</p>}<FgButton variant="quiet" onClick={()=>{setInlineGoal(false);openSection('goals')}}>Open full-size editor</FgButton></>}
  </>:undefined}
  postedNotes={notes.filter(note=>!note.attachmentRef?.startsWith('fridge-art:'))} openPostedNotes={()=>openSection('notes')} goalsOverride={goalsOverride} boardReadOnly={!editing.canWrite} editingControls={<>
   {section===null&&!inlineGoal&&editing.notice?.section==='goals'&&<p role={editing.notice.kind==='failed'?'alert':'status'}>{editing.notice.text}</p>}
