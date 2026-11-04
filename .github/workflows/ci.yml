@@ -90,7 +90,7 @@ jobs:
         run: node --import tsx --test src/demo/reset.test.ts src/demo/resetOperation.test.ts src/demo/family-reset-race.test.ts
 
       - name: Guide scope and action authority
-        run: node --import tsx --test src/subgraphs/guide-my-children.test.ts src/subgraphs/guide-scope.test.ts src/subgraphs/fridge-phase2.test.ts src/rosina/pinPreferences.test.ts src/rosina/showcase-authority.test.ts
+        run: node --import tsx --test src/subgraphs/guide-my-children.test.ts src/subgraphs/guide-scope.test.ts src/subgraphs/fridge-phase2.test.ts src/rosina/pinPreferences.test.ts src/rosina/showcase-authority.test.ts src/demo/testOutreach.test.ts
 
       - name: Launcher offline compose
         run: npm run test:launcher-compose
