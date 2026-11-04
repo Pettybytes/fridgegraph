@@ -37,7 +37,8 @@
     "test:launcher-compose": "node --test ops/launcher-compose.test.mjs",
     "test:hosting-artifact": "node --test ops/hosting-artifact.test.mjs",
     "test:launcher-dryrun": "node --test ops/launcher-dryrun.test.mjs",
-    "test:outreach": "node --import tsx --test src/outreach/*.test.ts"
+    "test:outreach": "node --import tsx --test src/outreach/*.test.ts",
+    "rehearse:outreach-e2e": "node --import tsx ops/outreach-e2e-rehearsal.mjs"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",

@@ -68,7 +68,9 @@ const say = (key, names) => String(LINE[key] ?? '')
   .replace(/\{requester\}/g, names?.requester || FAMILY)
   .replace(/\{child\}/g, names?.child || FAMILY)
 
-const db = new pg.Client({ connectionString: DB, ssl: { rejectUnauthorized: false } })
+// SSL is on by default (Supabase requires it). PGSSL=disable is a local-rehearsal-only opt-out for a
+// non-SSL disposable Postgres container; production never sets it, so the default is unchanged.
+const db = new pg.Client({ connectionString: DB, ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false } })
 
 // D5: resolve the requester and child first names from the attempt itself.
 //   child     -- the job's child_id -> people.display_name

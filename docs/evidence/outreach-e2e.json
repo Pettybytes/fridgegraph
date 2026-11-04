@@ -1,0 +1,102 @@
+{
+  "at": "2026-11-04T05:42:23.179Z",
+  "image": "postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab",
+  "note": "disposable DB; nothing sent; no GHL credential used",
+  "checks": [
+    {
+      "name": "disposable database started",
+      "status": "PASS",
+      "detail": "127.0.0.1:55444"
+    },
+    {
+      "name": "supabase-shaped prelude",
+      "status": "PASS",
+      "detail": "roles, auth schema, pgcrypto"
+    },
+    {
+      "name": "full migration chain applies (incl. 0087)",
+      "status": "PASS",
+      "detail": "94 migrations"
+    },
+    {
+      "name": "real resetDemo() restored the demo dataset",
+      "status": "PASS",
+      "detail": "restored 25 tables"
+    },
+    {
+      "name": "all three test responders produced a captured outbound (nothing sent)",
+      "status": "PASS",
+      "detail": "p_gma:sent p_tasha:sent p_bryan:sent"
+    },
+    {
+      "name": "each captured outbound has the right recipient, body and auth scheme",
+      "status": "PASS",
+      "detail": "+13135550101/1seg +13135550102/1seg +13135550103/1seg"
+    },
+    {
+      "name": "the real 0087 allowance was reserved and each dispatch is ACCEPTED",
+      "status": "PASS",
+      "detail": "recipient segments=3 accepted=3"
+    },
+    {
+      "name": "kill switch blocks the send",
+      "status": "PASS",
+      "detail": "KILL_SWITCH"
+    },
+    {
+      "name": "a non-test number is refused",
+      "status": "PASS",
+      "detail": "NOT_TEST_RESPONDER"
+    },
+    {
+      "name": "an out-of-window send is held",
+      "status": "PASS",
+      "detail": "WINDOW"
+    },
+    {
+      "name": "a suppressed (STOP) recipient is refused",
+      "status": "PASS",
+      "detail": "SUPPRESSED"
+    },
+    {
+      "name": "no refusal produced a captured outbound",
+      "status": "PASS",
+      "detail": "captured=3"
+    },
+    {
+      "name": "real voice-turn-server started",
+      "status": "PASS",
+      "detail": "127.0.0.1:41186 (PGSSL=disable, RPC shim)"
+    },
+    {
+      "name": "three open demo attempts available for replies",
+      "status": "PASS",
+      "detail": "att_hist_06_2 att_hist_11_2 att_hist_13_2"
+    },
+    {
+      "name": "reply 1 (\"Yes, I can grab her!\" → ACCEPTED) recorded availability via the real route",
+      "status": "PASS",
+      "detail": "http=200 note=recorded available=true via=WEBHOOK_CALLBACK"
+    },
+    {
+      "name": "reply 2 (\"yes\" → ACCEPTED) recorded availability via the real route",
+      "status": "PASS",
+      "detail": "http=200 note=recorded available=true via=WEBHOOK_CALLBACK"
+    },
+    {
+      "name": "reply 3 (\"No, I'm busy today\" → DECLINED) recorded availability via the real route",
+      "status": "PASS",
+      "detail": "http=200 note=recorded available=false via=WEBHOOK_CALLBACK"
+    },
+    {
+      "name": "the route rejects a wrong webhook secret (401)",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "the route rejects a stale timestamp (401)",
+      "status": "PASS",
+      "detail": "http=401"
+    }
+  ]
+}
