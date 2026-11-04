@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { FormEvent, ReactNode } from 'react'
 import { Dialog } from 'radix-ui'
-import { MessageCircle, X } from 'lucide-react'
+import { MessageCircle, X, ArrowUp } from 'lucide-react'
 import { useSession } from '@/features/personas/Session'
 import { useChildAccess } from '@/features/personas/childContext'
 import type { ChatMessage, FrontendAdapter } from '@/lib/frontendData/types'
@@ -226,7 +226,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {busy && !!liveStream?.text && !!liveStream.status && <p className="rosina-progress-inline" role="status">{liveStream.status}</p>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
-      <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={2} placeholder="What can I do here?" /><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span><FgButton type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</FgButton>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/>}{!dismissed&&<div className="rosina-notice-attach"><NoticeComposer/></div>}</div></form>
+      <form onSubmit={send} className="rosina-compose"><label htmlFor="rosina-message" className="sr-only">Message Rosina</label>{!dismissed&&<div className="rosina-compose-tools"><RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/><div className="rosina-notice-attach"><NoticeComposer/></div></div>}<div className="rosina-field"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={1} placeholder="What can I do here?" /><button type="submit" className="rosina-send" aria-label="Send" disabled={busy || needsSignIn || !draft.trim()}><ArrowUp size={18} aria-hidden /></button></div><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span></form>
     </section>
   return <>
     {!pageTarget && <FgButton ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</FgButton>}

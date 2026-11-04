@@ -17,9 +17,8 @@ import { recordedSummary } from '@/lib/frontendData/displayCopy'
 import { scopeLabel, type ChildAccess, type MyChildrenState } from '@/features/personas/myChildren'
 import { useChildAccess } from '@/features/personas/childContext'
 import { ConnectedVillagePreview } from '@/components/signature'
-import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon, IconButton } from '@/components/fg/primitives'
+import { Surface, StatusChip, SourceChip, Avatar, InlineFeedback, Composer, Icon } from '@/components/fg/primitives'
 import { RosinaAvatar } from '@/components/fg/RosinaAvatar'
-import { Mic } from 'lucide-react'
 import { TodayDemoChecklist } from '@/features/demo-checklist/TodayDemoChecklist'
 import './today.css'
 
@@ -85,24 +84,22 @@ export function Today({ attention, now = Date.now }: { attention?: ReactNode; no
               <p>Ask about what’s shared with you. Every change needs your confirmation.</p>
             </div>
           </div>
-          <div className="fg-today-askrow">
-            <Composer
-              placeholder={`What’s on ${childName}’s calendar today?`}
-              maxLength={4000}
-              onSend={message => window.dispatchEvent(new CustomEvent('rosina:send-from-today', {
-                detail: { message, generation: session.generation, childId },
-              }))}
-              sendLabel="Ask Rosina"
-            />
-            <IconButton className="fg-today-mic" label="Open Rosina microphone" onClick={() => {
+          <Composer
+            className="fg-today-askrow"
+            placeholder={`What’s on ${childName}’s calendar today?`}
+            maxLength={4000}
+            onSend={message => window.dispatchEvent(new CustomEvent('rosina:send-from-today', {
+              detail: { message, generation: session.generation, childId },
+            }))}
+            sendLabel="Ask Rosina"
+            micLabel="Open Rosina microphone"
+            onMic={() => {
               // One gesture: open + focus the panel mic (binds the live thread) AND start capture on
               // the ONE shared controller — no synthetic click, no second recording.
               window.dispatchEvent(new Event('rosina:focus-mic'))
               if (voice) void voice.start()
-            }}>
-              <Mic size={19} aria-hidden="true" />
-            </IconButton>
-          </div>
+            }}
+          />
         </Surface>
 
         <TodayDemoChecklist reopenSignal={checklistReopen} />

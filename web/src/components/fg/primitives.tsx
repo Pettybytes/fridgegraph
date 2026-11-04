@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { cn } from 'cn'
 import { onEnterSubmit, COMPOSER_HINT_SINGLE } from '@/lib/composerKeys'
+import { Mic } from 'lucide-react'
 import { portraitFor } from './portraits'
 import './fg.css'
 
@@ -96,8 +97,12 @@ export function Field({ label, error, id, className, ...p }: React.ComponentProp
   )
 }
 
-/* ── Composer (text entry with a send affordance; no fake mic) ─────────── */
-export function Composer({ onSend, placeholder = 'Ask Rosina…', disabled, sendLabel = 'Send', className, maxLength }: { onSend?: (value: string) => void; placeholder?: string; disabled?: boolean; sendLabel?: string; className?: string; maxLength?: number }) {
+/* ── Composer (iMessage-style field: full-width rounded, grows to 4 lines, with
+   the send arrow inside on the right — blue when there is text, disabled/hidden
+   when empty — and, when an onMic is given, the mic inside on the right while the
+   field is empty. `topRow` renders a compact pill row above the field. No fake
+   mic: onMic is wired by the caller. */
+export function Composer({ onSend, onMic, micLabel = 'Start voice input', placeholder = 'Ask Rosina…', disabled, sendLabel = 'Send', className, maxLength, topRow }: { onSend?: (value: string) => void; onMic?: () => void; micLabel?: string; placeholder?: string; disabled?: boolean; sendLabel?: string; className?: string; maxLength?: number; topRow?: React.ReactNode }) {
   const [value, setValue] = React.useState('')
   const lock = React.useRef(false) // blocks a double submit from Enter + button in the same tick
   const submit = () => {
@@ -109,14 +114,21 @@ export function Composer({ onSend, placeholder = 'Ask Rosina…', disabled, send
     queueMicrotask(() => { lock.current = false })
   }
   const hintId = React.useId()
+  const hasText = value.trim() !== ''
+  const showMic = !!onMic && !hasText
+  const showSend = hasText || !onMic // keep a send affordance visible when there is no mic
   return (
     <div className={cn('fg-composer', className)}>
-      <input
-        value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength}
-        aria-label={placeholder} aria-describedby={hintId}
-        onKeyDown={onEnterSubmit(submit)}
-      />
-      <IconButton label={sendLabel} variant="brand" disabled={disabled || value.trim() === ''} onClick={submit}><Icon.send /></IconButton>
+      {topRow ? <div className="fg-composer-tools">{topRow}</div> : null}
+      <div className="fg-composer-field">
+        <textarea
+          rows={1} value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength}
+          aria-label={placeholder} aria-describedby={hintId}
+          onKeyDown={onEnterSubmit(submit)}
+        />
+        {showMic ? <IconButton label={micLabel} className="fg-composer-mic" disabled={disabled} onClick={onMic}><Mic size={19} aria-hidden /></IconButton> : null}
+        {showSend ? <IconButton label={sendLabel} variant="brand" className="fg-composer-send" disabled={disabled || !hasText} onClick={submit}><Icon.send /></IconButton> : null}
+      </div>
       <span id={hintId} className="sr-only">{COMPOSER_HINT_SINGLE}</span>
     </div>
   )
