@@ -14,7 +14,7 @@ export async function proveGuideReads(db) {
  await db.admin.query(`
   insert into fridge_notes(id,child_id,author_id,text,audience,sandbox) values ('fridge_demo_note_guide_proof','p_jax','p_dana','Jax family note','PARENTS_ONLY',true);
   insert into fridge_notes(id,child_id,author_id,text,audience,sandbox) values ('unmarked_parent_note','p_jax','p_dana','Not showcase content','PARENTS_ONLY',false);
-  insert into fridge_item_preferences(child_id,kind,item_id,color,font) values ('p_jax','art','guide_proof_goal','blue','kalam');
+  insert into fridge_item_preferences(child_id,kind,item_id,color,font) values ('p_jax','art','guide_proof_goal',null,null);
   insert into orbit_alerts(id,child_id,created_by,status,closed_by,closed_at,minimal_message,sandbox)
    values ('guide_proof_alert','p_jax','p_dana','CLOSED','p_dana',now(),'Recorded Jax message',true);
   insert into orbit_audience_members(orbit_alert_id,person_id,notify_order,eligible) values ('guide_proof_alert','p_ray',1,true);
