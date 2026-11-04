@@ -110,7 +110,7 @@
 .cal-care-day { font-size: .75rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .cal-care { display: block; width: 100%; text-align: left; font-size: .8rem; line-height: 1.4; padding: .55rem .7rem; border-radius: var(--radius-nested); border: 1px solid var(--fg-border); border-left: 3px solid var(--cal-teal); background: color-mix(in oklch, var(--cal-teal) 10%, var(--fg-elevated)); color: var(--fg-ink); }
 .cal-care.is-holiday { border-left-color: var(--cal-amber); background: color-mix(in oklch, var(--cal-amber) 10%, var(--fg-elevated)); }
-.cal-busy-list h3 { font-size: .75rem; color: var(--fg-muted); margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .03em; }
+.cal-busy-list :is(h3,h4) { font-size: .75rem; color: var(--fg-muted); margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .03em; }
 .cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem .7rem; border-radius: var(--radius-nested); background: var(--fg-elevated); border: 1px solid var(--fg-border); margin-bottom: .5rem; font-size: .78rem; }
 .cal-busy small { font-size: .7rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .cal-busy.is-free { border-left: 3px solid var(--fg-safe); }
