@@ -3,7 +3,8 @@ name: CI
 # Tier 1 (static): typecheck + offline secret scan. No network, no credentials, no secrets.
 # Tier 2 (build): web build, only when web/ exists on the branch.
 #
-# This workflow never deploys, never merges and never touches a database.
+# This workflow never deploys, never merges and never touches a shared/live database.
+# The reset proof uses a disposable Postgres service with no runtime credentials.
 
 on:
   pull_request:
@@ -79,6 +80,9 @@ jobs:
       - name: Reset admission (shared lock)
         run: node --import tsx --test src/demo/reset-admission.test.ts
 
+      - name: Fast reset receipt and cleanup regressions
+        run: node --import tsx --test src/demo/reset.test.ts src/demo/resetOperation.test.ts src/demo/family-reset-race.test.ts
+
       - name: Guide reads (myChildren)
         run: node --import tsx --test src/subgraphs/guide-my-children.test.ts
 
@@ -126,3 +130,32 @@ jobs:
       - name: Mission Control exact-record drilldowns
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx
+
+      - name: Reset perspective and recovery regressions
+        if: steps.detect.outputs.present == 'true'
+        run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
+
+  reset-database:
+    name: isolated reset transaction proof
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 56439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations and prove atomic scoped restore on disposable Postgres
+        run: node --import tsx ops/fast-reset-proof.ts

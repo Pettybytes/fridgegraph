@@ -80,7 +80,7 @@ function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=
  const carePosition=artPackId?(artPackId==='ellison-fridge-v1'?{x:.379,y:.316,width:.078,rotation:-2}:{x:.345,y:.29,width:.11,rotation:2}):notePositions.care
  const displayedLive=live.map(slot=>({...slot,position:carePosition}))
  // Keep the invitation pinned even when real notes have been posted.
- const doorSamples=sampleSlots.filter(slot=>!(postedNotes.length&&slot.id==='sample-family-dinner')&&!(care.state.status!=='empty'&&slot.id==='pack_sitter_schedule'))
+ const doorSamples=sampleSlots.filter(slot=>!(artPackId&&postedNotes.length&&slot.id==='sample-family-dinner')&&!(care.state.status!=='empty'&&slot.id==='pack_sitter_schedule'))
  const slots=[...doorSamples,...displayedLive]
  const storePosition=(id:string,p:Position)=>{
   // `Position` is exactly {x,y,width,rotation}. Renderers carry extra style keys (e.g. magnet) beside

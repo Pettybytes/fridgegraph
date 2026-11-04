@@ -4,9 +4,9 @@ Status: Phase 2 is consumed by the live Fridge UI. Applied migration state belon
 
 The Fridge persists notes and goals through the caller's GraphQL client, and positions and handwriting through the Fridge preferences API introduced in `0094`. Captions and marker choices are server-backed, not browser-local.
 
-The family-finish follow-up stages `0096_fridge_demo_guide_reads.sql`. It gives the verified demo guide SELECT access only to deterministic `fridge_demo_note_` notes on sandbox children and to the corresponding sandbox-family arrangement. It grants no write authority. Ordinary parent/caregiver audiences and private-media checks are unchanged. The existing sandbox goals RLS policy remains the guide's goals boundary.
+The family-finish follow-up stages `0097_fridge_demo_guide_reads.sql`. It gives the verified demo guide SELECT access only to deterministic `fridge_demo_note_` notes on sandbox children and to the corresponding sandbox-family arrangement. It grants no write authority. Ordinary parent/caregiver audiences and private-media checks are unchanged. The existing sandbox goals RLS policy remains the guide's goals boundary.
 
-`src/fixtures-fridge.ts` defines the fictional goals, notes and styles. `scripts/db.ts` calls its seed helper from `seedDatabase()`. The app’s Reset demo route restores the same catalog through `restoreFridgeFixtures()` inside its existing locked transaction, after the family and child rows. Fixed IDs make reseeding idempotent. The operator applies the staged migration and restores the deterministic seed through the established path; feature agents do not apply either to the shared database during tests.
+`src/fixtures-fridge.ts` defines the fictional goals, notes and styles. `scripts/db.ts` calls its seed helper from `seedDatabase()`. The app’s Reset demo route restores the same catalog through `resetSnapshot()` and the owner-only atomic `restore_demo_snapshot` catalog, after the family and child rows. Fixed IDs make reseeding idempotent. The operator applies the staged migration and restores the deterministic seed through the established path; feature agents do not apply either to the shared database during tests.
 
 Owner: `village` subgraph (port 4001) — same owner as the existing `goals`/`care_plans` tables,
 for the same reason: parent-authored, child-scoped content, no cross-table atomicity need. A new

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
-import {restoreFridgeFixtures} from '../../demo/reset';
 import {preferencesFixture} from './preferences';
 import {createFridgeSeed,fridgeFamilies,seedFridge} from '../../fixtures-fridge';
 const fixture=await preferencesFixture();
@@ -30,7 +29,9 @@ try{
  const guide=async(sql:string)=>{await admin.query('begin');try{await admin.query('set local role authenticated');await admin.query("select set_config('test.current_uid',$1,true)",[uid]);return await admin.query(sql)}finally{await admin.query('rollback')}};
  assert.equal((await guide('select id from fridge_notes')).rows.length,0);
  console.log('RED: seeded notes are absent from the guide before migration');
- await admin.query(readFileSync('supabase/migrations/0096_fridge_demo_guide_reads.sql','utf8'));
+ // Minimal policy fixture: the full atomic restore is exercised by family-reset.proof.ts.
+ const migration=readFileSync('supabase/migrations/0097_fridge_demo_guide_reads.sql','utf8');
+ await admin.query(migration.slice(0,migration.indexOf('-- Extend the owner-only'))+'commit;');
  const rows=createFridgeSeed();assert.equal((await guide('select id from fridge_notes')).rows.length,rows.fridge_notes.length);
  assert.equal((await guide("select id from fridge_notes where id='note_fixture'")).rows.length,0);
  await admin.query("insert into fridge_notes(id,child_id,author_id,text,sandbox) values('fridge_demo_note_outside','p_other','p_outside','Outside sandbox',true)");
@@ -42,7 +43,7 @@ try{
  await admin.query("update goals set title='Temporary edit' where id='fridge_demo_goal_p_nora_0'");
  await admin.query('begin');
  await admin.query("delete from fridge_notes where id like 'fridge_demo_%'; delete from goals where id like 'fridge_demo_%'");
- await restoreFridgeFixtures(admin);await restoreFridgeFixtures(admin);
+ await seedFridge(write);await seedFridge(write);
  await admin.query('commit');
  assert.equal((await guide('select id from fridge_notes')).rows.length,rows.fridge_notes.length);
  assert.deepEqual((await admin.query("select id,title,horizon,status from goals where id like 'fridge_demo_%' order by id")).rows,before);

@@ -7,6 +7,7 @@
  * audit history are never touched: every delete is scoped to `sandbox = true` or to fixture ids.
  */
 import pg from 'pg';
+import { randomUUID } from 'node:crypto';
 import { createSimulatedCoordination } from '../fixtures-simulated';
 import { createSimulatedCalendar } from '../fixtures-simulated';
 import { createSimulatedOrbit } from '../fixtures-simulated';
@@ -17,9 +18,8 @@ import { createCastV2 } from '../fixtures-cast-v2';
 import { createFridgeSeed } from '../fixtures-fridge';
 import { createDemoHistory } from '../fixtures-demo-history';
 import { dropPersonaSessionCache } from './persona-sessions';
-import { deleteCreatedFamilies, purgeFamilyArtifacts, reconcileAbandonedFamilies, type FamilyRow } from './family';
+import { purgeFamilyArtifacts, reconcileAbandonedFamilies, type FamilyRow } from './family';
 
-const LOCK_KEY = 918_273_645; // arbitrary but stable: one reset at a time, cluster-wide
 
 function client() {
   const url = process.env.SUPABASE_DB_URL;
@@ -28,60 +28,6 @@ function client() {
 }
 
 type Row = Record<string, unknown>;
-
-/** Tables that carry a `sandbox` column: delete every sandbox row, leave everything else. */
-const SANDBOX_TABLES = [
-  // Only tables that actually carry a `sandbox` column in `public`. `approvals` is audit history and
-  // is never deleted here; `events` has no sandbox column and is restored by fixture upsert instead.
-  'coordination_jobs', 'attempts', 'holidays', 'routines', 'adult_availability',
-  'holiday_arrangements', 'expected_checkins', 'care_facts',
-  // fridge_notes (0083, staged): every note created through the live demo app is demo content
-  // (sandbox defaults true) — nothing is restored for it, only cleared. Unlike shared_statuses,
-  // there is no canonical seeded note, so it belongs here, not in ID_TABLES.
-  'fridge_notes',
-  // goals (0083, staged): ALSO sandbox-cleared, same mechanism as Cast v2's own sandboxed tables
-  // (care_facts/routines, below) — cleared here, then the canonical two restored by upsert in
-  // RESTORE_ORDER. Found live in review: `goals` was first added to ID_TABLES ONLY, which
-  // restores the two known fixture ids but leaves every OTHER goal (anything a judge creates live
-  // through createGoal) permanently un-clearable — a real demo-pollution gap. Ownership is the
-  // `sandbox` column, explicit and server-defaulted (true) on every insert; never inferred from an
-  // id prefix, and never "every goal belonging to a fixture child" — a genuinely non-demo goal
-  // (sandbox=false, set explicitly, never by this code) survives every reset untouched.
-  'goals',
-] as const;
-
-/** Tables whose fixture rows are identified by their own primary key, not by a sandbox flag. */
-const ID_TABLES = [
-  'households', 'people', 'children', 'household_members', 'household_policies', 'grants',
-  'relationships', 'shared_statuses',
-  // goals (0083, staged): restores the two canonical seeded rows by their own known id, AFTER the
-  // SANDBOX_TABLES pass above has cleared every sandboxed goal (including these two) — the same
-  // two-step shape Cast v2 itself uses (clear sandboxed rows, then upsert canonical content back).
-  // pkOf('goals') is the default (['id']), so no entry is needed there.
-  'goals',
-  // candidate_evaluations/confirmations (0084, staged): the 30-day demo history's responses and
-  // confirmations. Both cascade-delete automatically whenever their parent coordination_jobs row
-  // is cleared (SANDBOX_TABLES, above) — this entry restores their 20 known fixture ids back to
-  // their exact v1 shape afterward. No sandbox column needed on either: cascade already scopes
-  // their cleanup correctly, and a known-id restore needs no sandbox column to work.
-  'candidate_evaluations', 'confirmations',
-  // voice_notes (0084, staged): same cascade reasoning — a voice note's own FK is to
-  // candidate_evaluations, which itself cascades from coordination_jobs, so clearing is already
-  // automatic. Restored by known id so the 3 seeded voice notes revert to their exact v1 content.
-  'voice_notes',
-] as const;
-
-function pkOf(table: string): string[] {
-  if (table === 'fridge_item_preferences') return ['child_id', 'kind', 'item_id'];
-  if (table === 'care_facts') return ['child_id', 'key'];
-  if (table === 'household_policies') return ['household_id', 'rule'];
-  if (table === 'household_members') return ['person_id', 'household_id'];
-  if (table === 'children') return ['person_id'];
-  if (table === 'grants') return ['id'];
-  if (table === 'relationships') return ['id'];
-  if (table === 'shared_statuses') return ['person_id'];
-  return ['id'];
-}
 
 function fixtures(): Record<string, Row[]> {
   const sim = createSimulatedCoordination();
@@ -153,42 +99,10 @@ function castRowsByTable(): Record<string, Row[]> {
   const cv = createCastV2() as unknown as Record<string, Row[]>;
   const out: Record<string, Row[]> = {};
   for (const [table, rows] of Object.entries(cv)) if (Array.isArray(rows)) out[table] = rows;
+  // Restore family Fridge rows after Cast has supplied every child and author.
+  for (const [table, rows] of Object.entries(createFridgeSeed())) out[table] = [...(out[table] ?? []), ...rows];
   return out;
 }
-
-/** Idempotent upsert of one table's rows. Column set is taken from the rows themselves. */
-async function upsertRows(c: Pick<pg.Client, 'query'>, table: string, rows: Row[]): Promise<number> {
-  if (!rows.length) return 0;
-  const keys = pkOf(table);
-  const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
-  const conflict = keys.join(',');
-  const updatable = cols.filter((x) => !keys.includes(x));
-  const action = updatable.length
-    ? `do update set ${updatable.map((x) => `${x} = excluded.${x}`).join(', ')}`
-    : 'do nothing';
-  let n = 0;
-  for (const row of rows) {
-    const params = cols.map((k) => row[k] ?? null);
-    const placeholders = cols.map((_, i) => `$${i + 1}`).join(',');
-    const sql = `insert into ${table} (${cols.join(',')}) values (${placeholders}) on conflict (${conflict}) ${action}`;
-    if (process.env.RESET_DEMO_DEBUG === '1') {
-      console.log(`[reset] ${table} cols=${cols.length} placeholders=${cols.length} params=${params.length} names=${cols.join(',')}`);
-    }
-    const r = await c.query(sql, params);
-    n += r.rowCount ?? 0;
-  }
-  return n;
-}
-
-/** Restore the same deterministic Fridge catalog within the caller's transaction. */
-export async function restoreFridgeFixtures(c: Pick<pg.Client, 'query'>): Promise<Record<string, number>> {
-  const restored: Record<string, number> = {};
-  for (const [table, rows] of Object.entries(createFridgeSeed())) {
-    restored[table] = await upsertRows(c, table, rows);
-  }
-  return restored;
-}
-
 
 export type ResetReport = {
   restored: Record<string, number>;
@@ -202,149 +116,39 @@ export type ResetReport = {
   droppedSessionCache: true;
 };
 
-export async function resetDemo(actor = 'resetDemo'): Promise<ResetReport> {
-  const data = fixtures();
-  const c = client();
+export type ResetDependencies = {
+  client?: () => pg.Client;
+  purge?: typeof purgeFamilyArtifacts;
+  reconcile?: typeof reconcileAbandonedFamilies;
+  runId?: string;
+  schedule?: (task: () => Promise<void>) => void;
+};
+export function resetSnapshot() { return { fixtures: fixtures(), cast: castRowsByTable() }; }
+
+/** Slow external-account disposal is independent of the already-committed data restore. */
+export async function resetDemo(actor = 'resetDemo', dependencies: ResetDependencies = {}): Promise<ResetReport & { runId: string; status: 'committed' }> {
+  const before = Date.now();
+  const data = resetSnapshot(), runId = dependencies.runId ?? randomUUID();
+  const c = (dependencies.client ?? client)();
   await c.connect();
-  const cleared: Record<string, number> = {};
-  const restored: Record<string, number> = {};
-  let demoDecisionsCleared = 0;
-  let familyRows: FamilyRow[] = [];
-
+  let result: { restored: Record<string, number>; cleared: Record<string, number>; demoDecisionsCleared: number; createdFamiliesRemoved: number; familyRows: FamilyRow[]; cleanupBefore?: number };
   try {
-    await c.query('begin');
-    // Serialize against every other reset AND against demo writes that take the same lock.
-    await c.query('select pg_advisory_xact_lock($1)', [LOCK_KEY]);
-
-    // 1. Clear only demo rows.
-    for (const table of SANDBOX_TABLES) {
-      const has = await c.query(
-        `select 1 from information_schema.columns
-          where table_schema = 'public' and table_name = $1 and column_name = 'sandbox'`, [table]);
-      if (has.rowCount) {
-        const r = await c.query(`delete from ${table} where sandbox is true`);
-        if (r.rowCount) cleared[table] = r.rowCount;
-      }
-    }
-    for (const table of ID_TABLES) {
-      const rows = data[table] ?? [];
-      if (!rows.length) continue;
-      const keys = pkOf(table);
-      let n = 0;
-      for (const row of rows) {
-        const where = keys.map((k, i) => `${k} = $${i + 1}`).join(' and ');
-        const r = await c.query(`delete from ${table} where ${where}`, keys.map((k) => row[k]));
-        n += r.rowCount ?? 0;
-      }
-      if (n) cleared[table] = n;
-    }
-
-    // 2. Restore the fixture set (upsert keeps this idempotent) in FK-safe order: people and
-    // households before children, children before everything that references them, events LAST
-    // (the fixture's audit event references the audit child).
-    const RESTORE_ORDER = [
-      'people', 'shared_statuses', 'households', 'children', 'household_members', 'goals',
-      'holidays', 'routines', 'adult_availability', 'holiday_arrangements', 'coordination_jobs',
-      'attempts',
-      // candidate_evaluations needs attempts' candidates (people) + coordination_jobs, both just
-      // restored above. confirmations needs coordination_jobs + a candidate (person). voice_notes
-      // needs candidate_evaluations (its own FK) — last of the three, on purpose.
-      'candidate_evaluations', 'confirmations', 'voice_notes',
-      'expected_checkins', 'care_facts', 'household_policies', 'events',
-    ];
-    for (const table of RESTORE_ORDER) {
-      const n = await upsertRows(c, table, data[table] ?? []);
-      if (n) restored[table] = n;
-    }
-
-    // 3. Cast v2 from the SAME canonical source `db:seed` merges. Step 1 cleared every sandbox row,
-    // which includes Cast rows in sandbox-marked tables (care_facts, routines); without this pass the
-    // demo loses content on every reset — the judges' button would break the Priya/Dwayne scenes.
-    // Upsert only: no Cast row is deleted here, so no FK is ever broken mid-reset.
-    const cast = castRowsByTable();
-    for (const table of RESTORE_ORDER) {
-      const rows = cast[table] ?? [];
-      if (!rows.length) continue;
-      const n = await upsertRows(c, table, rows);
-      if (n) restored[table] = (restored[table] ?? 0) + n;
-    }
-
-    // Fridge content follows Cast so every child and author already exists.
-    for (const [table, count] of Object.entries(await restoreFridgeFixtures(c))) {
-      restored[table] = (restored[table] ?? 0) + count;
-    }
-
-    // Geographic seed (0062): coordinates + canonical event→place links, restored through the
-    // authorized place-reset helper the database already owns. Runs AFTER events are restored, because
-    // it re-applies links to rows that must already exist — and it removes only non-fixture sandbox
-    // places, so no household's fixture rows are deleted wholesale.
-    const places = await c.query('select reset_demo_places($1) as r', [actor]);
-    const placeCounts = (places.rows[0]?.r ?? {}) as Record<string, unknown>;
-    for (const [k, v] of Object.entries(placeCounts)) {
-      if (Number(v) > 0) restored[k] = Number(v);
-    }
-
-    // Disposable Orbit records go through the privileged, database-authorised path (0042).
-    // Deleting them here directly would hit the append-only guard, which is the point of the split.
-    // Created families are not fixture rows, so the id-scoped loops above never touch them. Their
-    // data goes in the SAME transaction; the identity mapping and auth users are purged after commit
-    // (a mapping that never lands is safer than a mapping to deleted rows).
-    familyRows = await deleteCreatedFamilies(c);
-
-    // Demo decisions are reset; real decisions are never touched (0050). Both counts ride in the
-    // SINGLE audit row this reset writes, as numbers with no ids or names.
-    const decisions = await c.query('select reset_demo_decisions() as n');
-    demoDecisionsCleared = Number(decisions.rows[0]?.n ?? 0);
-
-    // School-report leftovers (0073). Scoped to proposals authored by a demo identity, plus the
-    // reports those proposals confirmed. A direct `reportSchoolDay` filing has no provenance column,
-    // so it is deliberately NOT covered here rather than guessed at by time or id prefix.
-    const school = await c.query('select reset_demo_school_reports() as r');
-    const schoolCounts = (school.rows[0]?.r ?? {}) as Record<string, unknown>;
-    for (const [k, v] of Object.entries(schoolCounts)) if (Number(v) > 0) cleared[k] = Number(v);
-
-    // Add-a-Villager provenance (0081). A reset used to keep a proposal-created grant while deleting
-    // its approvals row — a live grant with no record of who granted it, and the reason the cast
-    // checksum moved. Scoped strictly to provenance: only writes a proposal created are removed, and a
-    // seeded relationship it merely activated goes back to the status `src/fixtures.ts` gives it.
-    const villager = await c.query('select reset_demo_villager_provenance() as r');
-    const villagerCounts = (villager.rows[0]?.r ?? {}) as Record<string, unknown>;
-    for (const [k, v] of Object.entries(villagerCounts)) if (Number(v) > 0) cleared[k] = Number(v);
-
-    const orbit = await c.query('select reset_demo_orbit($1, $2::jsonb) as r', [
-      actor,
-      JSON.stringify({
-        approvals: demoDecisionsCleared,
-        createdFamiliesRemoved: familyRows.length,
-      }),
-    ]);
-    const removed = orbit.rows[0]?.r ?? {};
-    for (const [k, v] of Object.entries(removed)) if (Number(v) > 0) cleared[k] = Number(v);
-
-    await c.query('commit');
-  } catch (error) {
-    await c.query('rollback').catch(() => undefined);
-    throw error;
-  } finally {
-    await c.end();
-  }
-
-  // After the commit: a created family's persona must stop resolving, so the identity mapping is
-  // removed before anything can mint or verify it again.
-  await purgeFamilyArtifacts(familyRows);
-
-  // Then reconcile anything the registry could not name: an aborted run left a `pending` marker and,
-  // possibly, an auth account with no mapping at all. This is the sweep that closes that leak.
-  const reconciled = await reconcileAbandonedFamilies();
-
-  // Only after a committed restore: a stale session cache would otherwise serve pre-reset reads.
+    const response = await c.query('select public.restore_demo_snapshot($1,$2::uuid,$3::jsonb,$4::jsonb) as report', [actor,runId,JSON.stringify(data.fixtures),JSON.stringify(data.cast)]);
+    result = response.rows[0]?.report;
+    if (!result) throw new Error('RESET_RECEIPT_MISSING');
+  } finally { await c.end(); }
   dropPersonaSessionCache();
-  return {
-    restored,
-    cleared,
-    demoDecisionsCleared,
-    createdFamiliesRemoved: familyRows.length,
-    abandonedFamiliesReconciled: reconciled.reconciled + reconciled.markersCleared,
-    droppedSessionCache: true,
+  const cleanup = async () => {
+    await (dependencies.purge ?? purgeFamilyArtifacts)(result.familyRows, { sweep: false });
+    await (dependencies.reconcile ?? reconcileAbandonedFamilies)(Number(result.cleanupBefore ?? before) - 60_000);
   };
+  (dependencies.schedule ?? (task => { setImmediate(() => { void task().catch(() => console.error('[demo-reset] background cleanup needs reconciliation')); }); }))(cleanup);
+  return { runId,status:'committed',restored:result.restored,cleared:result.cleared,demoDecisionsCleared:result.demoDecisionsCleared,
+    createdFamiliesRemoved:result.createdFamiliesRemoved,abandonedFamiliesReconciled:0,droppedSessionCache:true };
+}
+
+export async function committedResetRun(actor: string, runId: string): Promise<boolean> {
+  const c = client(); await c.connect();
+  try { return (await c.query('select 1 from public.demo_reset_runs where actor=$1 and run_id=$2::uuid',[actor,runId])).rowCount === 1; }
+  finally { await c.end(); }
 }

@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {resetSnapshot} from './demo/reset';
 import {readFileSync} from 'node:fs';
 import {createFridgeSeed,fridgeFamilies,seedFridge} from './fixtures-fridge';
 test('every fictional child has deterministic notes, goals and styles with fixed identifiers',()=>{
@@ -19,9 +20,8 @@ test('seed upserts only Fridge tables and reset restores through that same seed 
  await seedFridge(async(table,rows,conflict)=>{calls.push({table,rows,conflict});return rows.length});
  assert.deepEqual(calls.map(c=>c.table),['goals','fridge_notes','fridge_item_preferences']);
  assert.equal(calls[2].conflict,'child_id,kind,item_id');
- const reset=readFileSync('src/demo/reset.ts','utf8');
- assert.ok(reset.indexOf('await restoreFridgeFixtures(c)')>reset.indexOf('const cast = castRowsByTable()'));
- assert.ok(reset.indexOf('await restoreFridgeFixtures(c)')<reset.indexOf("await c.query('commit')"));
+ const snapshot=resetSnapshot();
+ for(const [table,rows] of Object.entries(createFridgeSeed()))assert.deepEqual(snapshot.cast[table],rows);
  const source=readFileSync('scripts/db.ts','utf8');
  assert.match(source,/await seedFridge\(upsert\)/);
  assert.match(source.slice(source.indexOf('export async function resetDatabase()')),/await seedDatabase\(\)/);

@@ -1,8 +1,9 @@
-import {DemoResetError,RESET_COMPLETE,RESET_UNCERTAIN} from './demoReset'
+import {DemoResetError,RESET_COMPLETE,RESET_FORBIDDEN} from './demoReset'
 import {createContext,useContext,useRef,useState,useCallback,useEffect} from 'react'
 import type {ReactNode} from 'react'
 import {flushSync} from 'react-dom'
 import type {AuthAdapter,AuthSession,DemoFamily,DemoFamilyInput,PersonaId} from './auth'
+import {canResetDemo} from './auth'
 import {BUSY,PerspectiveError} from './liveAuth'
 import {retryReadOnce} from './renewal'
 import {validDay} from '@/features/calendar/time'
@@ -65,16 +66,12 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
    setError(failure instanceof PerspectiveError?failure.message:BUSY)
   }}finally{if(owner===generation.current&&mounted.current)setSwitching(false)}
  }
- const clearAfterReset=useCallback(async(message:string,uncertain=false)=>{
-  if(!mounted.current)return
-  calendarDayForNextPerspective.current=null
-  const pending=discard(),owner=generation.current
-  flushSync(()=>{setSession(null);setSwitching(true);setFamilies([]);setError(uncertain?message:'');setNotice(uncertain?'':message);setResetting(false);setResetError('');setResetRetryAt(0);setRetryAt({});setUnavailable(new Set())})
-  window.history.replaceState(null,'',`${location.pathname}#/mission-control`)
-  await Promise.allSettled(pending.map(clear=>Promise.resolve().then(clear)))
-  if(mounted.current&&owner===generation.current)setSwitching(false)
- },[])
  const registerResetVerification=useCallback((verify:(signal:AbortSignal)=>Promise<void>)=>{resetVerifications.current.add(verify);return()=>{resetVerifications.current.delete(verify)}},[])
+ useEffect(()=>{
+  if(!notice)return
+  const timer=setTimeout(()=>setNotice(''),3000)
+  return()=>clearTimeout(timer)
+ },[notice])
  useEffect(()=>{
   if(!resetRetryAt)return
   const owner=generation.current,timer=setTimeout(()=>{if(generation.current===owner)setResetRetryAt(0)},Math.max(0,resetRetryAt-Date.now()))
@@ -83,25 +80,35 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
  function resetDemo():Promise<boolean>{
   const original=currentSession.current,owner=generation.current
   if(resetFlight.current?.generation===owner)return resetFlight.current.promise
-  if(original?.marks?.demoGuide||original?.persona.id==='demo-guide'){setResetError('Demo guide is read-only');return Promise.resolve(false)}
+  if(!canResetDemo(original?.persona)){setResetError(RESET_FORBIDDEN);return Promise.resolve(false)}
   if(adapter.mode==='live'&&(!original?.accessToken||original.marks?.demo!==true))return Promise.resolve(false)
   if(Date.now()<resetRetryAt)return Promise.resolve(false)
-  const verifications=[...resetVerifications.current]
-  if(adapter.mode==='live'&&!verifications.length){setResetError(new DemoResetError('failed').message);return Promise.resolve(false)}
   const controller=new AbortController();resetAbort.current=controller;setResetting(true);setResetError('')
+  function refreshAfterReset(replacement?:{accessToken:string;expiresAt:number}|null){
+   ++generation.current;transitionAbort.current?.abort();renewAbort.current?.abort();flight.current=null;backoff.current=0;notBefore.current=0
+   const pending=[...cleanups.current],latest=currentSession.current??original;cleanups.current.clear()
+   // Install the fresh bearer before a new generation can issue any reads.
+   const next=latest?{...latest,generation:generation.current,...(replacement?{accessToken:replacement.accessToken,expiresAt:replacement.expiresAt}:{})}:null
+   currentSession.current=next
+   // A fresh generation owns new adapters. Dispose the old private stores without waiting
+   // for unrelated reads or network cleanup before reporting a committed reset.
+   for(const clear of pending)try{void Promise.resolve(clear()).catch(()=>{})}catch{}
+   flushSync(()=>{setSession(next);setFamilies([]);setResetRetryAt(0);setResetting(false)})
+   resetFlight.current=null
+  }
   const promise=(async()=>{
    await Promise.resolve()
    const owns=()=>mounted.current&&generation.current===owner&&!controller.signal.aborted
    try{
-    await adapter.resetDemo(original?.accessToken,controller.signal)
+    const receipt=await adapter.resetDemo(original?.accessToken,controller.signal,original?.persona.id)
     if(!owns())return false
-    await Promise.all(verifications.map(verify=>verify(controller.signal)))
-    if(!owns())return false
-    await clearAfterReset(RESET_COMPLETE);return true
+    if((adapter.mode==='live'&&!receipt)||(receipt&&(receipt.status!=='committed'||!receipt.runId||receipt.personaId!==original?.persona.id)))throw new DemoResetError('uncertain')
+    refreshAfterReset(receipt?.session)
+    setNotice(RESET_COMPLETE);setResetError('');return true
    }catch(error){
     if(!owns())return false
     const failure=error instanceof DemoResetError?error:new DemoResetError('uncertain')
-    if(failure.kind==='uncertain'||failure.kind==='session'){await clearAfterReset(failure.kind==='uncertain'?RESET_UNCERTAIN:failure.message,true);return false}
+    if(failure.kind==='uncertain'){flushSync(()=>{setNotice('');setResetError(failure.message)});refreshAfterReset();return false}
     setResetError(failure.message)
     if(failure.kind==='cooldown')setResetRetryAt(Date.now()+failure.retryAfterMs)
     return false
