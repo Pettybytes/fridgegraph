@@ -60,6 +60,7 @@ function fakeTable(rows: Row[]) {
   let lastUpdate: Row | null = null;
   const builder = {
     select() { return builder; },
+    in(col: string, values: unknown[]) { filters.push(r => values.includes(r[col])); return builder; },
     then(onf: (v: {data:Row[];error:null})=>unknown) {return Promise.resolve({data:rows.filter(r=>filters.every(f=>f(r))),error:null}).then(onf)},
     eq(col: string, val: unknown) { filters.push((r) => r[col] === val); return builder; },
     insert(row: Row) {
@@ -85,6 +86,8 @@ function fakeTable(rows: Row[]) {
 function ctxFor(callerId: string, goalsRows: Row[], notesRows: Row[]): Ctx {
   const db = {
     from(name: string) {
+      if (name === 'household_members') return fakeTable([{person_id:'p_nora',household_id:'h_demo',role:'child'}]);
+      if (name === 'households') return fakeTable([{id:'h_demo',sandbox:true}]);
       if (name === 'goals') return fakeTable(goalsRows);
       if (name === 'fridge_notes') return fakeTable(notesRows);
       throw new Error(`unstubbed table: ${name}`);

@@ -36,9 +36,11 @@ test('known pending operation reports running and a duplicate does not restore t
  const ops=createResetOperations({restore:async()=>{writes++;await new Promise<void>(r=>{finish=r})},committed:async()=>false,session});
  const first=ops.start(kendra,runId);assert.equal((await ops.status(kendra,runId)).status,'running');assert.equal((await ops.start(kendra,runId)).status,'running');finish();await first;assert.equal(writes,1);
 });
-test('reset-only authority is verified demo identity, seeded parent/guardian or marked guide',()=>{
- for(const persona of DEMO_PERSONAS){const eligible=!!(persona.parent||persona.guardian||persona.id==='demo-guide');assert.equal(!!resetPersona({ok:true,demo:true,demoGuide:persona.id==='demo-guide',personId:persona.personId}),eligible);}
+test('reset-only authority is verified demo identity, seeded parent/guardian, never the read-only guide',()=>{
+ for(const persona of DEMO_PERSONAS){const eligible=!!(persona.parent||persona.guardian);assert.equal(!!resetPersona({ok:true,demo:true,demoGuide:persona.id==='demo-guide',personId:persona.personId}),eligible);}
  assert.equal(resetPersona({ok:true,demo:false,personId:'p_mom'}),undefined);
+ assert.equal(resetPersona({ok:true,demo:true,demoGuide:true,personId:'p_demo_guide'}),undefined);
+ assert.equal(resetPersona({ok:true,demo:true,demoGuide:true,personId:'p_mom'}),undefined);
  assert.equal(resetPersona({ok:true,demo:true,demoGuide:false,personId:'p_demo_guide'}),undefined);
  assert.equal(resetPersona({ok:true,demo:true,personId:'p_family_forged'}),undefined);
  assert.equal(resetPersona({ok:false,demo:true,personId:'p_mom'}),undefined);

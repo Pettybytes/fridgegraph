@@ -6,6 +6,7 @@ import {
   authorizeChild,
   deny,
   guideCanReadChild,
+  isShowcaseGuide,
   hasAnyGrant,
   hasScope,
   isParentOf,
@@ -394,7 +395,7 @@ export const GUIDE_READ_SCOPES: readonly string[] = [
  * returned `[]` for the one persona whose job is to see the whole sandbox.
  */
 export async function guideChildIds(ctx: Ctx): Promise<string[]> {
-  if (ctx.demoGuide !== true) return [];
+  if (!isShowcaseGuide(ctx)) return [];
   const members = await rows(
     dbFor(ctx).from('household_members').select('person_id, role').eq('role', 'child'),
   );
@@ -413,11 +414,13 @@ const resolvers = {
       if (!childId) {
         // Without a child, only a person's own grants are visible.
         const data = await rows(
-          client.from('grants').select(GRANT_COLUMNS).eq('actor_id', callerId),
+          isShowcaseGuide(ctx)
+            ? client.from('grants').select(GRANT_COLUMNS)
+            : client.from('grants').select(GRANT_COLUMNS).eq('actor_id', callerId),
         );
         return data.map(toGrant);
       }
-      if (!(await isParentOf(ctx, childId))) throw deny();
+      if (!(await isParentOf(ctx, childId)) && !(await guideCanReadChild(ctx, childId))) throw deny();
       const q = client.from('grants').select(GRANT_COLUMNS).eq('child_id', childId);
       const data = await rows(actorId ? q.eq('actor_id', actorId) : q);
       return data.map(toGrant);
@@ -448,7 +451,7 @@ const resolvers = {
       const childIds = members.filter((m) => m.role === 'child').map((m) => String(m.person_id));
       let anyParent = false;
       for (const childId of childIds) {
-        if (await isParentOf(ctx, childId)) {
+        if (await isParentOf(ctx, childId) || await guideCanReadChild(ctx, childId)) {
           anyParent = true;
           break;
         }
@@ -533,7 +536,7 @@ const resolvers = {
       // A guide enumerates the sandbox, not its own authority: it holds no memberships and no grants,
       // so the two branches below would return [] for it. Read-only scopes only — the write gates
       // (refuseDemoGuideWrite) are untouched and still refuse the guide.
-      if (ctx.demoGuide === true) {
+      if (isShowcaseGuide(ctx)) {
         const ids = await guideChildIds(ctx);
         return ids.map((id) => ({ child: { id }, scopes: [...GUIDE_READ_SCOPES].sort() }));
       }

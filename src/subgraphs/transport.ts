@@ -1,5 +1,5 @@
 import { parse } from 'graphql';
-import { SCOPE, authorizeChild, deny, guideCanReadChild, hasScope, isParentOf, requireCaller, type Ctx } from '../authz';
+import { SCOPE, authorizeChild, deny, guideCanReadChild, guideCanReadPerson, hasScope, isParentOf, requireCaller, type Ctx } from '../authz';
 import { childIds, pickupCandidatesFor } from '../derive';
 import { dbFor, one, rows } from '../db';
 
@@ -64,7 +64,7 @@ const vehiclesOf = async (ctx: Ctx, personId: string) => {
  */
 async function mayReadVehicles(ctx: Ctx, personId: string): Promise<boolean> {
   const callerId = requireCaller(ctx);
-  if (callerId === personId) return true;
+  if (callerId === personId || await guideCanReadPerson(ctx, personId)) return true;
   for (const cid of await childIds(ctx)) {
     const allowed =
       (await isParentOf(ctx, cid))
