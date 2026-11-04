@@ -1,22 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { DemoChecklist, type DemoChecklistProps } from './DemoChecklist'
-import { DEMO_CHECKLIST_EVIDENCE } from './evidence'
 
 const availability = { noticeConfirmReady: true, villageReady: true, orbitReady: true, voiceReady: false, photoReady: false }
-const props: DemoChecklistProps = { demoRunId: 'run-a', personaId: 'kendra', childId: 'p_nora', mode: 'parent', availability, evidenceLinks: DEMO_CHECKLIST_EVIDENCE }
+const props: DemoChecklistProps = { demoRunId: 'run-a', personaId: 'kendra', childId: 'p_nora', mode: 'parent', availability }
 
 beforeEach(() => localStorage.clear())
 afterEach(() => vi.restoreAllMocks())
 
-it('uses real evidence paths and keeps October 26 separate from today', () => {
-  for (const href of Object.values(DEMO_CHECKLIST_EVIDENCE)) {
-    const path = new URL(href).pathname.split('/blob/main/')[1]
-    expect(path).toMatch(/^docs\/evidence\//)
-    expect(existsSync(resolve(process.cwd(), '..', path))).toBe(true)
-  }
+it('keeps October 26 separate from today', () => {
   render(<DemoChecklist {...props} />)
   expect(screen.getByText(/historical October 26, 2026 sample/)).toBeVisible()
   expect(screen.getByText(/12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup/)).toBeVisible()
@@ -26,6 +18,17 @@ it('uses real evidence paths and keeps October 26 separate from today', () => {
   expect(screen.queryByRole('heading', { name: 'Talk to Rosina' })).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Review photo suggestions' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reset shared demo…' })).not.toBeInTheDocument()
+})
+
+it('renders no external receipt links; receipts stay in-app', () => {
+  const { container } = render(<DemoChecklist {...props} availability={{ ...availability, voiceReady: true, photoReady: true }} noticeResult={{ jobId: 'pickup_live_123', status: 'discovering', mode: 'live' }} onStartNotice={vi.fn()} />)
+  const hrefs = [...container.querySelectorAll('a')].map(a => a.getAttribute('href') ?? '')
+  expect(hrefs.some(href => href.includes('github.com'))).toBe(false)
+  expect(hrefs.some(href => /^https?:\/\//.test(href))).toBe(false)
+  expect(screen.queryByText(/receipt$/)).not.toBeInTheDocument()
+  // The in-app receipt remains: the recorded job id and the in-app result links.
+  expect(screen.getByText(/Pickup request recorded/)).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Mission Control — the pickup request' })).toHaveAttribute('href', '#/mission-control')
 })
 
 it('shows voice and photo only with readiness flags and credits the copied fixture', () => {

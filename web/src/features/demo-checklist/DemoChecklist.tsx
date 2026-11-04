@@ -7,7 +7,6 @@ import { checklistStorageKey } from './storage'
 import './demo-checklist.css'
 
 export type DemoStepId = 'notice' | 'village' | 'orbit' | 'voice' | 'photo' | 'guide'
-export type DemoChecklistEvidence = Record<DemoStepId, string>
 export type DemoChecklistAvailability = {
   noticeConfirmReady: boolean
   villageReady: boolean
@@ -23,7 +22,6 @@ export type DemoChecklistProps = {
   mode: 'parent' | 'guide'
   version?: string
   availability: DemoChecklistAvailability
-  evidenceLinks: DemoChecklistEvidence
   reopenSignal?: number
   resetFailure?: string
   /** Supply only an authorized reset action. A resolved false means reset failed. */
@@ -52,7 +50,7 @@ function readSaved(key: string): Saved {
   } catch { return EMPTY }
 }
 
-type Step = { id: DemoStepId; number: number; title: string; doThis: ReactNode; lookFor: ReactNode; evidenceLabel: string }
+type Step = { id: DemoStepId; number: number; title: string; doThis: ReactNode; lookFor: ReactNode }
 
 /** Card type + icon per step — the design-v2 type system (docs/contracts/design.md §12). */
 const STEP_LOOK: Record<DemoStepId, { type: CardType; icon: LucideIcon }> = {
@@ -69,37 +67,31 @@ function steps(availability: DemoChecklistAvailability): Step[] {
     id: 'notice', number: 1, title: 'A school notice changes the plan',
     doThis: <>Viewing Nora as Kendra or the Demo guide, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
     lookFor: <>This is a historical October 26, 2026 sample: 12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup that day. {availability.noticeConfirmReady ? <>After parent confirmation, look for <strong>Pickup request created</strong>; pickup is <strong>not arranged yet</strong>.</> : <>In mock mode, confirmation shows a sample pickup request; <strong>no record is created</strong>. A recorded request needs live parent confirmation.</>}</>,
-    evidenceLabel: 'Notice and pickup receipt',
   }]
   if (availability.villageReady) result.push({
     id: 'village', number: 2, title: 'Grow the village with permission',
     doThis: <>Review Dana’s proposed relationship and <strong>exact access scopes</strong>, then confirm as a parent.</>,
     lookFor: <>A bounded grant with only the approved scopes. A relationship alone grants no access.</>,
-    evidenceLabel: 'Add a Villager receipt',
   })
   if (availability.orbitReady) result.push({
     id: 'orbit', number: 3, title: 'Coordinate with Orbit Alert',
     doThis: <>As a parent, review and approve activation. View caregiver responses, then close the alert explicitly.</>,
     lookFor: <>Caregiver responses are <strong>reports</strong>, not verified safety. The alert stays active until a parent closes it.</>,
-    evidenceLabel: 'Orbit authority receipt',
   })
   if (availability.voiceReady) result.push({
     id: 'voice', number: 4, title: 'Talk to Rosina',
     doThis: <>Use the microphone on Today to speak to Rosina.</>,
     lookFor: <>Your spoken words as text in the conversation; listen to a reply only if playback is enabled.</>,
-    evidenceLabel: 'Voice backend receipt',
   })
   if (availability.photoReady) result.push({
     id: 'photo', number: 5, title: 'Review photo suggestions',
     doThis: <>Use the <a download href="/samples/demo-checklist/fictional-outfit.png">fictional outfit sample illustration</a> as the photo input, then review the suggested descriptors. The sample is an authored fixture with no recorded generation model; it is not Muse art.</>,
     lookFor: <>Suggestions from the child’s allowed vocabulary for a parent to review; none are automatically confirmed.</>,
-    evidenceLabel: 'Photo descriptor receipt (different fixture)',
   })
   result.push({
     id: 'guide', number: 6, title: 'Explore the showcase',
     doThis: <>Use <strong>Explore as…</strong> to switch to the <strong>Demo guide</strong> perspective.</>,
     lookFor: <>Explore all fictional families. Try parent actions with the Ellison showcase.</>,
-    evidenceLabel: 'Demo guide scope receipt',
   })
   return result
 }
@@ -180,10 +172,9 @@ function ChecklistSession({ storageKey, ...props }: DemoChecklistProps & { stora
                 <a href="#/activity">Recorded activity</a>
                 <a href="#/calendar">Family Calendar</a>
               </nav>}
-              <a className="demo-checklist__action-receipt" href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a>
             </div>
           ) : (
-            <div className="demo-checklist__step-foot"><a href={props.evidenceLinks[step.id]} target="_blank" rel="noreferrer">{step.evidenceLabel}</a><label><input type="checkbox" checked={saved.tried.includes(step.id)} onChange={event => mark(step.id, event.target.checked)} aria-label={`I tried this: ${step.title}`} /><span>I tried this</span></label></div>
+            <div className="demo-checklist__step-foot"><label><input type="checkbox" checked={saved.tried.includes(step.id)} onChange={event => mark(step.id, event.target.checked)} aria-label={`I tried this: ${step.title}`} /><span>I tried this</span></label></div>
           )}
         </div>
       </li>)}

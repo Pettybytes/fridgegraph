@@ -6,7 +6,6 @@ import { useOrbit } from '@/features/orbit/runtime'
 import { onNoticeConfirmed, requestNoticeSample } from '@/features/notice-plan/sampleSignal'
 import { DemoChecklist } from './DemoChecklist'
 import { checklistStorageKey } from './storage'
-import { DEMO_CHECKLIST_EVIDENCE } from './evidence'
 
 const RUN_KEY = 'fg:judge-checklist-run'
 let memoryRunId = ''
@@ -71,7 +70,7 @@ export function TodayDemoChecklist({ reopenSignal }: { reopenSignal: number }) {
   } : undefined
   return <div id="today-demo-checklist" tabIndex={-1}>
     <DemoChecklist demoRunId={runId} personaId={session.persona.id} childId={childId} mode={guide && !parent ? 'guide' : 'parent'}
-      evidenceLinks={DEMO_CHECKLIST_EVIDENCE} availability={availability} reopenSignal={reopenSignal}
+      availability={availability} reopenSignal={reopenSignal}
       onReset={onReset} resetFailure={resetError} onStartNotice={onStartNotice} noticeResult={noticeResult} />
   </div>
 }
