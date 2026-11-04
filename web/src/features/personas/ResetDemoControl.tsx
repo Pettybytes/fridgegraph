@@ -15,10 +15,10 @@ function ResetDialog(){
  return <AlertDialog.Root open={open} onOpenChange={value=>{if(!resetting)setOpen(value)}}>
   <AlertDialog.Trigger asChild><FgButton ref={trigger} className="reset-demo-trigger" variant="ghost" disabled={switching||resetting}>Reset demo</FgButton></AlertDialog.Trigger>
   <AlertDialog.Portal><AlertDialog.Overlay className="reset-demo-backdrop"/><AlertDialog.Content className="reset-demo-dialog" data-mode={authMode==='live'?'live':'unavailable'} aria-busy={resetting}>
-   <AlertDialog.Title>Reset the demo village for everyone?</AlertDialog.Title>
-   <AlertDialog.Description>This clears alerts, responses and changes made by visitors.{authMode==='mock'?' Sample action.':''}</AlertDialog.Description>
+   <AlertDialog.Title>{session?.marks?.demoGuide?'Reset the Ellison showcase?':'Reset the demo village for everyone?'}</AlertDialog.Title>
+   <AlertDialog.Description>{session?.marks?.demoGuide?'This restores Nora, Max and Leo’s showcase data. Other families stay unchanged. Other judges exploring Ellison will see the reset.':'This clears alerts, responses and changes made by visitors.'}{authMode==='mock'?' Sample action.':''}</AlertDialog.Description>
    {resetError&&<p className="reset-demo-error" role="alert">{resetError}</p>}
-   <div className="reset-demo-actions"><AlertDialog.Cancel asChild><FgButton variant="secondary" disabled={resetting}>Cancel</FgButton></AlertDialog.Cancel><FgButton className="reset-demo-confirm" aria-busy={resetting} disabled={resetting||Date.now()<resetRetryAt} disabledReason="Wait a moment before resetting again" onClick={()=>{void resetDemo().then(ok=>{if(ok)setOpen(false)})}}>{resetting?'Resetting demo…':'Reset demo for everyone'}</FgButton></div>
+   <div className="reset-demo-actions"><AlertDialog.Cancel asChild><FgButton variant="secondary" disabled={resetting}>Cancel</FgButton></AlertDialog.Cancel><FgButton className="reset-demo-confirm" aria-busy={resetting} disabled={resetting||Date.now()<resetRetryAt} disabledReason="Wait a moment before resetting again" onClick={()=>{void resetDemo().then(ok=>{if(ok)setOpen(false)})}}>{resetting?'Resetting demo…':session?.marks?.demoGuide?'Reset Ellison showcase':'Reset demo for everyone'}</FgButton></div>
   </AlertDialog.Content></AlertDialog.Portal>
  </AlertDialog.Root>
 }

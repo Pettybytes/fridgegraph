@@ -79,3 +79,13 @@ test('no evaluated TEST-roster candidate: refused, nothing written', async () =>
   assert.equal(result.status, 409);
   assert.ok(!calls.some((c) => c.path === '/rest/v1/attempts' && c.body), 'no attempt inserted');
 });
+
+test('showcase outreach consumes explicit child authority and keeps the TEST roster',async()=>{
+ for(const allowed of [false,true]){
+  const {service,calls}=stubService({job:JOB,evaluations:[{candidate_id:'p_tasha'}]});
+  const result=await runTestOutreach({service,authorizeChild:async child=>{assert.equal(child,'p_nora');return allowed},replyDelayMs:1},'p_demo_guide',JOB.id);
+  assert.equal(result.status,allowed?200:403);
+  assert.equal(calls.some(call=>call.path==='/rest/v1/attempts'),allowed);
+  if(allowed){assert.equal(result.body.candidateId,'p_tasha');assert.equal(result.body.simulated,true)}
+ }
+});

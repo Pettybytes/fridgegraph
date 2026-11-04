@@ -7,7 +7,7 @@ async function open(page:Page,route:string){
  await expect.poll(()=>main.innerText()).not.toMatch(denied)
  return main
 }
-test('Demo guide browses every page and all families without write controls',async({page})=>{
+test('Demo guide browses all families with actions confined to the Ellison showcase',async({page})=>{
  // No state files, traces, request headers or session tokens are retained.
  const pageErrors:string[]=[]
  page.on('pageerror',error=>{pageErrors.push(error.message);console.error('Browser error:',error.message)})
@@ -24,17 +24,16 @@ test('Demo guide browses every page and all families without write controls',asy
  main=await open(page,'activity')
  await expect(main.locator('article').first()).toBeVisible()
  main=await open(page,'orbit')
- await expect(main).toContainText(/check-in|Recorded responses/)
- await expect(main.getByRole('button',{name:/prepare|Found safe|With me|On my way/i})).toHaveCount(0)
+ await expect(main.getByRole('region',{name:'Start an Orbit alert',exact:true})).toBeVisible()
+ await expect(main.getByRole('button',{name:'Send Orbit alert',exact:true})).toBeVisible()
+
  main=await open(page,'calendar')
  await expect(main).toContainText(/School pickup|dismissal|practice/)
- await expect(main.getByRole('button',{name:'Add event'})).toHaveCount(0)
+ await expect(main.getByRole('button',{name:'Add event'})).toBeVisible()
  main=await open(page,'fridge')
  await expect(main).toContainText('Peanut allergy')
  main=await open(page,'invitations')
- await expect(main.getByRole('region',{name:'Recorded invitations'})).toBeVisible()
- await expect(main).toContainText(/birthday party/i)
- await expect(main.getByRole('button',{name:'Prepare invitation'})).toHaveCount(0)
+ await expect(main.getByRole('button',{name:'Prepare invitation'})).toBeVisible()
  main=await open(page,'care-information')
  await expect(main).toContainText('Peanut allergy')
  main=await open(page,'map')
@@ -58,7 +57,7 @@ test('Demo guide browses every page and all families without write controls',asy
   await expect(main.getByRole('region',{name:'Village map',exact:true})).toHaveAttribute('data-state','live')
  }
  expect(pageErrors).toEqual([])
- await expect(page.getByRole('button',{name:'Reset demo',exact:true})).toHaveCount(0)
+ await expect(page.getByRole('button',{name:'Reset demo',exact:true})).toBeVisible()
 })
 test('Kendra and Dana retain separate family directories',async({page})=>{
  for(const name of ['Kendra','Dana']){
@@ -71,4 +70,27 @@ test('Kendra and Dana retain separate family directories',async({page})=>{
   expect(children).not.toContain(name==='Kendra'?'Jax Coleman':'Nora Ellison')
   await page.getByRole('button',{name:'Leave perspective',exact:true}).click()
  }
+})
+
+test('Guide care edits persist, other families stay protected, Reset restores the showcase',async({page})=>{
+ await page.goto('/')
+ await page.getByRole('button',{name:'Explore as the Demo guide',exact:true}).click()
+ const select=page.getByRole('combobox',{name:'Demo guide child',exact:true})
+ await expect(select.locator('option')).toHaveCount(10)
+ let main=await open(page,'care-information')
+ await main.getByRole('button',{name:'Edit care plan',exact:true}).click()
+ await main.getByRole('textbox',{name:'Care plan',exact:true}).fill('Judge rehearsal care plan')
+ await main.getByRole('button',{name:'Save care plan',exact:true}).click()
+ await expect(main.getByRole('status')).toContainText('Care plan saved.')
+ await open(page,'today'); main=await open(page,'care-information')
+ await expect(main).toContainText('Judge rehearsal care plan')
+ await select.selectOption('p_jax');main=await open(page,'care-information')
+ await expect(main).toContainText('Mild asthma')
+ await expect(main.getByRole('button',{name:'Edit care plan',exact:true})).toHaveCount(0)
+ await page.getByRole('button',{name:'Reset demo',exact:true}).click()
+ await page.getByRole('button',{name:'Reset Ellison showcase',exact:true}).click()
+ await expect(page.getByText('Demo reset.',{exact:true}).first()).toBeVisible()
+ main=await open(page,'care-information')
+ await expect(main).toContainText('Peanut allergy')
+ await expect(main).not.toContainText('Judge rehearsal care plan')
 })

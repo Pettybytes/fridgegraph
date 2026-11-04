@@ -121,7 +121,7 @@ export function createInviteHandler(deps: InviteEndpointDeps) {
   return async function handle(req: Request, res: Response): Promise<void> {
     const identity = await deps.verify(req.header('authorization'));
     if (!identity.ok) { res.status(401).json({ error: 'UNAUTHENTICATED' }); return; }
-    if (identity.demoGuide) { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
+    if (identity.demoGuide && identity.personId !== 'p_demo_guide') { res.status(403).json({ error: 'UNAUTHORIZED' }); return; }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
     const childId = typeof body.childId === 'string' ? body.childId : '';

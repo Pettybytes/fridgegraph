@@ -1,7 +1,7 @@
 import { DEMO_PERSONAS, type DemoPersona } from './personas';
 import type { GuardIdentity } from './guards';
 export function resetPersona(identity: GuardIdentity) {
-  return identity.ok && identity.demo && !identity.demoGuide ? DEMO_PERSONAS.find(p => p.personId === identity.personId && (p.parent || p.guardian)) : undefined;
+  return identity.ok && identity.demo ? DEMO_PERSONAS.find(p => p.personId === identity.personId && (identity.demoGuide ? p.id === 'demo-guide' && p.personId === 'p_demo_guide' : p.parent || p.guardian)) : undefined;
 }
 import type { MintedSession } from './session';
 import { publicPersonaSession } from './persona-sessions';

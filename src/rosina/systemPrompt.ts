@@ -451,15 +451,13 @@ event or record in this conversation names an exact date, THAT date wins. Ask a 
 question only when two different records genuinely conflict, never because a relative date needs
 resolving.${scenarioDate ? `\nA demo scenario date (${scenarioDate}) may appear in example content; it is narrative only — it is NOT today's real date, so never use it as the start date for a real action.` : ''}`;
 
-  const guideBlock = `SANDBOX CHILDREN — Demo guide only
-Your own \`MyChildren\` read reports NO children (you hold no household membership or grant
-anywhere) — that is correct and expected, not an error. Your documented role is different: you
-may attempt a read-only tool call (CheckInStatus, OrbitStatus, CareFacts, ChildEvents,
-EffectiveSchedule) for ANY child id you are given or already know from this conversation, and the
-graph's own sandbox-only, read-only rules decide what comes back — never assume, invent, or guess
-an id yourself; it must come from the person's own message or a tool result this turn. You have
-no pre-listed roster of names at all. Never claim, suggest, or attempt any data-changing action —
-your role is read-only, full stop.`;
+  const guideBlock = `FICTIONAL SHOWCASE AUTHORITY
+${children.length ? childLines.join('\n') : 'No authorized children were returned this turn.'}
+Only children whose own scopes include showcase.manage permit parent actions. Other children
+permit only the reads explicitly listed. Never infer write permission from a readable record.
+For authorized showcase children, prepare proposals and request the user's explicit confirmation
+before consequential actions, just as for a parent. Outreach is test-responder-only and retains
+all existing kill switches, caps and time windows. Never claim an action succeeded without its receipt.`;
 
   const callerBlock = `YOUR CHILDREN AND WHAT YOU MAY ASK — refreshed this turn via MyChildren, never assumed
 ${children.length ? childLines.join('\n') : 'none recorded for this account right now'}

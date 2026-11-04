@@ -60,6 +60,7 @@ const typeDefs = parse(`
   }
 
   type Mutation {
+    updateCarePlan(childId: ID!, text: String!): CarePlan!
     """DEV SHORTCUT: skips invite + contact verification. Real lifecycle comes later."""
     approveRelationship(relationshipId: ID!): Relationship
 
@@ -701,6 +702,15 @@ const resolvers = {
   },
 
   Mutation: {
+    updateCarePlan: async (_: unknown, { childId, text }: { childId: string; text: string }, ctx: Ctx) => {
+      requireCaller(ctx);
+      refuseDemoGuideWrite(ctx);
+      if (!(await isParentOf(ctx, childId))) throw deny();
+      if (!text.trim() || text.length > 10000) throw new GraphQLError('INVALID_CARE_PLAN');
+      const record = await one(dbFor(ctx).from('care_plans').upsert({ child_id: childId, text: text.trim() }).select('child_id,text').single());
+      if (!record) throw deny();
+      return { child: { id: childId }, text: record.text };
+    },
     approveRelationship: async (
       _: unknown,
       { relationshipId }: { relationshipId: string },

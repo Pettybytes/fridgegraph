@@ -51,15 +51,10 @@ export function createSparkInviteExtractor(cfg: { apiKey: string; baseUrl: strin
   };
 }
 
-/**
- * Parent/guardian of the child, AS THE CALLER. Uses the parent-only `checkInStatus` read: the
- * coordination subgraph throws UNAUTHORIZED for anyone who is not that child's parent, so a clean
- * data result is proof of parent authority (the same signal model.ts already relies on). A non-parent,
- * an unseeable child and a missing child all answer identically — no existence oracle.
- */
+/** Explicit action authority, evaluated by the graph as the verified caller. */
 export function buildInviteParentAuthorizer(cfg: { graphqlUrl: string; fetchFn?: typeof fetch }): ParentAuthorizer {
   const doFetch = cfg.fetchFn ?? fetch;
-  const QUERY = 'query InviteParent($c: ID!){ checkInStatus(childId: $c){ child { id } } }';
+  const QUERY = 'query InviteParent($c: ID!){ canManageChild(childId: $c) }';
   return async ({ childId, bearer, signal }) => {
     try {
       const res = await doFetch(cfg.graphqlUrl, {
@@ -69,9 +64,9 @@ export function buildInviteParentAuthorizer(cfg: { graphqlUrl: string; fetchFn?:
         body: JSON.stringify({ query: QUERY, variables: { c: childId } }),
       });
       if (!res.ok) return false;
-      const body = (await res.json()) as { data?: { checkInStatus?: { child?: { id?: string } } | null }; errors?: unknown[] };
+      const body = (await res.json()) as { data?: { canManageChild?: boolean }; errors?: unknown[] };
       if (body.errors && body.errors.length > 0) return false;
-      return Boolean(body.data?.checkInStatus?.child?.id);
+      return body.data?.canManageChild === true;
     } catch {
       return false;
     }

@@ -89,8 +89,8 @@ jobs:
       - name: Fast reset receipt and cleanup regressions
         run: node --import tsx --test src/demo/reset.test.ts src/demo/resetOperation.test.ts src/demo/family-reset-race.test.ts
 
-      - name: Guide reads and write refusals
-        run: node --import tsx --test src/subgraphs/guide-my-children.test.ts src/subgraphs/guide-scope.test.ts src/subgraphs/fridge-phase2.test.ts src/rosina/pinPreferences.test.ts
+      - name: Guide scope and action authority
+        run: node --import tsx --test src/subgraphs/guide-my-children.test.ts src/subgraphs/guide-scope.test.ts src/subgraphs/fridge-phase2.test.ts src/rosina/pinPreferences.test.ts src/rosina/showcase-authority.test.ts
 
       - name: Launcher offline compose
         run: npm run test:launcher-compose
@@ -152,7 +152,10 @@ jobs:
           node --import tsx ops/calendar-rpc-auth-proof.mjs
 
       - name: Guide database read and isolation proof
-        run: node --import tsx ops/guide-database-proof.mjs
+        run: |
+          node --import tsx ops/guide-database-proof.mjs
+          node --import tsx ops/guide-write-proof.mjs
+          node --import tsx ops/guide-reset-proof.mjs
 
       - name: Install browser
         working-directory: web

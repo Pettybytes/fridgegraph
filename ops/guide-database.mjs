@@ -10,7 +10,7 @@ export async function insertRows(client, table, rows) {
   await client.query(`insert into ${table} (${columns}) select ${columns} from json_populate_record(null::${table},$1::json) on conflict do nothing`,[JSON.stringify(row)]);
  }
 }
-export async function guideDatabase({before=false}={}) {
+export async function guideDatabase({before=false,beforeShowcase=false}={}) {
   const name = `fg-guide-${randomUUID().slice(0, 8)}`;
   const command = args => {
     const result = spawnSync('docker', args, { encoding: 'utf8' });
@@ -44,6 +44,7 @@ export async function guideDatabase({before=false}={}) {
     const files = readdirSync('supabase/migrations').filter(f => /^\d+.*\.sql$/.test(f)).sort();
     for (const file of files) {
       if(before&&file.startsWith('0098'))continue;
+      if(beforeShowcase&&/^(0099|0100)/.test(file))continue;
       if (file.startsWith('0040')) {
         for(const [table,rows] of Object.entries(createCastV2())) await insertRows(admin,table,rows);
       }

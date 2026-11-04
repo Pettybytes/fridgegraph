@@ -25,6 +25,7 @@ export type ServiceFetch = (path: string, init?: RequestInit) => Promise<Respons
 export type TestOutreachDeps = {
   /** Service-role PostgREST call, path like '/rest/v1/attempts'. Key never leaves the server. */
   service: ServiceFetch;
+  authorizeChild?: (childId: string) => Promise<boolean>;
   /** Verified caller person id (from the bearer), supplied by the route. */
   replyDelayMs?: number;
   now?: () => number;
@@ -50,7 +51,7 @@ export async function runTestOutreach(
   if (!job) return { status: 404, body: { error: 'NOT_FOUND' } };
 
   // Parent gate: the caller's verified person id must be a DEMO parent persona of this child.
-  const callerIsParent = DEMO_PERSONAS.some((p) => p.parent && p.personId === callerPersonId && p.childId === job.child_id);
+  const callerIsParent = deps.authorizeChild ? await deps.authorizeChild(job.child_id) : DEMO_PERSONAS.some((p) => p.parent && p.personId === callerPersonId && p.childId === job.child_id);
   if (!callerIsParent) return { status: 403, body: { error: 'UNAUTHORIZED' } };
 
   if (job.status !== 'discovering') return { status: 409, body: { error: 'JOB_NOT_DISCOVERING', jobStatus: job.status } };

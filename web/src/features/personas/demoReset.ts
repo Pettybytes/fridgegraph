@@ -8,7 +8,7 @@ export const RESET_UNCERTAIN="Couldn't confirm the reset. Your perspective is st
 export type DemoResetReceipt={runId:string;status:'committed';personaId:PersonaId;session:{accessToken:string;expiresAt:number}|null}
 export class DemoResetError extends Error{
  readonly kind:'failed'|'cooldown'|'readonly'|'forbidden'|'session'|'uncertain';readonly retryAfterMs:number
- constructor(kind:DemoResetError['kind'],retryAfterMs=0){super(kind==='cooldown'?RESET_COOLDOWN:kind==='readonly'?'Demo guide is read-only':kind==='forbidden'?RESET_FORBIDDEN:kind==='uncertain'?RESET_UNCERTAIN:RESET_FAILED);this.kind=kind;this.retryAfterMs=retryAfterMs}
+ constructor(kind:DemoResetError['kind'],retryAfterMs=0){super(kind==='cooldown'?RESET_COOLDOWN:kind==='readonly'?'Reset is not available for this perspective':kind==='forbidden'?RESET_FORBIDDEN:kind==='uncertain'?RESET_UNCERTAIN:RESET_FAILED);this.kind=kind;this.retryAfterMs=retryAfterMs}
 }
 function committed(body:Record<string,unknown>,runId:string,personaId?:PersonaId):DemoResetReceipt|null{
  if(body.runId!==runId||body.status!=='committed'||!personas.some(p=>p.id===body.personaId)||(personaId&&body.personaId!==personaId))return null

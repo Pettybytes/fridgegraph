@@ -18,6 +18,7 @@ import schedule from '../src/subgraphs/schedule';
 import school from '../src/subgraphs/school';
 import transport from '../src/subgraphs/transport';
 import activities from '../src/subgraphs/activities';
+import { showcaseSnapshot } from '../src/demo/reset';
 import { createPinPreferencesHandler } from '../src/rosina/pinPreferences';
 // PostgREST returns SQL dates as YYYY-MM-DD strings, not JavaScript Date objects.
 pg.types.setTypeParser(1082, value => value);
@@ -59,16 +60,25 @@ async function withCaller<T>(persona:typeof DEMO_PERSONAS[number],run:(client:pg
  try {
   await client.query('begin');await client.query('set local role authenticated');
   await client.query("select set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:ids.get(persona.id),app_metadata:{demo:true,demo_guide:persona.id==='demo-guide'}})]);
-  return await run(client);
- }finally{await client.query('rollback');client.release()}
+  const result=await run(client);await client.query('commit');return result;
+ }catch(error){await client.query('rollback');throw error}finally{client.release()}
 }
 function transportFor(client:pg.PoolClient){
  return {
   from(table:string){
-   let columns='*',single=false,limit='',order='';const predicates:string[]=[],values:unknown[]=[];
+   let columns='*',single=false,limit='',order='',operation='select',payload:Record<string,unknown>={};const predicates:string[]=[],values:unknown[]=[];
    const filter=(column:string,op:string,value:unknown)=>{values.push(value);predicates.push(`${quoted(column)} ${op} $${values.length}`);return q};
-   const q:any={select:(value='*')=>{columns=value==='*'?'*':value.split(',').map(quoted).join(',');return q},eq:(c:string,v:unknown)=>filter(c,'=',v),in:(c:string,v:unknown)=>filter(c,'= any(',v),not:(c:string,op:string,v:unknown)=>{if(op!=='is'||v!==null)throw Error('Unsupported test filter');predicates.push(`${quoted(c)} is not null`);return q},gte:(c:string,v:unknown)=>filter(c,'>=',v),lte:(c:string,v:unknown)=>filter(c,'<=',v),order:(c:string,o?:{ascending?:boolean})=>{order=` order by ${quoted(c)} ${o?.ascending===false?'desc':'asc'}`;return q},limit:(n:number)=>{limit=` limit ${Number(n)}`;return q},maybeSingle:()=>{single=true;return q},single:()=>{single=true;return q},then:async(resolve:any,reject:any)=>{
-    try{const where=predicates.map(p=>p.includes('= any(')?p+')':p).join(' and ');const result=await client.query(`select ${columns} from ${quoted(table)}${where?' where '+where:''}${order}${limit}`,values);return resolve({data:single?result.rows[0]??null:result.rows,error:null})}catch(error){return resolve({data:null,error})}
+   const q:any={insert:(row:Record<string,unknown>)=>{operation='insert';payload=row;return q},upsert:(row:Record<string,unknown>)=>{operation='upsert';payload=row;return q},update:(row:Record<string,unknown>)=>{operation='update';payload=row;return q},delete:()=>{operation='delete';return q},select:(value='*')=>{columns=value==='*'?'*':value.split(',').map(quoted).join(',');return q},eq:(c:string,v:unknown)=>filter(c,'=',v),in:(c:string,v:unknown)=>filter(c,'= any(',v),not:(c:string,op:string,v:unknown)=>{if(op!=='is'||v!==null)throw Error('Unsupported test filter');predicates.push(`${quoted(c)} is not null`);return q},gte:(c:string,v:unknown)=>filter(c,'>=',v),lte:(c:string,v:unknown)=>filter(c,'<=',v),order:(c:string,o?:{ascending?:boolean})=>{order=` order by ${quoted(c)} ${o?.ascending===false?'desc':'asc'}`;return q},limit:(n:number)=>{limit=` limit ${Number(n)}`;return q},maybeSingle:()=>{single=true;return q},single:()=>{single=true;return q},then:async(resolve:any,reject:any)=>{
+    try{const where=predicates.map(p=>p.includes('= any(')?p+')':p).join(' and ');
+     const suffix=where?' where '+where:'';let sql:string;
+     if(operation==='select')sql=`select ${columns} from ${quoted(table)}${suffix}${order}${limit}`;
+     else if(operation==='delete')sql=`delete from ${quoted(table)}${suffix} returning ${columns}`;
+     else {
+      const entries=Object.entries(payload),slots=entries.map(([,value])=>{values.push(value);return '$'+values.length});
+      if(operation==='update')sql=`update ${quoted(table)} set ${entries.map(([key],i)=>`${quoted(key)}=${slots[i]}`).join(',')}${suffix} returning ${columns}`;
+      else sql=`insert into ${quoted(table)} (${entries.map(([key])=>quoted(key)).join(',')}) values (${slots.join(',')})${operation==='upsert'?` on conflict (child_id) do update set ${entries.filter(([key])=>key!=='child_id').map(([key])=>`${quoted(key)}=excluded.${quoted(key)}`).join(',')}`:''} returning ${columns}`;
+     }
+     const result=await client.query(sql,values);return resolve({data:single?result.rows[0]??null:result.rows,error:null})}catch(error){return resolve({data:null,error})}
    }};return q;
   },
   async rpc(name:string,args:Record<string,unknown>={}){try{const result=await client.query(`select * from ${quoted(name)}(${Object.keys(args).map((key,i)=>`${quoted(key)} => $${i+1}`).join(',')})`,Object.values(args));const scalar=result.fields.length===1&&result.fields[0].name===name;return {data:scalar?result.rows[0]?.[name]:result.rows,error:null}}catch(error){return {data:null,error}}},
@@ -81,6 +91,12 @@ app.get('/api/demo/families',(_req,res)=>res.json({families:[]}));
 app.post('/api/demo/login',(req,res)=>{
  const p=DEMO_PERSONAS.find(p=>p.id===req.body.personaId);if(!p){res.sendStatus(401);return}
  res.json({status:'READY',personaId:p.id,personId:p.personId,persona:p,scope:{childId:p.childId,childName:p.childName,parentName:p.name,villageId:p.villageId},session:{access_token:`fixture-${p.id}`,token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600},marks:{demo:true,demoGuide:p.id==='demo-guide'}});
+});
+app.post('/api/demo/reset',async(req,res)=>{
+ const persona=personaFor(req.headers.authorization);if(persona?.id!=='demo-guide'){res.sendStatus(403);return}
+ const runId=req.body.runId;
+ const result=await db.admin.query('select restore_showcase_snapshot($1,$2::uuid,$3::jsonb) as report',[persona.personId,runId,JSON.stringify(showcaseSnapshot())]);
+ res.json({ok:true,runId,status:'committed',personaId:persona.id,session:null,report:result.rows[0].report});
 });
 app.post('/graphql',async(req,res)=>{
  const persona=personaFor(req.headers.authorization);if(!persona){res.sendStatus(401);return}
