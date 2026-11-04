@@ -33,13 +33,19 @@ export type BridgeActionInput = {
   args?: Record<string, unknown>;
   affectedPeople?: string[];
 };
-export type TurnResult = { reply: string; actions: BridgeActionInput[] };
+export type GatheredIntent = { description: string; sourceFacts: string[]; childId?: string; affectedPeople?: string[] };
+export type TurnResult = { reply: string; actions: BridgeActionInput[]; intent?: GatheredIntent };
 export type TurnRequest = { message: string; session: BridgeSession; callId: string; turn: number };
 export type TurnRunner = (req: TurnRequest) => Promise<TurnResult>;
 
 export type BridgeResponse = {
   status: number;
-  body: { reply: string; actions: RosinaActionProposal[]; requiresConfirmation: boolean; executed: false; duplicate?: true };
+  body: {
+    reply: string; actions: RosinaActionProposal[]; requiresConfirmation: boolean; executed: false; duplicate?: true;
+    /** Which model produced what: the fast voice model may answer and gather intent; only Muse authors proposals. */
+    attribution: { reply: 'retell-model'; proposal?: 'muse-sonnet' };
+    proposalUnavailable?: true;
+  };
 };
 
 const MAX_SKEW_MS = 5 * 60_000;
@@ -66,13 +72,17 @@ type Payload = {
 
 export class RetellBridge {
   private receipts = new Map<string, BridgeResponse['body']>();
-  constructor(private deps: { secret: string; runTurn: TurnRunner }) {}
+  constructor(private deps: {
+    secret: string; runTurn: TurnRunner;
+    /** Muse Spark proposal writer. The fast voice model gathers intent; only this writes proposals. */
+    writeProposal?: (input: { intent: GatheredIntent; session: BridgeSession; message: string }) => Promise<BridgeActionInput | null>;
+  }) {}
 
   pendingReceipts(): number { return this.receipts.size; }
 
   async handle(raw: string, headers: Record<string, string>): Promise<BridgeResponse> {
     const refuse = (status: number, reply: string): BridgeResponse =>
-      ({ status, body: { reply, actions: [], requiresConfirmation: false, executed: false } });
+      ({ status, body: { reply, actions: [], requiresConfirmation: false, executed: false, attribution: { reply: 'retell-model' } } });
     if (!signatureOk(this.deps.secret, headers, raw)) return refuse(401, 'Unsigned or stale request.');
     let p: Payload;
     try { p = JSON.parse(raw) as Payload; } catch { return refuse(400, 'Malformed request.'); }
@@ -80,7 +90,7 @@ export class RetellBridge {
     const key = `${p.callId}:${p.turn}`;
     if (p.event === 'call_ended') {
       for (const k of [...this.receipts.keys()]) if (k.startsWith(`${p.callId}:`)) this.receipts.delete(k);
-      return { status: 200, body: { reply: '', actions: [], requiresConfirmation: false, executed: false } };
+      return { status: 200, body: { reply: '', actions: [], requiresConfirmation: false, executed: false, attribution: { reply: 'retell-model' } } };
     }
     const prior = this.receipts.get(key);
     if (prior) return { status: 200, body: { ...prior, duplicate: true } };
@@ -89,12 +99,22 @@ export class RetellBridge {
       return refuse(400, 'No bound FridgeGraph session. A phone number is not authorization.');
     }
     if (typeof p.message !== 'string' || !p.message.trim()) return refuse(400, 'Empty turn.');
-    const result = await this.deps.runTurn({ message: p.message, session: s, callId: p.callId, turn: p.turn });
+    let result: TurnResult;
+    try { result = await this.deps.runTurn({ message: p.message, session: s, callId: p.callId, turn: p.turn }); }
+    catch { return refuse(502, 'Rosina is unavailable right now. Nothing was changed.'); }
     // Every voice action must satisfy the shared action contract; anything
     // ungrounded or outside the caller's authorized children is dropped here,
     // before it can be spoken of as a proposal.
+    const actionInputs: BridgeActionInput[] = [...result.actions];
+    let proposalUnavailable: true | undefined;
+    if (result.intent && this.deps.writeProposal) {
+      try {
+        const written = await this.deps.writeProposal({ intent: result.intent, session: s, message: p.message });
+        if (written) actionInputs.push(written);
+      } catch { proposalUnavailable = true; }
+    } else if (result.intent) { proposalUnavailable = true; }
     const actions: RosinaActionProposal[] = [];
-    result.actions.forEach((a, i) => {
+    actionInputs.forEach((a, i) => {
       const built = buildActionProposal({
         channel: 'voice',
         actorPersonId: s.personId,
@@ -113,6 +133,8 @@ export class RetellBridge {
       actions,
       requiresConfirmation: actions.length > 0,
       executed: false,
+      attribution: { reply: 'retell-model', ...(actions.length ? { proposal: 'muse-sonnet' as const } : {}) },
+      ...(proposalUnavailable ? { proposalUnavailable } : {}),
     };
     this.receipts.set(key, body);
     return { status: 200, body };

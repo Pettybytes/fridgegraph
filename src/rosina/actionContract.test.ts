@@ -80,3 +80,12 @@ test('pickup coverage is spoken of as requested, never arranged, until a record 
   assert.match(spokenStatus(r.proposal), /requested/);
   assert.doesNotMatch(spokenStatus(r.proposal), /arranged|saved|booked/);
 });
+
+test('only Muse may author a proposal: a fast-model authored proposal is refused', () => {
+  const r = buildActionProposal({ ...base, authoredBy: 'retell-model' });
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.reason, 'author-not-authorized');
+  const ok = buildActionProposal({ ...base, authoredBy: 'muse-sonnet' });
+  assert.equal(ok.ok, true);
+  if (ok.ok) assert.equal(ok.proposal.authoredBy, 'muse-sonnet');
+});

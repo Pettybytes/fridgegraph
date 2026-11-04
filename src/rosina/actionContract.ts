@@ -27,6 +27,8 @@ export interface RosinaActionProposal {
   proposedChange: { summary: string; args: Record<string, unknown> };
   affectedPeople: string[];
   confirmation: { required: true; channel: 'fridgegraph-app'; status: 'awaiting-parent' };
+  /** Substantive proposals are authored by Muse Spark only (Bryan 12:58 hybrid ruling). */
+  authoredBy: 'muse-sonnet';
   idempotencyKey: string;
   result: { recordId: string | null; status: ActionResultStatus };
 }
@@ -41,17 +43,21 @@ export interface BuildProposalInput {
   proposedChange: { summary: string; args?: Record<string, unknown> };
   affectedPeople: string[];
   idempotencyKey?: string;
+  authoredBy?: string;
 }
 
 export type BuildProposalResult =
   | { ok: true; proposal: RosinaActionProposal }
-  | { ok: false; reason: 'child-not-authorized' | 'missing-source-facts' | 'missing-change'; reply: string };
+  | { ok: false; reason: 'child-not-authorized' | 'missing-source-facts' | 'missing-change' | 'author-not-authorized'; reply: string };
 
 export function deriveIdempotencyKey(parts: readonly (string | number)[]): string {
   return createHash('sha256').update(parts.join('')).digest('hex').slice(0, 32);
 }
 
 export function buildActionProposal(input: BuildProposalInput): BuildProposalResult {
+  if (input.authoredBy !== undefined && input.authoredBy !== 'muse-sonnet') {
+    return { ok: false, reason: 'author-not-authorized', reply: 'Only Muse can author a change proposal; I can gather the details for one.' };
+  }
   if (!input.authorizedChildIds.includes(input.childId)) {
     return { ok: false, reason: 'child-not-authorized', reply: 'I can only help with children shared with you.' };
   }
@@ -77,6 +83,7 @@ export function buildActionProposal(input: BuildProposalInput): BuildProposalRes
       proposedChange: { summary: input.proposedChange.summary, args: input.proposedChange.args ?? {} },
       affectedPeople: [...input.affectedPeople],
       confirmation: { required: true, channel: 'fridgegraph-app', status: 'awaiting-parent' },
+      authoredBy: 'muse-sonnet',
       idempotencyKey,
       result: { recordId: null, status: input.intent.startsWith('pickup') ? 'requested' : 'proposed' },
     },

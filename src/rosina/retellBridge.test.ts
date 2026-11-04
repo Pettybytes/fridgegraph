@@ -109,3 +109,45 @@ test('an interrupted call (abort event) clears dedupe state and returns no propo
   assert.equal(r.body.actions.length, 0);
   assert.equal(b.pendingReceipts(), 0);
 });
+
+test('gathered intent goes to the Muse proposal writer; the fast reply never claims a save', async () => {
+  const b = new RetellBridge({ secret: SECRET, runTurn: async () => ({
+    reply: 'I will prepare that pickup change for your review in the app.',
+    actions: [],
+    intent: { description: 'Arrange pickup for Nora early dismissal tomorrow 12:30 PM', sourceFacts: ['Tomorrow Nora has an early dismissal at 12:30 PM and no pickup is arranged yet'], affectedPeople: ['Nora Ellison'] },
+  }), writeProposal: async ({ intent }) => ({ intent: 'pickup.coverage', sourceFacts: intent.sourceFacts, summary: intent.description, affectedPeople: intent.affectedPeople }) });
+  const { raw, headers } = signed({ callId: 'call-h1', turn: 1, message: 'Can you handle Nora pickup tomorrow?', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.actions.length, 1);
+  assert.equal(r.body.actions[0].authoredBy, 'muse-sonnet');
+  assert.equal(r.body.actions[0].result.status, 'requested');
+  assert.equal(r.body.actions[0].result.recordId, null);
+  assert.equal(r.body.attribution.proposal, 'muse-sonnet');
+  assert.equal(r.body.attribution.reply, 'retell-model');
+  assert.equal(r.body.executed, false);
+  assert.doesNotMatch(r.body.reply, /has been saved|is booked|is arranged/i);
+});
+
+test('a Muse writer failure yields no proposal and no claim, never a phantom write', async () => {
+  const b = new RetellBridge({ secret: SECRET, runTurn: async () => ({
+    reply: 'Let me prepare that for you.', actions: [],
+    intent: { description: 'Add a calendar event', sourceFacts: ['fact'], affectedPeople: [] },
+  }), writeProposal: async () => { throw new Error('provider down'); } });
+  const { raw, headers } = signed({ callId: 'call-h2', turn: 1, message: 'Add an event', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.actions.length, 0);
+  assert.equal(r.body.proposalUnavailable, true);
+  assert.equal(r.body.executed, false);
+});
+
+test('a provider failure in the turn itself is a clean refusal with no actions', async () => {
+  const b = bridge(async () => { throw new Error('provider timeout'); });
+  const { raw, headers } = signed({ callId: 'call-h3', turn: 1, message: 'Who is picking Nora up today?', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.status, 502);
+  assert.equal(r.body.actions.length, 0);
+  assert.equal(r.body.executed, false);
+  assert.match(r.body.reply, /unavailable/);
+});
