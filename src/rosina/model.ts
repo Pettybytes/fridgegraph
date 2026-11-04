@@ -9,6 +9,7 @@
  */
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
 import { chat, chatStream, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
+import {calendarProposal} from './calendarActions';
 import { catalog, validateActions, type CatalogAction } from './catalog';
 import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
 import { bearerKey, type TtlCache } from './turnCache';
@@ -535,6 +536,8 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       outputGuardTriggered: false,
     };
   }
+  const calendar = await calendarProposal({message:options.message,history:options.history,children:childList,bearer:options.bearer,graphqlUrl:options.graphqlUrl??'',request:options.lensRequest});
+  if(calendar) return {...calendar,schoolReportProposal:null,addVillagerProposal:null,provider:options.provider,model:config.model,rounds:0,toolCalls:[],usage:{prompt:0,completion:0,total:0},latencyMs:Date.now()-started,firstAnswerMs:Date.now()-started,stages:{lensMs:0,modelMs:0,toolsMs:0},outputGuardTriggered:false};
   const childAccessById = new Map(childList.map((c) => [c.id, c]));
 
   // Tool DEFINITIONS are identical for every caller (authorization happens per call, below),
@@ -547,16 +550,17 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // FAMILY LENS (playbook 3/7): served from the per-bearer cache when fresh; a cold build races a
   // short wait so it can never hold the first token hostage (the build keeps running in the
   // background and caches for the next turn). Grounded below like any other authorized read.
+  const freshCalendar=/\b(calendar|schedule|tomorrow)\b/i.test(options.message);
   let lens: FamilyLens | null = null;
   let lensMs = 0;
   if (options.graphqlUrl && childList.length > 0) {
     const lensKey = bearerKey(options.bearer);
-    lens = options.lensCache?.get(lensKey) ?? null;
+    lens = freshCalendar ? null : options.lensCache?.get(lensKey) ?? null;
     if (!lens) {
       const lensStart = Date.now();
       const pending = buildFamilyLens(options.graphqlUrl, options.bearer, childList, options.lensRequest);
       void pending.then((built) => { if (built) options.lensCache?.set(lensKey, built); }).catch(() => {});
-      lens = await Promise.race([
+      lens = freshCalendar ? await pending : await Promise.race([
         pending,
         new Promise<null>((resolve) => setTimeout(() => resolve(null), options.lensWaitMs ?? 700)),
       ]);
@@ -850,7 +854,8 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         continue;
       }
 
-      let validated = validateActions([{ id, args }]);
+      // Calendar cards are issued only by the permission-checked proposal path above.
+      let validated = id === 'calendar-change' ? [] : validateActions([{ id, args }]);
       let refusalReason: string | null = null;
       // Catalog presence never implies permission: start-pickup additionally requires a
       // same-turn, successful PickupCandidates call for this exact child (see verifiedChildIds

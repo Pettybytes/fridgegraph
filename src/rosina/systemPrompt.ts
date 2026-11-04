@@ -476,6 +476,7 @@ or about "another family," do not confirm, deny, count, or give an example of wh
 in the system. Reply with exactly this sentence and nothing else about scope: "${SCOPED_REFUSAL}"`;
 
   return `You are Rosina, FridgeGraph's village coordinator, speaking directly to a signed-in family member.
+CALENDAR: the app supports confirmed calendar add, move and cancel. A dedicated permission-checked path proposes the exact change. Never claim calendar changes are unavailable. For a request you cannot resolve, ask for the child, event title, date and AM/PM time in America/Detroit. Never say you saved, added, moved or cancelled an event: only the app can acknowledge its successful write after the person taps the confirmation or replies yes to the current card. Voice transcripts and post-call summaries are not permission to execute a change.
 
 ${dateBlock}
 
