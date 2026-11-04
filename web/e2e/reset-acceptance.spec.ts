@@ -1,0 +1,51 @@
+import {expect,test} from '@playwright/test'
+
+// This restores the SHARED demo. Deliberately opt in, never run as an automatic read-only sweep.
+test.skip(process.env.RESET_ALLOW_SHARED!=='1','Set RESET_ALLOW_SHARED=1 only for the coordinated reset rehearsal.')
+test('one public reset commits under2s and keeps Kendra in the same perspective',async({page},info)=>{
+ await page.goto('/#/mission-control')
+ await page.getByRole('button',{name:'Explore as Kendra',exact:true}).click()
+ await expect(page.locator('.session-chip')).toContainText('Kendra',{timeout:20_000})
+ await page.getByRole('button',{name:'Reset demo',exact:true}).click()
+ const dialog=page.getByRole('alertdialog')
+ await expect(dialog).toBeVisible()
+ const confirm=dialog.getByRole('button',{name:'Reset demo for everyone',exact:true})
+ await expect(confirm).toHaveCSS('background-color','rgb(0, 0, 0)')
+ expect(await confirm.evaluate(e=>parseFloat(getComputedStyle(e).borderRadius))).toBeGreaterThan(100)
+ await page.screenshot({path:info.outputPath('confirm-desktop.png')})
+ await page.setViewportSize({width:390,height:844})
+ expect(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true)
+ await page.screenshot({path:info.outputPath('confirm-phone.png')})
+ await page.setViewportSize({width:1440,height:900})
+ const route=page.url(),reply=page.waitForResponse(r=>r.url().endsWith('/api/demo/reset')&&r.request().method()==='POST')
+ await confirm.evaluate(e=>{e.addEventListener('click',()=>{
+  const proof={start:performance.now(),done:null as number|null};(window as unknown as {resetProof:typeof proof}).resetProof=proof
+  const observer=new MutationObserver(()=>{const toast=document.querySelector('.reset-demo-toast');if(toast?.textContent==='Demo reset.'&&document.querySelector('.session-chip')?.textContent?.includes('Kendra')){proof.done=performance.now()-proof.start;observer.disconnect()}})
+  observer.observe(document.body,{subtree:true,childList:true,characterData:true})
+ },{capture:true,once:true})})
+ await confirm.click()
+ await expect(page.locator('.reset-demo-toast')).toHaveText('Demo reset.',{timeout:2000})
+ const elapsed=await page.evaluate(()=>(window as unknown as {resetProof:{done:number|null}}).resetProof.done)
+ expect(elapsed,'Native Confirm click to committed same-persona success must be under2000ms').not.toBeNull()
+ expect(elapsed!).toBeLessThan(2000)
+ const response=await reply
+ expect(response.status()).toBe(200)
+ // Assert primitives only: failures must never print a real session/token payload.
+ const body=await response.json()
+ expect(body.status).toBe('committed');expect(typeof body.runId).toBe('string')
+ expect(body.personaId).toBe('kendra')
+ expect(body.session===null||typeof body.session?.access_token==='string').toBe(true)
+ expect(body.session&&'refresh_token'in body.session).toBeFalsy()
+ await expect(page.locator('.session-chip')).toContainText('Kendra')
+ await expect(page.getByRole('alertdialog')).toHaveCount(0)
+ expect(page.url()).toBe(route)
+ expect(await page.getByRole('button',{name:'Explore as Kendra',exact:true}).count()).toBe(0)
+ await page.screenshot({path:info.outputPath('same-perspective-success.png')})
+ console.log(`PUBLIC_RESET_MS=${elapsed!.toFixed(1)}`)
+ // Re-entry at phone size is a layout check, not a second shared restore.
+ await page.setViewportSize({width:390,height:844})
+ await expect(page.locator('.session-chip')).toContainText('Kendra')
+ await page.getByRole('button',{name:'Reset demo',exact:true}).click()
+ await expect(page.getByRole('alertdialog')).toBeVisible()
+ await page.getByRole('button',{name:'Cancel',exact:true}).click()
+})

@@ -1,3 +1,4 @@
+import type { DemoResetReceipt } from './demoReset'
 import type { Scope } from '@/lib/frontendData/types'
 export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone' | 'whitfield' | 'demo-guide'
 export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'calendar' | 'village' }
@@ -30,11 +31,16 @@ export const personaGroups = [
 export type DemoFamilyInput = { parentName: string; childName: string }
 export type DemoFamily = DemoFamilyInput & { id: string; childId: string }
 export type AuthSession = { persona: Persona; scope: Scope; generation: number; accessToken?: string; expiresAt?: number; marks?: {demo:boolean;demoGuide:boolean} }
+// Reset-only permission. The Demo guide remains read-only in every other feature.
+export function canResetDemo(persona:Persona|undefined){
+ const seeded=persona&&personas.find(candidate=>candidate.id===persona.id&&candidate.personId===persona.personId)
+ return !!seeded&&(seeded.parent||seeded.guardian===true||seeded.id==='demo-guide')
+}
 export interface AuthAdapter {
   readonly mode: 'mock' | 'live'
   signInAsPersona(personaId: PersonaId, signal?: AbortSignal): Promise<Omit<AuthSession, 'generation'>>
   unavailablePersonas?(signal:AbortSignal):Promise<PersonaId[]>
-  resetDemo(accessToken?:string,signal?:AbortSignal): Promise<void>
+  resetDemo(accessToken?:string,signal?:AbortSignal,personaId?:PersonaId): Promise<DemoResetReceipt|void>
   createDemoFamily(input: DemoFamilyInput): Promise<DemoFamily>
 }
 export function createMockAuthAdapter(): AuthAdapter {

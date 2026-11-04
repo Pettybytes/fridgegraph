@@ -4,7 +4,7 @@ import type {ApolloClient} from '@apollo/client'
 import {useSession} from './Session'
 export const RESET_SEEDED_READS=gql`query WebResetSeededReads{myChildren{child{id} scopes} orbitVocabulary{kind value version}}`
 // Verify delivered, caller-scoped reads. Authorized empty child lists are valid. No cached
-// result, renewal or write. A verification timeout clears only this tab via SessionProvider.
+// result, renewal or write. This optional probe does not gate a committed reset receipt.
 export async function verifyResetSeededReads(client:ApolloClient,signal:AbortSignal,current:()=>boolean,timeoutMs=15000){
  const abort=new AbortController();const cancel=()=>abort.abort();signal.addEventListener('abort',cancel,{once:true})
  let timer:ReturnType<typeof setTimeout>|undefined
