@@ -285,3 +285,59 @@ it('a late playback resolution after teardown never flips to speaking', async ()
   await act(async () => { resolvePlay(); await Promise.resolve() })    // late play resolves after teardown
   expect(result.current.state).not.toBe('speaking')                   // epoch check dropped it
 })
+
+function failingThenOkFetch(failures: number) {
+  let remaining = failures
+  const fetchMock = vi.fn(async () => {
+    if (remaining > 0) {
+      remaining -= 1
+      const res = { ok: false, status: 500, json: async () => ({ error: 'ROSINA_UNAVAILABLE' }), clone() { return res } }
+      return res as unknown as Response
+    }
+    return { ok: true, status: 200, json: async () => TURN_OK } as unknown as Response
+  })
+  return fetchMock as unknown as typeof fetch
+}
+
+it('conversation mode recovers from ONE failed turn: error shown, then re-arms and the next turn succeeds', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const { deps } = makeDeps()
+    const request = failingThenOkFetch(1) // ONE mock across re-renders, or remaining resets every render
+    const { result } = renderHook(() => useRosinaVoice({ ...deps, request }))
+    await act(async () => { result.current.startConversation() })
+    expect(result.current.state).toBe('listening')
+    await act(async () => { result.current.stop() })
+    expect(result.current.state).toBe('error')
+    expect(result.current.error?.kind).toBe('model')
+    expect(result.current.conversation).toBe(true)            // one failure does not end the conversation
+    await act(async () => { await vi.advanceTimersByTimeAsync(1600) })
+    expect(result.current.state).toBe('listening')            // re-armed
+    vi.useRealTimers()                                        // the success turn needs no fake clock
+    await act(async () => { result.current.stop() })
+    await waitFor(() => expect(result.current.reply).toBe('Hi Kendra')) // the next turn went through
+    expect(result.current.conversation).toBe(true)
+  } finally { vi.useRealTimers() }
+})
+
+it('three consecutive failed turns end the conversation instead of looping the microphone forever', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const { deps } = makeDeps()
+    const request = failingThenOkFetch(99)
+    const { result } = renderHook(() => useRosinaVoice({ ...deps, request }))
+    await act(async () => { result.current.startConversation() })
+    for (let i = 0; i < 2; i += 1) {
+      await act(async () => { result.current.stop() })
+      expect(result.current.conversation).toBe(true)
+      await act(async () => { await vi.advanceTimersByTimeAsync(1600) })
+      expect(result.current.state).toBe('listening')
+    }
+    await act(async () => { result.current.stop() })          // third consecutive failure
+    expect(result.current.state).toBe('error')
+    expect(result.current.conversation).toBe(false)           // ended; no further re-arm
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+    expect(result.current.state).toBe('error')
+    expect((request as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3)
+  } finally { vi.useRealTimers() }
+})
