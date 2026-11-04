@@ -108,6 +108,157 @@ type RawMessage = {
 
 const REASONING_FIELDS = ['reasoning_content', 'reasoning', 'thinking'] as const;
 
+export type ChatStreamOptions = {
+  maxTokens?: number;
+  timeoutMs?: number;
+  /** Fires for ANSWER text deltas only. Reasoning deltas never reach it. */
+  onDelta?: (text: string) => void;
+  /** Fires once, on the first reasoning delta, so a caller can show a thinking state. */
+  onReasoning?: () => void;
+};
+
+type StreamDelta = {
+  content?: string | null;
+  reasoning?: string;
+  reasoning_content?: string;
+  thinking?: string;
+  tool_calls?: Array<{ index?: number; id?: string; type?: string; function?: { name?: string; arguments?: string } }>;
+};
+
+/**
+ * Streaming variant of chat(): same request with stream:true, OpenAI-style SSE chunks.
+ * Returns the SAME ChatResult shape as chat() once the stream ends, so callers can switch
+ * between the two without touching the turn logic. Reasoning deltas are accumulated but never
+ * forwarded through onDelta: the user-visible stream carries answer tokens only.
+ */
+export async function chatStream(
+  config: ProviderConfig,
+  messages: ModelMessage[],
+  tools?: ModelTool[],
+  options: ChatStreamOptions = {},
+): Promise<ChatResult> {
+  const url = `${config.baseUrl}/chat/completions`;
+  const started = Date.now();
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 90_000);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages,
+        ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
+        temperature: 0,
+        max_tokens: options.maxTokens ?? 2000,
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok || !res.body) {
+      // Error bodies are JSON, not SSE. Never echo them (they can quote auth material).
+      const text = await res.text().catch(() => '');
+      let detail = 'no error detail';
+      try {
+        const body = JSON.parse(text) as { error?: { message?: string; type?: string } };
+        detail = body.error?.message ?? body.error?.type ?? detail;
+      } catch { /* non-JSON error body stays unechoed */ }
+      throw new Error(`MODEL_HTTP_${res.status}: ${String(detail).slice(0, 300)}`);
+    }
+
+    let content = '';
+    let reasoning = '';
+    let reasoningField: string | undefined;
+    let reasoningSeen = false;
+    let finishReason: string | undefined;
+    const usage: Record<string, number | undefined> = {};
+    const toolAccumulator = new Map<number, { id: string; name: string; args: string }>();
+    const messageKeys = new Set<string>();
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE events are separated by a blank line; each data line carries one JSON chunk.
+      for (;;) {
+        const nl = buffer.indexOf('\n');
+        if (nl === -1) break;
+        const line = buffer.slice(0, nl).replace(/\r$/, '');
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload === '' || payload === '[DONE]') continue;
+        let chunk: Record<string, unknown>;
+        try {
+          chunk = JSON.parse(payload) as Record<string, unknown>;
+        } catch {
+          continue; // a torn chunk never aborts the stream; the next data line resyncs
+        }
+        const chunkUsage = chunk.usage as Record<string, number | undefined> | undefined;
+        if (chunkUsage) Object.assign(usage, chunkUsage);
+        const choice = (chunk.choices as Array<{ delta?: StreamDelta; finish_reason?: string }> | undefined)?.[0];
+        if (!choice) continue;
+        if (choice.finish_reason) finishReason = choice.finish_reason;
+        const delta = choice.delta ?? {};
+        for (const key of Object.keys(delta)) messageKeys.add(key);
+        for (const field of REASONING_FIELDS) {
+          const value = (delta as Record<string, unknown>)[field];
+          if (typeof value === 'string' && value) {
+            reasoning += value;
+            reasoningField = reasoningField ?? field;
+            if (!reasoningSeen) { reasoningSeen = true; options.onReasoning?.(); }
+          }
+        }
+        if (typeof delta.content === 'string' && delta.content) {
+          content += delta.content;
+          options.onDelta?.(delta.content);
+        }
+        for (const call of delta.tool_calls ?? []) {
+          const index = call.index ?? 0;
+          const existing = toolAccumulator.get(index) ?? { id: '', name: '', args: '' };
+          if (call.id) existing.id = call.id;
+          if (call.function?.name) existing.name += call.function.name;
+          if (call.function?.arguments) existing.args += call.function.arguments;
+          toolAccumulator.set(index, existing);
+        }
+      }
+    }
+
+    const toolCalls: ToolCallRequest[] = [...toolAccumulator.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([index, call]) => ({ id: call.id || `call_${index}`, name: call.name, args: call.args || '{}' }));
+
+    return {
+      content,
+      reasoning: reasoning || undefined,
+      reasoningField,
+      toolCalls,
+      usage: {
+        prompt: usage.prompt_tokens,
+        completion: usage.completion_tokens,
+        total: usage.total_tokens,
+        reasoning: usage.reasoning_tokens,
+      },
+      latencyMs: Date.now() - started,
+      finishReason,
+      messageKeys: [...messageKeys],
+      usageKeys: Object.keys(usage),
+      rawSummary: { status: 200 },
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function chat(
   config: ProviderConfig,
   messages: ModelMessage[],

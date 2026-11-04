@@ -43,10 +43,16 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   const calendarScope = useCalendarActionScope(session?.persona.personId)
   const [progress,setProgress]=useState<RosinaProgress>('sending')
   const [elapsed,setElapsed]=useState(0)
+  // Provisional streamed reply: token text and the latest status label while a turn runs.
+  // The resolved response is authoritative and replaces it (identical text in the normal case).
+  const [liveStream,setLiveStream]=useState<{text:string;status:string|null}|null>(null)
   const sessionRef = useRef(session)
   sessionRef.current = session
   const adapter = useMemo(() => service ?? (session?.accessToken
-    ? createLiveRosinaAdapter(() => sessionRef.current?.accessToken, {getGeneration:getSessionGeneration,onProgress:setProgress})
+    ? createLiveRosinaAdapter(() => sessionRef.current?.accessToken, {getGeneration:getSessionGeneration,onProgress:setProgress,
+      onToken:text=>setLiveStream(prev=>({text:(prev?.text??'')+text,status:null})),
+      onStatus:label=>setLiveStream(prev=>({text:prev?.text??'',status:label})),
+      onReplace:()=>setLiveStream({text:'',status:null})})
     : createMockRosinaAdapter(session, dataAdapter)), [session, dataAdapter, service, getSessionGeneration])
   const confirmReport = useMemo(() => confirmSchoolReport ?? (adapter.mode === 'mock' ? createMockSchoolReportConfirm() : child?.client ? createLiveSchoolReportConfirm(child.client) : null), [confirmSchoolReport, adapter.mode, child?.client])
   const [messages, setMessages] = useState<ThreadMessage[]>([])
@@ -83,7 +89,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }, [session, dataAdapter])
   useEffect(() => {
     if (threadRef.current && (messages.length > 0 || busy)) threadRef.current.scrollTop = threadRef.current.scrollHeight
-  }, [messages, busy])
+  }, [messages, busy, liveStream])
   useEffect(() => {
     const followRoute = () => {
       setCurrentRoute(location.hash)
@@ -134,7 +140,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   useEffect(()=>{const close=()=>closePanel();window.addEventListener('rosina:close',close);return()=>window.removeEventListener('rosina:close',close)},[])
   function closePanel() {
     ++requestId.current; abort.current?.abort(); abort.current=null; sent.current=false
-    setBusy(false);setError('');setPending(null);setOpen(false);setDismissed(true)
+    setBusy(false);setError('');setPending(null);setOpen(false);setDismissed(true);setLiveStream(null)
     if (location.hash.startsWith('#/ask-rosina')) location.hash = '#/today'
   }
   async function ask(message:string, recordUser=true) {
@@ -142,7 +148,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     const generation=getSessionGeneration(),id=++requestId.current,controller=new AbortController()
     abort.current=controller
     const owns=()=>active.current && getSessionGeneration()===generation && requestId.current===id && !controller.signal.aborted
-    sent.current=true;setProgress('sending');setBusy(true);setError('')
+    sent.current=true;setProgress('sending');setBusy(true);setError('');setLiveStream(null)
     const history=messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))
     if(recordUser)append('PARENT',message)
     try {
@@ -153,7 +159,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         if(adapter.mode==='live')append('ROSINA',LIVE_FALLBACK)
         else setError('Rosina could not reply. Try again. Your message was not submitted as an action.')
       }
-    }finally{if(owns()){setBusy(false);sent.current=false;abort.current=null}}
+    }finally{if(owns()){setBusy(false);sent.current=false;abort.current=null;setLiveStream(null)}}
   }
   askFromToday.current=(message:string)=>{
     if (sent.current || needsSignIn) { setDraft(message); return }
@@ -215,7 +221,9 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
         {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}<AddVillagerReview proposal={parseAddVillagerProposal(message.addVillagerProposal)} liveEnabled={import.meta.env.VITE_ADD_VILLAGER_LIVE === 'true'} />{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
         {orbit&&<OrbitPhotoChat controller={orbit}/>}
-        {busy && <div className="rosina-progress" role="status"><strong>{adapter.mode==='live'?(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…'):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
+        {busy && !!liveStream?.text && <article className="rosina-message is-streaming" aria-label="Rosina is replying"><span>Rosina</span><p>{liveStream.text}<span className="rosina-caret" aria-hidden="true"/></p></article>}
+        {busy && !liveStream?.text && <div className="rosina-progress" role="status"><strong><span className="rosina-typing" aria-hidden="true"><i/><i/><i/></span>{adapter.mode==='live'?(liveStream?.status??(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…')):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
+        {busy && !!liveStream?.text && !!liveStream.status && <p className="rosina-progress-inline" role="status">{liveStream.status}</p>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
       <form onSubmit={send}><label htmlFor="rosina-message">Message Rosina</label><div className="rosina-composer"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={2} placeholder="What can I do here?" /><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span><FgButton type="submit" disabled={busy || needsSignIn || !draft.trim()}>Send</FgButton>{!dismissed&&<RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/>}{!dismissed&&<div className="rosina-notice-attach"><NoticeComposer/></div>}</div></form>

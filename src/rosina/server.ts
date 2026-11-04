@@ -16,8 +16,11 @@ import express, { type Request, type Response } from 'express';
 import { loadEnv } from '../env';
 import { verifyBearer } from '../auth/verify';
 import { scenarioNowFrom } from '../context';
-import { runRosinaTurn, type HistoryMessage } from './model';
+import { runRosinaTurn, type HistoryMessage, type TurnEvent } from './model';
 import { createRateLimiter } from './rateLimit';
+import { createTtlCache } from './turnCache';
+import type { ChildAccess } from './childAccess';
+import type { McpTool } from '../muse/mcp';
 import { MuseConfigError, resolveProvider, type ProviderId } from '../muse/providers';
 import { createPhotoDescriptorsHandler } from './photoEndpoint';
 import { createMuseVisionClient, MUSE_VISION_MODEL } from './museVision';
@@ -74,6 +77,12 @@ const INVITE_SETTLEMENT_SECRET = process.env.INVITE_SETTLEMENT_HMAC_SECRET ?? ''
 
 const limiter = createRateLimiter(RATE_LIMIT_PER_MIN);
 
+// 2026-11-03 latency order: short-TTL turn caches (see src/rosina/turnCache.ts for the safety
+// posture; every real read still runs as the caller; only the prompt's roster view is cached).
+const MYCHILDREN_TTL_MS = Number(process.env.ROSINA_MYCHILDREN_TTL_MS ?? 30_000);
+const myChildrenCache = createTtlCache<ChildAccess[]>(MYCHILDREN_TTL_MS);
+const toolListCache = createTtlCache<McpTool[]>(300_000);
+
 const TIMEOUT = Symbol('timeout');
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT> {
@@ -125,6 +134,32 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
   const bearer = (req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
   const startedAt = Date.now();
 
+  // Streaming transport: Accept: text/event-stream gets SSE (status/token/replace events while
+  // the turn runs, then one `final` event carrying EXACTLY the JSON the non-streaming path
+  // returns). Token text is provisional; `final` is always authoritative. The legacy JSON path
+  // is unchanged for every other caller (voice turn server, tests, older builds).
+  const wantsStream = (req.header('accept') ?? '').includes('text/event-stream');
+  let sendEvent: ((type: string, payload: unknown) => void) | null = null;
+  if (wantsStream) {
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    let open = true;
+    res.on('close', () => { open = false; });
+    sendEvent = (type, payload) => { if (open) res.write(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`); };
+    // First byte well under the 300 ms budget, before any model or MCP work starts.
+    sendEvent('status', { label: 'Reading your question' });
+  }
+  const onEvent = sendEvent
+    ? (event: TurnEvent) => {
+      if (event.kind === 'token') sendEvent!('token', { text: event.text });
+      else if (event.kind === 'status') sendEvent!('status', { label: event.label });
+      else sendEvent!('replace', {});
+    }
+    : undefined;
+
   const outcome = await withTimeout(
     runRosinaTurn({
       message: body.message,
@@ -136,6 +171,9 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
       provider: PROVIDER,
       mcpUrl: MCP_URL,
       scenarioNow: scenarioNowFrom(req.headers as Record<string, string | string[] | undefined>, DEMO_CLOCK),
+      onEvent,
+      myChildrenCache,
+      toolListCache,
     }).catch((error: unknown) => {
       console.error(`[rosina] turn failed person=${identity.personId} error=${error instanceof Error ? error.constructor.name : typeof error}: ${error instanceof Error ? error.message : 'unknown'}`);
       return null;
@@ -145,17 +183,21 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
 
   if (outcome === TIMEOUT || outcome === null) {
     console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} result=${outcome === TIMEOUT ? 'TIMEOUT' : 'ERROR'} latencyMs=${Date.now() - startedAt}`);
-    res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null, addVillagerProposal: null });
+    const fallback = { reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null, addVillagerProposal: null };
+    if (sendEvent) { sendEvent('final', fallback); res.end(); return; }
+    res.status(200).json(fallback);
     return;
   }
 
-  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} latencyMs=${Date.now() - startedAt}`);
-  res.status(200).json({
+  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} stream=${wantsStream} latencyMs=${Date.now() - startedAt}`);
+  const payload = {
     reply: outcome.reply,
     actions: outcome.actions,
     schoolReportProposal: outcome.schoolReportProposal,
     addVillagerProposal: outcome.addVillagerProposal,
-  });
+  };
+  if (sendEvent) { sendEvent('final', payload); res.end(); return; }
+  res.status(200).json(payload);
 }
 
 export function createRosinaApp() {
@@ -182,7 +224,11 @@ export function createRosinaApp() {
   app.post('/api/rosina', (req, res) => {
     handleRosina(req, res).catch((error: unknown) => {
       console.error(`[rosina] unhandled: ${error instanceof Error ? error.message : 'unknown'}`);
-      if (!res.headersSent) res.status(200).json({ reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null });
+      const fallback = { reply: "I couldn't check that just now.", actions: [], schoolReportProposal: null };
+      if (!res.headersSent) { res.status(200).json(fallback); return; }
+      // An SSE response already has headers out; close it with an authoritative final event.
+      try { res.write(`event: final\ndata: ${JSON.stringify(fallback)}\n\n`); } catch { /* stream already gone */ }
+      res.end();
     });
   });
 

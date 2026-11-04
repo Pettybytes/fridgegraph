@@ -4,9 +4,23 @@ import {parseAddVillagerProposal} from '@/features/add-villager/addVillager'
 export const LIVE_FALLBACK="I couldn't check that just now. Please try again in a moment."
 export class RosinaCancelled extends Error { constructor(){super('Rosina request cancelled');this.name='AbortError'} }
 export type RosinaProgress='sending'|'waiting'|'reading'
-type Options={onProgress?:(phase:RosinaProgress)=>void;getGeneration?:()=>number|null;request?:typeof fetch;timeoutMs?:number}
+type Options={
+ onProgress?:(phase:RosinaProgress)=>void
+ /** Streaming callbacks. Token text is PROVISIONAL: the resolved RosinaResponse is authoritative
+  * and the panel swaps it in at the end (identical text in the normal case). */
+ onToken?:(text:string)=>void
+ onStatus?:(label:string)=>void
+ onReplace?:()=>void
+ getGeneration?:()=>number|null
+ request?:typeof fetch
+ timeoutMs?:number
+}
+function parseFinal(body:unknown):RosinaResponse|null{
+ if(!body||typeof body!=='object'||!('reply' in body)||typeof body.reply!=='string'||!('actions' in body)||!Array.isArray(body.actions))return null
+ return {reply:body.reply,actions:body.actions,schoolReportProposal:'schoolReportProposal'in body?parseSchoolReportProposal(body.schoolReportProposal):null,addVillagerProposal:'addVillagerProposal'in body?parseAddVillagerProposal(body.addVillagerProposal):null}
+}
 // Token and generation getters read the CURRENT in-memory session, never a captured bearer.
-export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined|Promise<string|null|undefined>,{getGeneration=()=>0,request=fetch,timeoutMs=35000,onProgress}:Options={}):RosinaAdapter {
+export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined|Promise<string|null|undefined>,{getGeneration=()=>0,request=fetch,timeoutMs=35000,onProgress,onToken,onStatus,onReplace}:Options={}):RosinaAdapter {
  return {mode:'live',async send(input:RosinaRequest,signal?:AbortSignal):Promise<RosinaResponse>{
   const generation=getGeneration(),controller=new AbortController()
   let timedOut=false
@@ -19,23 +33,52 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
   const aborted=new Promise<never>((_,reject)=>{rejectAbort=reject})
   const onAbort=()=>rejectAbort(new RosinaCancelled())
   controller.signal.addEventListener('abort',onAbort,{once:true})
-  const timer=setTimeout(()=>{timedOut=true;controller.abort()},timeoutMs)
+  // For a streaming reply this acts as an INACTIVITY window (reset on every received chunk),
+  // so an actively-talking Rosina is never cut off at the old total budget.
+  let timer=setTimeout(()=>{timedOut=true;controller.abort()},timeoutMs)
+  const resetTimer=()=>{clearTimeout(timer);timer=setTimeout(()=>{timedOut=true;controller.abort()},timeoutMs)}
   try {
-   const work=(async()=>{
+   const work=(async():Promise<RosinaResponse>=>{
     const token=await getAccessToken()
     if(cancelled()||controller.signal.aborted)throw new RosinaCancelled()
     if(!token)return {reply:'Please sign in again',actions:[],notice:'sign-in' as const}
     onProgress?.('sending')
-    const pending=request('/api/rosina',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({message:input.message,currentRoute:input.currentRoute,history:input.history.slice(-40).map(item=>({role:item.role,content:item.content.slice(0,4000)}))})})
+    const pending=request('/api/rosina',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'text/event-stream, application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({message:input.message,currentRoute:input.currentRoute,history:input.history.slice(-40).map(item=>({role:item.role,content:item.content.slice(0,4000)}))})})
     onProgress?.('waiting')
     const response=await pending
     if(!cancelled())onProgress?.('reading')
     if(response.status===401)return {reply:'Please sign in again',actions:[],notice:'sign-in' as const}
     if(response.status===429)return {reply:'Give me a moment',actions:[],notice:'rate-limit' as const}
     if(!response.ok)return {reply:LIVE_FALLBACK,actions:[]}
+    const contentType=response.headers.get('content-type')??''
+    if(contentType.includes('text/event-stream')&&response.body){
+     const reader=response.body.getReader(),decoder=new TextDecoder()
+     let buffer='',eventType='',final:RosinaResponse|null=null
+     for(;;){
+      const {done,value}=await reader.read()
+      if(done)break
+      resetTimer()
+      buffer+=decoder.decode(value,{stream:true})
+      for(;;){
+       const nl=buffer.indexOf('\n')
+       if(nl===-1)break
+       const line=buffer.slice(0,nl).replace(/\r$/,'')
+       buffer=buffer.slice(nl+1)
+       if(line.startsWith('event:')){eventType=line.slice(6).trim();continue}
+       if(!line.startsWith('data:'))continue
+       let payload:unknown
+       try{payload=JSON.parse(line.slice(5).trim())}catch{continue}
+       if(cancelled())continue
+       if(eventType==='token'&&payload&&typeof payload==='object'&&typeof (payload as {text?:unknown}).text==='string')onToken?.((payload as {text:string}).text)
+       else if(eventType==='status'&&payload&&typeof payload==='object'&&typeof (payload as {label?:unknown}).label==='string')onStatus?.((payload as {label:string}).label)
+       else if(eventType==='replace')onReplace?.()
+       else if(eventType==='final')final=parseFinal(payload)
+      }
+     }
+     return final??{reply:LIVE_FALLBACK,actions:[]}
+    }
     const body:unknown=await response.json()
-    if(!body||typeof body!=='object'||!('reply' in body)||typeof body.reply!=='string'||!('actions' in body)||!Array.isArray(body.actions))return {reply:LIVE_FALLBACK,actions:[]}
-    return {reply:body.reply,actions:body.actions,schoolReportProposal:'schoolReportProposal'in body?parseSchoolReportProposal(body.schoolReportProposal):null,addVillagerProposal:'addVillagerProposal'in body?parseAddVillagerProposal(body.addVillagerProposal):null}
+    return parseFinal(body)??{reply:LIVE_FALLBACK,actions:[]}
    })()
    const result=await Promise.race([work,aborted])
    if(cancelled()||controller.signal.aborted)throw new RosinaCancelled()
