@@ -8,9 +8,10 @@
  * as received. This module never signs in, never holds a service key, never invents a person.
  */
 import { McpToolClient, type McpTool, type McpToolCall } from '../muse/mcp';
-import { chat, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
+import { chat, chatStream, type ChatResult, type ModelMessage, type ModelTool, type ProviderConfig, type ProviderId, resolveProvider } from '../muse/providers';
 import { catalog, validateActions, type CatalogAction } from './catalog';
 import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
+import { bearerKey, type TtlCache } from './turnCache';
 import { localizeTimestamps, detroitToday, resolveVillagerValidFrom } from './localTime';
 import { applyOutputGuard } from './outputGuard';
 import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
@@ -68,6 +69,17 @@ export type RosinaTurnOptions = {
   maxRounds?: number;
   /** Injectable for tests — never set in production. Defaults to the real provider call. */
   chatFn?: typeof chat;
+  /** Live progress for streaming transports. Token events carry ANSWER deltas only (reasoning
+   * never streams); a `replace` event tells the client to discard provisional text because the
+   * round turned out to be a tool round. The returned result stays authoritative either way. */
+  onEvent?: (event: TurnEvent) => void;
+  /** Injectable for tests; defaults to the real streaming provider call when onEvent is set. */
+  streamChatFn?: typeof chatStream;
+  /** 2026-11-03 latency order: optional short-TTL caches (src/rosina/turnCache.ts). The
+   * MyChildren cache is keyed by a hash of the EXACT bearer and only delays the prompt's view
+   * of a scope change by its TTL; every real read still runs as the caller against RLS. */
+  myChildrenCache?: TtlCache<ChildAccess[]>;
+  toolListCache?: TtlCache<McpTool[]>;
   /** Scenario instant for time-of-day questions (overdue check-ins), set only under DEMO_CLOCK=1.
    *  Never used for authentication — token expiry always uses the real clock. */
   scenarioNow?: Date;
@@ -87,6 +99,38 @@ export type ToolCallEvidence = {
   isError: boolean;
   errorCodes: string[];
 };
+
+/** Live progress events for streaming transports. The final RosinaTurnResult stays authoritative:
+ * a client renders token text as provisional and swaps in the returned reply at the end. */
+export type TurnEvent =
+  | { kind: 'status'; label: string }
+  | { kind: 'token'; text: string }
+  | { kind: 'replace' };
+
+/** What Rosina is doing, in the caller's language, shown while a tool round runs. */
+const TOOL_STATUS_LABELS: Record<string, string> = {
+  MyChildren: 'Checking what is shared with you',
+  ChildEvents: 'Reading the calendar',
+  EffectiveSchedule: 'Checking the care schedule',
+  AdultAvailability: 'Checking recorded availability',
+  CareFacts: 'Reading care information',
+  CheckInStatus: 'Checking the latest check-in',
+  OrbitStatus: 'Checking Orbit',
+  OrbitVocabulary: 'Checking Orbit',
+  PickupCandidates: 'Reviewing pickup options',
+  JobTimeline: 'Reading the pickup record',
+  Attempts: 'Reading outreach records',
+  FridgeNotes: 'Reading the fridge',
+  Goals: 'Reading goals',
+  CaregiverBriefing: 'Composing the day briefing',
+  ProposeSchoolDayReport: 'Preparing the report for your review',
+  ProposeAddVillager: 'Preparing the villager proposal for your review',
+};
+
+function statusLabelFor(names: string[]): string {
+  const labels = [...new Set(names.map((n) => TOOL_STATUS_LABELS[n] ?? 'Looking that up'))];
+  return labels.slice(0, 2).join(' and ');
+}
 
 /**
  * The structured result of a successful `ProposeSchoolDayReport` call this turn, for the app to
@@ -312,22 +356,45 @@ function harvestIds(value: unknown, into: Set<string>): void {
 export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaTurnResult> {
   const config = options.providerConfig ?? resolveProvider(options.provider);
   const chatImpl = options.chatFn ?? chat;
+  const onEvent = options.onEvent;
+  // Streaming is used ONLY when the caller asked for events. A stubbed chatFn without a stubbed
+  // streamChatFn keeps tests on the non-streaming path they were written against.
+  const streamImpl = onEvent ? (options.streamChatFn ?? (options.chatFn ? null : chatStream)) : null;
+  const runChat = async (msgs: ModelMessage[], tls: ModelTool[] | undefined, maxTokens: number): Promise<ChatResult> => {
+    if (!streamImpl) return chatImpl(config, msgs, tls, { maxTokens });
+    let streamedTokens = false;
+    const result = await streamImpl(config, msgs, tls, {
+      maxTokens,
+      onDelta: (text) => { streamedTokens = true; onEvent?.({ kind: 'token', text }); },
+      onReasoning: () => onEvent?.({ kind: 'status', label: 'Thinking it through' }),
+    });
+    // A tool round that also emitted text: the provisional text is not the answer, so clear it.
+    if (streamedTokens && result.toolCalls.length > 0) onEvent?.({ kind: 'replace' });
+    return result;
+  };
   const mcp: McpClientLike = options.mcpClientFactory
     ? options.mcpClientFactory(options.mcpUrl, options.bearer)
     : new McpToolClient(options.mcpUrl, options.bearer);
   const started = Date.now();
   await mcp.initialize();
 
-  // TASK R-MYCHILDREN: discovery happens HERE, once, fresh, before anything else — never a
-  // static roster, never cached across requests. This is a service-initiated call, not a tool
-  // the model chooses to make (or skip): every turn gets exactly one, unconditionally.
-  const myChildrenResult = await mcp.callTool('MyChildren', {}).catch((error: unknown): McpToolCall => ({
-    data: null,
-    errors: [{ message: (error as Error).message }],
-    isError: true,
-    raw: null,
-  }));
-  const childList = myChildrenResult.isError ? null : parseMyChildren(myChildrenResult.data);
+  // TASK R-MYCHILDREN: discovery happens HERE, once, before anything else, never a static
+  // roster. 2026-11-03 latency amendment (Bryan): the result MAY be served from a short-TTL
+  // cache keyed by a hash of this exact bearer (src/rosina/turnCache.ts). That only delays the
+  // prompt's view of a grant change by the TTL; every real read below still runs as the caller
+  // against RLS, so access enforcement is unchanged. Failures are never cached.
+  const cacheKey = options.myChildrenCache ? bearerKey(options.bearer) : null;
+  const cachedChildren = cacheKey ? options.myChildrenCache!.get(cacheKey) : null;
+  const myChildrenResult: McpToolCall = cachedChildren
+    ? { data: null, errors: [], isError: false, raw: null }
+    : await mcp.callTool('MyChildren', {}).catch((error: unknown): McpToolCall => ({
+      data: null,
+      errors: [{ message: (error as Error).message }],
+      isError: true,
+      raw: null,
+    }));
+  const childList = cachedChildren ?? (myChildrenResult.isError ? null : parseMyChildren(myChildrenResult.data));
+  if (childList !== null && !cachedChildren && cacheKey) options.myChildrenCache!.set(cacheKey, childList);
   if (childList === null) {
     // Discovery failed or came back in a shape this service doesn't recognize — fail the WHOLE
     // turn closed. Never fall back to a static roster; never let the model run with no ground
@@ -349,7 +416,11 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   }
   const childAccessById = new Map(childList.map((c) => [c.id, c]));
 
-  const mcpTools = await mcp.listTools();
+  // Tool DEFINITIONS are identical for every caller (authorization happens per call, below),
+  // so the list is cacheable by MCP URL without touching any auth boundary.
+  const cachedTools = options.toolListCache?.get(options.mcpUrl) ?? null;
+  const mcpTools = cachedTools ?? await mcp.listTools();
+  if (!cachedTools && mcpTools.length > 0) options.toolListCache?.set(options.mcpUrl, mcpTools);
   const tools: ModelTool[] = [...mcpToolDefinitions(mcpTools), BRIEFING_TOOL, ...ACTION_TOOLS];
 
   const messages: ModelMessage[] = [
@@ -361,7 +432,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   ];
 
   const maxRounds = options.maxRounds ?? 4;
-  const toolCallEvidence: ToolCallEvidence[] = [{ round: 0, kind: 'mcp', name: 'MyChildren', argsPreview: {}, isError: false, errorCodes: [] }];
+  const toolCallEvidence: ToolCallEvidence[] = [{ round: 0, kind: 'mcp', name: 'MyChildren', argsPreview: cachedChildren ? { cached: true } : {}, isError: false, errorCodes: [] }];
   const proposedActions: unknown[] = [];
   const rounds: ChatResult[] = [];
   // Every real MCP result's raw JSON this turn — the output guard's only "this name is grounded"
@@ -407,7 +478,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   let finalContent = '';
 
   for (let round = 1; round <= maxRounds; round += 1) {
-    const result = await chatImpl(config, messages, tools, { maxTokens: 3000 });
+    const result = await runChat(messages, tools, 3000);
     rounds.push(result);
 
     if (result.toolCalls.length === 0) {
@@ -438,6 +509,51 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     const mcpCalls = parsedCalls.filter(({ call }) => !call.name.startsWith(ACTION_TOOL_PREFIX));
     const actionCalls = parsedCalls.filter(({ call }) => call.name.startsWith(ACTION_TOOL_PREFIX));
 
+    if (mcpCalls.length > 0) onEvent?.({ kind: 'status', label: statusLabelFor(mcpCalls.map(({ call }) => call.name)) });
+
+    // 2026-11-03 latency amendment: when EVERY read in this round already passes its gate against
+    // the current state, start the network calls concurrently and let the (unchanged) serial
+    // bookkeeping below await the prestarted promises in order. The gates are monotonic within a
+    // round (permittedIds only grows), so a prestart-approved call can never be refused inline.
+    // Mutations are never prestarted: ProposeAddVillager's args are rewritten at execution time,
+    // and a mutation round falls back to the exact serial path this loop always had.
+    const prestartable = ({ call, args }: { call: { name: string }; args: Record<string, unknown> }): boolean => {
+      if (call.name === 'ProposeAddVillager' || call.name === 'ProposeSchoolDayReport') return false;
+      if (call.name === BRIEFING_TOOL_NAME) {
+        const childId = typeof args.childId === 'string' ? args.childId : '';
+        const date = typeof args.date === 'string' ? args.date : '';
+        return Boolean(childAccessById.get(childId)) && /^\d{4}-\d{2}-\d{2}$/.test(date);
+      }
+      if (!ALLOWED_MCP_TOOL_NAMES.has(call.name)) return false;
+      const idArgKey = ID_ARG_BY_TOOL[call.name];
+      const isGuideChildBypass = options.isGuide && idArgKey === 'childId';
+      if (idArgKey && !isGuideChildBypass) {
+        const idValue = args[idArgKey];
+        if (typeof idValue !== 'string' || !permittedIds.has(idValue)) return false;
+        const requiredScope = REQUIRED_SCOPE_BY_TOOL[call.name];
+        if (requiredScope && !(childAccessById.get(idValue)?.scopes.has(requiredScope))) return false;
+      }
+      return true;
+    };
+    const prestartedMcp = new Map<string, Promise<McpToolCall>>();
+    const prestartedBriefing = new Map<string, Promise<Awaited<ReturnType<typeof runCaregiverBriefing>> | null>>();
+    if (mcpCalls.length > 1 && mcpCalls.every(prestartable)) {
+      for (const { call, args } of mcpCalls) {
+        if (call.name === BRIEFING_TOOL_NAME) {
+          const childId = String(args.childId);
+          const access = childAccessById.get(childId)!;
+          prestartedBriefing.set(call.id, runCaregiverBriefing({ childId, date: String(args.date), callerId: options.personId, access, mcp }).catch(() => null));
+        } else {
+          prestartedMcp.set(call.id, mcp.callTool(call.name, args).catch((error: unknown): McpToolCall => ({
+            data: null,
+            errors: [{ message: (error as Error).message }],
+            isError: true,
+            raw: null,
+          })));
+        }
+      }
+    }
+
     for (const { call, args } of mcpCalls) {
       if (call.name === BRIEFING_TOOL_NAME) {
         const childId = typeof args.childId === 'string' ? args.childId : '';
@@ -453,7 +569,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: code }) });
           continue;
         }
-        const briefing = await runCaregiverBriefing({ childId, date, callerId: options.personId, access, mcp }).catch(() => null);
+        const briefing = await (prestartedBriefing.get(call.id) ?? runCaregiverBriefing({ childId, date, callerId: options.personId, access, mcp }).catch(() => null));
         if (briefing) toolResultTexts.push(briefing.text);
         toolCallEvidence.push({ round, kind: 'mcp', name: call.name, argsPreview: args, isError: !briefing, errorCodes: briefing ? [] : ['BRIEFING_FAILED'] });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(briefing ?? { error: 'BRIEFING_FAILED' }) });
@@ -500,12 +616,12 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
         args.validFrom = resolveVillagerValidFrom(typeof args.validFrom === 'string' ? args.validFrom : null);
       }
 
-      const callResult = await mcp.callTool(call.name, args).catch((error: unknown): McpToolCall => ({
+      const callResult = await (prestartedMcp.get(call.id) ?? mcp.callTool(call.name, args).catch((error: unknown): McpToolCall => ({
         data: null,
         errors: [{ message: (error as Error).message }],
         isError: true,
         raw: null,
-      }));
+      })));
       const errorCodes = callResult.errors.map((e) => e.extensions?.code ?? e.message ?? 'ERROR').filter((c): c is string => Boolean(c));
       if (call.name === 'PickupCandidates' && !callResult.isError && typeof args.childId === 'string') {
         verifiedChildIds.add(args.childId);
@@ -600,7 +716,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     }
 
     if (round === maxRounds) {
-      const closing = await chatImpl(config, messages, undefined, { maxTokens: 3000 });
+      const closing = await runChat(messages, undefined, 3000);
       rounds.push(closing);
       finalContent = closing.content.trim();
     }
@@ -616,6 +732,8 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   );
 
   const guarded = applyOutputGuard(finalContent || "I couldn't check that just now.", toolResultTexts.join('\n'));
+  // Streamed tokens are provisional; when the guard rewrote the reply the client must not keep them.
+  if (guarded.triggered) onEvent?.({ kind: 'replace' });
 
   return {
     reply: guarded.reply,
