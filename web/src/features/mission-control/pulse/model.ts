@@ -31,17 +31,17 @@ export function pulseCohort(runs: StoredRun[], window: PulseWindow) {
   }
 }
 
-export function recordedJobStatus(status: string): string {
+export function recordedJobStatus(status: string, confirmationRecorded = false): string {
   return ({
     pending: 'Request recorded',
     discovering: 'Coordination in progress',
     awaiting_approval: 'Waiting for parent approval',
-    confirmed: 'Parent approval recorded',
+    confirmed: confirmationRecorded ? 'Parent approval recorded' : 'Approval evidence missing',
     failed: 'Coordination ended',
   } as Record<string, string>)[status] ?? 'Recorded status not recognized'
 }
 
-export const statusOrder = ['Request recorded', 'Coordination in progress', 'Waiting for parent approval', 'Parent approval recorded', 'Coordination ended', 'Recorded status not recognized'] as const
+export const statusOrder = ['Request recorded', 'Coordination in progress', 'Waiting for parent approval', 'Parent approval recorded', 'Coordination ended', 'Recorded status not recognized', 'Approval evidence missing'] as const
 export type DailyStatus = { day: string; total: number; counts: Record<string, number> }
 
 /** Creation-date buckets use each job's CURRENT status; this is not a status history. */
@@ -54,7 +54,7 @@ export function dailyCurrentStatuses(jobs: StoredRun[], window: PulseWindow): Da
     if (!created) continue
     const bucket = byDay.get(localDay(created))
     if (!bucket) continue
-    const status = recordedJobStatus(run.job.status)
+    const status = recordedJobStatus(run.job.status, Boolean(run.job.confirmation?.id))
     bucket.total += 1
     bucket.counts[status] = (bucket.counts[status] ?? 0) + 1
   }
