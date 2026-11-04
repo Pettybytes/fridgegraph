@@ -1,6 +1,7 @@
 # Generated from src/subgraphs/schedule.ts by ops/gen-subgraph-sdl.mjs — do not edit by hand.
 schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"]) {
   query: Query
+  mutation: Mutation
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
@@ -76,6 +77,14 @@ type CalendarEvent {
   end: String!
   location: String
   status: String!
+  notes: String
+  color: String
+}
+
+type Mutation {
+  createCalendarEvent(childId: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
+  updateCalendarEvent(id: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
+  deleteCalendarEvent(id: ID!): ID!
 }
 
 type AvailabilityWindow {
