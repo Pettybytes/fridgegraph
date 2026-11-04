@@ -2,15 +2,16 @@ import narrationUrl from './assets/rosina-narration.mp3'
 import manifest from './assets/rosina-narration.json'
 import lorettaClip from './assets/voice-three-phone-loretta.json'
 
-export type NarrationSpeaker = 'rosina' | 'loretta'
+export type NarrationSpeaker = 'narrator' | 'loretta'
 export type NarrationSegment = Readonly<{ id: string; speaker: NarrationSpeaker; startMs: number; endMs: number; text: string }>
 export type Narration = Readonly<{ src: string; durationMs: number; segments: readonly NarrationSegment[] }>
 
 /**
- * One preloaded track for the whole replay: Rosina's REAL ElevenLabs voice plus
- * Loretta's own line in the Blanco voice, generated once via the ElevenLabs API
- * and committed as a static asset. See assets/rosina-narration.json for provenance.
- * No key or token is stored.
+ * One preloaded track for the whole replay, generated once via the ElevenLabs
+ * API and committed as a static asset: a narrator (Sam - Deep Americana) reads
+ * the walkthrough and Loretta speaks her own reply in the Blanco voice. This
+ * is the replay's only voice - there is no browser or OS text-to-speech fallback anywhere.
+ * See assets/rosina-narration.json for provenance. No key or token is stored.
  */
 export const REPLAY_NARRATION: Narration = {
   src: narrationUrl,
