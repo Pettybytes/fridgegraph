@@ -487,7 +487,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     // prefix stays byte-identical across turns (provider prompt caching, playbook 7).
     ...(lens ? [{
       role: 'system' as const,
-      content: `FAMILY LENS, a fresh authorized snapshot of THIS caller's own records (read with their access moments ago; names in it are grounded):\n${lens.text}\nAnswer routine schedule, care and pickup questions DIRECTLY from this lens with zero tool calls. Call tools only for records the lens does not carry, or when the person asks about something newer than this snapshot.`,
+      content: `FAMILY LENS, a fresh authorized snapshot of THIS caller's own records (read with their access moments ago; names in it are grounded):\n${lens.text}\nWhen the lens carries the answer, reply from it IMMEDIATELY with zero tool calls; do not call a tool to re-check or confirm what the lens already shows (it was read moments ago with the same access as your tools). Call a tool only for a record the lens does not carry at all, or when the person explicitly asks for something newer than this snapshot.`,
     }] : []),
     ...options.history.map((h) => ({ role: h.role, content: h.content })),
     // Date rides at the END of the user turn (playbook 1) so the cacheable prefix never changes
