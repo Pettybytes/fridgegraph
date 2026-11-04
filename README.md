@@ -29,6 +29,20 @@ A family is already a distributed system. The parent becomes its human router: r
 
 This begins with single mothers, but it is not limited to one family shape. A child may have co-parents in separate homes, a grandparent raising a grandchild, a sitter with narrow access, a teacher reporting a change, or several trusted adults sharing care. FridgeGraph models the relationships and permissions around the child instead of assuming every household has the same structure.
 
+## From human routers to one living graph
+
+A school, a parent, and a caregiver each hold a piece of a child's day. Today, the parent often becomes the **human router**, carrying updates between them. FridgeGraph turns those separate contributions into connected, permissioned records. People are the sources and decision-makers; the seven domain services are the actual API endpoints.
+
+**Rosina is the co-pilot at the center:** she receives the request, gathers the facts the caller may see, explains an option, and brings it back for a decision. Apollo Federation composes the domain schemas into a supergraph; Apollo Router plans the calls across those domains. Each resolver and the database enforce access.
+
+<a href="docs/assets/readme/schedule-workflow.svg"><img src="docs/assets/readme/schedule-workflow.svg" alt="Animated FridgeGraph call illustration with Rosina's avatar: people contribute information, Rosina reasons or parses a calendar request, Apollo connects seven subgraphs, the parent confirms, and Calendar and Activity read the saved result" width="1200"></a>
+
+*The animation is an architectural illustration, with motion disabled when reduced motion is requested. The example is a rehearsal moving from 4 PM to 5 PM. It shows two Rosina routes: Muse Spark's grounded reasoning through authorized tools, and the deterministic parser used for exact calendar commands through direct GraphQL. It does not credit the model with a parser-only turn.*
+
+**Confirmation is the turning point.** A proposal does not change the calendar. When the parent confirms, the authorized mutation saves the event, retry receipt, and village activity together. The UI refreshes its data and other authorized perspectives can read the same saved event. On the pickup branch, the corresponding saved job is visible in Rosina, Today, and Mission Control. Neither path implies automatic synchronization with external calendars.
+
+[How this illustration maps to code](docs/readme-workflow.md) · [Calendar confirmation](web/src/features/rosina/CalendarChangeCard.tsx) · [Atomic write and retry receipt](supabase/migrations/0104_calendar_confirmed_writes.sql)
+
 ## A glimpse inside the village
 
 <table>
@@ -122,3 +136,4 @@ These are **source and build checks**, not a one-command public deployment. Runn
 This repository records implementation and tests, but a merge does not prove deployment and a green CI check does not prove a live provider response. The source proofs, public-site checks, and outstanding gates are deliberately kept distinct. FridgeGraph was built for this hackathon with fictional demo families; Tori's text is the real origin of the idea.
 
 **The aim:** less invisible project management for parents, more time to be present with their families.
+
