@@ -32,7 +32,10 @@ const foundAlert: Alert = {
   ...activeAlert, status: 'CLOSED', closeOutcome: 'FOUND_SAFE', closedAt: '2026-11-03T05:52:00Z',
   thankyou: 'FridgeGraph Orbit: Nora was found safe and sound. Thank you for being there.',
 }
-let record: Alert = new URLSearchParams(location.search).get('state') === 'found' ? foundAlert : activeAlert
+// ?time=none drops the recorded provenance so the capture shows the "needs attention" tile dot.
+const unverifiedActive: Alert = {...activeAlert, lastSeenProvenance: null}
+const params = new URLSearchParams(location.search)
+let record: Alert = params.get('state') === 'found' ? foundAlert : params.get('time') === 'none' ? unverifiedActive : activeAlert
 
 const adapter: OrbitAdapter = {
   check: async () => ({recorded: false, label: 'check', text: 'not recorded', dueAt: null, guidance}),

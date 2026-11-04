@@ -25,14 +25,18 @@ it('the facts card shows the title, deep-link arrow, centered name and 2x2 tiles
  expect(screen.getByText('Last seen time')).toBeVisible()
  expect(screen.getByText('Clothing color')).toBeVisible();expect(screen.getByText('blue')).toBeVisible()
  expect(screen.getByText(/recorded by a parent/i)).toBeVisible()
+ // A verified time shows the provenance chip, not an attention dot.
+ expect(document.querySelector('.orbit-tile-dot')).toBeNull()
  const before=location.hash;fireEvent.click(screen.getByRole('button',{name:/Open the Orbit page/}));expect(location.hash).toBe('#/orbit');location.hash=before
 })
 
-it('a place with no provenance states the time is not recorded and never claims a parent source',async()=>{
+it('a place with no provenance states the time is not recorded, flags it, and never claims a parent source',async()=>{
  const controller=fixture({...active,lastSeenProvenance:null});await controller.load()
  render(<AlertTakeover controller={controller} childName="Nora Ellison"/>)
  expect(screen.getByText('Time not recorded.')).toBeVisible()
  expect(screen.queryByText(/recorded by a parent/i)).not.toBeInTheDocument()
+ // The unverified time tile carries an attention dot.
+ expect(document.querySelector('.orbit-tile-attn .orbit-tile-dot')).not.toBeNull()
 })
 
 it('active falls back to a non-empty photo layer and states the missing photo in the card',async()=>{
