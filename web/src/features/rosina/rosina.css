@@ -6,28 +6,28 @@
 .rosina-panel header h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.025em; }
 .rosina-panel header p, .rosina-source { font-size: .73rem; line-height: 1.5; color: #62708a; }
 .rosina-panel header button { padding: .3rem; }
-.rosina-source { padding: 0 1.2rem .85rem; border-bottom: 1px solid #eae3f3; }
+.rosina-source { padding: 0 1.2rem .85rem; border-bottom: 1px solid var(--fg-border); }
 .rosina-thread { flex: 1; overflow: auto; padding: 1.1rem; min-height: 6rem; }
 .rosina-welcome { margin-top: 1.8rem; }
-.rosina-welcome > svg { color: #7559a1; margin-bottom: .9rem; }
+.rosina-welcome > svg { color: var(--fg-primary); margin-bottom: .9rem; }
 .rosina-welcome h3 { font-size: 1.4rem; letter-spacing: -.03em; line-height: 1.25; max-width: 13rem; margin-bottom: .8rem; }
 .rosina-welcome p, .rosina-message p { font-size: .85rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rosina-welcome p { color: #62708a; }
-.rosina-welcome button { margin-top: 1rem; color: #7559a1; text-decoration: underline; }
+.rosina-welcome button { margin-top: 1rem; color: var(--fg-primary); text-decoration: underline; }
 .rosina-message { margin-bottom: 1.25rem; }
-.rosina-message > span { display: block; font-size: .7rem; color: #7559a1; margin-bottom: .3rem; }
-.rosina-message.from-person { background: #f0ebf6; padding: .8rem; border-radius: .8rem .8rem .2rem .8rem; margin-left: 1.2rem; }
-.rosina-action { display: block; width: 100%; padding: .7rem; border: 1px solid #c9b9df; border-radius: .6rem; text-align: left; font-size: .8rem; margin-top: .65rem; color: #624389; background: #fbf9fd; }
+.rosina-message > span { display: block; font-size: .7rem; color: var(--fg-primary); margin-bottom: .3rem; }
+.rosina-message.from-person { background: var(--fg-selection); padding: .8rem; border-radius: .8rem .8rem .2rem .8rem; margin-left: 1.2rem; }
+.rosina-action { display: block; width: 100%; padding: .7rem; border: 1px solid var(--fg-border); border-radius: .6rem; text-align: left; font-size: .8rem; margin-top: .65rem; color: var(--fg-ink); background: var(--fg-surface); }
 .rosina-action:disabled { opacity: .5; }
-.rosina-panel form { padding: .8rem 1rem 1rem; border-top: 1px solid #eae3f3; }
+.rosina-panel form { padding: .8rem 1rem 1rem; border-top: 1px solid var(--fg-border); }
 .rosina-panel form label { display: block; font-size: .75rem; color: #56667e; margin-bottom: .4rem; }
 .rosina-panel form > div { display: flex; align-items: end; gap: .5rem; }
-.rosina-panel textarea { resize: none; width: 100%; padding: .7rem; border: 1px solid #d4cadd; border-radius: .65rem; font: inherit; font-size: .85rem; min-width: 0; }
-.rosina-panel form button[type="submit"], .rosina-confirm > button { padding: .7rem .9rem; color: white; border-radius: .6rem; background: #7559a1; font-size: .85rem; }
+.rosina-panel textarea { resize: none; width: 100%; padding: .7rem; border: 1px solid var(--fg-border); border-radius: .65rem; font: inherit; font-size: .85rem; min-width: 0; }
+.rosina-panel form button[type="submit"], .rosina-confirm > button { padding: .7rem .9rem; color: var(--fg-surface); border-radius: var(--radius-pill); background: var(--fg-ink); font-size: .85rem; }
 .rosina-panel form button:disabled { opacity: .5; }
 .rosina-error { padding: .5rem 1rem; color: #8d3d50; font-size: .8rem; }
 /* Launcher is the resting state on every size: a quiet pill, bottom-right. */
-.rosina-launcher { position: fixed; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); right: calc(1.25rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; color: var(--fg-on-primary); background: var(--fg-primary); border: 0; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
+.rosina-launcher { position: fixed; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); right: calc(1.25rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; border: 0; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
 /* While the panel is open the launcher must not float over it (z26 > panel z25) —
    it would intercept clicks on the panel's Send button. Close restores it; focus
    return is handled in RosinaPanel (launcherRef). */
@@ -38,8 +38,8 @@
 .rosina-confirm p { margin: .8rem 0; line-height: 1.6; }
 .rosina-confirm dl { margin: 1rem 0; display: grid; grid-template-columns: 5rem 1fr; gap: .5rem; }
 .rosina-confirm button { margin: .4rem .5rem .2rem 0; }
-.rosina-confirm button:last-child { color: #624389; background: #f0ebf6; }
-.rosina-panel button:focus-visible, .rosina-launcher:focus-visible, .rosina-confirm button:focus-visible { outline: 3px solid #7559a1; outline-offset: 3px; }
+.rosina-confirm button:last-child { color: var(--fg-ink); background: var(--fg-selection); }
+.rosina-panel button:focus-visible, .rosina-launcher:focus-visible, .rosina-confirm button:focus-visible { outline: 3px solid var(--fg-primary); outline-offset: 3px; }
 /* Reserve the right dock ONLY while the panel is actually open. A closed panel is
    display:none but not [hidden], so keying off presence stole 375px permanently. */
 @media(min-width: 1200px) { body:has(.rosina-panel.is-open:not([hidden])) .workspace { padding-right: 375px; } body:has(.rosina-panel.is-open:not([hidden])) .persona-entry { margin-right: 375px; max-width: 1000px; } body:has(.rosina-panel.is-open:not([hidden])) .persona-grid { grid-template-columns: repeat(2, 1fr); } .rosina-panel header button { display: block; } }
@@ -48,7 +48,7 @@
  body:has(.rosina-launcher) #root { height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
  .workspace main { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
  .cal-board { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
- .rosina-launcher { position: fixed; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; color: white; background: #7559a1; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
+ .rosina-launcher { position: fixed; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); z-index: 26; display: flex; align-items: center; gap: .55rem; border-radius: 2rem; padding: .8rem 1.2rem; box-shadow: 0 5px 18px #26344c25; }
  .rosina-panel { display: none; top: auto; left: .6rem; right: .6rem; bottom: .6rem; width: auto; height: min(82dvh, 720px); z-index: 40; border-radius: 1.2rem; box-shadow: 0 -10px 60px #26344c33; }
  .rosina-panel.is-open { display: flex; }
 }
@@ -60,7 +60,7 @@
 .care-information p:last-child { color: #62708a; font-size: .75rem; margin-top: .65rem; }
 @media(min-width: 1200px) and (max-width: 1700px) { body:has(.rosina-panel.is-open) .mc-layout { grid-template-columns: minmax(0, 1fr); } body:has(.rosina-panel.is-open) .mc-trace { grid-row: auto; grid-column: auto; } }
 
-.rosina-panel[hidden]{display:none}.rosina-launcher.is-reopen{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:.5rem;background:#7559a1;color:white;padding:.8rem 1.2rem;border-radius:2rem;z-index:26}.rosina-source{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.rosina-mode{font-size:.68rem;font-weight:600;padding:.2rem .45rem;border-radius:.3rem}.mode-live{color:#276b48;background:#e5f2eb;border:1px solid #9ac3ad}.mode-mock{color:#7559a1;background:#eee8f4;border:1px dashed #b8a3d0}
+.rosina-panel[hidden]{display:none}.rosina-launcher.is-reopen{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:.5rem;padding:.8rem 1.2rem;border-radius:2rem;z-index:26}.rosina-source{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.rosina-mode{font-size:.68rem;font-weight:600;padding:.2rem .45rem;border-radius:.3rem}.mode-live{color:#276b48;background:#e5f2eb;border:1px solid #9ac3ad}.mode-mock{color:var(--fg-primary);background:var(--fg-selection);border:1px dashed var(--fg-border)}
 
 .rosina-action{min-height:64px}.rosina-action-status{display:block;font-size:.8rem;line-height:1.5;margin-top:.4rem;color:var(--fg-muted)}
 /* One conversation surface; shared glass supplies solid reduced-transparency fallback. */
@@ -71,7 +71,7 @@
 .rosina-panel .rosina-message>span{color:var(--fg-primary)}
 .rosina-message.from-person{background:var(--fg-selection)}
 .rosina-action{color:var(--fg-primary);background:var(--fg-surface);border-color:var(--fg-border);font-size:16px}
-.rosina-panel form button[type="submit"]{background:var(--fg-primary);color:var(--fg-on-primary);min-height:44px}
+.rosina-panel form button[type="submit"]{background:var(--fg-ink);color:var(--fg-surface);min-height:44px}
 .rosina-panel textarea{background:var(--fg-surface);color:var(--fg-ink);border-color:var(--fg-border)}
 .rosina-progress{min-height:72px;padding:16px 0;color:var(--fg-ink)}.rosina-progress strong{font-size:16px;font-weight:500}.rosina-progress span{display:block;font-size:13px;color:var(--fg-muted);margin-top:8px}
 :root[data-focus="1"] .rosina-panel.is-open{left:24px;right:24px;top:24px;bottom:24px;width:auto;height:auto;max-width:1100px;margin:auto;font-size:18px}
@@ -80,7 +80,7 @@
 :root[data-focus="1"] body:has(.rosina-panel.is-open) .workspace{padding-right:0}
 @media(max-width:600px){:root[data-focus="1"] .rosina-panel.is-open{inset:8px}:root[data-focus="1"] .rosina-panel .rosina-thread{padding:16px}}
 body:has(.rosina-panel.is-open:not([hidden])) .rosina-route-anchor{display:none}
-.rosina-route-anchor button{min-height:48px;padding:12px 20px;border-radius:var(--radius-control,12px);background:var(--fg-primary);color:var(--fg-on-primary)}
+.rosina-route-anchor button{min-height:48px;padding:12px 20px;border-radius:var(--radius-control,12px);background:var(--fg-ink);color:var(--fg-surface)}
 .rosina-route-page{min-height:min(70dvh,760px)}
 .rosina-panel.is-page,.rosina-panel.is-page.is-open{position:relative;inset:auto;width:min(100%,900px);height:min(70dvh,700px);min-height:520px;margin:0 auto 32px;display:flex;z-index:auto}
 body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
@@ -98,7 +98,7 @@ body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
 .rosina-school-report dl{display:grid;grid-template-columns:minmax(75px,1fr) minmax(0,2fr);gap:8px 12px;margin:0}
 .rosina-school-report dt{color:var(--fg-muted);font-size:13px}.rosina-school-report dd{margin:0;overflow-wrap:anywhere;line-height:1.5}
 .rosina-school-report .rosina-school-report-note{margin:16px 0 12px;color:var(--fg-muted);font-size:14px}
-.rosina-school-report button{width:100%;min-height:48px;padding:10px 16px;border:0;border-radius:var(--radius-control,12px);background:var(--fg-primary);color:var(--fg-on-primary);font-weight:700}
+.rosina-school-report button{width:100%;min-height:48px;padding:10px 16px;border:0;border-radius:var(--radius-control,12px);background:var(--fg-ink);color:var(--fg-surface);font-weight:700}
 .rosina-school-report button:disabled{opacity:.55;cursor:not-allowed}
 .rosina-school-report [role="alert"]{color:var(--fg-attention);font-weight:600}
 

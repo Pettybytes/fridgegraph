@@ -63,6 +63,15 @@ describe('scripted Rosina acceptance examples', () => {
   })
 })
 describe('Rosina safety and session boundaries', () => {
+  it('returns keyboard focus to the launcher after closing the panel', () => {
+    harness({ mode: 'mock', send: async () => ({ reply: 'Recorded reply', actions: [] }) })
+    const launcher = screen.getByRole('button', { name: 'Ask Rosina' })
+    fireEvent.click(launcher)
+    const close = screen.getByRole('button', { name: 'Close Ask Rosina' })
+    close.focus()
+    fireEvent.click(close)
+    expect(launcher).toHaveFocus()
+  })
   it('does not render unknown/bad actions or interpret HTML and links', async () => {
     harness({ mode: 'mock', send: async () => ({ reply: '<a href="https://outside.example">Do this</a><img src=x>', actions: [{ id: 'unknown', args: {} }, { id: 'open-screen', args: { screen: 'https://outside.example' } }] }) })
     await send('Hello')
