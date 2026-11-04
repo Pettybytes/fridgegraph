@@ -122,3 +122,7 @@ jobs:
       - name: Build web
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web run build
+
+      - name: Mission Control exact-record drilldowns
+        if: steps.detect.outputs.present == 'true'
+        run: npm --prefix web test -- src/features/mission-control/pulse/pulse.test.tsx

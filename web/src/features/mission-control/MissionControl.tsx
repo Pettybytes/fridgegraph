@@ -15,7 +15,7 @@ const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'curren
 // Unavailable for drivers: the adapter preserves the backend's nullable paid-ride cost.
 function PaidRideEstimate({ candidate }: { candidate: Candidate }) {
   if (candidate.estimatedRideCostUsd === null) return null
-  return <span className="paid-ride-estimate"><span>{candidate.name} · Rideshare to school (Uber or Lyft) · Est. {money(candidate.estimatedRideCostUsd)}</span><small>FridgeGraph estimate (distance × $1.40/mi), not an Uber or Lyft quote</small>{candidate.costBasis && /\bhaversine\b/i.test(candidate.costBasis) && <small>Straight-line approximation — may understate road cost</small>}{candidate.costBasis && <small>Recorded basis: {candidate.costBasis}</small>}</span>
+  return <span className="paid-ride-estimate"><span>{candidate.name} · Rideshare to school (Uber or Lyft) · Est. {money(candidate.estimatedRideCostUsd)}</span><small>FridgeGraph estimate (distance × $1.40/mi), not an Uber or Lyft quote</small>{candidate.costBasis && /\bhaversine\b/i.test(candidate.costBasis) && <small>Straight-line approximation, may understate road cost</small>}{candidate.costBasis && <small>Recorded basis: {candidate.costBasis}</small>}</span>
 }
 const time = (at: string) => new Date(at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false })
 const miles = (value: number | null) => value == null ? 'Distance not recorded' : `${value.toFixed(2)} miles`
@@ -69,7 +69,7 @@ export function MissionControl({ accessDenied }: { accessDenied?: ReactNode } = 
           const Channel = candidate.channel === 'CALL' ? Phone : MessageSquare
           const approved = confirmation?.candidate.id === candidate.id
           return <button key={candidate.id} type="button" className={cn('caregiver-row', candidate.id === selected?.id && 'selected')} aria-label={`Select ${candidate.name}`} aria-pressed={candidate.id === selected?.id} aria-describedby={`${candidate.id}-status`} onClick={() => setSelectedId(candidate.id)}>
-            <span className="channel-icon">{candidate.channel === '—' ? <span aria-label="Channel unknown">—</span> : <><Channel size={16} aria-hidden="true" /><span className="sr-only">{contactChannelLabel(candidate.channel)}</span></>}</span>
+            <span className="channel-icon">{candidate.channel === '—' ? <span aria-label="Channel unknown">Unknown</span> : <><Channel size={16} aria-hidden="true" /><span className="sr-only">{contactChannelLabel(candidate.channel)}</span></>}</span>
             <span className="caregiver-identity"><strong>{candidate.name}</strong><small>{miles(candidate.distanceMiles)}</small><PaidRideEstimate candidate={candidate} /></span>
             <span id={`${candidate.id}-status`} className={cn('candidate-pill', candidate.reasonCode === 'OVER_POLICY' && 'over-limit', approved && 'approved')}>{approved ? 'Approval recorded' : candidate.statusLabel}</span>
           </button>

@@ -10,6 +10,7 @@ change the historical results below.
 | #220 fixture copy | Em dashes removed from generated care plans, reports, achievements and closure labels; regression guard added | Pending Bentley deploy and Claude |
 | #220 all-family history | All 216 simulated pickup IDs now verified through caller-authorized API reads for all ten children; co-parent overlap matches; 33 sampled creation timestamps match the source | Pending Claude served acceptance |
 | Mission Control copy and evidence | Removed approval-unavailable sentence; status-only confirmed rows do not claim parent approval; chart colors use shared tokens | Pending Bentley deploy and Claude |
+| Mission Control drilldowns and glass | Cached exact-record selections, record timelines and state-preserving Back; full-width 30-day row and light frost on cloud sky; map palette restoration | Pending Bentley deploy and Claude |
 | Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
 | Calendar | #220 light cards and fixtures; follow-up fixes month read range and extends all-child pickup fixtures through November 17 | Pending Bentley seed, deploy and Claude |
 | Orbit | Retained by Codex | Pending fix and Claude |
