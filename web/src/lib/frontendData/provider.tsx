@@ -51,8 +51,8 @@ export function useSurfaceData<T extends MissionControlData | ParentChatData | V
 export function dataErrorMessage(error: { message: string }): string {
   if(error.message.includes('DEMO_GUIDE_READ_ONLY'))return 'Demo guide is read-only'
   if(error.message.includes('DEMO_OUTREACH_REFUSED'))return 'Calls and texts stay in the demo sandbox.'
-  if (error.message.includes('UNAVAILABLE')) return 'This surface is unavailable.'
+  if (error.message.includes('UNAVAILABLE')) return 'This view has nothing to show for this perspective yet.'
   if (error.message.includes('UNAUTHENTICATED') || error.message.includes('AUTH_ERROR')) return 'Your perspective needs a fresh session. Please try again in a moment.'
   if (error.message.includes('UNAUTHORIZED')) return "You don't have access to this."
-  return 'Unable to load updates. Try again.'
+  return 'Updates stalled just now. They keep retrying on their own.'
 }

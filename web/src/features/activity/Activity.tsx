@@ -57,8 +57,16 @@ const NAMED:[keyof View,string][]=[['data','Activity feed'],['slips','Consent de
 export function Activity({client,adapter}:{client:ReturnType<typeof createGraphClient>|null;adapter:FrontendAdapter}){
  const {session,runRead,getSessionGeneration}=useSession(),[phase,setPhase]=useState<'loading'|'ready'|'refused'|'unavailable'>('loading'),[view,setView]=useState<View>(EMPTY)
  const childId=session?.scope.childId,personId=session?.persona.personId,parent=!!session?.marks?.demoGuide||mayReadFamilyActivity(!!session?.persona.parent,!!session?.persona.guardian)
+ // Live propagation (release gate: a change shows across the village within 5s, no refresh):
+ // bounded, visibility-aware re-read every 4s while this page is mounted and visible.
+ const [tick,setTick]=useState(0)
  useEffect(()=>{
-  let active=true;const generation=session?.generation;setPhase('loading');setView(EMPTY)
+  if(!session||!client)return
+  const timer=setInterval(()=>{if(document.visibilityState!=='hidden')setTick(value=>value+1)},4000)
+  return()=>clearInterval(timer)
+ },[session,client])
+ useEffect(()=>{
+  let active=true;const generation=session?.generation;if(tick===0){setPhase('loading');setView(EMPTY)}
   if(!session||!parent){setPhase('refused');return()=>{active=false}}
   if(!client){setPhase('unavailable');return()=>{active=false}}
   const read=async<T,>(query:typeof SLIPS,field:string)=>runRead(async()=>{const result=await client.query<Record<string,T>>({query,variables:{childId},fetchPolicy:'no-cache'});if(!result.data||result.data[field]===undefined)throw Error('READ_UNAVAILABLE');return result.data[field]})
@@ -76,7 +84,7 @@ export function Activity({client,adapter}:{client:ReturnType<typeof createGraphC
    if(active&&getSessionGeneration()===generation)setPhase('ready')
   })()
   return()=>{active=false}
- },[client,adapter,session?.generation,childId,personId,parent,runRead,getSessionGeneration])
+ },[client,adapter,session?.generation,childId,personId,parent,runRead,getSessionGeneration,tick])
  if(phase==='loading')return <section className="activity" role="status">Loading activity…</section>
  if(phase==='refused')return <section className="activity" role="alert"><h2>This activity is not shared with you</h2><p>Your perspective cannot read this child’s family activity.</p></section>
  if(phase==='unavailable')return <section className="activity" data-state="unavailable"><h2>Activity isn’t connected in this view.</h2><p>Choose a live perspective to see the records shared with it.</p></section>
@@ -92,6 +100,6 @@ export function Activity({client,adapter}:{client:ReturnType<typeof createGraphC
  {failed.map(({key,label,state})=>{const notice=sourceNotice(label,state);return <aside key={key} className="activity-status" role={state==='privilege'?'status':'alert'}><h2>{notice.heading}</h2><p>{notice.body}</p></aside>})}
  {view.orbit.state==='ready'&&view.orbit.data?.status&&<aside className="activity-status"><h2>Orbit status</h2><p>{orbitStatusCopy(view.orbit.data)}</p><a href="#/orbit">Open Orbit</a></aside>}
  {view.check.state==='ready'&&view.check.data?.recorded===false&&<p className="activity-status">Check-in not recorded. <a href="#/orbit">Open Orbit</a></p>}
- {!entries.length?(failed.length?<p className="activity-status">No records could be loaded for this view. {failed.length} source{failed.length===1?'':'s'} unavailable above.</p>:<p className="activity-status">No records are available to this view</p>):days.map(day=><section key={day} className="activity-day"><h2 className="activity-day-head">{formatDay(day,true)}</h2><div className="activity-cards">{entries.filter(e=>e.day===day).map(e=><ActivityCard key={e.id} e={e}/>)}</div></section>)}
+ {!entries.length?(failed.length?<p className="activity-status">Some activity sources did not answer; they are named above and retry on their own.</p>:<p className="activity-status">Nothing recorded for this view yet. New activity appears here as it happens.</p>):days.map(day=><section key={day} className="activity-day"><h2 className="activity-day-head">{formatDay(day,true)}</h2><div className="activity-cards">{entries.filter(e=>e.day===day).map(e=><ActivityCard key={e.id} e={e}/>)}</div></section>)}
  </section>
 }

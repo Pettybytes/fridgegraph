@@ -35,6 +35,9 @@ export interface FrontendAdapter {
   readParentChat?(scope: Scope): Promise<ParentChatData>
   readVillage(scope: Scope): Promise<VillageData>
   approvePickup?(scope: Scope, input: ApprovalInput): Promise<CoordinationJob>
+  /** Live only: records a pickup request for one child/date/window AS THE CALLER (the graph's
+   * own request_pickup function refuses a non-parent). Returns the recorded job id + status. */
+  requestPickup?(scope: Scope, input: { childId: string; date: string; window: string }): Promise<{ id: string; status: string }>
 }
 export function reasonLabel(reason: ReasonCode | null): string {
   const labels: Record<ReasonCode, string> = {

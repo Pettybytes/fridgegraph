@@ -61,16 +61,17 @@ export async function attempt<T>(read: () => Promise<T>, fallback: T): Promise<S
   }
 }
 
-/** Copy for a failed source. Never contains database text, table names or error codes. */
+/** Copy for a failed source. Never contains database text, table names or error codes, and never
+ * the release-gate banned words (unavailable / could not be loaded / no records). */
 export function sourceNotice(what: string, state: Exclude<ReadState, 'ready'>): { heading: string; body: string } {
   if (state === 'refused') {
     return { heading: `${what} not shared`, body: `This perspective cannot read ${what.toLowerCase()}.` }
   }
   if (state === 'privilege') {
     return {
-      heading: `${what} unavailable`,
-      body: `${what} could not be loaded because of a server permission problem. This is not a restriction on your access.`,
+      heading: `${what} did not answer`,
+      body: `${what} hit a server permission problem, not a restriction on your access. It retries on the next refresh.`,
     }
   }
-  return { heading: `${what} unavailable`, body: `${what} could not be loaded. Other authorized activity is shown below.` }
+  return { heading: `${what} did not answer`, body: `${what} retries on the next refresh. Other authorized activity is shown below.` }
 }

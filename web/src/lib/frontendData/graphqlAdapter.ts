@@ -11,6 +11,14 @@ export const JOBS = gql`query WebCoordinationJobs($childId: ID!) {
   }
 }`
 export const ATTEMPTS = gql`query WebAttempts($jobId: ID!) { attempts(jobId: $jobId) { id channel at } }`
+export const APPROVE_PICKUP = gql`mutation WebApprovePickup($jobId: ID!, $version: Int!, $decision: ApprovalDecision!, $declineReason: String, $acceptOverLimit: Boolean) {
+  approvePickup(jobId: $jobId, version: $version, decision: $decision, declineReason: $declineReason, acceptOverLimit: $acceptOverLimit) {
+    id type status version idempotencyKey overLimitCandidate { id displayName }
+    candidateEvaluations { candidate { id displayName } reasonCode available acceptedVia costCalculatedAt distanceMiles estimatedRideCostUsd costBasis }
+    confirmation { id job { id } receivedAt candidate { id displayName } approvedBy { id displayName } overLimitApproved }
+  }
+}`
+export const REQUEST_PICKUP = gql`mutation WebRequestPickup($childId: ID!, $asOf: String, $window: String) { requestPickup(childId: $childId, asOf: $asOf, window: $window) { id status } }`
 export const VILLAGE = gql`query WebVillage($childId: ID!, $villageId: ID!) {
   village(id: $villageId) { id name }
   child(id: $childId) { person { id displayName } }
@@ -66,9 +74,30 @@ export function createGraphqlAdapter(client: ReturnType<typeof createGraphClient
       throw code ? new Error(code) : error
     }
   }
+  async function write<T>(mutation: Parameters<typeof client.mutate>[0]['mutation'], variables: Record<string, unknown>): Promise<T> {
+    try {
+      const result = await client.mutate<T>({ mutation, variables })
+      if (!result.data) throw new Error('No data returned')
+      return result.data
+    } catch (error) {
+      const errors = (error as { errors?: { extensions?: { code?: string } }[] }).errors
+      const code = errors?.find(e => ['UNAUTHORIZED', 'UNAUTHENTICATED', 'AUTH_ERROR'].includes(e.extensions?.code ?? ''))?.extensions?.code
+      throw code ? new Error(code) : error
+    }
+  }
   return {
     mode: 'graphql',
     clearStore: () => client.clearStore(),
+    // Parent-gated by the graph itself (approve_pickup / request_pickup refuse non-parents);
+    // exposing them here grants nothing. The UI renders them only behind the parent's confirm.
+    async approvePickup(_scope: Scope, input) {
+      const data = await write<{ approvePickup: JobRead }>(APPROVE_PICKUP, { ...input })
+      return data.approvePickup
+    },
+    async requestPickup(_scope: Scope, input) {
+      const data = await write<{ requestPickup: { id: string; status: string } }>(REQUEST_PICKUP, { childId: input.childId, asOf: input.date, window: input.window })
+      return data.requestPickup
+    },
     async readMissionControl(scope: Scope) {
       const { coordinationJobs } = await read<{ coordinationJobs: JobRead[] }>(JOBS, { childId: scope.childId })
       const attempts = await Promise.all(coordinationJobs.map(async job => [job.id, (await read<{ attempts: Attempt[] }>(ATTEMPTS, { jobId: job.id })).attempts] as const))

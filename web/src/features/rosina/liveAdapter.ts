@@ -54,7 +54,10 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
     if(contentType.includes('text/event-stream')&&response.body){
      const reader=response.body.getReader(),decoder=new TextDecoder()
      let buffer='',eventType='',final:RosinaResponse|null=null
-     for(;;){
+     // The `final` event IS the reply. Resolve on it immediately: an edge or tunnel that holds
+     // the connection open after the server ends must never hold the UI's busy state hostage
+     // (Wonder's gate measured 20s+ of blocked Send waiting for stream close).
+     readLoop: for(;;){
       const {done,value}=await reader.read()
       if(done)break
       resetTimer()
@@ -72,9 +75,10 @@ export function createLiveRosinaAdapter(getAccessToken:()=>string|null|undefined
        if(eventType==='token'&&payload&&typeof payload==='object'&&typeof (payload as {text?:unknown}).text==='string')onToken?.((payload as {text:string}).text)
        else if(eventType==='status'&&payload&&typeof payload==='object'&&typeof (payload as {label?:unknown}).label==='string')onStatus?.((payload as {label:string}).label)
        else if(eventType==='replace')onReplace?.()
-       else if(eventType==='final')final=parseFinal(payload)
+       else if(eventType==='final'){final=parseFinal(payload);break readLoop}
       }
      }
+     reader.cancel().catch(()=>{})
      return final??{reply:LIVE_FALLBACK,actions:[]}
     }
     const body:unknown=await response.json()
