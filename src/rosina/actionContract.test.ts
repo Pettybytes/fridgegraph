@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildActionProposal, deriveIdempotencyKey, spokenStatus, type BuildProposalInput } from './actionContract';
+import { buildActionProposal, deriveIdempotencyKey, museProposalAuthor, spokenStatus, PROPOSAL_AUTHOR_MODEL_ID, type BuildProposalInput, type ProposalAuthor } from './actionContract';
+
+const author = museProposalAuthor();
 
 const base: BuildProposalInput = {
   channel: 'voice',
@@ -14,7 +16,7 @@ const base: BuildProposalInput = {
 };
 
 test('builds a complete shared-contract proposal that still requires parent confirmation', () => {
-  const r = buildActionProposal(base);
+  const r = buildActionProposal(base, author);
   assert.equal(r.ok, true);
   if (!r.ok) return;
   const p = r.proposal;
@@ -36,7 +38,7 @@ test('builds a complete shared-contract proposal that still requires parent conf
 
 test('the same contract shape is produced for typed and messaging channels', () => {
   for (const channel of ['typed', 'messaging'] as const) {
-    const r = buildActionProposal({ ...base, channel });
+    const r = buildActionProposal({ ...base, channel }, author);
     assert.equal(r.ok, true);
     if (r.ok) {
       assert.equal(r.proposal.channel, channel);
@@ -47,7 +49,7 @@ test('the same contract shape is produced for typed and messaging channels', () 
 });
 
 test('a child outside the actor authorization is refused with no proposal and no facts', () => {
-  const r = buildActionProposal({ ...base, childId: 'p_malik' });
+  const r = buildActionProposal({ ...base, childId: 'p_malik' }, author);
   assert.equal(r.ok, false);
   if (!r.ok) {
     assert.equal(r.reason, 'child-not-authorized');
@@ -56,24 +58,24 @@ test('a child outside the actor authorization is refused with no proposal and no
 });
 
 test('a proposal without source facts is refused: Rosina must not invent grounding', () => {
-  const r = buildActionProposal({ ...base, sourceFacts: [] });
+  const r = buildActionProposal({ ...base, sourceFacts: [] }, author);
   assert.equal(r.ok, false);
   if (!r.ok) assert.equal(r.reason, 'missing-source-facts');
 });
 
 test('idempotency keys are deterministic per actor+child+intent+change and differ across changes', () => {
-  const a = buildActionProposal(base);
-  const b = buildActionProposal({ ...base });
+  const a = buildActionProposal(base, author);
+  const b = buildActionProposal({ ...base }, author);
   assert.equal(a.ok && b.ok && a.proposal.idempotencyKey === b.proposal.idempotencyKey, true);
-  const c = buildActionProposal({ ...base, proposedChange: { summary: 'A different change', args: {} } });
+  const c = buildActionProposal({ ...base, proposedChange: { summary: 'A different change', args: {} } }, author);
   assert.equal(a.ok && c.ok && a.proposal.idempotencyKey !== c.proposal.idempotencyKey, true);
-  const explicit = buildActionProposal({ ...base, idempotencyKey: 'call-1:turn-2' });
+  const explicit = buildActionProposal({ ...base, idempotencyKey: 'call-1:turn-2' }, author);
   assert.equal(explicit.ok && explicit.proposal.idempotencyKey === 'call-1:turn-2', true);
   assert.equal(deriveIdempotencyKey(['kendra', 'p_nora']), deriveIdempotencyKey(['kendra', 'p_nora']));
 });
 
 test('pickup coverage is spoken of as requested, never arranged, until a record exists', () => {
-  const r = buildActionProposal({ ...base, intent: 'pickup.coverage' });
+  const r = buildActionProposal({ ...base, intent: 'pickup.coverage' }, author);
   assert.equal(r.ok, true);
   if (!r.ok) return;
   assert.equal(r.proposal.result.status, 'requested');
@@ -81,11 +83,16 @@ test('pickup coverage is spoken of as requested, never arranged, until a record 
   assert.doesNotMatch(spokenStatus(r.proposal), /arranged|saved|booked/);
 });
 
-test('only Muse may author a proposal: a fast-model authored proposal is refused', () => {
-  const r = buildActionProposal({ ...base, authoredBy: 'retell-model' });
-  assert.equal(r.ok, false);
-  if (!r.ok) assert.equal(r.reason, 'author-not-authorized');
-  const ok = buildActionProposal({ ...base, authoredBy: 'muse-sonnet' });
+test('only Muse may author a proposal: missing or non-Muse authorship is refused', () => {
+  // Authorship cannot be caller-supplied: no trusted writer token, no proposal.
+  const noAuthor = buildActionProposal(base);
+  assert.equal(noAuthor.ok, false);
+  if (!noAuthor.ok) assert.equal(noAuthor.reason, 'author-not-authorized');
+  const forged = buildActionProposal(base, { modelId: 'gpt-4o-mini' } as unknown as ProposalAuthor);
+  assert.equal(forged.ok, false);
+  if (!forged.ok) assert.equal(forged.reason, 'author-not-authorized');
+  const ok = buildActionProposal(base, museProposalAuthor());
   assert.equal(ok.ok, true);
-  if (ok.ok) assert.equal(ok.proposal.authoredBy, 'muse-sonnet');
+  if (ok.ok) assert.equal(ok.proposal.authoredBy, PROPOSAL_AUTHOR_MODEL_ID);
+  if (ok.ok) assert.equal(ok.proposal.authoredBy, 'muse-spark-1.3', 'label is the real provider model id');
 });

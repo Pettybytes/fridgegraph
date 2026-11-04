@@ -13,10 +13,13 @@ const proposalRunner: TurnRunner = async (req) => {
     return { reply: 'I can only help with children shared with you.', actions: [] };
   }
   if (/cancel/i.test(req.message)) return { reply: 'Okay, cancelled. Nothing was changed.', actions: [] };
-  return { reply: 'Review this change, then confirm. Nothing has been saved.', actions: [{ intent: 'calendar.create', sourceFacts: ['Nora has an early dismissal tomorrow at 12:30 PM'], summary: "Add 'Early dismissal pickup' tomorrow 12:30 PM", args: { operation: 'create', childId: req.session.childId }, affectedPeople: ['Nora Ellison'] }] };
+  // The fast voice model gathers intent only; the proposal is written by the
+  // Muse writer slot (stubbed deterministically here), never by the runner.
+  return { reply: 'Review this change, then confirm. Nothing has been saved.', actions: [], intent: { description: "Add 'Early dismissal pickup' tomorrow 12:30 PM", sourceFacts: ['Nora has an early dismissal tomorrow at 12:30 PM'], affectedPeople: ['Nora Ellison'] } };
 };
 function bridge(runner: TurnRunner = proposalRunner) {
-  return new RetellBridge({ secret: SECRET, runTurn: runner });
+  return new RetellBridge({ secret: SECRET, runTurn: runner,
+    writeProposal: async ({ intent }) => ({ intent: 'calendar.create', sourceFacts: intent.sourceFacts, summary: intent.description, affectedPeople: intent.affectedPeople ?? [] }) });
 }
 const kendraSession = { personId: 'kendra', childId: 'p_nora', childIds: ['p_nora', 'p_leo', 'p_max'] };
 
@@ -39,12 +42,27 @@ test('accepts a correctly signed in-call turn and returns a proposal that still 
   assert.ok(a.idempotencyKey.length >= 16);
 });
 
-test('a voice action aimed at an unauthorized child is dropped by the contract, not proposed', async () => {
+test('a voice action from the fast model aimed at an unauthorized child is rejected, never proposed', async () => {
   const b = bridge(async () => ({ reply: 'Here is a proposal.', actions: [{ intent: 'calendar.create', childId: 'p_malik', sourceFacts: ['x'], summary: 'Add an event for Malik', affectedPeople: [] }] }));
   const { raw, headers } = signed({ callId: 'call-7', turn: 1, message: 'Add an event for Malik', session: kendraSession });
   const r = await b.handle(raw, headers);
   assert.equal(r.body.actions.length, 0);
+  assert.equal(r.body.rejectedActions, 1);
   assert.equal(r.body.requiresConfirmation, false);
+  assert.equal(r.body.executed, false);
+});
+
+test('an action returned by the fast (Retell) model is rejected and never labelled Claude-authored', async () => {
+  // Well-grounded and in-scope, but produced by the wrong model: still refused.
+  const b = bridge(async () => ({ reply: 'Done, I added it for you.', actions: [{ intent: 'calendar.create', sourceFacts: ['Nora has an early dismissal tomorrow at 12:30 PM'], summary: "Add 'Early dismissal pickup' tomorrow 12:30 PM", affectedPeople: ['Nora Ellison'] }] }));
+  const { raw, headers } = signed({ callId: 'call-7b', turn: 1, message: 'Add a pickup for Nora tomorrow', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.actions.length, 0, 'no proposal may enter from the fast model');
+  assert.equal(r.body.rejectedActions, 1);
+  assert.equal(r.body.proposalUnavailable, true);
+  assert.equal(r.body.requiresConfirmation, false);
+  assert.equal(r.body.attribution.proposal, undefined, 'nothing is labelled as Claude-authored');
   assert.equal(r.body.executed, false);
 });
 
@@ -53,6 +71,7 @@ test('an ungrounded voice action (no source facts) is dropped by the contract', 
   const { raw, headers } = signed({ callId: 'call-8', turn: 1, message: 'Add an event', session: kendraSession });
   const r = await b.handle(raw, headers);
   assert.equal(r.body.actions.length, 0);
+  assert.equal(r.body.rejectedActions, 1);
 });
 
 test('rejects a bad signature and a stale timestamp', async () => {
@@ -120,10 +139,10 @@ test('gathered intent goes to the Muse proposal writer; the fast reply never cla
   const r = await b.handle(raw, headers);
   assert.equal(r.status, 200);
   assert.equal(r.body.actions.length, 1);
-  assert.equal(r.body.actions[0].authoredBy, 'muse-sonnet');
+  assert.equal(r.body.actions[0].authoredBy, 'muse-spark-1.3');
   assert.equal(r.body.actions[0].result.status, 'requested');
   assert.equal(r.body.actions[0].result.recordId, null);
-  assert.equal(r.body.attribution.proposal, 'muse-sonnet');
+  assert.equal(r.body.attribution.proposal, 'muse-spark-1.3');
   assert.equal(r.body.attribution.reply, 'retell-model');
   assert.equal(r.body.executed, false);
   assert.doesNotMatch(r.body.reply, /has been saved|is booked|is arranged/i);

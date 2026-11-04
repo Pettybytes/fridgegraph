@@ -15,6 +15,20 @@ import { createHash } from 'node:crypto';
 
 export type RosinaChannel = 'voice' | 'typed' | 'messaging';
 
+/** The only model allowed to author a substantive proposal: the real provider model id. */
+export const PROPOSAL_AUTHOR_MODEL_ID = 'muse-spark-1.3';
+
+/**
+ * Trusted server-side authorship token. It is created only beside the real
+ * Muse writer wiring and is never parsed from a request payload or from
+ * model output, so an action produced by a fast/voice model cannot be
+ * stamped as Claude-authored after the fact.
+ */
+export type ProposalAuthor = { readonly modelId: typeof PROPOSAL_AUTHOR_MODEL_ID };
+export function museProposalAuthor(): ProposalAuthor {
+  return Object.freeze({ modelId: PROPOSAL_AUTHOR_MODEL_ID });
+}
+
 export type ActionResultStatus = 'proposed' | 'requested' | 'confirmed' | 'saved' | 'refused';
 
 export interface RosinaActionProposal {
@@ -27,8 +41,8 @@ export interface RosinaActionProposal {
   proposedChange: { summary: string; args: Record<string, unknown> };
   affectedPeople: string[];
   confirmation: { required: true; channel: 'fridgegraph-app'; status: 'awaiting-parent' };
-  /** Substantive proposals are authored by Muse Spark only (Bryan 12:58 hybrid ruling). */
-  authoredBy: 'muse-sonnet';
+  /** Substantive proposals are authored by Muse Spark only (Bryan 12:58 hybrid ruling); the real model id. */
+  authoredBy: typeof PROPOSAL_AUTHOR_MODEL_ID;
   idempotencyKey: string;
   result: { recordId: string | null; status: ActionResultStatus };
 }
@@ -43,7 +57,6 @@ export interface BuildProposalInput {
   proposedChange: { summary: string; args?: Record<string, unknown> };
   affectedPeople: string[];
   idempotencyKey?: string;
-  authoredBy?: string;
 }
 
 export type BuildProposalResult =
@@ -54,8 +67,10 @@ export function deriveIdempotencyKey(parts: readonly (string | number)[]): strin
   return createHash('sha256').update(parts.join('')).digest('hex').slice(0, 32);
 }
 
-export function buildActionProposal(input: BuildProposalInput): BuildProposalResult {
-  if (input.authoredBy !== undefined && input.authoredBy !== 'muse-sonnet') {
+export function buildActionProposal(input: BuildProposalInput, author?: ProposalAuthor): BuildProposalResult {
+  // Authorship is asserted by the trusted server-side writer token, never by
+  // caller-supplied data: missing or non-Muse authorship is rejected.
+  if (!author || author.modelId !== PROPOSAL_AUTHOR_MODEL_ID) {
     return { ok: false, reason: 'author-not-authorized', reply: 'Only Muse can author a change proposal; I can gather the details for one.' };
   }
   if (!input.authorizedChildIds.includes(input.childId)) {
@@ -83,7 +98,7 @@ export function buildActionProposal(input: BuildProposalInput): BuildProposalRes
       proposedChange: { summary: input.proposedChange.summary, args: input.proposedChange.args ?? {} },
       affectedPeople: [...input.affectedPeople],
       confirmation: { required: true, channel: 'fridgegraph-app', status: 'awaiting-parent' },
-      authoredBy: 'muse-sonnet',
+      authoredBy: author.modelId,
       idempotencyKey,
       result: { recordId: null, status: input.intent.startsWith('pickup') ? 'requested' : 'proposed' },
     },

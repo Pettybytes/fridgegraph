@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { buildActionProposal, deriveIdempotencyKey, type RosinaActionProposal } from './actionContract';
+import { buildActionProposal, deriveIdempotencyKey, museProposalAuthor, type RosinaActionProposal } from './actionContract';
 
 /**
  * Isolated Retell <-> Rosina bridge core (feat/rosina-retell).
@@ -24,7 +24,8 @@ import { buildActionProposal, deriveIdempotencyKey, type RosinaActionProposal } 
  */
 
 export type BridgeSession = { personId: string; childId: string; childIds: string[] };
-/** Raw action intent from the turn runner; the bridge turns it into the shared contract. */
+/** Action draft from the Muse proposal writer; the bridge turns it into the shared contract.
+ * Actions returned by the turn runner itself are fast-model output: they are rejected, never proposed. */
 export type BridgeActionInput = {
   intent: string;
   childId?: string;
@@ -43,7 +44,9 @@ export type BridgeResponse = {
   body: {
     reply: string; actions: RosinaActionProposal[]; requiresConfirmation: boolean; executed: false; duplicate?: true;
     /** Which model produced what: the fast voice model may answer and gather intent; only Muse authors proposals. */
-    attribution: { reply: 'retell-model'; proposal?: 'muse-sonnet' };
+    attribution: { reply: 'retell-model'; proposal?: 'muse-spark-1.3' };
+    /** Fast-model actions rejected at this boundary (never proposed, never Muse-labelled). */
+    rejectedActions?: number;
     proposalUnavailable?: true;
   };
 };
@@ -102,17 +105,21 @@ export class RetellBridge {
     let result: TurnResult;
     try { result = await this.deps.runTurn({ message: p.message, session: s, callId: p.callId, turn: p.turn }); }
     catch { return refuse(502, 'Rosina is unavailable right now. Nothing was changed.'); }
-    // Every voice action must satisfy the shared action contract; anything
-    // ungrounded or outside the caller's authorized children is dropped here,
-    // before it can be spoken of as a proposal.
-    const actionInputs: BridgeActionInput[] = [...result.actions];
+    // Proposals enter ONLY through the trusted Muse writer (deps.writeProposal,
+    // server-side wiring). Actions returned by the fast voice model itself are
+    // rejected outright: they are never built into proposals and can never be
+    // labelled as Claude-authored. Writer output must still satisfy the shared
+    // action contract (authorized child, cited facts) before it is proposed.
+    const rejectedActions = result.actions.length;
+    const actionInputs: BridgeActionInput[] = [];
     let proposalUnavailable: true | undefined;
     if (result.intent && this.deps.writeProposal) {
       try {
         const written = await this.deps.writeProposal({ intent: result.intent, session: s, message: p.message });
         if (written) actionInputs.push(written);
+        else proposalUnavailable = true;
       } catch { proposalUnavailable = true; }
-    } else if (result.intent) { proposalUnavailable = true; }
+    } else if (result.intent || rejectedActions > 0) { proposalUnavailable = true; }
     const actions: RosinaActionProposal[] = [];
     actionInputs.forEach((a, i) => {
       const built = buildActionProposal({
@@ -125,7 +132,7 @@ export class RetellBridge {
         proposedChange: { summary: a.summary, args: a.args },
         affectedPeople: a.affectedPeople ?? [],
         idempotencyKey: deriveIdempotencyKey([p.callId as string, p.turn as number, i, a.intent, a.summary]),
-      });
+      }, museProposalAuthor());
       if (built.ok) actions.push(built.proposal);
     });
     const body: BridgeResponse['body'] = {
@@ -133,7 +140,8 @@ export class RetellBridge {
       actions,
       requiresConfirmation: actions.length > 0,
       executed: false,
-      attribution: { reply: 'retell-model', ...(actions.length ? { proposal: 'muse-sonnet' as const } : {}) },
+      attribution: { reply: 'retell-model', ...(actions.length ? { proposal: 'muse-spark-1.3' as const } : {}) },
+      ...(rejectedActions ? { rejectedActions } : {}),
       ...(proposalUnavailable ? { proposalUnavailable } : {}),
     };
     this.receipts.set(key, body);
