@@ -3,22 +3,14 @@ import { Dialog } from 'radix-ui'
 import { X } from 'lucide-react'
 import type { EventDraft, WriteResult } from './liveAdapter'
 import { localDay } from './time'
+import { EVENT_COLORS } from './eventColors'
 // The parent event form: title, child, date, start/end, location, notes and a colour the parent
 // picks. Saving and deleting each require an explicit confirm ("Save this change to Nora's
 // calendar?" / "Delete this event..."), never a silent write. Parents only; the caller does not
 // mount this for a caregiver.
 export type EventChild = { id: string; displayName: string }
 export type EventFormInitial = { id: string; draft: EventDraft; childId: string } | null
-// Swatches are the design-v2 --type-* palette as concrete CSS colours (stored verbatim and used as
-// the pill fill). "No colour" falls back to the neutral type colour.
-const SWATCHES: { label: string; value: string }[] = [
-  { label: 'Pickup', value: 'oklch(0.66 0.15 62)' },
-  { label: 'School', value: 'oklch(0.56 0.16 252)' },
-  { label: 'Activity', value: 'oklch(0.57 0.13 155)' },
-  { label: 'Care', value: 'oklch(0.60 0.10 195)' },
-  { label: 'Celebration', value: 'oklch(0.57 0.20 330)' },
-  { label: 'Orbit', value: 'oklch(0.57 0.22 25)' },
-]
+const SWATCHES = Object.values(EVENT_COLORS).map(entry => ({ label: entry.label, value: entry.color }))
 function splitInstant(iso: string): { date: string; time: string } {
   const day = localDay(iso)
   const m = /T(\d{2}:\d{2})/.exec(iso)
@@ -43,12 +35,12 @@ export function EventForm({ childName, childId, children, initial, onSubmit, onD
   const [endTime, setEndTime] = useState(end0.time)
   const [location, setLocation] = useState(initial?.draft.location ?? '')
   const [notes, setNotes] = useState(initial?.draft.notes ?? '')
-  const [color, setColor] = useState<string>(initial?.draft.color ?? SWATCHES[0].value)
+  const [color, setColor] = useState<string>(initial?.draft.color ?? '')
   const [confirm, setConfirm] = useState<null | 'save' | 'delete'>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   function draft(): EventDraft {
-    return { title: title.trim(), start: `${date}T${startTime}:00`, end: `${date}T${endTime}:00`, location: location.trim() || null, notes: notes.trim() || null, color, status: initial?.draft.status ?? 'confirmed' }
+    return { title: title.trim(), start: `${date}T${startTime}:00`, end: `${date}T${endTime}:00`, location: location.trim() || null, notes: notes.trim() || null, color: color || null, status: initial?.draft.status ?? 'confirmed' }
   }
   const valid = title.trim().length > 0 && endTime > startTime
   async function run(kind: 'save' | 'delete') {
@@ -75,9 +67,10 @@ export function EventForm({ childName, childId, children, initial, onSubmit, onD
           <div className="cal-field"><label htmlFor="ef-loc">Location</label><input id="ef-loc" value={location} onChange={e => setLocation(e.target.value)} placeholder="Field 3" /></div>
           <div className="cal-field"><label htmlFor="ef-notes">Notes</label><textarea id="ef-notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Bring shin guards" /></div>
           <div className="cal-field"><span className="cal-field-label">Color</span>
-            <div className="cal-swatches" role="radiogroup" aria-label="Event color">
-              {SWATCHES.map(s => <button type="button" key={s.value} role="radio" aria-checked={color === s.value} aria-label={s.label} className="cal-swatch" style={{ background: s.value }} data-selected={color === s.value} onClick={() => setColor(s.value)} />)}
-              <label className="cal-swatch-custom"><span className="sr-only">Custom color</span><input type="color" value="#6aa0ff" onChange={e => setColor(e.target.value)} /></label>
+            <div className="cal-swatches" role="group" aria-label="Event color">
+              <button type="button" className="cal-color-auto" aria-pressed={!color} onClick={() => setColor('')}>By event type</button>
+              {SWATCHES.map(s => <button type="button" key={s.value} aria-pressed={color === s.value} aria-label={s.label} className="cal-swatch" style={{ background: s.value }} data-selected={color === s.value} onClick={() => setColor(s.value)} />)}
+              <label className="cal-swatch-custom"><span className="sr-only">Custom color</span><input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#6aa0ff'} onChange={e => setColor(e.target.value)} /></label>
             </div>
           </div>
           {error && <p className="cal-form-error" role="alert">{error}</p>}

@@ -1,3 +1,4 @@
+import { CalendarLegend } from './CalendarLegend'
 import {RouteSkeleton} from '@/app/RouteSkeleton'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from 'radix-ui'
@@ -26,7 +27,7 @@ export function careLabel(result: ReadOutcome<EffectiveCare>) {
   return result.value.source === 'ARRANGEMENT' ? `Approved arrangement: scheduled with ${name}` : result.value.source === 'WEEKLY' ? `Scheduled with ${name}` : 'Schedule source not recorded'
 }
 function Outcome({ result, empty }: { result: ReadOutcome<unknown[]>; empty?: boolean }) { return <p className="cal-no-events" role={result.state === 'failed' ? 'alert' : undefined}>{result.state === 'ready' ? (empty ? outcomeCopy.empty : null) : outcomeCopy[result.state]}</p> }
-type IlamyView = 'month' | 'week' | 'day'
+type IlamyView = 'month' | 'week' | 'day' | 'year'
 export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }) {
   const [route, setRoute] = useState(location.hash), [cancelled, setCancelled] = useState(false)
   const [loaded, setLoaded] = useState<{ adapter: LiveCalendarAdapter; key: string; value: LiveWindow } | null>(null), [failed, setFailed] = useState('')
@@ -43,7 +44,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
   const query = useMemo(() => new URLSearchParams(route.split('?')[1] ?? ''), [route])
   const requested = query.get('day'), eventId = query.get('event')
   const known = eventId ? adapter.knownEvent(eventId) : undefined
-  const day = requested ?? (known ? localDay(known.start) : localDay(Date.now())), view: IlamyView = query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
+  const day = requested ?? (known ? localDay(known.start) : localDay(Date.now())), view: IlamyView = query.get('view') === 'year' ? 'year' : query.get('view') === 'day' ? 'day' : query.get('view') === 'month' ? 'month' : 'week'
   const childId = query.get('childId') ?? (eventId ? adapter.knownChild(eventId) : undefined) ?? adapter.scope.childId, from = validDay(day) ? weekStart(view === 'month' ? `${day.slice(0, 7)}-01` : day) : '', to = from ? addDays(from, view === 'month' ? 41 : 6) : ''
   const key = `${route}:${cancelled}:${reload}`, current = loaded?.adapter === adapter && loaded.key === key ? loaded.value : adapter.peekWindow?.({childId,from,to,includeCancelled:cancelled}) ?? null
   const canEdit = adapter.parent && !optimisticEvent
@@ -106,6 +107,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     {optimisticEvent&&<p role="status">Saving {optimisticEvent.title.replace(' (Saving…)','')}…</p>}
     {notSaved && <p className="cal-notsaved" role="status">{notSaved}</p>}
     {eventId && !selected && <p className="cal-attention">Event details are not available in the records read for this view.</p>}
+    {!lanes && <CalendarLegend />}
     {lanes
       ? (() => { const data = liveLaneData(current.days, current.care, childName); return <CaregiverLanes from={weekStart(day)} resources={data.resources} events={data.events} emptyLabel="No care schedule is recorded for this week." onEventClick={event => { const click = event.data as LiveLaneClick | undefined; if (click?.kind === 'care') setCareDetail({ day: click.day, care: click.care }) }} /> })()
       : <div className="cal-grid-host">
@@ -125,7 +127,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
             renderEvent={(event: IlamyEvent, segment: EventSegment) => <CalendarEventPill event={event} segment={segment} />}
             onEventClick={(event: IlamyEvent) => { const original = event.data?.original as LiveEvent | undefined; if (original) setSelected(original) }}
             onDateChange={date => { const nextDay = localDay(date.valueOf()); if (nextDay !== day) navigate(nextDay) }}
-            onViewChange={next => { const v = next === 'month' || next === 'day' ? next : 'week'; if (v !== view) navigate(day, v) }}
+            onViewChange={next => { const v = next === 'month' || next === 'day' || next === 'year' ? next : 'week'; if (v !== view) navigate(day, v) }}
             onEventsChange={(change: EventsChange) => {
               if (!canEdit) { change.revert(); setNotSaved(LIVE_NOT_SAVED); return }
               const u = change.updated[0]

@@ -1,9 +1,4 @@
-/* Family Calendar - design-v2 LIGHT skin over @ilamy/calendar (Bryan, 2026-11-03:
-   the calendar is the light theme with type-coloured pills). Card TYPE drives
-   colour, consistently (docs/contracts/design.md §12): the --cal-* aliases
-   resolve to the shared --type-* tokens - pickup/transport = amber, school =
-   blue, care = teal, celebration/invite = violet-pink; live events with no
-   recorded category read pending-gray. */
+/* Family Calendar: light surfaces and labeled pastel event colors. */
 /* Pin the shadcn tokens ilamy's internals use (bg-background / card / border /
    primary utilities) to the FridgeGraph light surface tokens so the grid always
    agrees with the app canvas, whatever :root maps them to. */
@@ -63,7 +58,7 @@
   color: color-mix(in oklch, var(--cal-amber) 45%, var(--fg-ink));
   background: color-mix(in oklch, var(--cal-amber) 14%, var(--fg-surface));
   border: 1px solid color-mix(in oklch, var(--cal-amber) 40%, transparent);
-  border-left: 3px solid var(--cal-amber);
+  border-left: 1px solid var(--cal-amber);
   border-radius: var(--radius-nested);
 }
 
@@ -81,39 +76,31 @@
    cannot happen. Export stays: it only serializes what is already on screen. */
 .cal-grid-host button[aria-label="New"] { display: none; }
 
-/* ── Event pill (renderEvent output) ────────────────────────────────────────
-   Confirmed events are SATURATED FILLED pills in the type colour with light ink
-   (the @ilamy demo look Bryan asked for). The fill is deepened a touch so small
-   white text stays AA on every hue. */
+/* Event colors and contrast-aware ink come from CalendarEventPill. */
 .cal-pill {
   --pill: var(--cal-neutral);
   display: flex; flex-direction: column; gap: .05rem;
   height: 100%; min-width: 0; padding: .3rem .5rem;
   border-radius: var(--radius-chip);
-  background: color-mix(in oklch, var(--pill) 92%, black);
-  color: var(--cal-on-fill);
+  background: var(--pill);
+  color: var(--pill-ink, var(--fg-ink));
   line-height: 1.3; text-align: left; overflow: hidden;
   box-shadow: 0 1px 2px oklch(0.2 0.03 262 / 0.16);
 }
 .cal-pill-title { font-size: .78rem; font-weight: 650; overflow-wrap: anywhere; }
-.cal-pill-time { font-size: .72rem; font-weight: 600; color: oklch(1 0 0 / 0.86); font-variant-numeric: tabular-nums; }
-.cal-pill-tag { font-size: .62rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: oklch(1 0 0 / 0.82); }
+.cal-pill-time { font-size: .72rem; font-weight: 600; color: inherit; font-variant-numeric: tabular-nums; }
+.cal-pill-tag { font-size: .62rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: inherit; }
 .cal-type-amber { --pill: var(--cal-amber); }
 .cal-type-blue { --pill: var(--cal-blue); }
 .cal-type-green { --pill: var(--cal-green); }
 .cal-type-teal { --pill: var(--cal-teal); }
 .cal-type-violet { --pill: var(--cal-violet); }
 .cal-type-neutral { --pill: var(--cal-neutral); }
-/* Proposed = not yet confirmed: outlined tinted pill (clearly not a committed
-   fill), dark type-coloured ink on a pale wash. */
-.cal-pill.is-proposed {
-  background: color-mix(in oklch, var(--pill) 12%, white);
-  color: color-mix(in oklch, var(--pill) 72%, black);
-  box-shadow: inset 0 0 0 1.5px var(--pill);
-}
-.cal-pill.is-proposed .cal-pill-time, .cal-pill.is-proposed .cal-pill-tag { color: color-mix(in oklch, var(--pill) 64%, black); }
-.cal-pill.is-cancelled { opacity: .5; }
+/* Status remains explicit in text; outlines and strikethrough add a second cue. */
+.cal-pill.is-proposed { outline: 1px dashed currentColor; outline-offset: -2px; }
 .cal-pill.is-cancelled .cal-pill-title { text-decoration: line-through; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.cal-legend li { padding: .35rem .65rem; border-radius: 999px; font-size: .75rem; font-weight: 550; color: #172533; }
 
 /* ── Schedule notes + availability chrome ───────────────────────────────── */
 .cal-schedule-notes { margin-top: 1.4rem; padding: 1.1rem; background: var(--fg-surface); border: 1px solid var(--fg-border); border-radius: var(--radius-card); }
@@ -127,11 +114,10 @@
 .cal-care { display: block; width: 100%; text-align: left; font-size: .8rem; line-height: 1.4; padding: .55rem .7rem; border-radius: var(--radius-nested); border: none; background: color-mix(in oklch, var(--cal-teal) 92%, black); color: var(--cal-on-fill); }
 .cal-care.is-holiday { background: color-mix(in oklch, var(--cal-amber) 92%, black); }
 .cal-busy-list :is(h3,h4) { font-size: .75rem; color: var(--fg-muted); margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .03em; }
-/* Busy/free audit rows: busy reads neutral-gray filled, recorded free time reads
-   green filled (the found-safe hue), both from the shared palette. */
-.cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem .7rem; border-radius: var(--radius-nested); border: none; margin-bottom: .5rem; font-size: .78rem; background: color-mix(in oklch, var(--cal-neutral) 86%, black); color: var(--cal-on-fill); }
-.cal-busy small { font-size: .7rem; color: oklch(1 0 0 / 0.8); font-variant-numeric: tabular-nums; }
-.cal-busy.is-free { background: color-mix(in oklch, var(--type-safe) 90%, black); }
+/* Availability keeps its written status on readable coral and mint surfaces. */
+.cal-busy { display: grid; width: 100%; text-align: left; gap: .2rem; padding: .6rem .7rem; border-radius: var(--radius-nested); border: none; margin-bottom: .5rem; font-size: .78rem; background: #ffdad2; color: #172533; }
+.cal-busy small { font-size: .7rem; color: inherit; font-variant-numeric: tabular-nums; }
+.cal-busy.is-free { background: #cef2e3; }
 .cal-arrangement { display: grid; gap: .25rem; padding: .6rem .7rem; width: 100%; text-align: left; margin-top: .6rem; font-size: .76rem; color: color-mix(in oklch, var(--cal-violet) 50%, var(--fg-ink)); background: color-mix(in oklch, var(--cal-violet) 10%, var(--fg-elevated)); border: 1px dashed color-mix(in oklch, var(--cal-violet) 45%, transparent); border-radius: var(--radius-nested); }
 .cal-arrangement span { color: var(--fg-muted); font-size: .75rem; }
 .cal-footnote { display: flex; align-items: start; gap: .5rem; margin-top: 1rem; }
@@ -141,7 +127,7 @@
 .cal-unavailable { font-size: .75rem; line-height: 1.5; color: var(--fg-muted); margin: .7rem 0; }
 .cal-live-key { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; color: var(--fg-muted); font-size: .8rem; line-height: 1.6; }
 .cal-live-key label { display: flex; gap: .5rem; align-items: center; }
-.cal-conflicts { margin: 1.2rem 0; padding: 1rem; border-left: 3px solid var(--fg-attention); background: var(--fg-surface); border-radius: var(--radius-nested); font-size: .8rem; line-height: 1.6; }
+.cal-conflicts { margin: 1.2rem 0; padding: 1rem; border-left: 1px solid var(--fg-attention); background: var(--fg-surface); border-radius: var(--radius-nested); font-size: .8rem; line-height: 1.6; }
 .cal-conflicts h3 { font-weight: 650; }
 .cal-attention, .cal-detail-attention { color: var(--fg-onway-ink); font-size: .75rem; background: color-mix(in oklch, var(--fg-onway) 16%, var(--fg-surface)); border-radius: var(--radius-chip); padding: .3rem .5rem; }
 
@@ -171,22 +157,35 @@
 .cal-form .cal-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
 .cal-form label, .cal-field-label { font-size: .78rem; font-weight: 600; color: var(--fg-muted); }
 .cal-form input, .cal-form select, .cal-form textarea {
-  width: 100%; padding: .55rem .65rem; font: inherit; font-size: .9rem;
-  border: 1px solid var(--fg-border); border-radius: var(--radius-control);
-  background: var(--fg-surface); color: var(--fg-ink);
+  width: 100%; min-width: 0; min-height: 44px; padding: .7rem .8rem; font: inherit; font-size: 1rem;
+  border: 1px solid #748797; border-radius: 12px;
+  background: #f2f6fa; color: #172533;
 }
 .cal-form textarea { resize: vertical; }
+.cal-form :is(input, textarea)::placeholder { color: #526575; opacity: 1; }
+.cal-form :is(input, select, textarea):focus-visible { outline: 2px solid #1769aa; outline-offset: 2px; }
+.cal-form select:disabled { opacity: 1; color: #526575; cursor: not-allowed; }
+.cal-form select { appearance: none; padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%23526575' stroke-width='1.5'%3E%3Cpath d='m5 8 5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .75rem center; }
+.cal-form .cal-field-row > * { min-width: 0; }
+.cal-form input[type=color] { min-height: 0; }
+.cal-form-actions .cal-btn, .cal-close { min-height: 44px; min-width: 44px; }
+
+@media (min-width: 640px) {
+  .cal-form, .cal-confirm { left: 50%; right: auto; bottom: auto; top: 50%; transform: translate(-50%, -50%); width: min(540px, calc(100vw - 2rem)); }
+}
+.cal-color-auto { min-height: 44px; padding: .5rem .7rem; border: 1px solid #748797; border-radius: 12px; font-size: .8rem; }
+.cal-color-auto[aria-pressed=true] { outline: 2px solid var(--fg-ink); outline-offset: -2px; }
 .cal-swatches { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
-.cal-swatch { width: 2rem; height: 2rem; border-radius: 999px; border: 2px solid transparent; cursor: pointer; }
+.cal-swatch { width: 44px; height: 44px; border-radius: 999px; border: 2px solid transparent; cursor: pointer; }
 .cal-swatch[data-selected="true"] { border-color: var(--fg-ink); box-shadow: 0 0 0 2px var(--fg-surface) inset; }
-.cal-swatch-custom { width: 2rem; height: 2rem; border-radius: 999px; overflow: hidden; border: 1px dashed var(--fg-border); display: grid; place-items: center; cursor: pointer; }
+.cal-swatch-custom { width: 44px; height: 44px; border-radius: 999px; overflow: hidden; border: 1px dashed var(--fg-border); display: grid; place-items: center; cursor: pointer; }
 .cal-swatch-custom input { width: 150%; height: 150%; padding: 0; border: 0; cursor: pointer; }
 .cal-form-actions { display: flex; align-items: center; gap: .6rem; margin-top: 1.4rem; }
 .cal-form-spacer { flex: 1; }
 .cal-form-error { color: var(--fg-danger); font-size: .82rem; margin-top: .3rem; }
 .cal-btn { padding: .55rem 1rem; border-radius: var(--radius-control); font-size: .88rem; font-weight: 600; border: 1px solid var(--fg-border); background: var(--fg-surface); color: var(--fg-ink); cursor: pointer; }
 .cal-btn-primary { background: var(--fg-primary); color: var(--fg-on-primary); border-color: transparent; }
-.cal-btn-danger { background: color-mix(in oklch, var(--fg-danger) 92%, black); color: var(--cal-on-fill); border-color: transparent; }
+.cal-btn-danger { background: color-mix(in oklch, var(--fg-danger) 92%, black); color: white; border-color: transparent; }
 .cal-btn:disabled { opacity: .5; cursor: default; }
 .cal-add { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border-radius: var(--radius-control); font-size: .85rem; font-weight: 600; background: var(--fg-primary); color: var(--fg-on-primary); }
 .cal-detail-actions { display: flex; gap: .6rem; margin-top: 1.4rem; }
