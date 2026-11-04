@@ -34,15 +34,14 @@ This begins with single mothers, but it is not limited to one family shape. A ch
 <table>
   <tr>
     <td width="50%"><a href="web/evidence/design/run-appsky-after/today-desktop.png"><img src="web/evidence/design/run-appsky-after/today-desktop.png" alt="FridgeGraph Today design capture with sky canvas, the family village, Rosina and the guide" width="100%"></a><br><strong>Today</strong> · Rosina and the village, in the app's sky and ink visual language.</td>
-    <td width="50%"><a href="web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png"><img src="web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png" alt="Browser evidence of the notice-to-pickup result after parent confirmation" width="100%"></a><br><strong>Notice → decision</strong> · A browser capture of the recorded pickup-request journey.</td>
+    <td width="50%"><a href="web/evidence/design/run-appsky-after/activity-cards-desktop.png"><img src="web/evidence/design/run-appsky-after/activity-cards-desktop.png" alt="FridgeGraph Activity design capture showing recorded events as white cards on the sky canvas" width="100%"></a><br><strong>Activity</strong> · A record of who did what, with simulated outreach labeled as such.</td>
   </tr>
   <tr>
-    <td><a href="web/evidence/orbit-alert/offline-03/1440-exact-preview.png"><img src="web/evidence/orbit-alert/offline-03/1440-exact-preview.png" alt="Orbit Alert parent review screen, an offline UI capture" width="100%"></a><br><strong>Orbit</strong> · Parent review before an alert. This is an offline UI capture, not proof of a live broadcast.</td>
-    <td><a href="web/evidence/map-live/kendra-desktop-map.png"><img src="web/evidence/map-live/kendra-desktop-map.png" alt="Kendra's map with an estimated route, captured during a browser test" width="100%"></a><br><strong>Village map</strong> · A browser-tested estimated route; no live location tracking.</td>
+    <td colspan="2"><a href="web/evidence/orbit-climax/take-06/1440-light-alert.png"><img src="web/evidence/orbit-climax/take-06/1440-light-alert.png" alt="Fictional Orbit Alert takeover design with Nora's photo and trusted village response choices" width="100%"></a><br><strong>Orbit Alert</strong> · A controlled offline visual fixture of the high-stakes state. It is not evidence of an outbound alert. The [Village map browser capture](web/evidence/map-live/kendra-desktop-map.png) shows a route estimate, never live child tracking.</td>
   </tr>
 </table>
 
-*These are source-controlled design and browser-test captures from different builds. The [hosted app](https://fridgegraph.loomz.stream) is the source for what judges can click now; the six-step guide was verified separately on the served build.*
+*These are source-controlled design and controlled-test captures from different builds. The [hosted app](https://fridgegraph.loomz.stream) is the source for what judges can click now; the six-step guide was verified separately on the served build. The [notice-to-confirm browser receipt](web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png) shows the recorded pickup request.*
 
 ## One change, visible across the village
 
