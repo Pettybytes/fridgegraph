@@ -47,7 +47,7 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
  let event:Event|undefined;
  if(operation!=='create'){
   const previousTitle=reference.match(/^Done — (?:added|moved) (.+) for /)?.[1];
-  const words=text.toLowerCase().replace(/\b(move|reschedule|cancel|delete|please|the|event|calendar|to|at|on|for|today|tomorrow|it|that)\b/g,' ').replace(/\d+(?::\d+)?\s*(am|pm)?/g,' ').split(/\s+/).filter(w=>w.length>2&&!child.displayName!.toLowerCase().includes(w.replace(/[’']s$/,'')));
+  const words=text.toLowerCase().replace(/\b(move|reschedule|cancel|delete|please|the|event|calendar|to|until|through|at|on|for|today|tomorrow|it|that)\b/g,' ').replace(/\d+(?::\d+)?\s*(am|pm)?/g,' ').split(/\s+/).filter(w=>w.length>2&&!child.displayName!.toLowerCase().includes(w.replace(/[’']s$/,'')));
   const requestedDay=text.match(/\bon (\d{4}-\d{2}-\d{2})\b/i)?.[1];
   const found=events.filter(e=>(!requestedDay||e.start.startsWith(requestedDay))&&(previousTitle?e.title===previousTitle:words.length>0&&words.every(w=>e.title.toLowerCase().includes(w))));
   if(found.length!==1)return reply(found.length?'There is more than one matching event. Which title and date should I change?':'Which existing event should I change? Please give its title and date.');
@@ -64,9 +64,9 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
   const duration=event?Date.parse(`${event.end.slice(0,19)}Z`)-Date.parse(`${event.start.slice(0,19)}Z`):3600000;
   if(!Number.isFinite(Date.parse(`${start}Z`)))return reply('That date is not valid. Which date should I use?');
   end=new Date(Date.parse(`${start}Z`)+duration).toISOString().slice(0,19);
-  const endTime=text.match(/\b(?:until|to|through)\s+(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\b/i);
+  const endTime=[...text.matchAll(/\b(?:until|to|through)\s+(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\b/ig)].find(match=>(match.index??0)>(time.index??0));
   // In a move request 'to 7pm' is the new start, not an end.
-  if(endTime&&(endTime.index??0)>(time.index??0)&&operation==='create'){
+  if(endTime&&(endTime.index??0)>(time.index??0)){
     const endHour=Number(endTime[1])%12+(endTime[3].toLowerCase()==='pm'?12:0);
     end=`${day}T${String(endHour).padStart(2,'0')}:${endTime[2]??'00'}:00`;
   }

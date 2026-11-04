@@ -17,7 +17,7 @@ export function CalendarChanges({summary=false}:{summary?:boolean}){
   if(!result.data)throw Error('Calendar changes unavailable')
   return result.data.calendarChanges
  },[client,childId,child?.runRead])
- const snapshot=useCachedResource(permitted?client:null,`calendar-changes:${childId}`,load,1500)
+ const snapshot=useCachedResource(permitted?client:null,`calendar-changes:${childId}`,load,750)
  if(!permitted||!client)return null
  if(snapshot?.error)return <section aria-label="Calendar changes"><p role="status">Calendar changes could not be refreshed.</p></section>
  const changes=snapshot?.value??[]

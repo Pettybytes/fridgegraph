@@ -18,3 +18,14 @@ test('refuses unauthorized caller, ambiguous event and unknown child',async()=>{
  assert.equal((await calendarProposal({...base,message:'move birthday party to 7pm',request:request(true,[...events,{...events[0],id:'ev-other'}]) as typeof fetch}))?.actions.length,0);
  assert.equal((await calendarProposal({...base,message:'book a party for Jax at 9pm tomorrow'}))?.actions.length,0);
 });
+test('preserves an explicit new end time on reschedule',async()=>{
+ const r=await calendarProposal({...base,message:"move Nora's birthday party to 7pm until 8:30pm"});
+ assert.equal(r?.actions[0]?.args.start,'2026-11-05T19:00:00');
+ assert.equal(r?.actions[0]?.args.end,'2026-11-05T20:30:00');
+});
+test('rejects nonexistent and ambiguous Detroit wall times and invalid dates',async()=>{
+ for(const when of ['2027-03-14 at 2:30am','2027-11-07 at 1:30am','2026-02-30 at 9pm']){
+  const r=await calendarProposal({...base,message:`book a birthday party for Nora on ${when}`});
+  assert.equal(r?.actions.length,0);
+ }
+});
