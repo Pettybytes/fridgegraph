@@ -13,7 +13,7 @@ const proposalRunner: TurnRunner = async (req) => {
     return { reply: 'I can only help with children shared with you.', actions: [] };
   }
   if (/cancel/i.test(req.message)) return { reply: 'Okay, cancelled. Nothing was changed.', actions: [] };
-  return { reply: 'Review this change, then confirm. Nothing has been saved.', actions: [{ id: 'calendar-change', args: { operation: 'create', childId: req.session.childId } }] };
+  return { reply: 'Review this change, then confirm. Nothing has been saved.', actions: [{ intent: 'calendar.create', sourceFacts: ['Nora has an early dismissal tomorrow at 12:30 PM'], summary: "Add 'Early dismissal pickup' tomorrow 12:30 PM", args: { operation: 'create', childId: req.session.childId }, affectedPeople: ['Nora Ellison'] }] };
 };
 function bridge(runner: TurnRunner = proposalRunner) {
   return new RetellBridge({ secret: SECRET, runTurn: runner });
@@ -28,6 +28,31 @@ test('accepts a correctly signed in-call turn and returns a proposal that still 
   assert.equal(r.body.requiresConfirmation, true);
   assert.equal(r.body.actions.length, 1);
   assert.equal(r.body.executed, false, 'bridge never executes a write');
+  const a = r.body.actions[0];
+  assert.equal(a.contractVersion, 1);
+  assert.equal(a.channel, 'voice');
+  assert.equal(a.actorPersonId, 'kendra');
+  assert.equal(a.childId, 'p_nora');
+  assert.equal(a.confirmation.required, true);
+  assert.equal(a.result.recordId, null);
+  assert.equal(a.result.status, 'proposed');
+  assert.ok(a.idempotencyKey.length >= 16);
+});
+
+test('a voice action aimed at an unauthorized child is dropped by the contract, not proposed', async () => {
+  const b = bridge(async () => ({ reply: 'Here is a proposal.', actions: [{ intent: 'calendar.create', childId: 'p_malik', sourceFacts: ['x'], summary: 'Add an event for Malik', affectedPeople: [] }] }));
+  const { raw, headers } = signed({ callId: 'call-7', turn: 1, message: 'Add an event for Malik', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.body.actions.length, 0);
+  assert.equal(r.body.requiresConfirmation, false);
+  assert.equal(r.body.executed, false);
+});
+
+test('an ungrounded voice action (no source facts) is dropped by the contract', async () => {
+  const b = bridge(async () => ({ reply: 'Here is a proposal.', actions: [{ intent: 'calendar.create', sourceFacts: [], summary: 'Add an event', affectedPeople: [] }] }));
+  const { raw, headers } = signed({ callId: 'call-8', turn: 1, message: 'Add an event', session: kendraSession });
+  const r = await b.handle(raw, headers);
+  assert.equal(r.body.actions.length, 0);
 });
 
 test('rejects a bad signature and a stale timestamp', async () => {

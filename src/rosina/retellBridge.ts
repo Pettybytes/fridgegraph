@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { buildActionProposal, deriveIdempotencyKey, type RosinaActionProposal } from './actionContract';
 
 /**
  * Isolated Retell <-> Rosina bridge core (feat/rosina-retell).
@@ -23,14 +24,22 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  */
 
 export type BridgeSession = { personId: string; childId: string; childIds: string[] };
-export type BridgeAction = { id: string; args: Record<string, unknown> };
-export type TurnResult = { reply: string; actions: BridgeAction[] };
+/** Raw action intent from the turn runner; the bridge turns it into the shared contract. */
+export type BridgeActionInput = {
+  intent: string;
+  childId?: string;
+  sourceFacts: string[];
+  summary: string;
+  args?: Record<string, unknown>;
+  affectedPeople?: string[];
+};
+export type TurnResult = { reply: string; actions: BridgeActionInput[] };
 export type TurnRequest = { message: string; session: BridgeSession; callId: string; turn: number };
 export type TurnRunner = (req: TurnRequest) => Promise<TurnResult>;
 
 export type BridgeResponse = {
   status: number;
-  body: { reply: string; actions: BridgeAction[]; requiresConfirmation: boolean; executed: false; duplicate?: true };
+  body: { reply: string; actions: RosinaActionProposal[]; requiresConfirmation: boolean; executed: false; duplicate?: true };
 };
 
 const MAX_SKEW_MS = 5 * 60_000;
@@ -81,10 +90,28 @@ export class RetellBridge {
     }
     if (typeof p.message !== 'string' || !p.message.trim()) return refuse(400, 'Empty turn.');
     const result = await this.deps.runTurn({ message: p.message, session: s, callId: p.callId, turn: p.turn });
+    // Every voice action must satisfy the shared action contract; anything
+    // ungrounded or outside the caller's authorized children is dropped here,
+    // before it can be spoken of as a proposal.
+    const actions: RosinaActionProposal[] = [];
+    result.actions.forEach((a, i) => {
+      const built = buildActionProposal({
+        channel: 'voice',
+        actorPersonId: s.personId,
+        authorizedChildIds: s.childIds,
+        childId: a.childId ?? s.childId,
+        intent: a.intent,
+        sourceFacts: a.sourceFacts,
+        proposedChange: { summary: a.summary, args: a.args },
+        affectedPeople: a.affectedPeople ?? [],
+        idempotencyKey: deriveIdempotencyKey([p.callId as string, p.turn as number, i, a.intent, a.summary]),
+      });
+      if (built.ok) actions.push(built.proposal);
+    });
     const body: BridgeResponse['body'] = {
       reply: result.reply,
-      actions: result.actions,
-      requiresConfirmation: result.actions.length > 0,
+      actions,
+      requiresConfirmation: actions.length > 0,
       executed: false,
     };
     this.receipts.set(key, body);
