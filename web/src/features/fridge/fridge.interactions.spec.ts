@@ -19,10 +19,12 @@ async function enter(page:Page,person='Kendra'){
  await page.goto('/#/fridge')
  await login(page,person)
  await expect(page.getByRole('button',{name:/^Family notes/})).toBeVisible()
+ await expect(page.getByRole('button',{name:'Arrange items'})).toBeEnabled()
 }
 async function reload(page:Page,door='notes'){
  await page.reload()
  await login(page)
+ await expect(page.getByRole('button',{name:'Arrange items'})).toBeEnabled()
  await page.getByRole('button',{name:`Open ${door==='notes'?'collage':'goals'} door`,exact:true}).click()
 }
 async function removeNote(page:Page,text:string){
@@ -112,7 +114,9 @@ test('whiteboard create, edit, horizon and marker choices survive reload',async(
   if(await page.getByRole('button',{name:'Close editor'}).isVisible())await page.getByRole('button',{name:'Close editor'}).click()
   const marker=page.getByRole('group',{name:`Marker for ${title}`})
   await marker.getByRole('button',{name:'blue marker'}).click()
+  await expect(page.getByText('Arrangement saved.',{exact:true})).toBeVisible()
   await marker.getByRole('button',{name:'Caveat'}).click()
+  await expect(page.getByText('Arrangement saved.',{exact:true})).toBeVisible()
   await reload(page,'goals')
   const goal=page.locator('.fridge-whiteboard article').filter({has:page.getByRole('heading',{name:title,exact:true})})
   await expect(goal).toContainText('Next summer')
@@ -131,6 +135,9 @@ test('whiteboard create, edit, horizon and marker choices survive reload',async(
   const second=await other.newPage();await enter(second,'Andre')
   await second.getByRole('button',{name:'Open goals door'}).click()
   await expect(second.locator('.fridge-whiteboard article').filter({has:second.getByRole('heading',{name:edited,exact:true})})).toContainText('This winter')
+  const sharedMarker=second.getByRole('group',{name:`Marker for ${edited}`})
+  await expect(sharedMarker.getByRole('button',{name:'blue marker'})).toHaveAttribute('aria-pressed','true')
+  await expect(sharedMarker.getByRole('button',{name:'Caveat'})).toHaveAttribute('aria-pressed','true')
  }finally{
   await other.close()
   if(await page.getByRole('button',{name:'Close editor'}).isVisible())await page.getByRole('button',{name:'Close editor'}).click()
@@ -158,10 +165,12 @@ for(const kind of ['photo','sticky'] as const)test(`${kind} drag persists after 
   const before=await item.getAttribute('style'),box=await item.boundingBox();expect(box).not.toBeNull()
   await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2)
   await page.mouse.down();await page.mouse.move(box!.x+box!.width/2+24,box!.y+box!.height/2+35,{steps:10});await page.mouse.up()
+  await expect(page.getByText('Arrangement saved.',{exact:true})).toBeVisible()
   const moved=await item.getAttribute('style');expect(moved).not.toBe(before)
   await reload(page);await expect(item).toHaveAttribute('style',moved!)
   await page.getByRole('button',{name:'Arrange items'}).click()
   await item.focus();await page.keyboard.press('Alt+ArrowLeft')
+  await expect(page.getByText('Arrangement saved.',{exact:true})).toBeVisible()
   const arranged=await item.getAttribute('style');expect(arranged).not.toBe(moved)
   await reload(page);await expect(item).toHaveAttribute('style',arranged!)
   const second=await other.newPage();await enter(second)
@@ -170,6 +179,7 @@ for(const kind of ['photo','sticky'] as const)test(`${kind} drag persists after 
  }finally{
   await other.close()
   await page.getByRole('button',{name:'Tidy up'}).click()
+  await expect(page.getByText('Arrangement saved.',{exact:true})).toBeVisible()
   if(kind==='sticky')await removeNote(page,text)
  }
 })

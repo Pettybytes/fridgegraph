@@ -1,3 +1,4 @@
+import {FridgePreferencesContext,createPreferenceClient} from './preferences'
 import {useContext,useMemo} from 'react'
 import {useSession} from '../personas/Session'
 import {useChildAccess} from '../personas/childContext'
@@ -31,8 +32,9 @@ export function ConnectedFridge(){
   if(!response.ok)throw Error('MEDIA_UNAVAILABLE')
   return response.blob()
  },[getCurrentSession,session?.generation])
+ const preferences=useMemo(()=>preview?null:createPreferenceClient(()=>getCurrentSession()?.accessToken),[preview,getCurrentSession,session?.generation])
  if(!session||!access||!viewer)return <p>Choose a perspective to open the fridge.</p>
  const art=familyArt(access.selectedChildId)
  // Parent/guardian authority is only asserted for the session's own child, never borrowed across children.
- return <FridgeMediaContext.Provider value={mediaReader}><FridgePhase2 key={JSON.stringify([session.generation,session.persona.personId,access.selectedChildId,viewer.role,access.authorized])} enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:guide,sampleSlots:art.slots,artLabel:art.label,artPackId:art.id,albumAssets:art.album,intake}}/></FridgeMediaContext.Provider>
+ return <FridgePreferencesContext.Provider value={preferences}><FridgeMediaContext.Provider value={mediaReader}><FridgePhase2 key={JSON.stringify([session.generation,session.persona.personId,access.selectedChildId,viewer.role,access.authorized])} enabled={!!preview||verified} service={service} viewer={viewer} fridge={{personId:session.persona.personId,childId:access.selectedChildId,generation:session.generation,reader,readOnly:viewer.role!=='PARENT'&&viewer.role!=='GUARDIAN',sampleSlots:art.slots,artLabel:art.label,artPackId:art.id,albumAssets:art.album,intake}}/></FridgeMediaContext.Provider></FridgePreferencesContext.Provider>
 }

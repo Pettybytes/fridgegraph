@@ -1,7 +1,9 @@
+import {FridgePreferencesContext} from './preferences'
+import {mockPreferenceClient} from './fixtures/preferencesClient'
 import {fireEvent,render,screen,waitFor,cleanup} from '@testing-library/react'
 import {afterEach,expect,it,vi} from 'vitest'
 import {Fridge} from './Fridge'
-import {authorInk,loadLayout,saveLayout,type FridgeReader,type Read,type Slot,type Goal} from './model'
+import {authorInk,type FridgeReader,type Read,type Slot,type Goal} from './model'
 afterEach(()=>{cleanup();localStorage.clear();location.hash=''})
 const empty:FridgeReader={read:async()=>({status:'empty'})}
 const props={personId:'parent',childId:'child-a',generation:1,reader:empty}
@@ -9,8 +11,16 @@ it('zooms first, then opens a photograph and closes with the accessible dialog c
 it('preserves recorded horizons and statuses without completion controls, including guide',async()=>{render(<Fridge {...props} readOnly reader={{read:async source=>source==='goals'?{status:'ready',value:[{id:'g',title:'Practice together',horizon:'Whenever we can',status:'PROPOSED'}]}:{status:'empty'}}}/>);expect(await screen.findByText('Whenever we can')).toBeInTheDocument();expect(screen.getByText('PROPOSED')).toBeInTheDocument();expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:/complete|edit|add goal/i})).not.toBeInTheDocument()})
 it('keeps independent refused and failed outcomes with manual retry',async()=>{const read=vi.fn<FridgeReader['read']>(async source=>({status:source==='care'?'refused':'failed'}));render(<Fridge {...props} reader={{read}}/>);expect(await screen.findByText('Not shared with this perspective.')).toBeInTheDocument();expect(screen.getByText("Couldn't load these notes")).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Open goals door'}));fireEvent.click(screen.getByRole('button',{name:'Retry goals'}));await waitFor(()=>expect(read).toHaveBeenCalledTimes(3))})
 it('clears dialogs on a child or persona change and discards late results',async()=>{let finish!:(value:Read<Slot[]|Goal[]>)=>void;const old:FridgeReader={read:()=>new Promise(resolve=>{finish=resolve})};const view=render(<Fridge {...props} reader={old}/>);fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'A quiet afternoon'}));view.rerender(<Fridge {...props} personId="other" childId="child-b" generation={2}/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();finish({status:'ready',value:[{id:'private',title:'Old private goal',horizon:null,status:'APPROVED'}]});await waitFor(()=>expect(screen.getAllByText('Nothing posted yet.')).toHaveLength(1));expect(screen.queryByText('Old private goal')).not.toBeInTheDocument()})
-it('stores only layout geometry per person, validates malformed storage and tidies it',async()=>{saveLayout('parent',{'sample-sofa':{x:.25,y:.2,width:.16,rotation:2}});expect(loadLayout('other')).toEqual({});render(<Fridge {...props}/>);fireEvent.click(screen.getByRole('button',{name:'Tidy up'}));expect(loadLayout('parent')).toEqual({});localStorage.setItem('fridge-layout:parent','not json');expect(loadLayout('parent')).toEqual({})})
-it('supports keyboard movement only in explicit Arrange mode',()=>{render(<Fridge {...props}/>);const photo=screen.getByRole('button',{name:'A quiet afternoon'});fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')).toEqual({});fireEvent.click(screen.getByRole('button',{name:'Arrange items'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(loadLayout('parent')['sample-sofa'].x).toBeCloseTo(.220)})
+it('loads server geometry and tidies without storing family data in the browser',async()=>{
+ const client=mockPreferenceClient();await client.write('child-a',{kind:'art',itemId:'sample-sofa',position:{x:.25,y:.2,width:.16,rotation:2}})
+ render(<FridgePreferencesContext.Provider value={client}><Fridge {...props}/></FridgePreferencesContext.Provider>)
+ await waitFor(()=>expect(screen.getByRole('button',{name:'A quiet afternoon'})).toHaveStyle({left:'25%'}))
+ fireEvent.click(screen.getByRole('button',{name:'Tidy up'}))
+ await waitFor(()=>expect(screen.getByText('Arrangement saved.')).toBeInTheDocument())
+ expect((await client.read('child-a',new AbortController().signal))[0].position).toBeNull()
+ expect(localStorage.length).toBe(0)
+})
+it('supports keyboard movement only in explicit Arrange mode',()=>{render(<Fridge {...props}/>);const photo=screen.getByRole('button',{name:'A quiet afternoon'});fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(photo).toHaveStyle({left:'21.5%'});fireEvent.click(screen.getByRole('button',{name:'Open collage door'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(photo).toHaveStyle({left:'21.5%'});fireEvent.click(screen.getByRole('button',{name:'Arrange items'}));fireEvent.keyDown(photo,{key:'ArrowRight',altKey:true});expect(photo).toHaveStyle({left:'22%'})})
 it('keeps author marker ink stable and unknown authors neutral',()=>{expect(authorInk(null)).toBe('#263a4a');expect(authorInk('recorded-author')).toBe(authorInk('recorded-author'));expect(authorInk('a')).not.toBe(authorInk('b'))})
 it('saves captions explicitly through the server adapter, reloads its record, and never stores caption text in the browser',async()=>{
  const {within}=await import('@testing-library/react')
@@ -37,21 +47,24 @@ it('saves captions explicitly through the server adapter, reloads its record, an
 })
 it('lets a parent pick a per-goal marker colour + font that persists, and hides the picker for read-only',async()=>{
  const goalsReader:FridgeReader={read:async source=>source==='goals'?{status:'ready',value:[{id:'g1',title:'Practice together',horizon:null,status:'PROPOSED'}]}:{status:'empty'}}
- render(<Fridge {...props} reader={goalsReader}/>)
+ const client=mockPreferenceClient()
+ render(<FridgePreferencesContext.Provider value={client}><Fridge {...props} boardReadOnly={false} reader={goalsReader}/></FridgePreferencesContext.Provider>)
  await screen.findByText('Practice together')
  // The whiteboard lives inside the zoomable scene; open (zoom into) the goals door so in-scene
  // controls receive clicks instead of the viewport's zoom handler.
  fireEvent.click(screen.getByRole('button',{name:'Open goals door'}))
- const marker=()=>JSON.parse(localStorage.getItem('fridge-markers:parent') as string)['g1']
+ await waitFor(()=>expect(screen.getByRole('button',{name:'blue marker'})).toBeEnabled())
+ const marker=async()=>(await client.read('child-a',new AbortController().signal)).find(item=>item.itemId==='g1')
  fireEvent.click(screen.getByRole('button',{name:'blue marker'}))
- await waitFor(()=>expect(marker().color).toBe('blue'))
+ await waitFor(async()=>expect((await marker())?.color).toBe('blue'))
  fireEvent.click(screen.getByRole('button',{name:'Caveat'}))
- await waitFor(()=>expect(marker()).toEqual({color:'blue',font:'caveat'}))
+ await waitFor(async()=>expect(await marker()).toMatchObject({color:'blue',font:'caveat'}))
  cleanup()
- render(<Fridge {...props} readOnly reader={goalsReader}/>)
+ render(<FridgePreferencesContext.Provider value={client}><Fridge {...props} readOnly reader={goalsReader}/></FridgePreferencesContext.Provider>)
  await screen.findByText('Practice together')
  expect(screen.queryByRole('button',{name:'blue marker'})).not.toBeInTheDocument()
- localStorage.clear()
+ await waitFor(()=>expect(screen.getByRole('heading',{name:'Practice together'})).toHaveClass('fridge-marker-caveat'))
+ expect(localStorage.length).toBe(0)
 })
 it('shows a not-connected state, not a load failure, when a source is unavailable offline',async()=>{render(<Fridge {...props} reader={{read:async()=>({status:'unavailable'})}}/>);expect(await screen.findByText('Not connected in this view.')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Open goals door'}));expect(screen.getByText('These notes aren’t connected in this view.')).toBeInTheDocument();expect(screen.queryByRole('button',{name:/Retry/})).not.toBeInTheDocument();expect(screen.queryByRole('alert')).not.toBeInTheDocument()})
 it('fills an untouched caption when server notes arrive after opening, but preserves a typed draft',()=>{

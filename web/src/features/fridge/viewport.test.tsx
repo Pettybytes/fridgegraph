@@ -65,7 +65,8 @@ it('pans the background, drags paper directly, and supports two-pointer pinch',(
  fireEvent.pointerUp(photo,{pointerId:4,clientX:230,clientY:330})
  fireEvent.click(photo)
  expect(screen.queryByRole('dialog')).toBeNull()
- expect(JSON.parse(localStorage.getItem('fridge-layout:parent')!)['sample-sofa'].x).toBeCloseTo(.265)
+ expect(photo).toHaveStyle({left:'26.5%'})
+ expect(localStorage.getItem('fridge-layout:parent')).toBeNull()
 
 })
 it('separates verified editing from unavailable intake and reuses inline goal save with verbatim horizon',async()=>{
@@ -116,7 +117,7 @@ it('Arrange moves a stored paper using geometry only; normal taps never change i
  fireEvent.pointerUp(paper,{pointerId:1,clientX:240,clientY:380})
  expect(open).not.toHaveBeenCalled()
  expect(screen.getByRole('button',{name:'Open posted note: Private paper'})).toHaveClass('is-arranged')
- const stored=localStorage.getItem('fridge-layout:parent')!
- expect(stored).not.toContain('Private paper')
- expect(Object.keys(JSON.parse(stored)['note-one']).sort()).toEqual(['rotation','width','x','y'])
+ // Right edge stays inside the collage: .457 minus the measured .1 paper width.
+ expect(parseFloat(screen.getByRole('button',{name:'Open posted note: Private paper'}).style.left)).toBeCloseTo(35.7)
+ expect(localStorage.getItem('fridge-layout:parent')).toBeNull()
 })
