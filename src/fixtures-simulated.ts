@@ -439,11 +439,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
 
 // ---------------------------------------------------------------- orbit (Task O)
 
-/**
- * The Ellison `orbit_notify_eligible` policy — Scenario 8 requires Andre (the co-parent) in the
- * audience. It is a FIXTURE row: `household_policies` has no marker column, so this rule name is the
- * handle, and cleanup removes exactly this rule (Group 4 will take ownership of the canonical seed).
- */
+/** Approved fictional test responders for every showcase family. Shared by seed and Reset demo. */
 export type SimulatedOrbit = {
   label: typeof SIMULATED_LABEL;
   household_policies: Record<string, unknown>[];
@@ -454,10 +450,9 @@ export function createSimulatedOrbit(): SimulatedOrbit {
   return {
     label: SIMULATED_LABEL,
     policy_rule: 'orbit_notify_eligible',
-    household_policies: [
-      // h_a is the Ellison household where Nora's record is anchored.
-      { household_id: 'h_a', rule: 'orbit_notify_eligible', value: 'p_dad,p_gma,p_bryan' },
-    ],
+    household_policies: ['h_a', 'h_b', 'h_c', 'h_emma', 'h_taylor', 'h_micah', 'h_malik'].map(household_id => ({
+      household_id, rule: 'orbit_notify_eligible', value: 'p_tasha,p_gma,p_bryan',
+    })),
   };
 }
 

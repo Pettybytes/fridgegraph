@@ -11,7 +11,7 @@
  *   /api/rosina (exact) | /invite | /pin | /pin/upload | /pin/confirm | /pin/readiness | /pin/media/*
  *   /api/demo/login|health|reset (exact), GET /api/demo/reset/<UUIDv4> -> 4008
  *   /api/village/day|route (exact) -> 4008
- *   /api/orbit/photo/* -> 4008
+ *   /api/orbit/photo (exact) | /api/orbit/photo/* -> 4008
  *   /voice-turn (exact) -> 4118   inbound GHL webhook (voice-turn-server); POST carries its own
  *                                 X-FridgeGraph-Webhook-Secret, which this proxy forwards unchanged.
  * Everything else under /api/*, /graphql and /voice is 404 — never the SPA shell — so a refused
@@ -88,7 +88,7 @@ const PROXY = [
   { match: (p) => ROSINA_EXACT.has(p) || p.startsWith('/api/rosina/pin/media/'), port: 4200, name: 'rosina' },
   { match: demoProxyAllowed, port: 4008, name: 'demo' },
   { match: (p) => VILLAGE_EXACT.has(p), port: 4008, name: 'village' },
-  { match: (p) => p.startsWith('/api/orbit/photo/'), port: 4008, name: 'orbit' },
+  { match: (p) => p === '/api/orbit/photo' || p.startsWith('/api/orbit/photo/'), port: Number(process.env.ORBIT_API_PORT ?? 4008), name: 'orbit' },
   { match: (p) => p === '/voice-turn', port: VOICE_TURN_PORT, name: 'voice-turn' },
 ];
 
