@@ -397,7 +397,7 @@ export function createSimulatedCalendar(): SimulatedCalendar {
         child_id: 'p_nora',
         holiday_name: 'Thanksgiving (duplicate)',
         date_start: '2026-11-26',
-        date_end: '2026-11-27',
+        date_end: '2026-11-26',
         assigned_parent_id: 'p_dad',
         pickup_duty_parent_id: 'p_dad',
         dropoff_duty_parent_id: 'p_dad',

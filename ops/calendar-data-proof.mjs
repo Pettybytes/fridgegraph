@@ -20,6 +20,7 @@ try {
     for (const row of coverage.rows) { assert.ok(row.parent_id, child); assert.ok(row.handoff_time, child); assert.ok(row.handoff_location, child); }
     assert.equal((await db.admin.query("select * from schedule_conflicts($1,'2026-11-02','2026-11-08')", [child])).rowCount, 0, child);
     assert.equal((await db.admin.query("select * from effective_schedule_for($1,'2026-11-11')", [child])).rows[0].source, 'ARRANGEMENT');
+    assert.ok((await db.admin.query("select * from schedule_conflicts($1,'2026-11-01','2026-11-30')", [child])).rowCount <= 1, `${child}: November conflict limit`);
   }
   // Reset must repair a changed row and restore a missing row, leaving unrelated data intact.
   await db.admin.query("update parenting_schedules set handoff_location='Changed' where child_id='p_malik'; delete from parenting_schedules where child_id='p_emma'");

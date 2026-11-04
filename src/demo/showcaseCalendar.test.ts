@@ -28,3 +28,15 @@ test('each scheduled parent has explicit busy and free records in the November 2
     for (const state of ['BUSY','FREE']) assert.ok(rows.some(r => r.state === state), `${parent}: ${state}`);
   }
 });
+test('no showcase child has more than one intentional conflict day in November', () => {
+  const snap = resetSnapshot();
+  const rows = new Map([...snap.fixtures.holiday_arrangements, ...snap.cast.holiday_arrangements].map(r => [r.id, r]));
+  for (const child of children) {
+    let conflicts = 0;
+    for (let day = 1; day <= 30; day++) {
+      const date = `2026-11-${String(day).padStart(2, '0')}`;
+      if ([...rows.values()].filter(r => r.child_id === child && r.status === 'APPROVED' && String(r.date_start) <= date && String(r.date_end) >= date).length > 1) conflicts++;
+    }
+    assert.ok(conflicts <= 1, `${child}: ${conflicts} conflict days`);
+  }
+});
