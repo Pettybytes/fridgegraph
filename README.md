@@ -3,11 +3,34 @@
   <img src="docs/assets/readme/hero-light.svg" alt="FridgeGraph — Rosina prepares; parents decide. The village around a child, connected." width="1280">
 </picture>
 
+<p align="center"><strong>FAMILIES ARE NOT ONE HOUSEHOLD. CARE SHOULD NOT BE ONE PERSON'S JOB.</strong></p>
+<p align="center">
+  <a href="https://fridgegraph.loomz.stream"><strong>Open the live demo ↗</strong></a> &nbsp;·&nbsp;
+  <a href="#try-the-demo">Judge the six-step journey</a> &nbsp;·&nbsp;
+  <a href="PROVENANCE.md">See the Muse provenance</a> &nbsp;·&nbsp;
+  <a href="docs/schema-plan.md">Explore the architecture</a>
+</p>
+
 # FridgeGraph
 
 **Families run on information that has no API. FridgeGraph gives the people caring for a child one connected, permissioned village. Rosina helps turn a change in plans into a proposal; a parent decides what happens next.**
 
-[Try the hosted demo](https://fridgegraph.loomz.stream) · [Follow the six-step judge guide](https://fridgegraph.loomz.stream) · [How the graph works](docs/schema-plan.md) · [Provenance](PROVENANCE.md)
+> **For judges:** The hosted demo needs no install. Start as Kendra or Demo guide, follow the six steps on Today, then switch perspectives to see the same village through different permissions. The public path is typed Rosina with explicit confirmation. [Launch FridgeGraph](https://fridgegraph.loomz.stream).
+
+## A glimpse inside the village
+
+<table>
+  <tr>
+    <td width="50%"><a href="web/evidence/design/run-appsky-after/today-desktop.png"><img src="web/evidence/design/run-appsky-after/today-desktop.png" alt="FridgeGraph Today design capture with sky canvas, the family village, Rosina and the guide" width="100%"></a><br><strong>Today</strong> · Rosina and the village, in the app's sky and ink visual language.</td>
+    <td width="50%"><a href="web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png"><img src="web/evidence/notice-plan/live-2026-11-02/sample-a-result-desktop.png" alt="Browser evidence of the notice-to-pickup result after parent confirmation" width="100%"></a><br><strong>Notice → decision</strong> · A browser capture of the recorded pickup-request journey.</td>
+  </tr>
+  <tr>
+    <td><a href="web/evidence/orbit-alert/offline-03/1440-exact-preview.png"><img src="web/evidence/orbit-alert/offline-03/1440-exact-preview.png" alt="Orbit Alert parent review screen, an offline UI capture" width="100%"></a><br><strong>Orbit</strong> · Parent review before an alert. This is an offline UI capture, not proof of a live broadcast.</td>
+    <td><a href="web/evidence/map-live/kendra-desktop-map.png"><img src="web/evidence/map-live/kendra-desktop-map.png" alt="Kendra's map with an estimated route, captured during a browser test" width="100%"></a><br><strong>Village map</strong> · A browser-tested estimated route; no live location tracking.</td>
+  </tr>
+</table>
+
+*These are source-controlled design and browser-test captures from different builds. The [hosted app](https://fridgegraph.loomz.stream) is the source for what judges can click now; the six-step guide was verified separately on the served build.*
 
 ## The text that started it
 
