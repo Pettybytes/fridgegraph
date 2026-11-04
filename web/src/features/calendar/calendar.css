@@ -1,7 +1,7 @@
 /* Family Calendar - design-v2 LIGHT skin over @ilamy/calendar (Bryan, 2026-11-03:
    the calendar is the light theme with type-coloured pills). Card TYPE drives
    colour, consistently (docs/contracts/design.md §12): the --cal-* aliases
-   resolve to the shared --type-* tokens — pickup/transport = amber, school =
+   resolve to the shared --type-* tokens - pickup/transport = amber, school =
    blue, care = teal, celebration/invite = violet-pink; live events with no
    recorded category read pending-gray. */
 /* Pin the shadcn tokens ilamy's internals use (bg-background / card / border /

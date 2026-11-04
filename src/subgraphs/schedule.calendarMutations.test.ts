@@ -3,7 +3,7 @@
  * the same call src/server.ts uses) for the parent calendar-editing mutations added with migration
  * 0095. A fake supabase-shaped client stands in for dbFor(ctx) (ctx.db directly), capturing the
  * single rpc call each resolver makes. This proves the GraphQL + resolver + mapping + authz-forwarding
- * layer; it does NOT exercise the SQL function's own is_parent_of guard — that half needs a live DB.
+ * layer; it does NOT exercise the SQL function's own is_parent_of guard - that half needs a live DB.
  *
  * Run with: node --import tsx --test src/subgraphs/schedule.calendarMutations.test.ts
  */

@@ -73,7 +73,7 @@ const typeDefs = parse(`
   Parent-only calendar editing. Each mutation refuses a demo guide in the resolver and is refused
   again inside the database (is_parent_of), writes the row, and records the change in village_event
   so it appears in Activity for everyone who shares the child. Times are America/Detroit wall-clock
-  strings (YYYY-MM-DDTHH:MM:SS), the same shape childEvents returns — a recorded time is never shifted.
+  strings (YYYY-MM-DDTHH:MM:SS), the same shape childEvents returns; a recorded time is never shifted.
   """
   type Mutation {
     createCalendarEvent(childId: ID!, title: String!, start: String!, end: String!, location: String, notes: String, color: String, status: String): CalendarEvent!
@@ -87,13 +87,13 @@ const typeDefs = parse(`
     person: Person!
     start: String!
     end: String!
-    """BUSY | FREE — recorded state, never a statement of consent or willingness."""
+    """BUSY | FREE: recorded state, never a statement of consent or willingness."""
     state: String!
   }
 
   type EffectiveSchedule {
     parent: Person
-    """ARRANGEMENT | WEEKLY — which rule produced the answer."""
+    """ARRANGEMENT | WEEKLY: which rule produced the answer."""
     source: String!
     arrangementId: ID
   }

@@ -1,9 +1,9 @@
--- 0095 — parent calendar editing: add/edit/delete events, with a recorded activity trail.
+-- 0095 - parent calendar editing: add/edit/delete events, with a recorded activity trail.
 --
 -- WHY
 -- Until now `events` (the calendar) was read-only over GraphQL. Parents need to add, edit and
--- delete their child's events. Storage for two parent-chosen fields was missing — `notes` and a
--- `color` the parent picks in the form — so this adds them, plus three SECURITY DEFINER functions
+-- delete their child's events. Storage for two parent-chosen fields was missing - `notes` and a
+-- `color` the parent picks in the form - so this adds them, plus three SECURITY DEFINER functions
 -- that are the ONLY write path. Each one checks is_parent_of() first (so a caregiver's schedule.read
 -- grant, a demo guide, or any non-parent is refused inside the database too, not only in the
 -- resolver), writes the row, and records the change in `village_event` so it surfaces in Activity
