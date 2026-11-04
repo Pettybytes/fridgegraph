@@ -12,8 +12,11 @@
  *   /api/demo/login|health|reset (exact), GET /api/demo/reset/<UUIDv4> -> 4008
  *   /api/village/day|route (exact) -> 4008
  *   /api/orbit/photo/* -> 4008
+ *   /voice-turn (exact) -> 4118   inbound GHL webhook (voice-turn-server); POST carries its own
+ *                                 X-FridgeGraph-Webhook-Secret, which this proxy forwards unchanged.
  * Everything else under /api/*, /graphql and /voice is 404 — never the SPA shell — so a refused
- * endpoint cannot be smuggled through a catch-all route.
+ * endpoint cannot be smuggled through a catch-all route. Note `/voice-turn` is a distinct top-level
+ * path, not under `/voice/`, so it is proxied here rather than caught by the /voice 404.
  *
  * Static rules (plan §3): GET/HEAD; decode/collapse/reject `..`, NUL, dotfiles, escapes; fixed
  * content types; /assets immutable; shell + SPA fallback no-store; extension-only missing files are
@@ -25,6 +28,9 @@ import { extname, resolve, sep } from 'node:path';
 import { demoProxyAllowed, resetStatusMethodAllowed } from './demo-proxy-routes.mjs';
 
 const PORT = Number(process.env.PORT ?? 5189);
+// Inbound GHL webhook reaches voice-turn-server.mjs on this loopback port (default matches
+// ops/voice-turn-check.mjs and the voice-turn-server default). Override with VOICE_TURN_PORT.
+const VOICE_TURN_PORT = Number(process.env.VOICE_TURN_PORT ?? 4118);
 const ROOT_ENV = process.env.WEB_ROOT;
 
 function fatal(msg) {
@@ -83,6 +89,7 @@ const PROXY = [
   { match: demoProxyAllowed, port: 4008, name: 'demo' },
   { match: (p) => VILLAGE_EXACT.has(p), port: 4008, name: 'village' },
   { match: (p) => p.startsWith('/api/orbit/photo/'), port: 4008, name: 'orbit' },
+  { match: (p) => p === '/voice-turn', port: VOICE_TURN_PORT, name: 'voice-turn' },
 ];
 
 const RESERVED = (p) =>
