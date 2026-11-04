@@ -11,7 +11,7 @@ change the historical results below.
 | #220 all-family history | Fixed October 5 through November 3 Detroit window, all ten authorized children; 216 simulated jobs and 200 closed test attempts in the source | Pending Bentley seed and Claude |
 | Mission Control copy and evidence | Removed approval-unavailable sentence; status-only confirmed rows do not claim parent approval; chart colors use shared tokens | Pending Bentley deploy and Claude |
 | Replay | First-frame cards implemented in #220 | Pending Bentley deploy and Claude |
-| Calendar | Light cards and dense calendar fixtures in #220 | Pending Bentley deploy and Claude |
+| Calendar | #220 light cards and fixtures; follow-up fixes month read range and extends all-child pickup fixtures through November 17 | Pending Bentley seed, deploy and Claude |
 | Orbit | Retained by Codex | Pending fix and Claude |
 | Map sample label | Retained by Codex; must follow actual provenance | Pending investigation |
 | Rosina live proof | Retained by Codex; requires served runtime | Pending Bentley runtime and Claude |

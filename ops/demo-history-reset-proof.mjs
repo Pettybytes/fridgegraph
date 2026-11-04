@@ -165,9 +165,14 @@ async function main() {
   }
   const familySnapshotSql = "select id, child_id, status, created_at, as_of, fixture from coordination_jobs where id like 'fx_job_history_v1_%' order by id";
   const familyBefore = (await verify1.query(familySnapshotSql)).rows;
+  const calendarSnapshotSql = "select id, child_id, start_at, end_at from events where id like 'fx_pr_%' order by id";
+  const calendarBefore = (await verify1.query(calendarSnapshotSql)).rows;
+  const endpointChildren = (await verify1.query("select distinct child_id from events where id like 'fx_pr_%_pickup' and start_at::date = '2026-11-17' order by child_id")).rows.map(r => r.child_id);
+  if (JSON.stringify(endpointChildren) !== JSON.stringify(Object.keys(expectedFamilyCounts))) fail('calendar endpoint FAILED: all ten children need a November 17 pickup');
   await verify1.end();
   log('check 1 PASS: the first resetDemo() call created all 20 history jobs, 3 voice notes, and a real decided_at for the declined story');
   log('all-family history PASS: 204 stored requests across all 10 authorized children');
+  log('calendar endpoint PASS: all ten authorized children have a recorded November 17 pickup');
 
   // --- Corrupt + pollute, exactly as a live demo session could ---
   const corrupt = new pg.Client({ host: '127.0.0.1', port, user: 'postgres', password: 'postgres', database: 'postgres', ssl: { rejectUnauthorized: false } });
@@ -219,6 +224,9 @@ async function main() {
   const familyAfter = (await verify2.query(familySnapshotSql)).rows;
   if (JSON.stringify(familyBefore) !== JSON.stringify(familyAfter)) fail('all-family history FAILED: duplicate or changed rows after second reset');
   log('all-family reset PASS: all 204 rows are identical after the second real reset');
+  const calendarAfter = (await verify2.query(calendarSnapshotSql)).rows;
+  if (JSON.stringify(calendarBefore) !== JSON.stringify(calendarAfter)) fail('calendar reset FAILED: changed or duplicated generated event rows');
+  log(`calendar reset PASS: all ${calendarAfter.length} generated events are identical after the second real reset`);
 
   await verify2.end();
   log('ALL CHECKS PASS');

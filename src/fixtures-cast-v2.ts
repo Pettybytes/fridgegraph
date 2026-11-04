@@ -8,7 +8,7 @@
  * RULES
  * - Additive only: no existing baseline row is modified, no existing grant is revoked.
  * - Fictional data only; phone numbers use the unreachable 555-01xx range; emails are example.com.
- * - Dana is absent from every generated history and event: she has no record here at all.
+ * - No adult Dana relationship history is generated here; Jax has his own calendar records.
  * - Everything with a `sandbox` column is sandbox=true.
  */
 
@@ -242,8 +242,9 @@ export function createCastV2(): CastV2 {
   // Every parent family's calendar must be FULL for the past 30 + next 14 days: daily pickups,
   // weekly activities, school one-offs, and one social event. Purely ADDITIVE: new fx_pr_* ids
   // only; the arrays and index math above are untouched so no existing baseline row changes.
+  // Fixed v1 window: October 5 through November 17, 2026, America/Detroit.
   // Times follow this file's existing convention (naive local Detroit timestamps, e.g. T08:15:00).
-  const PRISTINE_DAYS = weekdaysBetween('2026-10-05', '2026-11-13');
+  const PRISTINE_DAYS = weekdaysBetween('2026-10-05', '2026-11-17');
   // Leo and Max Ellison already exist as baseline PEOPLE (0002) and appear in Kendra's
   // myChildren at runtime; their children rows are made explicit here so their events never
   // hit a missing FK on a fresh seed.
@@ -262,7 +263,7 @@ export function createCastV2(): CastV2 {
   ];
   const dowOf = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
   const saturdays: string[] = [];
-  for (let d = new Date('2026-10-05T12:00:00Z'); d <= new Date('2026-11-13T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
+  for (let d = new Date('2026-10-05T12:00:00Z'); d <= new Date('2026-11-17T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
     if (d.getUTCDay() === 6) saturdays.push(d.toISOString().slice(0, 10));
   }
   const SCHOOL_ONE_OFFS: { slug: string; title: string; day: string; start: string; end: string; where: string }[] = [
