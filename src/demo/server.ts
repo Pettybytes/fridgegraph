@@ -529,7 +529,8 @@ export function createDemoLoginApp() {
     const persona = resetPersona(identity);
     if (!persona) { res.status(403).json({error:'RESET_NOT_ALLOWED'}); return; }
     const runId = req.body?.runId;
-    if (!validResetRunId(runId)) { res.status(400).json({error:'INVALID_RESET_RUN'}); return; }
+    // Old loaded clients send no runId. A definite no-write failure keeps those clients signed in.
+    if (!validResetRunId(runId)) { res.status(400).json({error:'RESET_FAILED',reason:'INVALID_RESET_RUN'}); return; }
 
     const now = Date.now();
     const clientIp = resolveClientIp(req.socket.remoteAddress ?? '', req.header('x-forwarded-for'));
