@@ -41,11 +41,11 @@ it('wheel only zooms when focused and keyboard has zoom/pan/reset alternatives',
  fireEvent.keyDown(viewer,{key:'ArrowRight'});expect(viewer.querySelector('.fridge-scene')!.getAttribute('style')).not.toBe(before)
  fireEvent.keyDown(viewer,{key:'0'});expect(viewer).toHaveAttribute('data-scale','1')
 })
-it('pans instead of moving paper, never opens after a drag, and supports two-pointer pinch',()=>{
+it('pans the background, drags paper directly, and supports two-pointer pinch',()=>{
  const {viewer}=mount(),photo=screen.getByRole('button',{name:'A quiet afternoon'})
  fireEvent.click(screen.getByRole('button',{name:'Zoom in'}))
  const before=viewer.querySelector('.fridge-scene')!.getAttribute('style')
- fireEvent.pointerDown(photo,{pointerId:1,button:0,clientX:300,clientY:400})
+ fireEvent.pointerDown(viewer,{pointerId:1,button:0,clientX:300,clientY:400})
  fireEvent.pointerMove(viewer,{pointerId:1,clientX:250,clientY:350})
  fireEvent.pointerUp(viewer,{pointerId:1,clientX:250,clientY:350})
  fireEvent.click(photo)
@@ -58,7 +58,6 @@ it('pans instead of moving paper, never opens after a drag, and supports two-poi
  fireEvent.pointerMove(viewer,{pointerId:3,clientX:400,clientY:300,pointerType:'touch'})
  expect(Number(viewer.dataset.scale)).toBeCloseTo(scale*2)
  fireEvent.pointerUp(viewer,{pointerId:2});fireEvent.pointerUp(viewer,{pointerId:3})
- fireEvent.click(screen.getByRole('button',{name:'Arrange items'}))
  vi.spyOn(viewer.querySelector('.fridge-scene')!,'getBoundingClientRect').mockReturnValue({x:0,y:0,left:0,top:0,width:600,height:900,right:600,bottom:900,toJSON:()=>({})})
  photo.setPointerCapture=vi.fn()
  fireEvent.pointerDown(photo,{pointerId:4,button:0,clientX:200,clientY:300})
@@ -66,14 +65,15 @@ it('pans instead of moving paper, never opens after a drag, and supports two-poi
  fireEvent.pointerUp(photo,{pointerId:4,clientX:230,clientY:330})
  fireEvent.click(photo)
  expect(screen.queryByRole('dialog')).toBeNull()
- expect(JSON.parse(localStorage.getItem('fridge-layout:parent')!)['sample-sofa'].x).toBeCloseTo(.265)
+ expect(photo).toHaveStyle({left:'26.5%'})
+ expect(localStorage.getItem('fridge-layout:parent')).toBeNull()
 
 })
 it('separates verified editing from unavailable intake and reuses inline goal save with verbatim horizon',async()=>{
  vi.stubGlobal('matchMedia',()=>({matches:false}))
  const adapter=mockFridgeEditingAdapter([],[]),create=vi.spyOn(adapter,'createGoal')
  render(<FridgePhase2 fridge={props} viewer={{personId:'parent',role:'PARENT',sessionKey:'one'}} enabled service={{check:async()=>({kind:'ready'}),adapter}}/>)
- await screen.findByRole('button',{name:'+ Sticky note'})
+ await screen.findByRole('button',{name:'Add sticky note'})
  expect(screen.getByRole('button',{name:'+ Add photo or paper'})).toBeDisabled()
  fireEvent.click(screen.getByRole('button',{name:'Open goals door'}))
  fireEvent.click(screen.getByRole('button',{name:'Write on the whiteboard'}))
@@ -90,7 +90,7 @@ it('separates verified editing from unavailable intake and reuses inline goal sa
 it.each([false,true])('no creation controls when deployment is %s and capability absent, but intake has its own explanation',async enabled=>{
  render(<FridgePhase2 fridge={props} viewer={{personId:'parent',role:'PARENT',sessionKey:'one'}} enabled={enabled} service={{check:async()=>({kind:'absent'}),adapter:mockFridgeEditingAdapter()}}/>)
  await screen.findByText(enabled?/Editing isn’t available/:/Editing is not enabled/)
- expect(screen.queryByRole('button',{name:'+ Sticky note'})).toBeNull()
+ expect(screen.queryByRole('button',{name:'Add sticky note'})).toBeNull()
  expect(screen.queryByRole('button',{name:'Write on the whiteboard'})).toBeNull()
  expect(screen.getByRole('button',{name:'+ Add photo or paper'})).toBeDisabled()
  expect(screen.getByText(/Private upload, extraction, confirmation, storage and authorized retrieval/)).toBeInTheDocument()
@@ -117,7 +117,7 @@ it('Arrange moves a stored paper using geometry only; normal taps never change i
  fireEvent.pointerUp(paper,{pointerId:1,clientX:240,clientY:380})
  expect(open).not.toHaveBeenCalled()
  expect(screen.getByRole('button',{name:'Open posted note: Private paper'})).toHaveClass('is-arranged')
- const stored=localStorage.getItem('fridge-layout:parent')!
- expect(stored).not.toContain('Private paper')
- expect(Object.keys(JSON.parse(stored)['note-one']).sort()).toEqual(['rotation','width','x','y'])
+ // Right edge stays inside the collage: .457 minus the measured .1 paper width.
+ expect(parseFloat(screen.getByRole('button',{name:'Open posted note: Private paper'}).style.left)).toBeCloseTo(35.7)
+ expect(localStorage.getItem('fridge-layout:parent')).toBeNull()
 })

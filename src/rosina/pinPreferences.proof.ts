@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {preferencesFixture} from './pin-fixtures/preferences';
+const fixture=await preferencesFixture();
+try{
+ const {admin,as}=fixture;
+ await admin.query(`insert into pin_media(id,child_id,owner_person_id,content_sha256,storage_path,mime_type,byte_size) values('pm_other','p_other','p_outside',repeat('a',64),'private.webp','image/webp',1);
+ update fridge_notes set attachment_ref='pm_other' where id='note_fixture'`);
+ assert.equal((await as('p_reader',"select * from pin_media_access('pm_other')")).rows[0].access,'SHARED');
+ console.log('RED reproduced: old media RPC authorizes a cross-child reference');
+ await fixture.apply();
+ assert.equal((await as('p_reader',"select * from pin_media_access('pm_other')")).rows[0].access,null);
+ assert.equal((await as('p_outside',"select * from pin_media_access('pm_other')")).rows[0].access,'PARENT');
+ await admin.query("update pin_media set child_id='p_nora' where id='pm_other'");
+ assert.equal((await as('p_reader',"select * from pin_media_access('pm_other')")).rows[0].access,'SHARED');
+ const position={x:.25,y:.2,width:.12,rotation:2};
+ const save=(person:string,kind:string,id:string,pos:unknown=null,color:string|null=null,font:string|null=null)=>as(person,'select save_fridge_preference($1,$2,$3,$4,$5,$6)', ['p_nora',kind,id,pos,color,font]);
+ await save('p_mom','art','sample-sofa',position);
+ await save('p_mom','note','note_fixture',position);
+ await save('p_mom','goal','goal_fixture',null,'blue','caveat');
+ const read=async(person:string)=>(await as(person,"select read_fridge_preferences('p_nora') as items")).rows[0].items;
+ assert.equal((await read('p_dad')).length,3);
+ assert.deepEqual((await read('p_dad')).find((v:any)=>v.kind==='art').position,position);
+ assert.equal((await read('p_reader')).length,2);
+ assert.deepEqual(await read('p_outside'),[]);
+ await assert.rejects(save('p_reader','art','x',position),/UNAUTHORIZED/);
+ await assert.rejects(save('p_outside','art','x',position),/UNAUTHORIZED/);
+ await assert.rejects(save('p_mom','note','missing',position),/UNAUTHORIZED/);
+ await assert.rejects(save('p_mom','art','bad',{...position,x:5}),/check constraint/);
+ await assert.rejects(save('p_mom','goal','goal_fixture',null,'purple'),/check constraint/);
+ await assert.rejects(as('p_mom',"insert into fridge_item_preferences(child_id,kind,item_id) values('p_nora','art','direct')"),/permission denied/);
+ await as('p_mom',"update fridge_notes set audience='PARENTS_ONLY' where id='note_fixture'");
+ assert.equal((await read('p_reader')).length,1);
+ await as('p_dad',"select save_fridge_preference('p_nora',p_tidy=>true)");
+ const tidied=await read('p_mom');assert.ok(tidied.every((v:any)=>v.position===null));assert.equal(tidied.find((v:any)=>v.kind==='goal').font,'caveat');
+ console.log('PASS: cross-child media refusal, same-child media, co-parent persistence, scoped reads, write refusals, validation, direct-DML refusal, audience revocation, Tidy preserves styles');
+}finally{await fixture.close()}

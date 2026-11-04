@@ -1,3 +1,4 @@
+import {createPinPreferencesHandler} from './pinPreferences';
 /**
  * POST /api/rosina — the live Ask Rosina service.
  *
@@ -294,6 +295,12 @@ export function createRosinaApp() {
   // authz + the confirm HMAC). The readiness probe is ALWAYS mounted (default OFF) so the web can
   // check capability without the actions being live. Nothing content-bearing is logged — only the
   // extraction's metadata provenance.
+  const preferences = createPinPreferencesHandler();
+  const preferenceRequest = (req: Request, res: Response) => {
+    preferences(req, res).catch(() => { if (!res.headersSent) res.status(503).json({ error: 'PREFERENCES_UNAVAILABLE' }); });
+  };
+  app.get('/api/rosina/pin/preferences', preferenceRequest);
+  app.post('/api/rosina/pin/preferences', preferenceRequest);
   let pinHandlers: ReturnType<typeof createPinHandlers> | null = null;
   if (NOTICE_SIGNING_KEY) {
     try {

@@ -3,7 +3,7 @@ export type MagnetKind='apple'|'bus'|'grade'|'star'|'heart'|'flower'
 /** Original shapes drawn for this feature. Pure decoration; never focusable. */
 export function Magnet({kind}:{kind:MagnetKind}){
  const id=useId().replace(/:/g,'')
- const colors={apple:['#ed7970','#ac3938'],bus:['#f8d375','#bf8b37'],grade:['#82b4c4','#386677'],star:['#f9df83','#c89b40'],heart:['#e69499','#ab535e'],flower:['#c6b4df','#8b6aa5']}[kind]
+ const colors={apple:['#ed7970','#ac3938'],bus:['#f8d375','#bf8b37'],grade:['#82b4c4','#386677'],star:['#f9df83','#c89b40'],heart:['#e69499','#ab535e'],flower:['#9bd8ea','#4389a4']}[kind]
  return <svg className={`fridge-magnet magnet-${kind}`} viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id={id} x2=".35" y2="1"><stop stopColor={colors[0]}/><stop offset="1" stopColor={colors[1]}/></linearGradient></defs><g fill={`url(#${id})`} stroke={colors[1]} strokeWidth="2" strokeLinejoin="round">
  {kind==='apple'&&<><path d="M32 19C12 9 5 27 13 45Q20 61 32 53Q46 62 53 43C60 24 47 10 32 19Z"/><path d="M32 20Q30 12 35 7" fill="none" stroke="#67503c" strokeWidth="5"/><path d="M34 13Q43 3 52 10Q47 20 34 13" fill="#668962" stroke="#55794f"/><path d="M18 27Q15 32 18 38" stroke="#fff7" strokeWidth="4" fill="none"/></>}
  {kind==='bus'&&<><path d="M8 16H45L55 29V47H7Z"/><path d="M13 22H22V32H13ZM27 22H36V32H27ZM41 22H44L51 32H41Z" fill="#dce5dc"/><path d="M8 38H54" stroke="#876a3b"/><circle cx="18" cy="48" r="7" fill="#4c5050" stroke="#343939"/><circle cx="45" cy="48" r="7" fill="#4c5050" stroke="#343939"/><path d="M12 18H40" stroke="#fff8" strokeWidth="3"/></>}

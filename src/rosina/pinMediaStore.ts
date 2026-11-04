@@ -40,6 +40,16 @@ async function accessFor(dbForFn: DbForFn, bearer: string, assetId: string): Pro
   catch { return null; }
   const row = res.error ? null : firstRow(res.data);
   if (!row?.access || !row.storage_path || !row.child_id || !row.mime_type) return null; // no oracle
+  if (row.access !== 'PARENT' && row.access !== 'SHARED') return null;
+  if (row.access === 'SHARED') {
+    // Older pin_media_access versions can match a reference on a different child.
+    // Re-check the caller-visible note against the media's actual child before reading bytes.
+    try {
+      const notes = await dbForFn(ctx).from('fridge_notes').select('child_id,attachment_ref,audience');
+      if (notes.error || !Array.isArray(notes.data) || !notes.data.some(note =>
+        note.child_id === row.child_id && note.attachment_ref === assetId && note.audience === 'SHARED')) return null;
+    } catch { return null; }
+  }
   return { access: row.access, storage_path: row.storage_path, child_id: row.child_id, mime_type: row.mime_type };
 }
 
