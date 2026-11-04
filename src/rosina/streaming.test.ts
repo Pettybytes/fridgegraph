@@ -15,6 +15,8 @@ import type { McpTool, McpToolCall } from '../muse/mcp';
 import { runRosinaTurn, type McpClientLike, type TurnEvent } from './model';
 import { createTtlCache, bearerKey } from './turnCache';
 import type { ChildAccess } from './childAccess';
+import { createStreamGuard, sanitizeReplyText, SCOPED_REFUSAL } from './outputGuard';
+import { buildSystemPrompt } from './systemPrompt';
 
 const FAKE_CONFIG: ProviderConfig = { id: 'meta', label: 'fake', baseUrl: 'http://unused', model: 'fake-model', apiKey: 'unused' };
 
@@ -57,6 +59,35 @@ test('chatStream: parses SSE deltas, forwards answer tokens only, accumulates sp
   } finally {
     server.close();
   }
+});
+
+test('streamGuard: validates before release, holds the partial tail, trips on an ungrounded name', () => {
+  const gate = createStreamGuard(() => '{"displayName":"Loretta Brooks"}');
+  // Partial word held back until a boundary arrives.
+  assert.equal(gate.push('Lor'), null);
+  assert.equal(gate.push('etta can help '), 'Loretta can help ');
+  assert.equal(gate.tripped, false);
+  // An ungrounded demo name (Malik is in the demo universe, not in grounded text) trips the gate
+  // as soon as the word completes; nothing more is ever released.
+  assert.equal(gate.push('and Malik too '), null);
+  assert.equal(gate.tripped, true);
+  assert.equal(gate.push('more words '), null);
+  assert.equal(gate.flush(), null);
+});
+
+test('sanitizeReplyText: em-dashes never reach the wire', () => {
+  assert.equal(sanitizeReplyText('Nora is set — Loretta covers pickup'), 'Nora is set, Loretta covers pickup');
+  assert.equal(sanitizeReplyText('plain text stays'), 'plain text stays');
+});
+
+test('system prompt: coverage grounding present, banned empty-answer phrasing gone', () => {
+  const prompt = buildSystemPrompt([], false, 'p_mom');
+  assert.ok(!prompt.includes('No records are available to this view'), 'the instructed bad phrasing must be gone');
+  assert.ok(prompt.includes('PICKUP COVERAGE'), 'pickup coverage guidance present');
+  assert.ok(prompt.includes('NO recorded vehicle'), 'vehicle eligibility rule present');
+  assert.ok(prompt.includes('never a completed pickup'), 'approval-is-not-completion rule present');
+  assert.ok(prompt.includes('WHERE THE PERSON IS'), 'page awareness present');
+  assert.ok(prompt.includes('Never use an em-dash in a reply'), 'reply style rule present');
 });
 
 // ---- runRosinaTurn stubs ------------------------------------------------------------------
@@ -133,6 +164,31 @@ test('runRosinaTurn: MyChildren and tool-list caches skip the repeat round trips
   await runRosinaTurn({ ...baseOptions, bearer: 'test-token-b', chatFn: async () => chatResult({ content: 'hi' }), mcpClientFactory: () => otherBearer, myChildrenCache, toolListCache });
   assert.deepEqual(otherBearer.calls, ['MyChildren'], 'a different bearer never shares a cached roster');
   assert.notEqual(bearerKey('test-token-a'), bearerKey('test-token-b'));
+});
+
+test('runRosinaTurn: an ungrounded streamed name is withheld, replaced, and the final reply is the scoped refusal', async () => {
+  const mcp = stubMcp();
+  const events: TurnEvent[] = [];
+  const streamChatFn = scriptedStream([
+    { deltas: ['Sure, ', 'Malik is free '], result: chatResult({ content: 'Sure, Malik is free tonight.' }) },
+  ]);
+  const result = await runRosinaTurn({ ...baseOptions, streamChatFn, mcpClientFactory: () => mcp, onEvent: (e) => events.push(e) });
+  const streamed = events.filter((e) => e.kind === 'token').map((e) => (e as { text: string }).text).join('');
+  assert.ok(!streamed.includes('Malik'), 'the ungrounded name must never reach the stream');
+  assert.ok(events.some((e) => e.kind === 'replace'), 'released provisional text must be cleared');
+  assert.equal(result.reply, SCOPED_REFUSAL);
+  assert.equal(result.outputGuardTriggered, true);
+});
+
+test('runRosinaTurn: firstAnswerMs marks the first validated released chunk', async () => {
+  const mcp = stubMcp();
+  const streamChatFn = scriptedStream([
+    { deltas: ['All set ', 'for tonight.'], result: chatResult({ content: 'All set for tonight.' }) },
+  ]);
+  const result = await runRosinaTurn({ ...baseOptions, streamChatFn, mcpClientFactory: () => mcp, onEvent: () => {} });
+  assert.ok(typeof result.firstAnswerMs === 'number' && result.firstAnswerMs >= 0, 'firstAnswerMs recorded');
+  const noStream = await runRosinaTurn({ ...baseOptions, chatFn: async () => chatResult({ content: 'hi' }), mcpClientFactory: () => stubMcp() });
+  assert.equal(noStream.firstAnswerMs, null, 'non-streaming path records no firstAnswerMs');
 });
 
 test('runRosinaTurn: two gate-approved reads in one round run concurrently', async () => {

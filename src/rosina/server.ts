@@ -189,14 +189,20 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} stream=${wantsStream} latencyMs=${Date.now() - startedAt}`);
+  console.log(`[rosina] person=${identity.personId} route=${body.currentRoute} rounds=${outcome.rounds} tools=${outcome.toolCalls.map((t) => `${t.kind}:${t.name}${t.isError ? '!' : ''}`).join(',') || 'none'} actions=${outcome.actions.map((a) => a.id).join(',') || 'none'} outputGuardTriggered=${outcome.outputGuardTriggered} stream=${wantsStream} firstAnswerMs=${outcome.firstAnswerMs ?? 'n/a'} latencyMs=${Date.now() - startedAt}`);
   const payload = {
     reply: outcome.reply,
     actions: outcome.actions,
     schoolReportProposal: outcome.schoolReportProposal,
     addVillagerProposal: outcome.addVillagerProposal,
   };
-  if (sendEvent) { sendEvent('final', payload); res.end(); return; }
+  if (sendEvent) {
+    // Time-to-useful-answer, measured server-side: first VALIDATED chunk, not first byte.
+    sendEvent('meta', { firstAnswerMs: outcome.firstAnswerMs, totalMs: Date.now() - startedAt });
+    sendEvent('final', payload);
+    res.end();
+    return;
+  }
   res.status(200).json(payload);
 }
 

@@ -13,7 +13,7 @@ import { catalog, validateActions, type CatalogAction } from './catalog';
 import { parseMyChildren, SCOPE, type ChildAccess } from './childAccess';
 import { bearerKey, type TtlCache } from './turnCache';
 import { localizeTimestamps, detroitToday, resolveVillagerValidFrom } from './localTime';
-import { applyOutputGuard } from './outputGuard';
+import { applyOutputGuard, createStreamGuard, sanitizeReplyText } from './outputGuard';
 import { checkInStatusFrom, decideOrbitAction, injectOverdueFlag, isCheckInOverdue, validatePrepareOrbitAlert, vocabularyMapFrom, type OrbitAlertArgs } from './orbit';
 import { ACTION_TOOLS, ACTION_TOOL_PREFIX, buildSystemPrompt } from './systemPrompt';
 import { runCaregiverBriefing } from './briefingTool';
@@ -182,6 +182,9 @@ export type RosinaTurnResult = {
   toolCalls: ToolCallEvidence[];
   usage: { prompt: number; completion: number; total: number };
   latencyMs: number;
+  /** Time-to-useful-answer: ms from turn start to the FIRST validated answer chunk released to
+   * the stream (null on the non-streaming path or when nothing was released). */
+  firstAnswerMs: number | null;
   /** True if the output guard replaced the model's reply. Safe to log as a bare boolean — never
    * log which name triggered it (src/rosina/outputGuard.ts). */
   outputGuardTriggered: boolean;
@@ -360,16 +363,30 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   // Streaming is used ONLY when the caller asked for events. A stubbed chatFn without a stubbed
   // streamChatFn keeps tests on the non-streaming path they were written against.
   const streamImpl = onEvent ? (options.streamChatFn ?? (options.chatFn ? null : chatStream)) : null;
+  // Pre-stream validation (release gate): grounded text grows as tool rounds complete; the gate
+  // reads it live. firstAnswerAt is the time-to-useful-answer mark: the first VALIDATED chunk
+  // released to the wire, not the first byte.
+  let groundedText: () => string = () => '';
+  let firstAnswerAt: number | null = null;
   const runChat = async (msgs: ModelMessage[], tls: ModelTool[] | undefined, maxTokens: number): Promise<ChatResult> => {
     if (!streamImpl) return chatImpl(config, msgs, tls, { maxTokens });
-    let streamedTokens = false;
+    const gate = createStreamGuard(groundedText);
+    let releasedTokens = false;
+    const release = (text: string | null) => {
+      if (!text) return;
+      releasedTokens = true;
+      if (firstAnswerAt === null) firstAnswerAt = Date.now();
+      onEvent?.({ kind: 'token', text });
+    };
     const result = await streamImpl(config, msgs, tls, {
       maxTokens,
-      onDelta: (text) => { streamedTokens = true; onEvent?.({ kind: 'token', text }); },
+      onDelta: (text) => release(gate.push(text)),
       onReasoning: () => onEvent?.({ kind: 'status', label: 'Thinking it through' }),
     });
-    // A tool round that also emitted text: the provisional text is not the answer, so clear it.
-    if (streamedTokens && result.toolCalls.length > 0) onEvent?.({ kind: 'replace' });
+    release(gate.flush());
+    // Released text that is not the answer (a tool round that also talked, or a tripped gate):
+    // tell the client to clear it. The final reply stays authoritative either way.
+    if (releasedTokens && (result.toolCalls.length > 0 || gate.tripped)) onEvent?.({ kind: 'replace' });
     return result;
   };
   const mcp: McpClientLike = options.mcpClientFactory
@@ -411,6 +428,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
       toolCalls: [{ round: 0, kind: 'mcp', name: 'MyChildren', argsPreview: {}, isError: true, errorCodes: errorCodes.length ? errorCodes : ['DISCOVERY_FAILED'] }],
       usage: { prompt: 0, completion: 0, total: 0 },
       latencyMs: Date.now() - started,
+      firstAnswerMs: null,
       outputGuardTriggered: false,
     };
   }
@@ -444,6 +462,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   for (const child of childAccessById.values()) {
     if (child.displayName) toolResultTexts.push(child.displayName);
   }
+  groundedText = () => toolResultTexts.join('\n');
   // Catalog presence never implies permission. The ONLY proof this service has that the caller
   // has real standing over a given child is a PickupCandidates call for that exact childId that
   // came back without error, in THIS turn. start-pickup — the one consequential, data-changing
@@ -736,7 +755,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
   if (guarded.triggered) onEvent?.({ kind: 'replace' });
 
   return {
-    reply: guarded.reply,
+    reply: sanitizeReplyText(guarded.reply),
     // Fail closed: if the output guard caught a boundary violation in the reply text, don't trust
     // this turn's actions either — drop them rather than offer a card alongside a corrected reply.
     actions: guarded.triggered ? [] : validateActions(proposedActions),
@@ -748,6 +767,7 @@ export async function runRosinaTurn(options: RosinaTurnOptions): Promise<RosinaT
     toolCalls: toolCallEvidence.map((t) => ({ ...t, argsPreview: typeof t.argsPreview === 'object' ? JSON.parse(truncate(JSON.stringify(t.argsPreview))) : t.argsPreview })),
     usage,
     latencyMs: Date.now() - started,
+    firstAnswerMs: firstAnswerAt === null ? null : firstAnswerAt - started,
     outputGuardTriggered: guarded.triggered,
   };
 }
