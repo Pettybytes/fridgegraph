@@ -70,7 +70,7 @@ export function LiveFamilyCalendar({ adapter }: { adapter: LiveCalendarAdapter }
     {notSaved && <p className="cal-notsaved" role="status">{notSaved}</p>}
     {eventId && !selected && <p className="cal-attention">Event details are not available in the records read for this view.</p>}
     {lanes
-      ? (() => { const data = liveLaneData(current.days, current.care, childName); return <CaregiverLanes from={from} resources={data.resources} events={data.events} emptyLabel="No care schedule is recorded for this week." onEventClick={event => { const click = event.data as LiveLaneClick | undefined; if (click?.kind === 'care') setCareDetail({ day: click.day, care: click.care }) }} /> })()
+      ? (() => { const data = liveLaneData(current.days, current.care, childName); return <CaregiverLanes from={weekStart(day)} resources={data.resources} events={data.events} emptyLabel="No care schedule is recorded for this week." onEventClick={event => { const click = event.data as LiveLaneClick | undefined; if (click?.kind === 'care') setCareDetail({ day: click.day, care: click.care }) }} /> })()
       : <div className="cal-grid-host">
           <IlamyCalendar
             ref={api}
