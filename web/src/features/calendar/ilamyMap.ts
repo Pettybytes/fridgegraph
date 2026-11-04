@@ -1,5 +1,5 @@
 // Map calendar records without changing their recorded instants or authority.
-// Colors are shared by the custom pill and built-in compact/year indicators.
+// Colors are shared by the custom pill and built-in event renderers.
 import type { CalendarEvent as IlamyEvent, Resource } from '@ilamy/calendar'
 import type { CalendarEvent, CalendarSnapshot, EventCategory, HolidayArrangement } from './types'
 import type { EffectiveCare, LiveEvent, ReadOutcome } from './liveAdapter'
