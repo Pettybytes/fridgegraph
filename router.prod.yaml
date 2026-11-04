@@ -10,8 +10,16 @@ health_check:
   enabled: true
   listen: 127.0.0.1:8090
 
+# Router v2.18: keep messages and private extensions redacted. Orbit callers need
+# the coordination error code to distinguish a missing audience from a null result.
 include_subgraph_errors:
-  all: false
+  all:
+    redact_message: true
+    allow_extensions_keys: []
+  subgraphs:
+    coordination:
+      redact_message: true
+      allow_extensions_keys: [code]
 
 sandbox:
   enabled: false

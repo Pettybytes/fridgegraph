@@ -544,6 +544,17 @@ function rpcError(e: unknown): never {
   throw new GraphQLError(code, { extensions: { code } });
 }
 
+/** PostgREST rejects with a plain object, not an Error. Export only allowlisted Orbit codes. */
+function orbitRpcError(error: { message?: string; code?: string }): never {
+  const known = new Set(['UNAUTHENTICATED', 'UNAUTHORIZED', 'ORBIT_NO_AUDIENCE',
+    'ORBIT_NOT_FOUND', 'ORBIT_NOT_DRAFT', 'ORBIT_DRAFT_STALE', 'ORBIT_PREVIEW_MISMATCH',
+    'ORBIT_NOT_ACTIVE', 'ORBIT_BAD_OUTCOME', 'ORBIT_VALUE_NOT_IN_VOCAB',
+    'ORBIT_PHOTO_NOT_YOURS', 'ORBIT_PLACE_NOT_YOURS', 'ORBIT_LAST_SEEN_INCOMPLETE',
+    'ORBIT_LAST_SEEN_UNPROVENANCED', 'ORBIT_SHARE_HAS_LOCATION']);
+  const code = known.has(error.message ?? '') ? error.message! : 'ORBIT_REQUEST_FAILED';
+  throw new GraphQLError(code, { extensions: { code } });
+}
+
 async function jobById(ctx: Ctx, id: string) {
   const data = await rows(
     dbFor(ctx)
@@ -1074,7 +1085,7 @@ const resolvers = {
         p_last_seen_place: args.lastSeenPlaceId ?? null,
         p_last_seen_at: args.lastSeenAt ?? null,
       });
-      if (error) throw error;
+      if (error) orbitRpcError(error);
       const a = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
       return {
         draftId: String(a.id),
@@ -1087,7 +1098,7 @@ const resolvers = {
     orbitPreview: async (_: unknown, { draftId }: { draftId: string }, ctx: Ctx) => {
       refuseDemoGuideWrite(ctx);
       const { data, error } = await dbFor(ctx).rpc('preview_orbit_share', { p_draft: draftId });
-      if (error) throw error;
+      if (error) orbitRpcError(error);
       const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
       return {
         draftId: String(r.alert_id),
@@ -1110,7 +1121,7 @@ const resolvers = {
         p_version: draftVersion,
         p_hash: messageHash,
       });
-      if (error) throw error;
+      if (error) orbitRpcError(error);
       const alertId = String(data);
       const found = await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId));
       if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
@@ -1127,7 +1138,7 @@ const resolvers = {
         p_alert: alertId,
         p_response: response,
       });
-      if (error) throw error;
+      if (error) orbitRpcError(error);
       return { alertId, responseId: String(data), guidance: ORBIT_GUIDANCE };
     },
 
@@ -1137,7 +1148,7 @@ const resolvers = {
         p_alert: alertId,
         p_outcome: outcome ?? 'FOUND_SAFE',
       });
-      if (error) throw error;
+      if (error) orbitRpcError(error);
       const found = await rows(dbFor(ctx).from('orbit_alerts').select(ORBIT_SAFE_COLUMNS as '*').eq('id', alertId));
       if (!found.length) throw new GraphQLError('ORBIT_NOT_FOUND', { extensions: { code: 'ORBIT_NOT_FOUND' } });
       return orbitAlertPayload(ctx, found[0]);

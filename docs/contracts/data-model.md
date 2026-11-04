@@ -46,10 +46,12 @@ here too, rather than being assumed pre-approved by these two.
 
 - Migrations live in `supabase/migrations/` and are **append-only**. Never edit an applied migration — the database already ran it.
 - One logical change per migration. Name it for the outcome, not the mechanism.
-- **Migration catalog:** through `0098` on main; `0099_showcase_calendar_care.sql` is staged in
-  this calendar PR (not evidence of live application). It adds nullable weekly handoff time/place,
-  preserves approved-holiday precedence, and includes composite-key parenting schedules in the
-  owner-only atomic demo restore. Rehearse and apply forward-only before rolling this seed.
+- **Migration catalog:** versioned SQL files describe available migrations, not live application.
+  The operator catalog records what has been applied. `0105_orbit_showcase_audiences.sql`
+  adds the approved test-responder policy for the seven showcase households and ten children.
+  Operator seed and Reset demo restore that same policy. It enables no live transport or consent.
+  Rehearse the complete catalog with `node --import tsx ops/orbit-showcase-proof.ts` in disposable
+  PostgreSQL, then have the deployment owner apply forward-only through the established catalog.
 - Policy rule learned the hard way: **never put a table's own `SELECT` inside its own RLS policy** — it raises `42P17` at runtime. `0009` (`my_household_ids()`) exists for that reason.
 - RLS legitimately hides rows that a derived query needs (grants, co-parent membership, relationship types). The fix is a narrow `SECURITY DEFINER` helper (`0008`, `0010`), **never** widening a policy.
 

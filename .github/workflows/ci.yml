@@ -148,6 +148,12 @@ jobs:
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
 
+      - name: Orbit showcase lifecycle and upload route
+        run: |
+          node --import tsx --test src/subgraphs/coordination.orbit.test.ts
+          node --test ops/orbit-photo-proxy.test.mjs
+          node --import tsx ops/orbit-showcase-proof.ts
+
       - name: Showcase calendar PostgreSQL coverage and reset
         run: |
           node --import tsx ops/calendar-data-proof.mjs
