@@ -133,9 +133,9 @@ function toCalendarEvent(e: EventRow) {
     color: (e.color as string | null) ?? null,
   };
 }
-// The DB function is the only write path and enforces is_parent_of; a non-parent (including a
-// caregiver with schedule.read, or a demo guide) raises FORBIDDEN (SQLSTATE 42501), which we pass
-// through as UNAUTHORIZED. The resolver never writes the table directly.
+// The DB function enforces family writer or trusted showcase tenant authority. Read-only
+// caregivers and callers outside that scope receive UNAUTHORIZED. The resolver never writes
+// the table directly; confirmed proposals reuse these same mutation functions.
 async function callWrite(ctx: Ctx, fn: string, args: Record<string, unknown>, key?: string) {
   requireCaller(ctx);
   const { data, error } = key
