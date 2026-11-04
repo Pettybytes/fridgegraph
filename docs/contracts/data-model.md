@@ -49,7 +49,10 @@ here too, rather than being assumed pre-approved by these two.
 - **Migration catalog:** versioned SQL files describe available migrations, not live application.
   The operator catalog records what has been applied. `0105_orbit_showcase_audiences.sql`
   adds the approved test-responder policy for the seven showcase households and ten children.
-  Operator seed and Reset demo restore that same policy. It enables no live transport or consent.
+  Do not apply 0105 alone: follow it with `0106_orbit_ellison_coparent.sql`, which restores
+  Ellison `h_a` to `p_dad,p_gma,p_bryan` as required by Scenario 8. Other households retain
+  `p_tasha,p_gma,p_bryan`. Operator seed and Reset demo restore these household-specific
+  policies. Neither migration enables live transport or consent.
   Rehearse the complete catalog with `node --import tsx ops/orbit-showcase-proof.ts` in disposable
   PostgreSQL, then have the deployment owner apply forward-only through the established catalog.
 - Policy rule learned the hard way: **never put a table's own `SELECT` inside its own RLS policy** — it raises `42P17` at runtime. `0009` (`my_household_ids()`) exists for that reason.

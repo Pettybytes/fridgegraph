@@ -451,7 +451,8 @@ export function createSimulatedOrbit(): SimulatedOrbit {
     label: SIMULATED_LABEL,
     policy_rule: 'orbit_notify_eligible',
     household_policies: ['h_a', 'h_b', 'h_c', 'h_emma', 'h_taylor', 'h_micah', 'h_malik'].map(household_id => ({
-      household_id, rule: 'orbit_notify_eligible', value: 'p_tasha,p_gma,p_bryan',
+      // Scenario 8 keeps Andre in his children's frozen audience.
+      household_id, rule: 'orbit_notify_eligible', value: household_id === 'h_a' ? 'p_dad,p_gma,p_bryan' : 'p_tasha,p_gma,p_bryan',
     })),
   };
 }

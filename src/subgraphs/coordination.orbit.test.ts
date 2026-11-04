@@ -8,7 +8,7 @@ import {createSimulatedOrbit} from '../fixtures-simulated';
 test('all showcase households restore the approved test responder audience',()=>{
  const rows=createSimulatedOrbit().household_policies;
  assert.deepEqual(rows.map(r=>r.household_id).sort(),['h_a','h_b','h_c','h_emma','h_malik','h_micah','h_taylor']);
- for(const row of rows)assert.equal(row.value,'p_tasha,p_gma,p_bryan');
+ for(const row of rows)assert.equal(row.value,row.household_id==='h_a'?'p_dad,p_gma,p_bryan':'p_tasha,p_gma,p_bryan');
 });
 for(const code of ['ORBIT_NO_AUDIENCE','ORBIT_NOT_FOUND','ORBIT_DRAFT_STALE','UNAUTHORIZED']){
  test(`activation returns typed ${code} without database details`,async()=>{
