@@ -23,7 +23,7 @@ export const PARENT_JOURNEY: readonly JourneyEvent[] = [
   { id: 'proposal', atMs: 7300, kind: 'rosina', title: 'Rosina · proposal', body: 'Nora’s pickup is still recorded for 3:15 PM. She needs a new plan. Ask Loretta?', detail: 'Grounded in recorded schedule and candidates.' },
   { id: 'approve-request', atMs: 13900, kind: 'parent-action', title: 'Parent action · Kendra', body: 'Approve the outreach', detail: 'Recorded before any request left the family.' },
   { id: 'request-sent', atMs: 15600, kind: 'request', title: 'Pickup request sent', body: 'Loretta · test caregiver · Monday 1:30 PM.', detail: 'Simulated outreach to a test responder.' },
-  { id: 'reply', atMs: 20000, kind: 'reply', title: 'Loretta replies', body: '“Yes, I can be there at 1.20. I’ll head I’ll head out now so I’m not rushing.”', detail: 'Voice note transcript, recorded offer.' },
+  { id: 'reply', atMs: 20000, kind: 'reply', title: 'Loretta replies', body: '“Yes, I can be there at 1:20. I’ll head out now so I’m not rushing.”', detail: 'Voice note transcript, recorded offer.' },
   { id: 'confirm', atMs: 22200, kind: 'parent-action', title: 'Parent action · Kendra', body: 'Confirm Loretta for the pickup', detail: 'The offer waited for Kendra’s decision.' },
   { id: 'confirmed', atMs: 25400, kind: 'confirmed', title: 'Plan confirmed', body: 'Nora · Loretta · Monday at 1:30 PM.', detail: 'Confirmation recorded. Pickup completion is not recorded.' },
   { id: 'today', atMs: 28500, kind: 'today', title: 'Today', body: 'Monday pickup · Loretta confirmed.', detail: 'Activity and Mission Control updated.' },

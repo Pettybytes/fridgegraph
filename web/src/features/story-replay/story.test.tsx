@@ -62,13 +62,14 @@ describe('replay story model', () => {
     expect(traceTokens('mutation requestPickup(childId: "child_nora")').map(token => token.cls).join(' ')).toContain('kw')
   })
 
-  it('keeps one Rosina narration track whose segments fit the replay and never overlap', () => {
+  it('keeps one narration track whose segments fit the replay and never overlap, with Loretta speaking her own reply', () => {
     expect(REPLAY_NARRATION.durationMs).toBeLessThan(REPLAY_DURATION_MS)
     const segments = REPLAY_NARRATION.segments
     expect(segments.length).toBe(5)
-    expect(segments.every(segment => segment.speaker === 'rosina')).toBe(true)
+    expect(segments.map(segment => segment.speaker)).toEqual(['rosina', 'rosina', 'rosina', 'loretta', 'rosina'])
     for (let index = 1; index < segments.length; index += 1) expect(segments[index].startMs).toBeGreaterThanOrEqual(segments[index - 1].endMs)
     expect(speakerAt(REPLAY_NARRATION, segments[0].startMs + 100)).toBe('rosina')
+    expect(speakerAt(REPLAY_NARRATION, segments[3].startMs + 100)).toBe('loretta')
     expect(speakerAt(REPLAY_NARRATION, segments[0].endMs + 50)).toBeNull()
     expect(speakerAt(REPLAY_NARRATION, REPLAY_DURATION_MS - 1)).toBeNull()
     expect(captionAt(0)).toContain('school notice')
@@ -118,9 +119,9 @@ describe('ThreePhoneStory playback', () => {
     const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
     const audio = section.querySelector('audio')!
     const play = mockAudio(audio)
-    fireEvent.click(screen.getByRole('button', { name: 'Sound off' }))
-    expect(screen.getByRole('button', { name: 'Sound on' })).toHaveAttribute('aria-pressed', 'true')
-    act(() => { vi.advanceTimersByTime(2000) })               // within segment s1 (700-5715)
+    fireEvent.click(screen.getByRole('button', { name: 'Unmute' }))
+    expect(screen.getByRole('button', { name: 'Mute' })).toHaveAttribute('aria-pressed', 'true')
+    act(() => { vi.advanceTimersByTime(2000) })               // within segment s1
     expect(screen.getByRole('img', { name: 'Rosina, speaking' })).toBeInTheDocument()
     act(() => { vi.advanceTimersByTime(4500) })               // 6500ms: gap between s1 and s2
     expect(screen.getByRole('img', { name: 'Rosina, ready' })).toBeInTheDocument()
@@ -131,14 +132,36 @@ describe('ThreePhoneStory playback', () => {
     expect(section.querySelectorAll('audio')).toHaveLength(1)
   })
 
+  it('starts the narration once on Unmute and never seeks again while it plays', () => {
+    vi.useFakeTimers()
+    render(<ThreePhoneStory />)
+    const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
+    const audio = section.querySelector('audio')!
+    let currentTime = 0
+    let seeks = 0
+    Object.defineProperty(audio, 'currentTime', {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => { seeks += 1; currentTime = value },
+    })
+    const play = mockAudio(audio)
+    fireEvent.click(screen.getByRole('button', { name: 'Unmute' }))
+    const seeksAfterStart = seeks
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(play.mock.calls.length).toBe(1)
+    expect(seeks).toBe(seeksAfterStart)
+    fireEvent.click(screen.getByRole('button', { name: 'Mute' }))
+    expect(screen.getByRole('button', { name: 'Unmute' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('shows a visible fallback when the browser blocks audio', async () => {
     render(<ThreePhoneStory initialAutoplay={false} />)
     const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
     mockAudio(section.querySelector('audio')!, 'reject')
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sound off' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Unmute' })) })
     expect(screen.getByRole('status')).toHaveTextContent(/blocked audio/i)
-    expect(screen.getByRole('button', { name: 'Sound off' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Unmute' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('shows a final readable static frame under reduced motion, with user-initiated replay', () => {
@@ -162,7 +185,7 @@ describe('ThreePhoneStory playback', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Village' }))
     expect(screen.getByRole('button', { name: 'Village' })).toHaveAttribute('aria-pressed', 'true')
     expect(progress).toHaveAttribute('aria-valuenow', '0')
-    expect(screen.getByRole('button', { name: 'Sound off' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Unmute' })).toBeEnabled()
   })
 
   it('labels the replay honestly and separates the offer from the parent decision', () => {

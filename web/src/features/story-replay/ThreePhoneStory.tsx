@@ -65,8 +65,12 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
         const next = elapsedRef.current + now - previousFrameRef.current
         if (next >= duration) {
           const audio = audioRef.current
-          if (audio && !audio.paused) audio.pause()
-          if (audio) audio.currentTime = 0
+          if (audio) {
+            audio.currentTime = 0
+            if (soundRef.current) {
+              try { void audio.play()?.catch(() => undefined) } catch { /* the toggle surfaces real refusals */ }
+            } else if (!audio.paused) audio.pause()
+          }
           if (reducedMotion) { elapsedRef.current = duration; setElapsed(duration); setPlaying(false); return }
           elapsedRef.current = next % duration
           setLoopsCompleted(count => count + 1)
@@ -80,26 +84,27 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
     return () => { cancelAnimationFrame(frameRef.current); previousFrameRef.current = null }
   }, [active, duration, reducedMotion])
 
-  // The one audio element follows the master clock. It never overlaps itself:
-  // outside the narration window it is paused; drift is corrected by seeking.
+  // The one audio element follows the master clock by transitions only: it is
+  // seeked and started once when playback (re)starts, then left to play untouched
+  // so render load can never force audible mid-track seeks. Outside the narration
+  // window it is paused; the loop wrap in the tick rewinds and restarts it.
   useEffect(() => {
     const audio = audioRef.current
     if (!audio || !narration) return
-    const within = elapsed < narration.durationMs
+    const within = elapsedRef.current < narration.durationMs
     if (!soundEnabled || !active || !within) { if (!audio.paused) audio.pause(); return }
-    const target = elapsed / 1000
-    if (Math.abs(audio.currentTime - target) > 0.25) audio.currentTime = target
     if (audio.paused) {
+      audio.currentTime = elapsedRef.current / 1000
       // Only a real autoplay refusal flips the visible fallback; an interrupted
       // play() (AbortError from a pause) retries on the next clock tick.
       try { void audio.play()?.catch(error => { if ((error as Error)?.name !== 'AbortError') { setSoundEnabled(false); setAudioBlocked(true) } }) }
       catch { setSoundEnabled(false); setAudioBlocked(true) }
     }
-  }, [active, elapsed, narration, soundEnabled])
+  }, [active, narration, soundEnabled])
   useEffect(() => { soundRef.current = soundEnabled }, [soundEnabled])
 
   // Unlock playback on the first user gesture anywhere in the section, so the
-  // later Sound on press always has an unlocked element to work with.
+  // later Unmute press always has an unlocked element to work with.
   const unlock = useCallback(() => {
     const audio = audioRef.current
     if (unlockedRef.current || !audio || !narration) return
@@ -122,7 +127,13 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
   const replay = useCallback(() => {
     elapsedRef.current = 0; setElapsed(0); setLoopsCompleted(0)
     const audio = audioRef.current
-    if (audio) { audio.pause(); audio.currentTime = 0 }
+    if (audio) {
+      audio.currentTime = 0
+      if (soundRef.current) {
+        try { void audio.play()?.catch(error => { if ((error as Error)?.name !== 'AbortError') { setSoundEnabled(false); setAudioBlocked(true) } }) }
+        catch { setSoundEnabled(false); setAudioBlocked(true) }
+      } else audio.pause()
+    }
     setManualPause(false); setPlaying(true)
   }, [])
   const toggleSound = useCallback(() => {
@@ -156,11 +167,11 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
           <div className="sr-controls">
             <button type="button" onClick={active ? pause : play}>{active ? 'Pause' : 'Play'}</button>
             <button type="button" onClick={replay}>Replay</button>
-            <button type="button" onClick={toggleSound} disabled={!narration} aria-pressed={soundEnabled}>{narration ? (soundEnabled ? 'Sound on' : 'Sound off') : 'Sound unavailable'}</button>
+            <button type="button" onClick={toggleSound} disabled={!narration} aria-pressed={soundEnabled}>{narration ? (soundEnabled ? 'Mute' : 'Unmute') : 'Sound unavailable'}</button>
           </div>
         </div>
       </div>
-      {audioBlocked && <p className="sr-audio-note" role="status">This browser blocked audio. Press Sound on to try again, or follow the captions below.</p>}
+      {audioBlocked && <p className="sr-audio-note" role="status">This browser blocked audio. Press Unmute to try again, or follow the captions below.</p>}
       <div className="sr-progress" role="progressbar" aria-label="Replay progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}><span style={{ width: `${progress}%` }} /></div>
       <p className="sr-caption">{captionAt(elapsed)}</p>
       <div className="sr-perspectives" aria-label="Choose a phone">
