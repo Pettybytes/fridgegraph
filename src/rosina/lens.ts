@@ -45,7 +45,7 @@ export function lensQuery(children: ChildAccess[], today: string): string {
       parts.push(`${a}_careFacts: careFacts(childId: "${child.id}") { key value confidence source { ref } }`);
     }
     if (child.scopes.has(SCOPE.pickupRequest)) {
-      parts.push(`${a}_pickups: coordinationJobs(childId: "${child.id}") { id type status asOf }`);
+      parts.push(`${a}_pickups: coordinationJobs(childId: "${child.id}") { id type status }`);
       parts.push(`${a}_checkIn: checkInStatus(childId: "${child.id}") { recorded label dueAt }`);
     }
   }
