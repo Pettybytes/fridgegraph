@@ -3,6 +3,7 @@ import type {ApolloClient} from '@apollo/client'
 import {CREATE_EVENT,UPDATE_EVENT,DELETE_EVENT,type LiveEvent} from '@/features/calendar/liveAdapter'
 import type {CalendarChangeArgs} from './catalog'
 import {invalidateResources} from '@/lib/frontendData/resourceCache'
+import {notifyCalendarChanged} from '@/features/calendar/changeSignal'
 import {FgButton} from '@/components/fg/primitives'
 
 export function calendarWallLabel(wall:string){
@@ -25,10 +26,10 @@ export function CalendarChangeCard({args,client,current,requestKey,saved,registe
    if(!saved)throw Error('WRITE_UNCONFIRMED')
    if(!alive.current)return
    setPhase('done');register(null)
-   invalidateResources(client);window.dispatchEvent(new Event('frontend:changed'))
+   invalidateResources(client);notifyCalendarChanged()
    const event=typeof saved==='object'?saved:args
    const verb=args.operation==='create'?'added':args.operation==='update'?'moved':'cancelled'
-   onSaved(`Done — ${verb} ${event.title} for ${args.childName}. ${calendarWallLabel(event.start)} (America/Detroit).`)
+   onSaved(`Done: ${verb} ${event.title} for ${args.childName}. ${calendarWallLabel(event.start)} (America/Detroit).`)
   }catch(error){if(alive.current)setPhase(/CALENDAR_RECEIPT_STALE/.test(String(error))?'stale':'failed')}
   finally{inFlight.current=false}
  }
@@ -36,7 +37,7 @@ export function CalendarChangeCard({args,client,current,requestKey,saved,registe
  return <section ref={card} className="rosina-calendar-review" aria-label="Confirm calendar change">
   <h3>{args.title}</h3>
   <p>{args.childName}</p>
-  <p><time dateTime={args.start}>{calendarWallLabel(args.start)}</time> – <time dateTime={args.end}>{args.start.slice(0,10)===args.end.slice(0,10)?new Intl.DateTimeFormat('en-US',{timeZone:'UTC',hour:'numeric',minute:'2-digit'}).format(new Date(`${args.end}Z`)):calendarWallLabel(args.end)}</time></p>
+  <p><time dateTime={args.start}>{calendarWallLabel(args.start)}</time> to <time dateTime={args.end}>{args.start.slice(0,10)===args.end.slice(0,10)?new Intl.DateTimeFormat('en-US',{timeZone:'UTC',hour:'numeric',minute:'2-digit'}).format(new Date(`${args.end}Z`)):calendarWallLabel(args.end)}</time></p>
   <p>America/Detroit · {args.location||'No place specified'}</p>
   {args.operation==='delete'&&<p>This removes the event from the family calendar.</p>}
   {phase==='stale'&&<p role="alert">This event has changed since that request. Ask Rosina for a new proposal.</p>}

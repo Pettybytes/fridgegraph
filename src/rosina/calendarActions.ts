@@ -27,7 +27,7 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
  if(operation==='create'&&!/\b(at|tomorrow|today|calendar|party|appointment|event)\b/i.test(text))return null;
  if(/\b(Pacific|Central|Mountain|UTC|GMT|London|PST|PDT|CST|CDT)\b/i.test(text))return reply('Please give the event time in America/Detroit so I can propose the exact change.');
  const today=o.today??detroitToday();
- const prior=[...o.history].reverse().find(h=>h.role==='assistant'&&/^Done — (added|moved) /.test(h.content))?.content??'';
+ const prior=[...o.history].reverse().find(h=>h.role==='assistant'&&/^Done: (added|moved) /.test(h.content))?.content??'';
  const reference=/\b(it|that|this event)\b/i.test(text)?prior:'';
  let matches=o.children.filter(c=>c.displayName&&(named(text,c.displayName)||named(text,c.displayName.split(' ')[0])));
  if(!matches.length&&reference)matches=o.children.filter(c=>c.displayName&&reference.includes(` for ${c.displayName}. `));
@@ -46,7 +46,7 @@ export async function calendarProposal(o:Options):Promise<Proposal|null>{
  }catch{return reply('I could not check the calendar. Nothing has been changed.');}
  let event:Event|undefined;
  if(operation!=='create'){
-  const previousTitle=reference.match(/^Done — (?:added|moved) (.+) for /)?.[1];
+  const previousTitle=reference.match(/^Done: (?:added|moved) (.+) for /)?.[1];
   const words=text.toLowerCase().replace(/\b(move|reschedule|cancel|delete|please|the|event|calendar|to|until|through|at|on|for|today|tomorrow|it|that)\b/g,' ').replace(/\d+(?::\d+)?\s*(am|pm)?/g,' ').split(/\s+/).filter(w=>w.length>2&&!child.displayName!.toLowerCase().includes(w.replace(/[’']s$/,'')));
   const requestedDay=text.match(/\bon (\d{4}-\d{2}-\d{2})\b/i)?.[1];
   const found=events.filter(e=>(!requestedDay||e.start.startsWith(requestedDay))&&(previousTitle?e.title===previousTitle:words.length>0&&words.every(w=>e.title.toLowerCase().includes(w))));

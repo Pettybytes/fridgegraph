@@ -10,7 +10,7 @@ test('birthday proposal resolves Detroit tomorrow without writing',async()=>{
  assert.equal(r?.actions[0]?.args.start,'2026-11-05T21:00:00');assert.equal(r?.actions[0]?.args.operation,'create');
 });
 test('move it resolves last saved event and retains duration and metadata',async()=>{
- const r=await calendarProposal({...base,message:'move it to 7pm',history:[{role:'assistant' as const,content:"Done — added Nora's birthday party for Nora Ellison. Thu 9:00 PM."}]});
+ const r=await calendarProposal({...base,message:'move it to 7pm',history:[{role:'assistant' as const,content:"Done: added Nora's birthday party for Nora Ellison. Thu 9:00 PM."}]});
  assert.equal(r?.actions[0]?.args.eventId,'ev-party');assert.equal(r?.actions[0]?.args.start,'2026-11-05T19:00:00');assert.equal(r?.actions[0]?.args.notes,'Keep this');
 });
 test('refuses unauthorized caller, ambiguous event and unknown child',async()=>{

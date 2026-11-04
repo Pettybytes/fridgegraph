@@ -9,7 +9,7 @@ it('requires confirmation and only acknowledges a successful write; double tap s
  let resolve!:(value:unknown)=>void;const mutate=vi.fn(()=>new Promise(r=>{resolve=r}));const {saved}=setup(mutate);
  expect(mutate).not.toHaveBeenCalled();expect(screen.getByRole('region')).toHaveTextContent('9:00 PM');
  fireEvent.click(screen.getByRole('button',{name:'Add to calendar'}));fireEvent.click(screen.getByRole('button',{name:'Saving…'}));expect(saved).not.toHaveBeenCalled();expect(mutate).toHaveBeenCalledTimes(1);
- await act(async()=>resolve({data:{createCalendarEvent:{...args,id:'ev-new'}}}));expect(saved).toHaveBeenCalledWith(expect.stringContaining('Done — added Birthday party'));expect(screen.getByRole('status')).toHaveTextContent('Saved');
+ await act(async()=>resolve({data:{createCalendarEvent:{...args,id:'ev-new'}}}));expect(saved).toHaveBeenCalledWith(expect.stringContaining('Done: added Birthday party'));expect(screen.getByRole('status')).toHaveTextContent('Saved');
 });
 it('text confirmation retries with the same idempotency key after uncertain response',async()=>{
  const mutate=vi.fn().mockRejectedValueOnce(Error('lost response')).mockResolvedValue({data:{createCalendarEvent:{...args,id:'ev-once'}}});const {saved,confirm}=setup(mutate);

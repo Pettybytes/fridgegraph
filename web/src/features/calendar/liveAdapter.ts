@@ -1,3 +1,4 @@
+import {notifyCalendarChanged} from './changeSignal'
 import {refreshResource,resourceSnapshot} from '@/lib/frontendData/resourceCache'
 import {gql} from '@apollo/client'
 import type {createGraphClient} from '@/lib/frontendData/graphqlAdapter'
@@ -37,13 +38,14 @@ export function createLiveCalendarAdapter(client:ReturnType<typeof createGraphCl
    return /UNAUTHORIZED/.test(e.message??'')||e.errors?.some(x=>x.extensions?.code==='UNAUTHORIZED')?{state:'refused'}:{state:'failed'}
   }
  }
- // Mutations go through the parent-only schedule RPCs. A refusal (non-parent, demo guide) comes
+ // Mutations go through the authorized family/showcase schedule RPCs. A permission refusal comes
  // back as UNAUTHORIZED and is surfaced as 'refused'; anything else is 'failed'. The caller re-reads
  // the window on success so the new row (shared across tenants) appears.
  async function write<T>(mutation:Parameters<typeof client.mutate>[0]['mutation'],variables:Record<string,string|null>,field:string):Promise<WriteResult<T>>{
   try{
    const value=await runRead(async()=>{const result=await client.mutate<Record<string,T>>({mutation,variables});if(!result.data||result.data[field]===undefined)throw Error('WRITE_UNAVAILABLE');return result.data[field]})
    if(getGeneration()!==generation)throw Error('SESSION_CHANGED')
+   notifyCalendarChanged()
    return {ok:true,value}
   }catch(error){
    if(getGeneration()!==generation)throw Error('SESSION_CHANGED')

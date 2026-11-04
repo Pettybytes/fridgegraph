@@ -176,7 +176,7 @@ from the caller's own MyChildren result, checks live `calendarWriteAccess`, and 
 events through GraphQL. It supports add, move/reschedule and cancel/delete, with today,
 tomorrow or ISO dates and AM/PM times in America/Detroit. Ambiguous children/events or DST
 times produce a question. New events default to one hour; the card always shows the exact
-start/end and supplied place. Moves preserve duration, notes and color.
+start/end and supplied place. Moves preserve duration unless a new end time is supplied, and retain notes and color.
 
 The card changes nothing until the user taps its labeled confirmation or replies exactly
 “yes”, “yes please”, “confirm” or “confirm it”. Voice proposals enter the same thread. Only a

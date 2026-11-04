@@ -1,5 +1,6 @@
 import {gql} from '@apollo/client'
-import {useCallback} from 'react'
+import {subscribeCalendarChanges} from './changeSignal'
+import {useCallback,useEffect} from 'react'
 import {useChildAccess} from '@/features/personas/childContext'
 import {useSession} from '@/features/personas/Session'
 import {useCachedResource} from '@/lib/frontendData/resourceCache'
@@ -9,6 +10,7 @@ const CHANGES=gql`query WebCalendarChanges($childId:ID!){calendarChanges(childId
 type Change={id:string;at:string;actor:{id:string;displayName:string};kind:string;eventId:string;title:string;start:string}
 /** Both surfaces project the committed village_event rows, never chat proposals. */
 export function CalendarChanges({summary=false}:{summary?:boolean}){
+ useEffect(subscribeCalendarChanges,[])
  const child=useChildAccess(),{session}=useSession()
  const client=child?.client??null,childId=child?.selectedChildId??session?.scope.childId
  const permitted=!!(session?.persona.parent||session?.persona.guardian||session?.marks?.demoGuide)
