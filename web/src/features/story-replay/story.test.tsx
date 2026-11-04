@@ -66,9 +66,9 @@ describe('replay story model', () => {
     expect(REPLAY_NARRATION.durationMs).toBeLessThan(REPLAY_DURATION_MS)
     const segments = REPLAY_NARRATION.segments
     expect(segments.length).toBe(5)
-    expect(segments.map(segment => segment.speaker)).toEqual(['rosina', 'rosina', 'rosina', 'loretta', 'rosina'])
+    expect(segments.map(segment => segment.speaker)).toEqual(['narrator', 'narrator', 'narrator', 'loretta', 'narrator'])
     for (let index = 1; index < segments.length; index += 1) expect(segments[index].startMs).toBeGreaterThanOrEqual(segments[index - 1].endMs)
-    expect(speakerAt(REPLAY_NARRATION, segments[0].startMs + 100)).toBe('rosina')
+    expect(speakerAt(REPLAY_NARRATION, segments[0].startMs + 100)).toBe('narrator')
     expect(speakerAt(REPLAY_NARRATION, segments[3].startMs + 100)).toBe('loretta')
     expect(speakerAt(REPLAY_NARRATION, segments[0].endMs + 50)).toBeNull()
     expect(speakerAt(REPLAY_NARRATION, REPLAY_DURATION_MS - 1)).toBeNull()
@@ -113,7 +113,7 @@ describe('ThreePhoneStory playback', () => {
     expect(progress).toHaveAttribute('aria-valuenow', '0')
   })
 
-  it('plays the one audio element after a sound gesture, pulses Rosina only on her segments, and rewinds each loop', () => {
+  it('plays the one audio element after a sound gesture, pulses the avatar only on narrator segments, and rewinds each loop', () => {
     vi.useFakeTimers()
     render(<ThreePhoneStory />)
     const section = screen.getByRole('region', { name: 'One plan, three perspectives' })
@@ -123,7 +123,7 @@ describe('ThreePhoneStory playback', () => {
     expect(screen.getByRole('button', { name: 'Mute' })).toHaveAttribute('aria-pressed', 'true')
     act(() => { vi.advanceTimersByTime(2000) })               // within segment s1
     expect(screen.getByRole('img', { name: 'Rosina, speaking' })).toBeInTheDocument()
-    act(() => { vi.advanceTimersByTime(4500) })               // 6500ms: gap between s1 and s2
+    act(() => { vi.advanceTimersByTime(5500) })               // 7500ms: gap between s1 (ends 7016) and s2 (starts 7666)
     expect(screen.getByRole('img', { name: 'Rosina, ready' })).toBeInTheDocument()
     const callsBeforeLoop = play.mock.calls.length
     for (let second = 0; second < 30; second++) act(() => { vi.advanceTimersByTime(1000) })  // cross 34s duration

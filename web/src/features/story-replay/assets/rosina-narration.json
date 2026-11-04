@@ -1,41 +1,41 @@
 {
-  "id": "rosina_narration_v5",
-  "durationMs": 32772,
-  "provenance": "Two fictional demo voices generated once via the ElevenLabs text-to-speech API and committed as a static asset: Rosina (Sarah, the same server-configured voice the live app uses) narrates, and Loretta (Blanco) speaks her own reply line. Script is fictional demo copy only. No key, token, or secret is stored here.",
+  "id": "rosina_narration_v6",
+  "durationMs": 33116,
+  "provenance": "Demo narration generated once via the ElevenLabs text-to-speech API (model eleven_multilingual_v2; voice settings stability 0.45, similarity_boost 0.75, style 0.2, use_speaker_boost true) and committed as a static asset. Narrator: Sam - Deep Americana (voice iRc49NKOKzEg1DVxmcRs) reads the walkthrough lines; Loretta's reply line is Blanco - Airy and Rich (voice HRi5Prm2B3PevwpDmVLP), the identical render used in v5. Script is fictional demo copy only. No key, token, or secret is stored here.",
   "segments": [
     {
       "id": "s1",
-      "speaker": "rosina",
+      "speaker": "narrator",
       "startMs": 700,
-      "endMs": 5948,
+      "endMs": 7016,
       "text": "A school notice changes Nora's day. Early dismissal comes before her recorded pickup."
     },
     {
       "id": "s2",
-      "speaker": "rosina",
-      "startMs": 7348,
-      "endMs": 13153,
+      "speaker": "narrator",
+      "startMs": 7666,
+      "endMs": 14168,
       "text": "I check Nora's schedule and who can help, then draft a new pickup plan for Kendra to approve."
     },
     {
       "id": "s3",
-      "speaker": "rosina",
-      "startMs": 14553,
-      "endMs": 19058,
+      "speaker": "narrator",
+      "startMs": 14818,
+      "endMs": 19834,
       "text": "With Kendra's approval, the request goes to Loretta, a test caregiver."
     },
     {
       "id": "s4",
       "speaker": "loretta",
-      "startMs": 20458,
-      "endMs": 24313,
+      "startMs": 20484,
+      "endMs": 24339,
       "text": "Yes, I can be there at 1:20. I'll head out now so I'm not rushing."
     },
     {
       "id": "s5",
-      "speaker": "rosina",
-      "startMs": 25713,
-      "endMs": 32772,
+      "speaker": "narrator",
+      "startMs": 24989,
+      "endMs": 33116,
       "text": "Kendra confirms the plan, and the pickup is recorded. The activity log and Mission Control update across the village."
     }
   ],

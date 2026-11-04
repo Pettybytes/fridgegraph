@@ -150,7 +150,7 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
   }, [narration, soundEnabled])
 
   const progress = Math.min(100, elapsed / duration * 100)
-  const speaking = Boolean(narration) && soundEnabled && active && speakerAt(narration, elapsed) === 'rosina'
+  const speaking = Boolean(narration) && soundEnabled && active && speakerAt(narration, elapsed) === 'narrator'
   const journeyElapsed = Math.min(Math.floor(elapsed / 200) * 200, duration)
 
   return <section className="sr" ref={sectionRef} aria-labelledby="sr-title" data-playing={active} data-reduced-motion={reducedMotion} data-loop-count={loopsCompleted} onPointerDown={unlock}>
@@ -160,7 +160,7 @@ export function ThreePhoneStory({ narration = REPLAY_NARRATION, initialAutoplay 
         <div>
           <p className="sr-eyebrow">Demo replay · fictional people</p>
           <h2 id="sr-title">One plan, three perspectives</h2>
-          <p>Nora’s pickup replayed end to end: Kendra’s phone, the call chain under the hood, and the real Village map, narrated in Rosina’s own voice.</p>
+          <p>Nora’s pickup replayed end to end: Kendra’s phone, the call chain under the hood, and the real Village map, narrated, with Loretta speaking her own reply.</p>
         </div>
         <div className="sr-player" aria-label="Replay playback">
           <RosinaAvatar state={speaking ? 'speaking' : 'ready'} size={44} />
