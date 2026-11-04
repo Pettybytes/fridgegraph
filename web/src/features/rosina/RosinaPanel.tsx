@@ -1,7 +1,6 @@
 import {onEnterSubmit, COMPOSER_HINT_MULTILINE} from '@/lib/composerKeys'
 import {NoticeComposer} from '@/features/notice-plan/NoticeComposer'
 import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
-import {OrbitPhotoChat} from '@/features/orbit/OrbitPreparation'
 import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
 import type {OrbitController} from '@/features/orbit/controller'
 import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
@@ -190,7 +189,8 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }
   async function execute(action: CatalogAction, key: string, confirmed = false) {
     if (!active.current || !validateActions([action]).length || !actionAllowed(action, context) || executed.current.has(key)) return
-    if(action.id==='prepareOrbitAlert'){if(!orbit?.canPrepare())return;executed.current.add(key);closePanel();location.hash='#/orbit';void orbit.prepare(action.args);return}
+    // Orbit has its own dedicated screen now; Rosina only deep-links there, never renders Orbit UI in the panel.
+    if(action.id==='prepareOrbitAlert'){if(!orbit?.canPrepare())return;executed.current.add(key);closePanel();location.hash='#/orbit';return}
     if (catalog[action.id].changesData && !confirmed) { setPending({ action, key }); return }
     if (catalog[action.id].changesData) {
       executed.current.add(key); setPending(null)
@@ -229,7 +229,6 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {contextCard}
         {!messages.length && <div className="rosina-welcome"><MessageCircle size={28} aria-hidden="true" /><h3>A little help with your village.</h3><p>Ask about what you can see or prepare a request. You confirm every change.</p><button type="button" onClick={() => append('ROSINA', explanation(screen))}>Explain this screen</button></div>}
         {messages.map(message => <article key={message.id} className={`rosina-message ${message.from === 'PARENT' ? 'from-person' : ''}`}><span>{message.from === 'PARENT' ? 'You' : 'Rosina'}</span><p>{message.text}</p>{reportCard(message)}<AddVillagerReview proposal={parseAddVillagerProposal(message.addVillagerProposal)} liveEnabled={import.meta.env.VITE_ADD_VILLAGER_LIVE === 'true'} />{message.actions.filter(action => catalog[action.id].implemented && (actionAllowed(action, context) || (action.id==='prepareOrbitAlert' && !!orbit && !context.readOnly && context.parent && action.args.childId===context.childId && ['loading','unavailable'].includes(orbit.getSnapshot().phase)))).map((action, index) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={index} disabled={executed.current.has(`${message.id}:${index}`)||!actionAllowed(action,context)} onClick={() => { void execute(action, `${message.id}:${index}`) }}>{actionLabel(action)}{action.id==='prepareOrbitAlert'&&!actionAllowed(action,context)&&<span role="status" className="rosina-action-status">{orbit?.getSnapshot().phase==='loading'?'Loading shared Orbit records…':"Couldn't load the shared Orbit records. Refresh Orbit to try again."}</span>}</button>)}</article>)}
-        {orbit&&<OrbitPhotoChat controller={orbit}/>}
         {busy && !!liveStream?.text && <article className="rosina-message is-streaming" aria-label="Rosina is replying"><span>Rosina</span><p>{liveStream.text}<span className="rosina-caret" aria-hidden="true"/></p></article>}
         {busy && !liveStream?.text && <div className="rosina-progress" role="status"><strong><span className="rosina-typing" aria-hidden="true"><i/><i/><i/></span>{adapter.mode==='live'?(liveStream?.status??(progress==='sending'?'Sending your question…':progress==='waiting'?'Waiting for Rosina’s reply…':'Reading Rosina’s reply…')):'Rosina is preparing a reply…'}</strong><span>{elapsed}s elapsed · You can close this panel to stop waiting.</span></div>}
         {busy && !!liveStream?.text && !!liveStream.status && <p className="rosina-progress-inline" role="status">{liveStream.status}</p>}
