@@ -1,21 +1,32 @@
-## Built during the hackathon (from Oct 26, 2026)
+# FridgeGraph provenance
 
-All application code, schemas, fixtures, and docs in this repository were written from scratch
-during the Meta Global AI Developer Hackathon, starting Oct 26, 2026. No code was copied from
-any pre-existing private repository.
+## Origin and build window
 
-## External services and libraries (not our code)
+Tori, a single-mother friend, sent Bryan the August 11 message reproduced in full in the [README](README.md). It is the human origin of the idea. The application code, schemas, fixtures and documentation in this repository were written for the Meta Global AI Developer Hackathon beginning October 26, 2026; no application code was copied from a pre-existing private repository. The showcase families and children are fictional.
 
-- Meta Model API (used in a later milestone)
-- Apollo Router / Rover / MCP Server (local federation tooling)
-- Supabase (later)
-- GoHighLevel (later; agent built new this week)
-- n8n (later; workflows built new this week)
+The original screenshot is committed as `docs/assets/origin/tori-message-original.jpg` with its full 1312 × 2048 composition, no crop or retouch. Its SHA-256 before upload was `10a23f6fdfdcaba12f4897b68e7c17282ca1efc6f319dcc0c9004f2250ad9afa`.
 
-## Identity (Milestone 2A)
+The current Nora demo portrait was supplied by Bryan and is preserved without alteration at `docs/assets/readme/nora-current.png` (384 × 384). Its original Git blob hash is `b592188d90d3de79c4f41345165dafe569ef27e5`. Historical test captures may contain a retired portrait and remain unchanged as evidence. No model authorship is inferred from the supplied image.
 
-- **Supabase Auth** issues the JWTs. No tokens, keys or signing material in this repository.
-- **jose** (MIT) verifies signatures locally. It is a verifier only; it mints nothing.
-- Demo credentials live in `.demo-credentials` (gitignored, mode 600) and the server-side identity
-  map in `data/identity-map.json` (gitignored, mode 600). Neither is committed, and the servers never
-  read `.demo-credentials`.
+## What is produced by which model
+
+| Source | Role | Boundary |
+| --- | --- | --- |
+| Muse Spark 1.3 | Rosina's grounded conversation, notice interpretation and action proposals. | A parent confirms; server and database permissions decide what can be read and saved. |
+| Muse Voice Transcribe 1.0 | Speech-to-text in the current Rosina voice path. | It does not authorize actions. |
+| Muse Image 1.0 | Creative invitation artwork, reference edits and revisions. | The app renders exact names, times and places as text; provider receipts and served-build checks must be distinguished. |
+| Muse Wonder | Development research, diagnosis, review and test assistance. | It is not the runtime reasoner. Its reports require independent checks against source and the served build. |
+| ElevenLabs | Rosina's speech and replay narration. | Separate from Meta transcription and reasoning. |
+| Retell | An isolated hybrid voice experiment in draft PR #280. | Not a released judge-path voice-to-saved-action proof. |
+
+Apollo Router, Rover and MCP Server, Supabase, Vite, React and the other libraries are external infrastructure and dependencies, not code authored for this project. n8n and GoHighLevel workflows were configured for FridgeGraph; judge-path live outbound SMS is disabled. The shipped fictional portrait sets have their own provenance files under `web/src/assets/portraits/` and `web/public/fridge/`; do not describe all artwork as Muse-generated.
+
+## Before → decision → recorded result
+
+The old situation is fragmented information and a parent manually relaying it. A working demonstrated path is: a sample school notice comes in → Muse Spark identifies a conflict with the authorized schedule → Rosina presents a proposed pickup request → the parent confirms → a stored job ID appears in Rosina, Today and Mission Control. The proposal is not a pickup, and a request is not a completed pickup. Calendar actions follow a similar explicit confirm and audit trail. See [notice evidence](docs/evidence/67-rosina-notice-briefing-live.md), [browser proof](web/evidence/notice-plan/live-2026-11-02/RECEIPT.md), and the later [mouse-confirm repair](https://github.com/Pettybytes/fridgegraph/pull/282).
+
+For safety and honesty, distinguish **implemented**, **merged**, **deployed**, and **verified on the served build**. CI checks source; public-site actions and provider receipts establish narrower live claims. Orbit preview is part of the current judge path; a full activation and SMS dispatch are not asserted as freshly verified on that path. The voice speed limitation and the draft hybrid experiment are documented in the README.
+
+## Identity
+
+Supabase Auth issues JWTs. `jose` (MIT) verifies signatures locally; it mints nothing. Demo credentials and the server-side identity map are gitignored, never committed, and must remain outside this repository. No token, key, or signing material is intended to be stored here.
