@@ -27,6 +27,16 @@ The old situation is fragmented information and a parent manually relaying it. A
 
 For safety and honesty, distinguish **implemented**, **merged**, **deployed**, and **verified on the served build**. CI checks source; public-site actions and provider receipts establish narrower live claims. Orbit preview is part of the current judge path; a full activation and SMS dispatch are not asserted as freshly verified on that path. The voice speed limitation and the draft hybrid experiment are documented in the README.
 
+## Muse account snapshot
+
+Bryan supplied this unaltered screenshot on November 4, 2026, as supporting context for his use of Muse during the build. It shows a **Muse Code** subscription and a **$0.31 outstanding pay-as-you-go balance**, with a notice that the balance updates after recent payments are processed.
+
+![Muse account screenshot showing Muse Code and a $0.31 outstanding pay-as-you-go balance](docs/assets/provenance/muse-account-2026-11-04.png)
+
+This is an account snapshot, not a usage ledger: it does not establish total spend, exhausted promotional credits, token counts, a model-by-model breakdown, or how much usage belongs to FridgeGraph. The model roles and linked execution receipts above provide the project-specific evidence.
+
+Original file SHA-256: `1e75f8f296b06b359c16035db7d7381f9eae2e7a080843e26c34b10e435a74aa`.
+
 ## Identity
 
 Supabase Auth issues JWTs. `jose` (MIT) verifies signatures locally; it mints nothing. Demo credentials and the server-side identity map are gitignored, never committed, and must remain outside this repository. No token, key, or signing material is intended to be stored here.
