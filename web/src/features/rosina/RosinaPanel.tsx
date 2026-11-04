@@ -4,6 +4,7 @@ import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
 import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
 import type {OrbitController} from '@/features/orbit/controller'
 import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
+import { fireRosinaWarmIfStale, useRosinaWarmKeepAlive } from './warm'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { FormEvent, ReactNode } from 'react'
@@ -87,13 +88,13 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
     if (session && dataAdapter) dataAdapter.readVillage(session.scope).then(data => { if (current) setPeople(new Set(data.nodes.map(node => node.person.id))) }, () => { if (current) setPeople(new Set()) })
     return () => { current = false }
   }, [session, dataAdapter])
-  // Warm Rosina on page load (latency playbook 6): primes the caller's context + lens caches and
-  // the model connection so the FIRST question streams fast. Fire-and-forget, auth'd, read-only.
+  // Warm Rosina on page load, re-warm when the panel opens (only if stale), keep-alive every
+  // ~60s while the tab is visible (latency playbook 6): the caller's context + lens caches and
+  // the model host's prompt-prefix cache stay primed so the FIRST question streams fast.
+  useRosinaWarmKeepAlive(session?.accessToken, adapter.mode === 'live')
   useEffect(() => {
-    const token = session?.accessToken
-    if (adapter.mode !== 'live' || !token) return
-    void fetch('/api/rosina/warm', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
-  }, [adapter.mode, session?.generation, session?.accessToken])
+    if (open && adapter.mode === 'live' && session?.accessToken) fireRosinaWarmIfStale(session.accessToken)
+  }, [open, adapter.mode, session?.accessToken])
   useEffect(() => {
     if (threadRef.current && (messages.length > 0 || busy)) threadRef.current.scrollTop = threadRef.current.scrollHeight
   }, [messages, busy, liveStream])
