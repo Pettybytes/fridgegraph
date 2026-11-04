@@ -17,25 +17,26 @@ export function createPreferenceClient(getBearer:()=>string|null|undefined):Pref
  }
  return {read:(child,signal)=>request(child,undefined,signal),write:(child,change)=>request(child,change)}
 }
-export function useFridgePreferences(childId:string){
+export function useFridgePreferences(childId:string,enabled=true){
  const client=useContext(FridgePreferencesContext)
  const [items,setItems]=useState<Preference[]>([]),[status,setStatus]=useState(client?'Loading arrangement…':''),[ready,setReady]=useState(!client),[pending,setPending]=useState(false),[retry,setRetry]=useState(0)
  const busy=useRef(false),alive=useRef(true)
  useEffect(()=>{
   alive.current=true;const abort=new AbortController()
-  if(client){setReady(false);void client.read(childId,abort.signal).then(rows=>{if(!abort.signal.aborted){setItems(rows);setReady(true);setStatus('')}},()=>{if(!abort.signal.aborted)setStatus('Couldn’t load the arrangement. Try again.')})}
+  if(client&&enabled){setReady(false);void client.read(childId,abort.signal).then(rows=>{if(!abort.signal.aborted){setItems(rows);setReady(true);setStatus('')}},()=>{if(!abort.signal.aborted)setStatus('Couldn’t load the arrangement. Try again.')})}
   return()=>{alive.current=false;abort.abort()}
- },[client,childId,retry])
+ },[client,childId,retry,enabled])
  async function change(patch:PreferenceChange){
-  if(!ready||busy.current)return
+  if(!ready||busy.current)return false
   busy.current=true;setPending(true);setStatus('Saving arrangement…')
   try{
    let rows:Preference[]
    if(client)rows=await client.write(childId,patch)
    else if(patch.tidy)rows=items.map(item=>({...item,position:null}))
    else{const previous=items.find(item=>item.kind===patch.kind&&item.itemId===patch.itemId);rows=[...items.filter(item=>item!==previous),{position:null,color:null,font:null,...previous,...patch} as Preference]}
-   if(alive.current){setItems(rows);setStatus('Arrangement saved.')}
-  }catch{if(alive.current)setStatus('Couldn’t save the arrangement. Try again.')}
+   if(!alive.current)return false
+   setItems(rows);setStatus('Arrangement saved.');return true
+  }catch{if(alive.current)setStatus('Couldn’t save the arrangement. Try again.');return false}
   finally{if(alive.current){busy.current=false;setPending(false)}}
  }
  return {layout:Object.fromEntries(items.filter(item=>item.position).map(item=>[item.itemId,item.position!])),markers:Object.fromEntries(items.filter(item=>item.kind==='goal').map(item=>[item.itemId,{color:item.color??'black',font:item.font??'kalam'}])),change,ready,pending,status,retry:()=>setRetry(n=>n+1)}

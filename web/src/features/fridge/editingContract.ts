@@ -52,6 +52,8 @@ export function writeError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (/UNAUTHORIZED|FORBIDDEN|NOT_SHARED/.test(message)) return 'This change is not allowed for this perspective.'
   if (/UNAUTHENTICATED/.test(message)) return 'Your perspective needs a fresh session. Try again.'
+  if (message === 'GOAL_STYLE_FAILED') return 'Goal text saved, but the marker choices did not save. Try Save goal again.'
+  if (message === 'GOAL_STYLE_UNAVAILABLE') return 'Marker choices are still loading. Try again shortly.'
   if (message === 'NETWORK_ERROR') return 'Couldn’t confirm this change. Check the records before trying again.'
   if (message === 'DB_UNAVAILABLE') return 'Couldn’t save this change just now. Try again.'
   return 'Couldn’t save this change. Try again.'

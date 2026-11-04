@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FridgeEditingAdapter, FridgeNoteRecord, FridgeViewer, GoalFields, GoalRecord, NoteAudience, NoteFields } from './editingContract'
+import {latestCaptions} from './captions'
+import {useFridgePreferences} from './preferences'
+import type {MarkerStyle} from './model'
 import { isParent, writeError } from './editingContract'
 
 export type ReadState<T> = { kind: 'loading' | 'failed' | 'refused' | 'authentication' | 'network' | 'database' } | { kind: 'ready'; items: T[] }
@@ -24,6 +27,7 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
   const [notice, setNotice] = useState<Notice>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const canWrite = isParent(viewer)
+  const preferences=useFridgePreferences(childId)
 
   useEffect(() => {
     const abort = new AbortController()
@@ -57,7 +61,32 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
   const putNote = (result: FridgeNoteRecord) => setNotes(state => state.kind === 'ready' ? { kind: 'ready', items: state.items.map(item => item.id === result.id ? result : item) } : state)
   const checkId = <T extends { id: string }>(result: T, id: string) => { if (result?.id !== id) throw new Error('MISMATCHED_RECORD'); return result }
   return {
-    goals, notes, pending, notice, canWrite, retry: () => { setGoals({ kind: 'loading' }); setNotes({ kind: viewer.role === 'GUIDE' ? 'refused' : 'loading' }); setNotice(null); setReloadKey(value => value + 1) },
+    goals, notes, pending, notice, canWrite, preferences,
+    saveCaption: (slotId:string,text:string) => change('notes',async()=>{
+      // The dialog can outlive a delete/reset in another browser. Resolve the current
+      // authorized record before writing, never retry a refused mutation as a new post.
+      const current=await adapter.readNotes(childId,new AbortController().signal)
+      if(!alive.current||currentScope.current!==scopeKey)throw Error('UNAUTHENTICATED')
+      const attachmentRef=`fridge-art:${slotId}`
+      const existing=latestCaptions(current).find(note=>note.attachmentRef===attachmentRef)
+      const result=existing?checkId(await adapter.updateFridgeNote({id:existing.id,text,paperColor:existing.paperColor}),existing.id):await adapter.postFridgeNote({childId,text,paperColor:'WHITE',attachmentRef,audience:'PARENTS_ONLY'})
+      if(!result?.id||result.attachmentRef!==attachmentRef||(!existing&&result.audience!=='PARENTS_ONLY'))throw Error('CAPTION_NOT_CONFIRMED')
+      return [...current.filter(note=>note.id!==result.id),result]
+    },items=>setNotes({kind:'ready',items})),
+    saveGoal: async (fields: GoalFields, marker: MarkerStyle, id?: string) => {
+      let savedId=id
+      const saved=await change('goals',async()=>{
+        if(!preferences.ready||preferences.pending)throw Error('GOAL_STYLE_UNAVAILABLE')
+        const result=id?checkId(await adapter.updateGoal({id,...fields}),id):await adapter.createGoal({childId,...fields,status:'PROPOSED'})
+        if(!result?.id)throw Error('MISSING_RECORD')
+        savedId=result.id
+        setGoals(state=>state.kind==='ready'?{kind:'ready',items:[...state.items.filter(item=>item.id!==result.id),result]}:state)
+        if(!await preferences.change({kind:'goal',itemId:result.id,...marker}))throw Error('GOAL_STYLE_FAILED')
+        return result
+      },()=>{})
+      return {saved,id:savedId}
+    },
+    retry: () => { setGoals({ kind: 'loading' }); setNotes({ kind: viewer.role === 'GUIDE' ? 'refused' : 'loading' }); setNotice(null); setReloadKey(value => value + 1) },
     createGoal: (fields: GoalFields) => change('goals', () => adapter.createGoal({ childId, ...fields, status: 'PROPOSED' }), result => { if (!result?.id) throw new Error('MISSING_RECORD'); setGoals(state => state.kind === 'ready' ? { kind: 'ready', items: [...state.items, result] } : state) }),
     updateGoal: (id: string, fields: GoalFields) => change('goals', () => adapter.updateGoal({ id, ...fields }), result => putGoal(checkId(result, id))),
     completeGoal: (id: string) => change('goals', () => adapter.completeGoal({ id }), result => { checkId(result, id); if (!result.completedAt) throw new Error('COMPLETION_NOT_RECORDED'); putGoal(result) }),
