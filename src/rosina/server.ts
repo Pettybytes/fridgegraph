@@ -87,6 +87,17 @@ const toolListCache = createTtlCache<McpTool[]>(300_000);
 // same router URL as notice-plan (ROSINA_GRAPHQL_URL); unset means lens off, tools only.
 const LENS_TTL_MS = Number(process.env.ROSINA_LENS_TTL_MS ?? 60_000);
 const lensCache = createTtlCache<FamilyLens>(LENS_TTL_MS);
+// Operator latency knobs for the model request body, e.g. '{"reasoning_effort":"low"}'
+// (playbook 8: measured ~9s of pre-answer reasoning per turn on the current model). JSON of
+// parameter NAMES/values only, no secrets; an unsupported knob 400s once and is retried without.
+const MODEL_PARAMS: Record<string, unknown> | undefined = (() => {
+  const raw = (process.env.ROSINA_MODEL_PARAMS ?? '').trim();
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : undefined;
+  } catch { return undefined; }
+})();
 
 const TIMEOUT = Symbol('timeout');
 
@@ -181,6 +192,7 @@ async function handleRosina(req: Request, res: Response): Promise<void> {
       toolListCache,
       graphqlUrl: NOTICE_GRAPHQL_URL || undefined,
       lensCache,
+      modelParams: MODEL_PARAMS,
     }).catch((error: unknown) => {
       console.error(`[rosina] turn failed person=${identity.personId} error=${error instanceof Error ? error.constructor.name : typeof error}: ${error instanceof Error ? error.message : 'unknown'}`);
       return null;
