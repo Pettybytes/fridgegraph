@@ -140,11 +140,15 @@ export class OrbitController{
  }
  // Optional photo for the simple START screen: it never blocks the send, and it marks the draft
  // started so a subsequent sendAlert reuses the uploaded photoId.
+ // The optional START photo must never break Orbit: a failed upload is a dismissible note, not a
+ // page error, and the alert can still be sent without it.
  async uploadPhoto(file:File){
   if(!this.canPrepare())return
   ++this.operation
-  this.patch({started:true,photoFlow:false,phase:'editing',preview:null,busy:'upload',error:''})
-  try{const photoId=await this.adapter.upload(this.scope.childId,file,this.mediaAbort.signal);if(this.current())this.patch({photoId})}catch(error){this.patch({error:orbitError(error)})}finally{this.patch({busy:null})}
+  this.patch({started:true,photoFlow:false,phase:'editing',preview:null,busy:'upload',suggestionNotice:'',error:''})
+  try{const photoId=await this.adapter.upload(this.scope.childId,file,this.mediaAbort.signal);if(this.current())this.patch({photoId,suggestionNotice:''})}
+  catch{if(this.current())this.patch({suggestionNotice:'Couldn’t add that photo. You can still send the Orbit alert.'})}
+  finally{this.patch({busy:null})}
  }
  // One Send: draft the extracted description plus the recorded place/time (now), preview it, and
  // activate in one step. No manual review page; the controlled-vocabulary and provenance checks are
@@ -160,6 +164,9 @@ export class OrbitController{
   ++this.operation
   this.patch({started:true,photoFlow:false,values,lastSeen,preview:null,phase:'editing',revision:this.state.revision+1,error:''})
   await this.review()
+  // The photo is optional and must never block the alert: if the preview failed while a photo was
+  // attached, drop the photo and try once more so activation still goes out.
+  if(!this.confirmable()&&this.state.photoId){this.patch({photoId:undefined,revision:this.state.revision+1,preview:null,phase:'editing',error:''});await this.review()}
   if(this.confirmable())await this.activate()
  }
  consumeCelebration(){const key=this.state.celebrationKey;if(!key||this.consumedCelebrations.has(key))return false;this.consumedCelebrations.add(key);return true}

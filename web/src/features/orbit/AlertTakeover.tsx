@@ -9,6 +9,7 @@ import type {Alert} from './adapter'
 import {portraitFor} from '@/components/fg/portraits'
 import {OrbitResolution} from './OrbitResolution'
 import {OrbitFactsCard} from './OrbitFactsCard'
+import {OrbitMessage} from './OrbitMessage'
 import './alert-ui.css'
 
 /**
@@ -64,9 +65,9 @@ export function AlertTakeover({controller,childName}:{controller:OrbitController
   <div className="orbit-takeover-stage" key={stateKey}>
   {found?<FoundSafe controller={controller} recipient childName={childName}/>
   :<>
-   <div className="orbit-glass-heading"><p>Recorded active alert</p><h2>Orbit active.</h2><p>You can respond to the alert shared with you. Only your own response is shown here.</p></div>
+   <p className="orbit-card-status">Orbit active · only your own response is shown here</p>
    <OrbitFactsCard childName={childName} lastSeen={lastSeen!} share={alert!.share} image={image} photoAlt="Photo shared by the parent" missingPhotoText="Photo not recorded." failedPhotoText="Photo isn't available to this view." onOpen={()=>{location.hash='#/orbit'}}/>
-   <details className="orbit-shared-message"><summary>Shared message</summary><blockquote>{alert!.message??'Message not recorded.'}</blockquote></details>
+   <OrbitMessage message={alert!.message} at={alert!.activatedAt}/>
    <div className="orbit-alert-actions"><button aria-pressed={ownResponse?.response==='ON_WAY'} disabled={!!state.busy} onClick={()=>void controller.respond('ON_WAY')}><ArrowUpRight/>I'm on my way</button><button aria-pressed={ownResponse?.response==='WITH_ME'} disabled={!!state.busy} onClick={()=>void controller.respond('WITH_ME')}><Check/>She's with me</button><button aria-pressed={ownResponse?.response==='CANNOT_HELP'} disabled={!!state.busy} onClick={()=>void controller.respond('CANNOT_HELP')}><X/>Can't help</button></div>
    {ownResponse&&<p className="orbit-response-confirmation" role="status"><Check size={22}/>{ownResponse.response==='ON_WAY'?"You’re on your way. Your response is recorded.":ownResponse.response==='WITH_ME'?"You reported they’re with you. The parent still closes the alert.":"You can’t help. Your response is recorded."}</p>}
    <section aria-label="Your response history">{alert!.responses.filter(r=>r.person.id===controller.scope.personId).map(r=><p key={r.respondedAt+':'+r.response}>{r.response==='ON_WAY'?'You reported: on my way':r.response==='WITH_ME'?'You reported: with me':'You reported: cannot help'} · {formatInstant(r.respondedAt)}</p>)}</section>

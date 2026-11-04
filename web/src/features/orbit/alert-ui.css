@@ -218,3 +218,73 @@
  .orbit-parent-alert{border-radius:24px;padding:18px 14px}
  .orbit-vrow{padding:10px 12px}
 }
+
+/* ---- Orbit v5: COMPACT iOS cards (Bryan, 2026-11-04) -------------------------------------------
+   Remove the big full-width red/green slabs. Active + Found are compact notification-style cards
+   (~400px), subtle glass, small facts rows. Red flash on activate + green flash + confetti on Found
+   safe are kept. The full-bleed photo slab is retired (the photo lives inside the card). */
+.orbit-takeover-photo{display:none}
+/* Recipient takeover: a dimmed backdrop with a centred compact card, not a full red screen. */
+.orbit-takeover{padding:24px 16px;display:flex;flex-direction:column;align-items:center}
+.orbit-takeover.is-alert{background:rgba(20,2,8,.5);backdrop-filter:blur(6px);box-shadow:none}
+.orbit-takeover.is-found{background:rgba(3,30,20,.52);backdrop-filter:blur(6px);box-shadow:none}
+.orbit-takeover.is-alert:before{background:none}
+.orbit-takeover header{max-width:400px;width:100%;margin:0 auto 12px;gap:10px;padding-bottom:0;border-bottom:0}
+.orbit-takeover header h2{font-size:13px;font-weight:700;letter-spacing:.1em}
+.orbit-takeover header>span{font-size:11px;opacity:.85}
+.orbit-takeover header>button{min-width:38px;min-height:38px}
+.orbit-takeover-stage{max-width:400px;width:100%;margin:0 auto}
+.orbit-takeover>section,.orbit-takeover-guidance,.orbit-response-confirmation{max-width:400px}
+/* Parent active: transparent compact wrapper, no red slab; the card is the surface. */
+.orbit-parent-alert{background:transparent;overflow:visible;isolation:auto;border-radius:0;margin:4px auto 20px;padding:0;max-width:400px;color:var(--fg-ink)}
+.orbit-parent-alert .orbit-takeover-stage{position:static;max-width:400px;margin:0 auto}
+/* Small status line replacing the big banner. */
+.orbit-card-status{max-width:400px;margin:0 auto 10px;text-align:center;font-size:12px;font-weight:650;letter-spacing:.01em}
+.orbit-takeover .orbit-card-status{color:#fff;opacity:.92}
+.orbit-parent-alert .orbit-card-status{color:var(--fg-muted)}
+/* Compact facts card: ~400px, small type, tight tiles. */
+.orbit-facts-card{max-width:400px;padding:14px 14px 16px;border-radius:22px}
+.orbit-facts-eyebrow{font-size:11px;letter-spacing:.07em}
+.orbit-facts-link{width:34px;height:34px}
+.orbit-facts-link svg{width:16px;height:16px}
+.orbit-facts-photo{margin:10px auto 2px;max-width:148px;aspect-ratio:1;border-radius:14px}
+.orbit-facts-photo:has(.orbit-photo-unavailable){aspect-ratio:auto;min-height:50px}
+.orbit-facts-photo .orbit-photo-unavailable{font-size:12px;padding:9px}
+.orbit-facts-name{font-size:clamp(19px,5vw,22px);margin:6px 0 12px;letter-spacing:-.02em;line-height:1.1}
+.orbit-facts-tiles{gap:8px}
+.orbit-tile{padding:9px 11px;border-radius:13px}
+.orbit-tile dt{font-size:11px}
+.orbit-tile dd{font-size:14px;margin-top:2px}
+.orbit-tile>svg{width:14px;height:14px}
+.orbit-facts-card .orbit-provenance{font-size:10px;padding:2px 7px}
+.orbit-tile-dot{top:9px;right:9px;width:8px;height:8px}
+/* iOS Messages bubble for the shared text. */
+.orbit-sms{max-width:400px;margin:12px auto 0;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.orbit-sms-from{font-size:11px;font-weight:600;margin-left:14px}
+.orbit-sms-bubble{font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;font-size:15px;line-height:1.4;border-radius:19px;border-bottom-left-radius:5px;padding:9px 14px;max-width:88%;white-space:pre-wrap;overflow-wrap:anywhere;background:rgba(255,255,255,.94);color:#0b0b0c;border:1px solid rgba(255,255,255,.5)}
+.orbit-sms-time{font-size:11px;margin-left:14px;font-variant-numeric:tabular-nums}
+.orbit-takeover .orbit-sms-from,.orbit-takeover .orbit-sms-time{color:#ffe2e7}
+.orbit-parent-alert .orbit-sms-from,.orbit-parent-alert .orbit-sms-time{color:var(--fg-muted)}
+.orbit-parent-alert .orbit-sms-bubble{border-color:var(--fg-border)}
+/* Compact response actions. */
+.orbit-alert-actions{max-width:400px;gap:10px;margin:14px auto}
+.orbit-alert-actions button{min-height:52px;font-size:16px;padding:12px;border-radius:14px}
+.orbit-takeover.is-alert .orbit-alert-actions button{min-height:50px;font-size:15px}
+.orbit-vresponses,.orbit-vempty,.orbit-parent-alert .orbit-close{max-width:400px}
+.orbit-parent-alert .orbit-close .orbit-primary{min-height:50px;font-size:15px}
+/* Compact Found-safe card: no full-screen slab, no overlapping :after panel. */
+.orbit-found{min-height:0;max-width:400px;margin:0 auto;padding:20px 16px 18px;border-radius:24px;gap:13px;background:linear-gradient(176deg,rgba(13,138,88,.94),rgba(6,80,51,.97))}
+.orbit-found:after{display:none}
+.orbit-takeover.is-found>.orbit-found{min-height:0;max-width:400px;padding:20px 16px 18px;border-radius:24px;background:linear-gradient(176deg,rgba(13,138,88,.94),rgba(6,80,51,.97))}
+.orbit-found h2{font-size:28px;letter-spacing:-.03em;line-height:1.05}
+.orbit-found-name{font-size:16px}
+.orbit-found .orbit-thankyou{font-size:16px;max-width:34ch;line-height:1.35;font-weight:550}
+.orbit-found p:not(.orbit-thankyou):not(.orbit-found-name){font-size:13px;max-width:38ch}
+.orbit-safe-check{width:54px;height:54px}
+.orbit-safe-ring{width:74px;height:74px}
+.orbit-found .orbit-facts-card{max-width:360px;margin:2px auto 4px}
+@media(max-width:600px){
+ .orbit-facts-card{padding:13px 13px 15px}
+ .orbit-found h2{font-size:26px}
+ .orbit-found .orbit-thankyou{font-size:15px}
+}

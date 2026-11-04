@@ -1,8 +1,13 @@
+import type {ReactNode} from 'react'
 import {fireEvent,render,screen,waitFor} from '@testing-library/react'
 import {expect,it,vi} from 'vitest'
+import {SessionProvider} from '@/features/personas/Session'
+import {createMockAuthAdapter} from '@/features/personas/auth'
 import {OrbitController} from './controller'
 import {OrbitStart,extractDescriptors} from './OrbitStart'
 import type {Alert,OrbitAdapter,Vocabulary} from './adapter'
+// The start screen hosts the voice co-pilot, which needs a session context like the real app.
+const withSession=(node:ReactNode)=>render(<SessionProvider adapter={createMockAuthAdapter()}>{node}</SessionProvider>)
 
 const guidance='If there is an emergency, call 911.'
 const vocab:Vocabulary[]=[{kind:'WEAR_COLOR',value:'red',version:1},{kind:'WEAR_GARMENT',value:'jacket',version:1},{kind:'HAIR',value:'curly',version:1},{kind:'CARRY_ITEM',value:'book_bag',version:1}]
@@ -21,7 +26,7 @@ it('extractDescriptors pulls controlled-vocabulary details from free text; unkno
 
 it('the START screen leads with empathy, needs only a description, and one Send drafts+previews+activates (no form, no review page)',async()=>{
  const {adapter,controller}=fixture();await controller.load()
- render(<OrbitStart controller={controller} childName="Nora Ellison"/>)
+ withSession(<OrbitStart controller={controller} childName="Nora Ellison"/>)
  expect(screen.getByText(/I'm here\. Tell me what's happening, and I'll help you find Nora\./)).toBeVisible()
  // No dropdown wall and no separate review page.
  expect(screen.queryByLabelText('Clothing color')).not.toBeInTheDocument()
@@ -44,7 +49,7 @@ it('the START screen leads with empathy, needs only a description, and one Send 
 
 it('Send stays disabled with no description; the summary previews the extracted details',async()=>{
  const {controller}=fixture();await controller.load()
- render(<OrbitStart controller={controller} childName="Nora Ellison"/>)
+ withSession(<OrbitStart controller={controller} childName="Nora Ellison"/>)
  expect(screen.getByRole('button',{name:/Send Orbit alert/})).toBeDisabled()
  fireEvent.change(screen.getByRole('textbox'),{target:{value:'red jacket'}})
  expect(screen.getByRole('button',{name:/Send Orbit alert/})).toBeEnabled()

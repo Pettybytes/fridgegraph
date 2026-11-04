@@ -5,6 +5,7 @@ import type {Descriptors, Vocabulary} from './adapter'
 import {descriptorLabels} from './OrbitPreparation'
 import {useOrbitState, useOrbitPhoto} from './runtime'
 import type {OrbitController} from './controller'
+import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
 
 /**
  * Pull the controlled-vocabulary details out of the parent's free-text description. This is a
@@ -53,6 +54,9 @@ export function OrbitStart({controller, childName}: {controller: OrbitController
       <span className="orbit-start-rosina" aria-hidden="true">R</span>
       <p><strong>Rosina</strong><span>I'm here. Tell me what's happening, and I'll help you find {firstName}.</span></p>
     </div>
+    {/* Tap-to-speak co-pilot: Muse transcribes the parent's voice straight into the description. The
+        Orbit-specific instruction and spoken confirmation live in the voice service. */}
+    <div className="orbit-start-voice"><RosinaVoiceButton onTranscript={t => {const said = t.trim(); if (said) setText(prev => prev.trim() ? `${prev.trim()} ${said}` : said)}}/><span>Tap to speak, or type below</span></div>
     <label className="orbit-start-field">
       <span className="sr-only">Describe {firstName}</span>
       <textarea value={text} onChange={e => setText(e.target.value)} rows={4} disabled={sending}
@@ -76,6 +80,7 @@ export function OrbitStart({controller, childName}: {controller: OrbitController
       <div><dt>Last seen</dt><dd>{placeLabel ?? 'add a place if you can'} · just now</dd></div>
       {descriptorKeys.filter(k => summary[k]).map(k => <div key={k}><dt>{descriptorLabels[k]}</dt><dd>{summary[k]!.replaceAll('_', ' ')}</dd></div>)}
     </dl>}
+    {state.suggestionNotice && <p className="orbit-start-notice" role="status">{state.suggestionNotice}</p>}
     {state.error && <p className="orbit-start-error" role="alert">{state.error}</p>}
     <button type="button" className="orbit-primary orbit-send" disabled={!described || sending} onClick={send}>
       <Send size={18}/>{sending ? 'Sending Orbit alert…' : 'Send Orbit alert'}
