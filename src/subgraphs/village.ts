@@ -469,7 +469,15 @@ const resolvers = {
       requireCaller(ctx);
       // ONE gate for the whole world. A child the caller cannot read is refused generically — an
       // empty village would still tell them the child exists.
-      await authorizeChild(ctx, childId, SCOPE.schedule);
+      try { await authorizeChild(ctx, childId, SCOPE.schedule); }
+      catch(error){
+        if(!(error instanceof GraphQLError)||error.extensions.code!=='UNAUTHORIZED')throw error;
+        // A care-plan grant discloses this child and the caller, not the schedule or village roster.
+        await authorizeChild(ctx, childId, SCOPE.careplan);
+        const callerId=requireCaller(ctx),person=await personRow(ctx,callerId);
+        if(!person)throw deny();
+        return {village:null,child:{id:childId},people:[{person:{id:callerId,displayName:String(person.display_name)},relationship:null,homePlaceId:null,areaLabel:null,scheduledEventId:null,scheduledPlaceId:null}],places:[],events:[]};
+      }
 
       const day = asOf ?? ctx.today;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {

@@ -1,3 +1,4 @@
+import {useChildAccess} from '@/features/personas/childContext'
 import {preloadRoute} from './routeModules'
 import {RouteSkeleton} from './RouteSkeleton'
 import { Suspense, startTransition, useEffect, useState } from 'react'
@@ -26,6 +27,7 @@ function readRoute(): string { const route = window.location.hash.slice(2).split
 export function Shell({ slots = {}, sessionChip, showDemoReplay = false }: { slots?: Partial<Record<Route, ReactNode>>; sessionChip?: ReactNode; showDemoReplay?: boolean }) {
   const [route, setRoute] = useState(readRoute)
   const { scope } = useDataContext()
+  const child=useChildAccess()
   useEffect(() => {
     // Only route navigation is deferred; session/permission context updates stay urgent.
     const onHash = () => {const next=readRoute();if(next==='fridge')startTransition(()=>setRoute(next));else setRoute(next)}
@@ -46,7 +48,7 @@ export function Shell({ slots = {}, sessionChip, showDemoReplay = false }: { slo
       <div className="sidebar-footer"><span className="avatar">{scope.parentName[0]}</span><div><strong>{scope.parentName}</strong><small>{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : 'Your perspective'}</small></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><span className="topbar-context">{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${scope.childName}'s village`}</span>{sessionChip && <div className="topbar-tools">{sessionChip}</div>}</header>
+      <header className="topbar"><span className="topbar-context">{route === 'calendar' ? 'Your shared calendars' : route === 'village' ? 'Your shared villages' : `${route==='map'?(child?.selectedChildName??scope.childName):scope.childName}'s village`}</span>{sessionChip && <div className="topbar-tools">{sessionChip}</div>}</header>
       <main id="main" tabIndex={-1}>
         {route !== 'fridge' && <div className={cn('page-heading', route === 'ask-rosina' && 'sr-only')}><div><h1>{current?.label ?? 'Page not found'}</h1></div></div>}
         <Suspense fallback={<RouteSkeleton variant={route==='calendar'?'calendar':'cards'} />}>{current ? slots[current.path] ?? <section className="route-slot" aria-label={`${current.label} workspace`}><div className="slot-symbol"><current.icon size={32} aria-hidden="true" /></div><h2>{current.label === 'Living Village' ? 'Room for your Living Village' : `Your ${current.label.toLowerCase()} workspace`}</h2><p>{current.path === 'village' ? `The people and relationships around ${scope.childName} will come together here.` : 'This workspace is ready for the next feature.'}</p><a href={current.path === 'village' ? '#/mission-control' : '#/village'}>{current.path === 'village' ? 'Back to Mission Control' : 'Explore Living Village'}<ArrowUpRight size={16} aria-hidden="true" /></a></section>
