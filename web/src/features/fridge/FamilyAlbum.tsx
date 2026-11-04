@@ -7,7 +7,7 @@ export function FamilyAlbum({assets,readOnly}:{assets:AlbumAsset[];readOnly:bool
  const [open,setOpen]=useState(false),[selected,setSelected]=useState<string|null>(null)
  const asset=assets.find(item=>item.id===selected)
  return <Dialog.Root open={open} onOpenChange={value=>{setOpen(value);if(!value)setSelected(null)}}>
-  <Dialog.Trigger className="fridge-album-trigger">Add from family album</Dialog.Trigger>
+  <Dialog.Trigger className="fridge-album-trigger">{readOnly?'View family album':'Add from family album'}</Dialog.Trigger>
   <Dialog.Portal><Dialog.Overlay className="fridge-overlay"/><Dialog.Content className="fridge-dialog fridge-album">
    <Dialog.Title>Your family album</Dialog.Title>
    <Dialog.Description>Decorative artwork · preview only. Pinning, replacing and removing album pictures aren’t available yet.</Dialog.Description>

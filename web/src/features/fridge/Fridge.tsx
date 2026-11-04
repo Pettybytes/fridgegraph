@@ -18,7 +18,7 @@ const positionStyle=(p:Position):CSSProperties=>({left:`${p.x*100}%`,top:`${p.y*
 function movedPosition(p:Position,dx:number,dy:number):Position{return {...p,x:Math.max(.205,Math.min(.457-p.width,p.x+dx)),y:Math.max(.11,Math.min(.49,p.y+dy))}}
 
 export function Fridge(props:Props){return <FridgeContext key={`${props.personId}:${props.childId}:${props.generation}`} {...props}/>}
-function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=[],saveCaption,childId,reader,readOnly,sampleSlots=samples,artLabel='Decorative family artwork',editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[],intake}:Props){
+function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=[],saveCaption,childId,reader,readOnly,sampleSlots=samples,editingControls,goalsOverride,boardReadOnly=true,postedNotes=[],openPostedNotes,boardEditor,noteCreateControl,artPackId,albumAssets=[],intake}:Props){
  const viewport=useFridgeViewport()
  const [arrange,setArrange]=useState(false)
  const [door,setDoor]=useState<Door>(hashDoor)
@@ -77,10 +77,10 @@ function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=
  useEffect(()=>{if(viewport.view.scale===1&&previousScale.current>1)navigate(null);previousScale.current=viewport.view.scale},[viewport.view.scale,navigate])
  useEffect(()=>{if(viewport.moving&&door){setDoor(null);appliedHash.current='#/fridge';history.replaceState(null,'','#/fridge')}},[viewport.moving,door])
  const live=[care].flatMap(({state})=>state.status==='ready'?state.value as Slot[]:[])
- const displayedLive=artPackId==='ellison-fridge-v1'?live.map(slot=>({...slot,position:{...slot.position,y:.39}})):live
- // Stored papers take priority over decorative samples; the invitation remains
- // reachable in the separate sample tray. Never merge stored text into that manifest.
- const doorSamples=postedNotes.length?sampleSlots.filter(slot=>slot.variant!=='save-date').map(slot=>slot.id==='sample-family-dinner'?{...slot,position:{x:.211,y:.478,width:.115,rotation:3}}:slot):sampleSlots
+ const carePosition=artPackId?(artPackId==='ellison-fridge-v1'?{x:.379,y:.316,width:.078,rotation:-2}:{x:.345,y:.29,width:.11,rotation:2}):notePositions.care
+ const displayedLive=live.map(slot=>({...slot,position:carePosition}))
+ // Keep the invitation pinned even when real notes have been posted.
+ const doorSamples=sampleSlots.filter(slot=>!(postedNotes.some(note=>note.id.startsWith('fridge_demo_note_'))&&slot.id==='sample-family-dinner')&&!(care.state.status!=='empty'&&slot.id==='pack_sitter_schedule'))
  const slots=[...doorSamples,...displayedLive]
  const storePosition=(id:string,p:Position)=>{
   // `Position` is exactly {x,y,width,rotation}. Renderers carry extra style keys (e.g. magnet) beside
@@ -102,21 +102,21 @@ function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=
  }
  const goalFeedback=()=>board.status==='ready'?null:<p className="fridge-read" role={board.status==='failed'?'alert':'status'}>{board.status==='loading'?'Loading shared goals…':board.status==='empty'?'Nothing posted here yet.':board.status==='refused'?"These notes aren't shared with this perspective.":board.status==='unavailable'?'These notes aren’t connected in this view.':"Couldn't load these notes"}{board.status==='failed'&&<button aria-label="Retry goals" onClick={goals.refresh}>Retry</button>}</p>
  return <section className="fridge-feature" aria-label="The Fridge">
-  <header className="fridge-toolbar"><div><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div></header>
-  <div className="fridge-caption"><span>{artLabel}. {readOnly?'Read-only perspective.':''}</span><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Tap anywhere to zoom into that point; tap again to open an item. Drag to pan, pinch to zoom, or focus the viewer to use the wheel and + / − keys. Arrow keys pan. Turn on Arrange items to drag paper or move it with Alt + arrow keys.</p><p>Positions and marker choices save to the family fridge. Tidy up resets positions. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div>
+  <header className="fridge-toolbar"><div className="fridge-heading"><h1>The Fridge</h1><p>A little of your family, all in one place.</p></div>
+  <div className="fridge-caption"><Popover.Root><Popover.Trigger className="fridge-help-trigger" aria-label="Fridge layout and keyboard help">ⓘ</Popover.Trigger><Popover.Portal><Popover.Content className="fridge-help" sideOffset={8} aria-label="Fridge layout and keyboard help"><h2>Make yourself at home</h2><p>Tap anywhere to zoom into that point; tap again to open an item. Drag to pan, pinch to zoom, or focus the viewer to use the wheel and + / − keys. Arrow keys pan. Turn on Arrange items to drag paper or move it with Alt + arrow keys.</p><p>Positions and marker choices save to the family fridge. Tidy up resets positions. Escape returns to the full fridge. {boardReadOnly?'Goals are read-only.':'Goal changes require a confirmed save.'}</p><Popover.Close aria-label="Close fridge help">Close</Popover.Close></Popover.Content></Popover.Portal></Popover.Root></div></header>
   <div className="fridge-actions">
    <nav aria-label="Fridge doors" className="fridge-action-group"><button ref={notesControl} aria-pressed={door==='notes'} onClick={()=>navigate('notes')}>Open collage door</button><button ref={goalsControl} aria-pressed={door==='goals'} onClick={()=>navigate('goals')}>Open goals door</button></nav>
    <FamilyAlbum assets={albumAssets} readOnly={!!readOnly||boardReadOnly}/>
   </div>
   {!sampleSlots.length&&<p className="fridge-empty-art">Make room for your family’s moments. There’s no artwork in this family album yet.</p>}
-  {intake??<div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>}
+  {readOnly?<p className="fridge-readonly-hint">Read-only perspective. Explore the family collage, notes and goals.</p>:intake??<div className="fridge-intake-state"><button disabled aria-describedby="fridge-intake-reason">+ Add photo or paper</button><p id="fridge-intake-reason">Photo and paper intake is unavailable. Private upload, extraction, confirmation, storage and authorized retrieval have not been verified together.</p></div>}
   {editingControls&&<div className="fridge-editing-controls">{editingControls}</div>}
   {preferences.status&&<p className="fridge-arrangement-status" role={preferences.status.startsWith('Couldn’t')?'alert':'status'}>{preferences.status}{!preferences.ready&&<button onClick={preferences.retry}>Retry arrangement</button>}</p>}
   <nav className="fridge-view-controls" aria-label="Fridge view controls">
    {viewport.view.scale>1&&<button onClick={()=>navigate(null)}>← Back to fridge</button>}
    <button onClick={()=>viewport.zoom(1.25)}>Zoom in</button><button disabled={viewport.view.scale===1} onClick={()=>viewport.zoom(.8)}>Zoom out</button><button onClick={()=>navigate(null)}>Reset view</button>
-   <button aria-pressed={arrange} disabled={arrangementReadOnly} onClick={()=>setArrange(value=>!value)}>Arrange items</button>
-   <button disabled={arrangementReadOnly} onClick={()=>void preferences.change({tidy:true})}>Tidy up</button>
+   {!readOnly&&<><button aria-pressed={arrange} disabled={arrangementReadOnly} onClick={()=>setArrange(value=>!value)}>Arrange items</button>
+   <button disabled={arrangementReadOnly} onClick={()=>void preferences.change({tidy:true})}>Tidy up</button></>}
   </nav>
   <div ref={viewport.ref} className={`fridge-viewport ${viewport.view.scale>1?'is-focused':''}`} data-view={door??'overview'} data-scale={viewport.view.scale} data-arrange={arrange} data-editable={!arrangementReadOnly} tabIndex={0} role="region" aria-label="Fridge viewer"
    onFocusCapture={e=>{
@@ -159,7 +159,7 @@ function FridgeContext({preferences:sharedPreferences,mediaUrls={},captionNotes=
       {postedNotes.filter(note=>!layout[note.id]).map(note=>postedPaper(note))}
      </section>}
      {postedNotes.filter(note=>layout[note.id]).map(note=>postedPaper(note,layout[note.id]))}
-     {([['care',care]] as const).map(([source,{state,refresh}])=>state.status==='ready'?null:<article key={source} className={`fridge-feedback paper-0`} style={positionStyle(artPackId==='ellison-fridge-v1'?{...notePositions.care,y:.39}:notePositions.care)} aria-label={'Care notes'}>
+     {([['care',care]] as const).map(([source,{state,refresh}])=>state.status==='ready'||(artPackId&&state.status==='empty')?null:<article key={source} className={`fridge-feedback paper-0`} style={positionStyle(carePosition)} aria-label={'Care notes'}>
       <Magnet kind={'apple'}/>
       <p role={state.status==='failed'?'alert':'status'}><span className="fridge-note-source">Care notes · </span><span>{state.status==='loading'?'Loading…':state.status==='empty'?'Nothing posted yet.':state.status==='refused'?'Not shared with this perspective.':state.status==='unavailable'?'Not connected in this view.':"Couldn't load"}</span></p>
       {state.status==='failed'&&<button aria-label={'Retry care notes'} onClick={refresh}>Retry</button>}

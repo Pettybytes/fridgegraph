@@ -22,7 +22,7 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
   const alive = useRef(true)
   const busy = useRef<Section | null>(null)
   const [goals, setGoals] = useState<ReadState<GoalRecord>>({ kind: 'loading' })
-  const [notes, setNotes] = useState<ReadState<FridgeNoteRecord>>({ kind: viewer.role === 'GUIDE' ? 'refused' : 'loading' })
+  const [notes, setNotes] = useState<ReadState<FridgeNoteRecord>>({ kind: 'loading' })
   const [pending, setPending] = useState<Section | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -35,7 +35,7 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
     alive.current = true
     const owns = () => alive.current && !abort.signal.aborted && currentScope.current === scopeKey
     void adapter.readGoals(childId, abort.signal).then(items => { if (owns()) setGoals({ kind: 'ready', items }) }, error => { if (owns()) setGoals({ kind: readFailure(error) }) })
-    if (viewer.role !== 'GUIDE') void adapter.readNotes(childId, abort.signal).then(items => { if (owns()) setNotes({ kind: 'ready', items }) }, error => { if (owns()) setNotes({ kind: readFailure(error) }) })
+    void adapter.readNotes(childId, abort.signal).then(items => { if (owns()) setNotes({ kind: 'ready', items }) }, error => { if (owns()) setNotes({ kind: readFailure(error) }) })
     return () => { alive.current = false; abort.abort() }
   }, [adapter, childId, viewer.personId, viewer.role, viewer.sessionKey, scopeKey, reloadKey])
 
@@ -86,7 +86,7 @@ export function useFridgeEditing(adapter: FridgeEditingAdapter, childId: string,
       },()=>{})
       return {saved,id:savedId}
     },
-    retry: () => { setGoals({ kind: 'loading' }); setNotes({ kind: viewer.role === 'GUIDE' ? 'refused' : 'loading' }); setNotice(null); setReloadKey(value => value + 1) },
+    retry: () => { setGoals({ kind: 'loading' }); setNotes({ kind: 'loading' }); setNotice(null); setReloadKey(value => value + 1) },
     createGoal: (fields: GoalFields) => change('goals', () => adapter.createGoal({ childId, ...fields, status: 'PROPOSED' }), result => { if (!result?.id) throw new Error('MISSING_RECORD'); setGoals(state => state.kind === 'ready' ? { kind: 'ready', items: [...state.items, result] } : state) }),
     updateGoal: (id: string, fields: GoalFields) => change('goals', () => adapter.updateGoal({ id, ...fields }), result => putGoal(checkId(result, id))),
     completeGoal: (id: string) => change('goals', () => adapter.completeGoal({ id }), result => { checkId(result, id); if (!result.completedAt) throw new Error('COMPLETION_NOT_RECORDED'); putGoal(result) }),
