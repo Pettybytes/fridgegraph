@@ -46,9 +46,10 @@ here too, rather than being assumed pre-approved by these two.
 
 - Migrations live in `supabase/migrations/` and are **append-only**. Never edit an applied migration — the database already ran it.
 - One logical change per migration. Name it for the outcome, not the mechanism.
-- **Current head:** `0012` (`0012_revoke_public_execute.sql` revoked PUBLIC/anon EXECUTE on the four
-  definer helpers that had kept Postgres defaults, and re-granted `authenticated` explicitly;
-  `0011` widened a grant window so the suite stops depending on the wall clock).
+- **Migration catalog:** through `0098` on main; `0099_showcase_calendar_care.sql` is staged in
+  this calendar PR (not evidence of live application). It adds nullable weekly handoff time/place,
+  preserves approved-holiday precedence, and includes composite-key parenting schedules in the
+  owner-only atomic demo restore. Rehearse and apply forward-only before rolling this seed.
 - Policy rule learned the hard way: **never put a table's own `SELECT` inside its own RLS policy** — it raises `42P17` at runtime. `0009` (`my_household_ids()`) exists for that reason.
 - RLS legitimately hides rows that a derived query needs (grants, co-parent membership, relationship types). The fix is a narrow `SECURITY DEFINER` helper (`0008`, `0010`), **never** widening a policy.
 
@@ -68,6 +69,9 @@ Scope table is authoritative in `docs/schema-plan.md` and must stay mirrored in 
 
 ## 6. Seeds, reset, checksums
 
+- Showcase calendar seed: all ten children across six families have seven-day responsibility,
+  weekly handoffs, recorded availability and a Veterans Day arrangement. `createShowcaseCalendar()`
+  is shared by operator seed and demo reset; availability is not permission or willingness to care.
 - `npm run db:seed` — idempotent. Proven twice with byte-identical per-table checksums (**28 tables, 157 rows**).
 - `npm run db:reset` — removes only non-baseline rows by an id-based boundary. A sentinel outside the boundary survives; a double reset is a no-op. **Shared-database operation — see §1.**
 - `npm run db:checksum` — use it to prove you changed nothing you did not mean to.

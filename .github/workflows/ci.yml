@@ -39,7 +39,7 @@ jobs:
         run: npm run test:seed
 
       - name: All-family fictional history and fixture copy
-        run: node --import tsx --test src/demo/pristineHistory.test.ts src/demo/calendarDensity.test.ts
+        run: node --import tsx --test src/demo/pristineHistory.test.ts src/demo/calendarDensity.test.ts src/demo/showcaseCalendar.test.ts
 
       - name: Mission Control coverage failure reporting (offline)
         run: node --test ops/mc-analytics-coverage.test.mjs
@@ -145,6 +145,9 @@ jobs:
       - name: Reset perspective and recovery regressions
         if: steps.detect.outputs.present == 'true'
         run: npm --prefix web test -- src/features/personas/resetDemo.test.tsx src/features/personas/demoReset.transport.test.ts
+
+      - name: Showcase calendar PostgreSQL coverage and reset
+        run: node --import tsx ops/calendar-data-proof.mjs
 
       - name: Guide database read and isolation proof
         run: node --import tsx ops/guide-database-proof.mjs

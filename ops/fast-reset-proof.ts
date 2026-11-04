@@ -20,7 +20,7 @@ async function main(){
  async function seed(t:string,rows:any[]){if(!rows.length)return;const available=new Set((await c.query('select attname from pg_attribute where attrelid=$1::regclass and not attisdropped',[t])).rows.map(r=>r.attname));const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>available.has(k)),pk=keys[t]??['id'];const q=(s:string)=>'"'+s.replaceAll('"','""')+'"';const updates=cols.filter(k=>!pk.includes(k)).map(k=>`${q(k)}=excluded.${q(k)}`).join(',');await c.query(`insert into ${q(t)} (${cols.map(q)}) select ${cols.map(q)} from jsonb_populate_recordset(null::${q(t)},$1) on conflict (${pk.map(q)}) ${updates?'do update set '+updates:'do nothing'}`,[JSON.stringify(rows)]);}
  const files=readdirSync('supabase/migrations').filter(f=>f.endsWith('.sql')).sort();
  for(const f of files){
-  if(f.startsWith('0040')){for(const [t,rows]of Object.entries(baseline()))if(t!=='shared_statuses')await seed(t,rows);for(const [t,rows]of Object.entries(createCastV2()))if(Array.isArray(rows))await seed(t,rows);}
+  if(f.startsWith('0040')){for(const [t,rows]of Object.entries(createCastV2()))if(Array.isArray(rows))await seed(t,rows);for(const [t,rows]of Object.entries(baseline()))if(t!=='shared_statuses')await seed(t,rows);}
   try{await c.query(readFileSync('supabase/migrations/'+f,'utf8'));}catch(e:any){throw Error(`${f}: ${e.code} ${e.message}`)}
  }
  // Seed Cast in its canonical table order; rows outside restore's subset are baseline content too.
