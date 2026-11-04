@@ -36,5 +36,5 @@
 
 /* Keep both map surfaces blue when the surrounding app uses a dark theme. */
 .vm-workspace,.vm-mini,.vm-canvas{--fg-primary:var(--type-school);--fg-focus:var(--type-school);--fg-selection:oklch(.95 .028 237)}
-.dark .vm-workspace,.dark .vm-mini,.dark .vm-canvas{--fg-selection:oklch(.34 .04 237)}
+.dark .vm-workspace,.dark .vm-mini,.dark .vm-canvas{--fg-primary:oklch(.72 .13 237);--fg-focus:oklch(.72 .13 237);--fg-on-primary:oklch(.14 0 0);--fg-selection:oklch(.34 .04 237)}
 .vm-map-credit,.vm-cluster b{font-size:12px}

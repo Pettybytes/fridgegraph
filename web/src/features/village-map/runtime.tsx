@@ -44,7 +44,7 @@ function ReplayClock({controller}:{controller:MapController}){
 }
 export function RideCost({controller}:{controller:MapController}){
  const state=useMapState(controller),ride=state.route?.rideEstimate;if(!ride||!state.world?.canReadCost)return null
- return <div className="vm-ride"><strong>Rideshare to school · Est. ${ride.amountUsd.toFixed(2)}</strong><p>No vehicle on record. Paid-ride path in this sample scenario.</p><p>{ride.amountUsd>ride.capUsd?'Over':'Within'} {state.world.parentName}'s ${ride.capUsd.toFixed(0)} ride limit</p>{/\bhaversine\b/i.test(ride.basis)&&<p>Straight-line approximation — may understate road cost</p>}<small>{ride.basis}</small></div>
+ return <div className="vm-ride"><strong>Rideshare to school · Est. ${ride.amountUsd.toFixed(2)}</strong><p>No vehicle on record. Paid-ride path in this sample scenario.</p><p>{ride.amountUsd>ride.capUsd?'Over':'Within'} {state.world.parentName}'s ${ride.capUsd.toFixed(0)} ride limit</p>{/\bhaversine\b/i.test(ride.basis)&&<p>Straight-line approximation, may understate road cost</p>}<small>{ride.basis}</small></div>
 }
 export function StoredRideCosts({world}:{world:MapWorld}){
  if(world.state!=='live'||!world.canReadCost)return null
@@ -53,7 +53,7 @@ export function StoredRideCosts({world}:{world:MapWorld}){
   const straight=/\bhaversine\b|straight.line/i.test(basis)
   if(!straight&&!/\broad\b/i.test(basis))return {warning:'',line:'Cost basis is recorded but not described in this view'}
   const plain=basis.replace(/\bhaversine\b/gi,'straight-line')
-  return {warning:straight?'Straight-line approximation — may understate road cost':'',line:/estimate|quote/i.test(plain)?plain:`${plain} estimate, not a provider quote`}
+  return {warning:straight?'Straight-line approximation, may understate road cost':'',line:/estimate|quote/i.test(plain)?plain:`${plain} estimate, not a provider quote`}
  }
  return <section className="vm-stored-rides" aria-label="Recorded pickup ride estimates">
   <h3>Recorded pickup ride estimates</h3>

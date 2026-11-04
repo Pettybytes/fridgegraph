@@ -23,7 +23,7 @@ it('labels only mock data, keeps returned labels and blocks unwired live proposa
  const c=new MapController(live);await c.load();await c.route('p_gma','school')
  render(<MapView controller={c}/>)
  expect(screen.queryByText(/Sample data/)).not.toBeInTheDocument()
- expect(screen.getByText('Estimated — not live traffic')).toBeVisible()
+ expect(screen.getByText('Estimated, not live traffic')).toBeVisible()
  expect(screen.getAllByText('Returned Maplewood School').length).toBeGreaterThan(0)
  expect(screen.getByRole('link',{name:/Open this day in Family Calendar/})).toHaveAttribute('href','#/calendar?day=2026-11-03&childId=authorized-child&view=day')
  expect(screen.getByRole('button',{name:/Propose pickup/})).toBeDisabled()
@@ -43,7 +43,7 @@ it('labels a stored haversine-basis amount as a straight-line approximation',asy
  const basis='FridgeGraph synthetic planning estimate: haversine distance × $1.40/mi'
  const c=new MapController({mode:'mock',readWorld:async()=>world,route:async()=>({...result,rideEstimate:{...sampleRide,basis}})})
  await c.load();await c.route('p_gma','school');render(<MapView controller={c}/>)
- expect(screen.getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+ expect(screen.getByText('Straight-line approximation, may understate road cost')).toBeVisible()
  expect(screen.getByText(basis)).toBeVisible()
  expect(screen.getByText(/Rideshare to school · Est. \$12.40/)).toBeVisible()
 })
@@ -79,7 +79,7 @@ it('shows only a parent or guardian the separately recorded pickup estimate, wit
  const world={...sample,state:'live' as const,canReadCost:true,storedRideEstimates,rideReadState:'ready' as const}
  const parent=new MapController({mode:'live',readWorld:async()=>world,route:fixture.route});await parent.load();render(<MapView controller={parent}/>)
  expect(screen.getByRole('region',{name:'Recorded pickup ride estimates'})).toHaveTextContent('Loretta from graph · Rideshare option · Est. $12.40')
- expect(screen.getByText('Straight-line approximation — may understate road cost')).toBeVisible()
+ expect(screen.getByText('Straight-line approximation, may understate road cost')).toBeVisible()
  expect(screen.getByText('FridgeGraph synthetic planning estimate: straight-line distance x $1.40/mi - not a provider quote')).toBeVisible()
  expect(screen.getByText(/Over the household's \$10\.00 ride limit/)).toBeVisible()
  cleanup()
