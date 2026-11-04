@@ -1,5 +1,34 @@
 # Contract — 30-day demo pickup-coordination history (v1, PROPOSED)
 
+## Implementation update, November 3, 2026
+
+The proposal below describes the original Nora story dataset. Its source and the all-family
+supplement are now in the repository. Source availability does not establish that Bentley has
+seeded or deployed a revision, or that Claude has accepted the served build.
+
+- `src/fixtures-demo-history.ts` retains the original twenty Nora stories and their recorded
+  response, confirmation and voice provenance.
+- `src/fixtures-simulated.ts` adds 204 versioned, ended coordination requests across all ten
+  authorized children. The fixed Detroit window is October 5 through November 3, 2026.
+  IDs begin `fx_job_history_v1_`; contact attempts use closed `TEST_RESPONDER` records.
+  They establish neither delivery nor caregiver acceptance, parent approval or physical pickup.
+- `src/fixtures-cast-v2.ts` supplies the shared calendar records. Its fixed enrichment window is
+  October 5 through November 17, 2026, covering the historical thirty Detroit dates and the next
+  fourteen days from the November 3 anchor. The follow-up adds 32 events using new stable IDs;
+  existing IDs and records remain unchanged. Event times retain the legacy Detroit wall-clock
+  timestamp format.
+- Bentley runs the existing additive baseline seed and simulated seed separately:
+  `npm run db:seed`, then `npx tsx scripts/db.ts seed:simulated`. No new migration is needed for
+  this calendar extension. A broader backend upgrade retains its existing migration dependencies.
+- `src/demo/pristineHistory.test.ts`, `src/demo/calendarDensity.test.ts`, and the isolated real
+  reset proof verify source coverage, identity stability and repeated restoration. Live reads,
+  family isolation and served acceptance remain separate checks.
+
+The historical proposal status and original Nora-only scope below do not describe the current
+all-family source coverage.
+
+## Original proposal
+
 Status: **PROPOSED.** Drafted directly from the confirmed fields and limitations in
 `docs/contracts/village-pulse-data.md` (that contract authorizes no schema/resolver/migration/
 reset/outreach change by itself — this one is the backend/seed PR it names). **Published now,

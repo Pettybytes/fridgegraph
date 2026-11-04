@@ -1,0 +1,25 @@
+import { render, waitFor } from '@testing-library/react'
+import { expect, it, vi } from 'vitest'
+import { LiveFamilyCalendar } from './LiveFamilyCalendar'
+import type { LiveCalendarAdapter, LiveWindow } from './liveAdapter'
+
+vi.mock('@ilamy/calendar', async importOriginal => ({
+  ...await importOriginal<typeof import('@ilamy/calendar')>(),
+  IlamyCalendar: () => <div>Calendar grid</div>,
+}))
+
+it.each([
+  ['2026-11-03', '2026-10-26', '2026-12-06'],
+  ['2027-01-04', '2026-12-28', '2027-02-07'],
+])('reads every displayed month cell for %s, including adjacent months', async (day, from, to) => {
+  const readWindow = vi.fn(async ({ childId, from: start }: { childId: string; from: string; to: string }): Promise<LiveWindow> => ({
+    childId, days: [start], events: { state: 'ready', value: [] },
+    care: { [start]: { state: 'ready', value: { parent: null, source: 'WEEKLY', arrangementId: null } } },
+    conflicts: { state: 'ready', value: [] }, availability: { state: 'ready', value: [] },
+  }))
+  const adapter = { scope: { childId: 'p_nora', childName: 'Nora Ellison' }, parent: false, readWindow, knownEvent: () => undefined, knownChild: () => undefined } as unknown as LiveCalendarAdapter
+  history.replaceState(null, '', `#/calendar?day=${day}&view=month`)
+  const view = render(<LiveFamilyCalendar adapter={adapter} />)
+  await waitFor(() => expect(readWindow).toHaveBeenCalledWith({ childId: 'p_nora', from, to, includeCancelled: false }))
+  view.unmount()
+})
