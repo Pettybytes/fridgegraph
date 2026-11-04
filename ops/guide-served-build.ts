@@ -17,6 +17,8 @@ import school from '../src/subgraphs/school';
 import transport from '../src/subgraphs/transport';
 import activities from '../src/subgraphs/activities';
 import { createPinPreferencesHandler } from '../src/rosina/pinPreferences';
+// PostgREST returns SQL dates as YYYY-MM-DD strings, not JavaScript Date objects.
+pg.types.setTypeParser(1082, value => value);
 const db = await guideDatabase();
 process.once('uncaughtException',async error=>{console.error(error.message);await db.close();process.exit(1)});
 process.once('unhandledRejection',async error=>{console.error(error);await db.close();process.exit(1)});

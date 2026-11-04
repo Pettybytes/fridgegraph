@@ -9,12 +9,15 @@ async function open(page:Page,route:string){
 }
 test('Demo guide browses every page and all families without write controls',async({page})=>{
  // No state files, traces, request headers or session tokens are retained.
+ const pageErrors:string[]=[]
+ page.on('pageerror',error=>{pageErrors.push(error.message);console.error('Browser error:',error.message)})
  await page.goto('/')
  await page.getByRole('button',{name:'Explore as the Demo guide',exact:true}).click()
  const select=page.getByRole('combobox',{name:'Demo guide child',exact:true})
  await expect(select.locator('option')).toHaveCount(10)
  let main=await open(page,'village')
- await expect(main.getByText('Kendra Ellison',{exact:true}).first()).toBeVisible()
+ await main.getByRole('button',{name:'List view',exact:true}).click()
+ await expect(main.getByRole('button',{name:'Kendra Ellison parent',exact:true})).toBeVisible()
  main=await open(page,'mission-control')
  await expect(main.getByRole('combobox',{name:'Pickup record'})).toBeVisible()
  await expect(main.locator('[data-pulse-tile]')).not.toHaveCount(0)
@@ -42,6 +45,7 @@ test('Demo guide browses every page and all families without write controls',asy
  await page.getByRole('button',{name:'Close Ask Rosina',exact:true}).click()
  const children=await select.locator('option').evaluateAll(options=>options.map(option=>({id:(option as HTMLOptionElement).value,name:option.textContent!})))
  for(const child of children){
+  console.info(`Checking fictional child ${child.id}`)
   await select.selectOption(child.id)
   main=await open(page,'village')
   await expect(main).toContainText(child.name)
@@ -51,6 +55,7 @@ test('Demo guide browses every page and all families without write controls',asy
   main=await open(page,'calendar')
   await expect(main).toContainText(child.name)
  }
+ expect(pageErrors).toEqual([])
  await expect(page.getByRole('button',{name:'Reset demo',exact:true})).toHaveCount(0)
 })
 test('Kendra and Dana retain separate family directories',async({page})=>{
