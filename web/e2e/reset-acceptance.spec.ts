@@ -19,18 +19,33 @@ test('one public reset commits under2s and keeps Kendra in the same perspective'
  expect(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true)
  await page.screenshot({path:info.outputPath('confirm-phone.png')})
  await page.setViewportSize({width:1440,height:900})
- const route=page.url(),reply=page.waitForResponse(r=>r.url().endsWith('/api/demo/reset')&&r.request().method()==='POST')
+ const network:{path:string;status:number;responseMs:number}[]=[]
+ page.on('response',response=>{
+  const path=new URL(response.url()).pathname
+  if(path==='/api/demo/reset'||path.startsWith('/api/demo/reset/'))network.push({path,status:response.status(),responseMs:response.request().timing().responseStart})
+ })
+ const route=page.url(),reply=page.waitForResponse(r=>r.url().endsWith('/api/demo/reset')&&r.request().method()==='POST').catch(()=>null)
  await confirm.evaluate(e=>{e.addEventListener('click',()=>{
   const proof={start:performance.now(),done:null as number|null};(window as unknown as {resetProof:typeof proof}).resetProof=proof
   const observer=new MutationObserver(()=>{const toast=document.querySelector('.reset-demo-toast');if(toast?.textContent==='Demo reset.'&&document.querySelector('.session-chip')?.textContent?.includes('Kendra')){proof.done=performance.now()-proof.start;observer.disconnect()}})
   observer.observe(document.body,{subtree:true,childList:true,characterData:true})
  },{capture:true,once:true})})
  await confirm.click()
- await expect(page.locator('.reset-demo-toast')).toHaveText('Demo reset.',{timeout:2000})
+ try{await expect(page.locator('.reset-demo-toast')).toHaveText('Demo reset.',{timeout:2000})}
+ catch(error){
+  // Preserve the strict failure, but observe bounded recovery before closing the browser.
+  // Otherwise a pending response is discarded and neither its status nor final UI is captured.
+  await page.waitForFunction(()=>!!document.querySelector('.reset-demo-toast,.reset-demo-error'),undefined,{timeout:8000}).catch(()=>{})
+  const result=await page.evaluate(()=>({timing:(window as unknown as {resetProof:{done:number|null}}).resetProof,success:document.querySelector('.reset-demo-toast')?.textContent==='Demo reset.',samePersona:!!document.querySelector('.session-chip')?.textContent?.includes('Kendra'),uncertain:!!document.querySelector('.reset-demo-error')?.textContent?.includes("Couldn't confirm")}))
+  console.log(`PUBLIC_RESET_DIAGNOSTIC=${JSON.stringify({network,...result})}`)
+  throw error
+ }
  const elapsed=await page.evaluate(()=>(window as unknown as {resetProof:{done:number|null}}).resetProof.done)
  expect(elapsed,'Native Confirm click to committed same-persona success must be under2000ms').not.toBeNull()
  expect(elapsed!).toBeLessThan(2000)
  const response=await reply
+ expect(response,'The reset must receive its committed HTTP response').not.toBeNull()
+ if(!response)throw Error('Reset response was not received')
  expect(response.status()).toBe(200)
  // Assert primitives only: failures must never print a real session/token payload.
  const body=await response.json()
