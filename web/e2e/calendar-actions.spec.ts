@@ -24,7 +24,8 @@ for(const name of ['Kendra','Demo guide'])test(`${name} confirms calendar add, m
   await expect(viewer.getByRole('region',{name:'Calendar changes'})).toContainText(`cancelled ${title}`);
   console.info(JSON.stringify({perspective:name,run:suffix,proposalMs:proposed,writeAndAndreActivityMs:propagated}));
  }
- await viewer.reload();await viewer.getByRole('button',{name:'Explore as Andre',exact:true}).click();await viewer.getByRole('link',{name:'Activity',exact:true}).click();await expect(viewer.getByRole('region',{name:'Calendar changes'})).toContainText(`cancelled birthday party ${name.toLowerCase()} ${batch} gamma`);
+ // A reload now restores Andre's perspective in this tab (refresh-keeps-perspective): no re-pick is offered or needed.
+ await viewer.reload();await expect(viewer.getByRole('button',{name:'Leave perspective',exact:true})).toBeVisible();await expect(viewer.getByRole('button',{name:'Explore as Andre',exact:true})).toHaveCount(0);await viewer.getByRole('link',{name:'Activity',exact:true}).click();await expect(viewer.getByRole('region',{name:'Calendar changes'})).toContainText(`cancelled birthday party ${name.toLowerCase()} ${batch} gamma`);
  await viewer.getByRole('button',{name:'Leave perspective',exact:true}).click();await viewer.getByRole('button',{name:'Explore as Dana',exact:true}).click();await viewer.getByRole('link',{name:'Activity',exact:true}).click();await expect(viewer.locator('main')).not.toContainText(`birthday party ${name.toLowerCase()}`);
  await viewer.close();
 });
