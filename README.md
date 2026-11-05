@@ -28,9 +28,9 @@ I could see the distress in her messages, so I picked up the phone. I wanted her
 
 That conversation gave this project its purpose. A school notice in one place, a calendar in another, a caregiver who can help but lacks the right information—all of it lands on someone who is already exhausted. I wanted to use what I knew about connecting systems to help the people carrying that load.
 
-<a href="docs/assets/origin/tori-message-original.jpg"><img src="docs/assets/origin/tori-message-original.jpg" alt="Full, unaltered screenshot of Tori's August 11 text proposing an assistant for single moms, followed by Bryan's response" width="320"></a>
+<p align="center"><a href="docs/assets/origin/tori-message-original.jpg"><img src="docs/assets/origin/tori-message-rounded.svg" alt="Tori's August 11 text proposing an assistant for single moms, followed by Bryan's response" width="240"></a></p>
 
-*Click the smaller preview to read the full original conversation, including my reply. The image is uncropped and unretouched. The app's families and children are fictional.*
+*Click the rounded preview to read the full original conversation, including my reply. The original image is uncropped and unretouched. The app's families and children are fictional.*
 
 I brought years of enterprise infrastructure experience to a problem I could see in my own circle. At work, we connect distributed services, route requests, preserve ownership, enforce permissions, and record what happened. At home, an exhausted parent often performs all of those jobs from memory.
 
