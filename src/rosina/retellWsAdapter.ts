@@ -111,6 +111,9 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
     let turn = 0;
     let generation = 0;
     const answered = new Map<number, string[]>();
+    // Retell emits call_details only after this opt-in. Request it at connection
+    // time; waiting for call_details first deadlocks metadata-only binding.
+    socket.send(JSON.stringify({ response_type: 'config', config: { auto_reconnect: true, call_details: true } }));
 
     async function resolve(): Promise<BridgeSession | null> {
       if (session !== undefined) return session;
@@ -176,8 +179,8 @@ export function createRetellWsHandler(deps: RetellWsDeps) {
         const call = msg.call as { call_id?: string } & RetellCallLike;
         if (call?.call_id) callId = call.call_id;
         callSession = sessionTokenFromCall(call) ?? callSession;
+        if (session === null && callSession) session = undefined; // retry a pre-metadata refusal
         console.log(new Date().toISOString(), `[gate-b] call_details call_id=${callId ?? 'none'}`);
-        socket.send(JSON.stringify({ response_type: 'config', config: { auto_reconnect: true, call_details: false } }));
         return;
       }
       if (type === 'ping_pong') {

@@ -242,3 +242,9 @@ test('bind design gap: a key-only URL with no call-carried session stays unbound
   assert.equal(runnerCalls, 0);
   assert.match(socket.spoken(), /can't verify this caller's session/i);
 });
+
+test('connect requests call metadata before Retell has sent any event', () => {
+  const socket = connect(makeBridge(), () => kendra);
+  const config = socket.sent.map(s => JSON.parse(s)).find(s => s.response_type === 'config');
+  assert.equal(config?.config.call_details, true, 'Retell sends bind metadata only after this opt-in');
+});
