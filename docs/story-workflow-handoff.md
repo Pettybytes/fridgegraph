@@ -26,3 +26,7 @@ The animated asset preserves #291's Rosina avatar and colors. Current Nora and T
 - No application test suite or live services were invoked for this documentation-only update.
 
 Next owner: Bryan/Claude reviews and merges the replacement documentation PR. Bentley has no deployment task for these Markdown/SVG changes. Any future operational claims should reference a named served-build/provider receipt.
+
+## Follow-up: origin, SMS readiness, and screenshot scale
+
+Bryan supplied the fuller Tori origin story: her distress about single motherhood prompted him to call and offer help, and he recognized the same strain in his family. README now reflects that account. Tori’s screenshot displays at 320 px instead of 540 px, linking to the unchanged full original. Bryan also confirmed A2P registration is covered and live SMS can be enabled with a switch; testing deliberately avoids his real contacts. No switch was changed and no message or call was sent.

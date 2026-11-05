@@ -43,7 +43,7 @@ The illustration’s lower panel is a separate communication branch, not an auto
 - The newer [`makeGhlTransport`](../src/outreach/ghlTransport.ts) sends SMS directly to GoHighLevel (GHL); n8n is off that send path.
 - The earlier [n8n/GHL workflow contract](contracts/webhook.md) describes dispatch, SMS replies, and call/no-answer callbacks. [GHL workflow evidence](ghl/ghl-workflows.md) records published workflow metadata, payload checks, and the limits of that proof. Historical receipts are not rewritten as fresh tests.
 - n8n forwards workflow events to the FridgeGraph backend for validation and state handling. A reply is a contribution by a person; it is not a new permission grant or proof that a child was collected.
-- Bryan confirmed on November 5 that SMS and call options work with his integrated contacts. Live outreach is deliberately suppressed during testing to protect those contacts. This documentation change makes no new provider calls and publishes no contact data.
+- Bryan confirmed on November 5 that SMS and call options work with his integrated contacts, A2P registration is covered, and live SMS sending can be enabled with a switch. Live outreach is deliberately kept off during testing to protect those contacts. This documentation change makes no new provider calls and publishes no contact data.
 
 ## People as resource-driven endpoints
 
