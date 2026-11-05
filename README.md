@@ -54,6 +54,14 @@ A school, a parent, and a caregiver each hold a piece of a child's day. Today, t
 
 ## A glimpse inside the village
 
+<p align="center"><a href="docs/assets/readme/fridge-current.png"><img src="docs/assets/readme/fridge-current-rounded.svg" alt="FridgeGraph shared fridge showing family photos, permission slips, parent-only notes, a family gathering invitation, and the Our goals whiteboard" width="680"></a></p>
+
+**Every family has its own story. The fridge is where the chapters stick.**
+
+One familiar door for the people, plans, and little moments that bring your village together.
+
+*Current Fridge screen supplied by Bryan, presented with rounded corners. Click to see the unaltered original. Proposed and approved goals are distinct from completed outcomes.*
+
 <table>
   <tr>
     <td width="42%" align="center"><a href="docs/assets/readme/nora-current.png"><img src="docs/assets/readme/nora-current.png" alt="Nora Ellison, the current fictional demo portrait supplied by Bryan" width="320"></a><br><strong>Meet Nora Ellison.</strong><br>A child at the center of a whole village of care.</td>
