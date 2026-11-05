@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { CalendarDays, FileText, HeartHandshake, ImagePlus, Map as MapIcon, MessageCircle, Radar } from 'lucide-react'
+import { CalendarDays, FileText, HeartHandshake, ImagePlus, Mail, Map as MapIcon, MessageCircle, Radar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FgButton, Surface } from '@/components/fg/primitives'
 import { ProgressBar, TypeNode, type CardType } from '@/components/fg/cards'
 import { checklistStorageKey } from './storage'
 import './demo-checklist.css'
 
-export type DemoStepId = 'notice' | 'calendar' | 'rosina' | 'orbit' | 'map' | 'living'
+export type DemoStepId = 'notice' | 'calendar' | 'rosina' | 'orbit' | 'map' | 'living' | 'invites'
 export type DemoChecklistAvailability = {
   noticeConfirmReady: boolean
   villageReady: boolean
@@ -32,7 +32,7 @@ export type DemoChecklistProps = {
   noticeResult?: { jobId: string; status: string; mode: 'mock' | 'live' } | null
 }
 
-const IDS: DemoStepId[] = ['notice', 'calendar', 'rosina', 'orbit', 'map', 'living']
+const IDS: DemoStepId[] = ['notice', 'calendar', 'rosina', 'orbit', 'map', 'living', 'invites']
 type Saved = { tried: DemoStepId[]; dismissed: boolean }
 const EMPTY: Saved = { tried: [], dismissed: false }
 
@@ -60,6 +60,7 @@ const STEP_LOOK: Record<DemoStepId, { type: CardType; icon: LucideIcon }> = {
   orbit: { type: 'orbit', icon: Radar },
   map: { type: 'neutral', icon: MapIcon },
   living: { type: 'care', icon: HeartHandshake },
+  invites: { type: 'neutral', icon: Mail },
 }
 
 function steps(availability: DemoChecklistAvailability): Step[] {
@@ -98,6 +99,11 @@ function steps(availability: DemoChecklistAvailability): Step[] {
     doThis: <>Open <strong>Living Village</strong> as Loretta, then as Priya, for the children they care for.</>,
     lookFor: <>Care schedules and handoffs for Nora (and Malik for Priya), presented read-only.</>,
     perspective: <>As the Demo guide, every family opens read-only. Parents keep their own editing paths in Today and Family Calendar.</>,
+  }, {
+    id: 'invites', number: 7, title: 'Make a party invitation with Muse Image',
+    doThis: <>As Kendra, open <strong>Invitations</strong> in the left menu. Describe the art (theme, mood, colors), fill in the details and wording, then <strong>Generate</strong>. Optionally add a reference photo or ask for a revision, then <strong>Download</strong> the card.</>,
+    lookFor: <>Original invitation art from Muse Image with the event details set as readable text on the card, a revision that keeps the same card, and a downloadable image.</>,
+    perspective: <>Only a parent or guardian viewing their own child can prepare an invitation. The Demo guide sees a note instead.</>,
   }]
 }
 
