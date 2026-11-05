@@ -181,14 +181,14 @@ const server = http.createServer(async (req, res) => {
       const childName = String(payload?.childName ?? '').replace(/[^\p{L} '-]/gu, '').slice(0, 40) || 'your child';
       const { token: sessionToken } = mintSession({ personId, childId, childIds }, token);
       const vars = { gate_b_session: sessionToken, gate_b_child: childId, gate_b_child_name: childName };
-      const r = await fetch('https://api.retellai.com/v2/create-web-call', {
+      const r = await fetch('https://api.retellai.com/v3/create-web-call', {
         method: 'POST', signal: AbortSignal.timeout(10000),
         headers: { authorization: `Bearer ${process.env.RETELL_API_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({ agent_id: 'agent_3c9933d582b0417e3bc6f4a204', retell_llm_dynamic_variables: vars, metadata: vars }),
       });
       if (!r.ok) return json(res, 502, { error: 'VOICE_UNAVAILABLE' });
       const call = await r.json();
-      return json(res, 200, { accessToken: call.access_token, callId: call.call_id });
+      return json(res, 200, { accessToken: call.access_token, callId: call.call_id, transport: call.transport, url: call.url, iceServers: call.ice_servers });
     }
     if (req.method === 'POST' && req.url === '/gate-b/turn') {
       const raw = await body(req);

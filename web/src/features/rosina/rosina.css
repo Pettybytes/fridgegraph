@@ -133,7 +133,8 @@ body:has(.rosina-panel.is-page.is-open) .workspace{padding-right:0}
 .rosina-notice-attach{position:relative;flex:1 1 100%;display:flex;justify-content:flex-end}
 .rosina-notice-attach .notice-draft{margin:0;border:1px solid var(--fg-border);background:var(--fg-surface);border-radius:var(--radius-pill);flex-shrink:0}
 .rosina-notice-attach .notice-draft summary{min-height:40px;min-width:40px;padding:0 13px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-pill);cursor:pointer}
-.rosina-notice-attach .notice-draft summary span,.rosina-notice-attach .notice-draft summary strong{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.rosina-notice-attach .notice-draft summary strong{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.rosina-notice-attach .notice-draft summary span{font-size:.875rem;font-weight:600;white-space:nowrap}
 .rosina-notice-attach .notice-draft[open]>.notice-draft-body{position:absolute;bottom:calc(100% + 8px);left:0;right:0;width:auto;max-height:min(60dvh,480px);overflow:auto;background:var(--fg-surface);border:1px solid var(--fg-border);border-radius:var(--radius-lg,12px);box-shadow:0 12px 40px oklch(0.2 0.03 270 / 0.18);padding:12px;z-index:30}
 /* Streaming turn (Bryan 2026-11-03: typing within 300 ms, tokens as they arrive).
    Provisional bubble with a caret while tokens stream; three-dot typing indicator before the

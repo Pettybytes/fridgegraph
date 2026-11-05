@@ -37,7 +37,7 @@ type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:Ro
 function TalkToRosina({token,childId,childName}:{token:string;childId:string;childName:string}){
  const [state,setState]=useState<'idle'|'connecting'|'live'|'error'>('idle'),client=useRef<RetellWebClient|null>(null)
  useEffect(()=>()=>{client.current?.stopCall()},[])
- async function start(){setState('connecting');try{const r=await fetch('/gate-b/web-call',{method:'POST',headers:{Authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({childId,childName})});if(!r.ok)throw Error();const {accessToken}=await r.json();const c=new RetellWebClient();client.current=c;c.on('call_ended',()=>setState('idle'));c.on('error',()=>{c.stopCall();setState('error')});await c.startCall({accessToken});setState('live')}catch{setState('error')}}
+ async function start(){setState('connecting');try{const r=await fetch('/gate-b/web-call',{method:'POST',headers:{Authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({childId,childName})});if(!r.ok)throw Error();const call=await r.json();const c=new RetellWebClient();client.current=c;c.on('call_ended',()=>setState('idle'));c.on('error',()=>{c.stopCall();setState('error')});await c.startCall({accessToken:call.accessToken,transport:call.transport,callId:call.callId,url:call.url,iceServers:call.iceServers});setState('live')}catch{setState('error')}}
  function stop(){client.current?.stopCall();setState('idle')}
  return state==='live'?<FgButton onClick={stop}>End call</FgButton>:<FgButton disabled={state==='connecting'} onClick={()=>void start()}>{state==='connecting'?'Connecting…':state==='error'?'Voice unavailable — type instead':'Talk to Rosina'}</FgButton>
 }
