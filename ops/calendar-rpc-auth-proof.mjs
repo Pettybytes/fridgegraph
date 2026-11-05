@@ -40,9 +40,9 @@ try {
  const [weekly]=await call('p_mom','p_nora');assert.equal(weekly.source,'WEEKLY');
  // A real cross-family schedule share is allowed; expiry revokes it. Household-only
  // authorization would fail this test and would incorrectly remove legitimate shares.
- await db.admin.query("insert into grants(id,actor_id,child_id,scopes,valid_from,granted_by) values('g_calendar_rpc_share','p_dana','p_nora',array['schedule.read'],current_date,'p_mom')");
+ await db.admin.query("insert into grants(id,actor_id,child_id,scopes,valid_from,granted_by) values('g_calendar_rpc_share','p_dana','p_nora',array['schedule.read'],date '2026-11-04','p_mom')");
  assert.ok((await call('p_dana','p_nora'))[0].handoff_location);
- await db.admin.query("update grants set valid_from=current_date-2,valid_until=current_date-1 where id='g_calendar_rpc_share'");
+ await db.admin.query("update grants set valid_from=date '2026-11-04'-2,valid_until=date '2026-11-04'-1 where id='g_calendar_rpc_share'");
  await refused('p_dana','p_nora');
  // This repair grants no guide writes.
  await db.admin.query('begin');
