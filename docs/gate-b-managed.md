@@ -31,7 +31,7 @@ private state. No confirmation is performed by the poller or voice tool.
 Bentley runs `ops/gate-b-managed-agent.mjs` only in the authorized deployment runtime.
 It requires explicit `GATE_B_MANAGED_APPLY=1`, the runtime API/WS credentials,
 `GATE_B_PUBLIC_URL` and the exact short `BRIDGE_SHA`. It changes only test agent
-`agent_717254a7dfe44b438f245f6d59`. Per-call dynamic variables must include
+`agent_3c9933d582b0417e3bc6f4a204`. Per-call dynamic variables must include
 `gate_b_session`, `gate_b_child`, and `gate_b_child_name`; retain bind metadata too.
 The setup enables speech during proposal execution. Configuration is not a measured
 speech-latency result. The full live journey and durable attribution remain release gates.

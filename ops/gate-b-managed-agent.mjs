@@ -1,5 +1,6 @@
-/** Bentley-only isolated clone setup. All credentials stay in runtime memory. */
-const agentId = 'agent_717254a7dfe44b438f245f6d59';
+/** Authorized isolated clone setup. All credentials stay in runtime memory. */
+// Retell engine types are immutable; Bryan approved this managed replacement.
+const agentId = 'agent_3c9933d582b0417e3bc6f4a204';
 const apiKey = process.env.RETELL_API_KEY;
 const socketKey = process.env.GATE_B_WS_SECRET;
 const base = process.env.GATE_B_PUBLIC_URL;
