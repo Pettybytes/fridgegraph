@@ -1,7 +1,7 @@
 import type { DemoResetReceipt } from './demoReset'
 import type { Scope } from '@/lib/frontendData/types'
 export type PersonaId = 'kendra' | 'andre' | 'loretta' | 'priya' | 'dana' | 'jax-family' | 'rosa' | 'dwayne' | 'felicia' | 'simone' | 'whitfield' | 'demo-guide'
-export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'calendar' | 'village' }
+export type Persona = { id: PersonaId; personId: string; name: string; role: string; childId: string; childName: string; villageId: string; grants: readonly string[]; parent: boolean; guardian?: boolean; initialRoute?: 'today' | 'calendar' | 'village' }
 // Mock identity/scope examples from src/fixtures.ts and coordination-v2 Cast; never credentials or production authorization.
 export const personas: readonly Persona[] = [
   { id:'demo-guide', personId:'p_demo_guide', name:'Demo guide', role:'Demo guide: sees the whole fictional ecosystem. No real family would have this view.', childId:'p_nora', childName:'Nora Ellison', villageId:'v_nora', grants:[], parent:false, initialRoute:'today' },
