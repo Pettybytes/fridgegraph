@@ -164,6 +164,32 @@ const server = http.createServer(async (req, res) => {
       const { token: sessionToken, exp } = mintSession({ personId, childId, childIds }, token);
       return json(res, 200, { sessionToken, expiresAt: new Date(exp).toISOString(), personId, childId, childIds });
     }
+    if (process.env.GATE_B_MANAGED_ENABLED === '1' && req.method === 'POST' && req.url === '/gate-b/web-call') {
+      const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+      if (!token) return json(res, 401, { error: 'UNAUTHORIZED' });
+      if (!process.env.RETELL_API_KEY) return json(res, 503, { error: 'VOICE_UNAVAILABLE' });
+      const data = await gql(token, '{ myChildren { child { id } } }');
+      if (!data?.myChildren) return json(res, 401, { error: 'UNAUTHORIZED' });
+      const childIds = data.myChildren.map((m) => String(m.child.id));
+      const sub = subOf(token);
+      const who = sub ? await db.query('select person_id from identity_map where user_id=$1 limit 1', [sub]) : { rows: [] };
+      const personId = who.rows[0]?.person_id;
+      if (!personId) return json(res, 401, { error: 'UNBOUND_PERSON' });
+      let payload; try { payload = JSON.parse(await body(req)); } catch { return json(res, 400, { error: 'BAD_JSON' }); }
+      const childId = String(payload?.childId ?? '');
+      if (!childIds.includes(childId)) return json(res, 403, { error: 'CHILD_NOT_AUTHORIZED' });
+      const childName = String(payload?.childName ?? '').replace(/[^\p{L} '-]/gu, '').slice(0, 40) || 'your child';
+      const { token: sessionToken } = mintSession({ personId, childId, childIds }, token);
+      const vars = { gate_b_session: sessionToken, gate_b_child: childId, gate_b_child_name: childName };
+      const r = await fetch('https://api.retellai.com/v2/create-web-call', {
+        method: 'POST', signal: AbortSignal.timeout(10000),
+        headers: { authorization: `Bearer ${process.env.RETELL_API_KEY}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ agent_id: 'agent_3c9933d582b0417e3bc6f4a204', retell_llm_dynamic_variables: vars, metadata: vars }),
+      });
+      if (!r.ok) return json(res, 502, { error: 'VOICE_UNAVAILABLE' });
+      const call = await r.json();
+      return json(res, 200, { accessToken: call.access_token, callId: call.call_id });
+    }
     if (req.method === 'POST' && req.url === '/gate-b/turn') {
       const raw = await body(req);
       const ts = Number(req.headers['x-bridge-timestamp']); const sig = String(req.headers['x-bridge-signature'] ?? '');

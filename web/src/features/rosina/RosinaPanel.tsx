@@ -2,6 +2,7 @@ import {CalendarChangeCard} from './CalendarChangeCard'
 import {onEnterSubmit, COMPOSER_HINT_MULTILINE} from '@/lib/composerKeys'
 import {NoticeComposer} from '@/features/notice-plan/NoticeComposer'
 import {RosinaVoiceButton} from '@/features/voice/RosinaVoiceButton'
+import {RetellWebClient} from 'retell-client-js-sdk'
 import {useOrbit,useOrbitState} from '@/features/orbit/runtime'
 import type {OrbitController} from '@/features/orbit/controller'
 import { useCalendarActionScope } from '@/features/calendar/useCalendarActionScope'
@@ -33,6 +34,13 @@ import {Proposals} from './proposals'
 import './rosina.css'
 type ThreadMessage = ChatMessage & { actions: CatalogAction[]; proposalKeys:string[]; calendarKey?:string; calendarSaved?:boolean; calendarDismissed?:boolean; schoolReportProposal?: SchoolReportProposal | null; addVillagerProposal?: AddVillagerProposal | null }
 type PanelProps={contextCard?:ReactNode;dataAdapter?:FrontendAdapter;service?:RosinaAdapter;confirmSchoolReport?:ConfirmSchoolReport}
+function TalkToRosina({token,childId,childName}:{token:string;childId:string;childName:string}){
+ const [state,setState]=useState<'idle'|'connecting'|'live'|'error'>('idle'),client=useRef<RetellWebClient|null>(null)
+ useEffect(()=>()=>{client.current?.stopCall()},[])
+ async function start(){setState('connecting');try{const r=await fetch('/gate-b/web-call',{method:'POST',headers:{Authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({childId,childName})});if(!r.ok)throw Error();const {accessToken}=await r.json();const c=new RetellWebClient();client.current=c;c.on('call_ended',()=>setState('idle'));c.on('error',()=>{c.stopCall();setState('error')});await c.startCall({accessToken});setState('live')}catch{setState('error')}}
+ function stop(){client.current?.stopCall();setState('idle')}
+ return state==='live'?<FgButton onClick={stop}>End call</FgButton>:<FgButton disabled={state==='connecting'} onClick={()=>void start()}>{state==='connecting'?'Connecting…':state==='error'?'Voice unavailable — type instead':'Talk to Rosina'}</FgButton>
+}
 export function RosinaPanel(props:PanelProps){
   const {session,getSessionGeneration}=useSession()
   const child = useChildAccess()
@@ -93,7 +101,8 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
   }, [registerPrivateCleanup])
   // Isolated development replay only. No public build polls the Gate B bridge.
   useEffect(() => {
-    if (!import.meta.env.DEV || new URLSearchParams(location.search).get('gateB') !== '1' || !open || !session?.accessToken) return
+    const voiceOn=import.meta.env.DEV?new URLSearchParams(location.search).get('gateB')==='1':import.meta.env.VITE_GATE_B_VOICE==='1'
+    if (!voiceOn || !open || !session?.accessToken) return
     let current = true, timer: ReturnType<typeof setTimeout>
     const controller = new AbortController(), seen = new Set<string>()
     const selected = child?.selectedChildId ?? session.scope.childId
@@ -297,7 +306,7 @@ function RosinaConversation({dataAdapter,service,orbit,contextCard,confirmSchool
         {busy && !!liveStream?.actions.length && <article className="rosina-message is-streaming" aria-label="Ready for your review"><span>Rosina</span><p>Ready for your review. Nothing happens until you confirm.</p>{liveStream.actions.map(action=>({action,key:proposals.current.key(streamTurn.current!,action)})).filter(({action}) => action.id!=='calendar-change' && catalog[action.id].implemented && actionAllowed(action, context)).map(({action,key}) => <button type="button" className="rosina-action" aria-label={actionLabel(action)} key={key} disabled={executed.current.has(key)} onClick={() => { void execute(action, key) }}>{actionLabel(action)}</button>)}</article>}
       </div>
       {error && <p className="rosina-error" role="alert">{error}</p>}
-      <form onSubmit={send} className="rosina-compose"><label htmlFor="rosina-message" className="sr-only">Message Rosina</label>{!dismissed&&<div className="rosina-compose-tools"><RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/><div className="rosina-notice-attach"><NoticeComposer/></div></div>}<div className="rosina-field"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={1} placeholder="Message Rosina…" /><button type="submit" className="rosina-send" aria-label="Send" disabled={busy || needsSignIn || !draft.trim()}><ArrowUp size={18} aria-hidden /></button></div><span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span></form>
+      <form onSubmit={send} className="rosina-compose"><label htmlFor="rosina-message" className="sr-only">Message Rosina</label>{!dismissed&&<div className="rosina-compose-tools"><RosinaVoiceButton onTranscript={appendUserMessage} onReply={appendRosinaReply} getHistory={()=>messages.slice(-40).map(item=>({role:item.from==='PARENT'?'user' as const:'assistant' as const,content:item.text??''}))}/><div className="rosina-notice-attach"><NoticeComposer/></div></div>}<div className="rosina-field"><textarea id="rosina-message" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={onEnterSubmit(submitDraft)} aria-describedby="rosina-composer-hint" maxLength={4000} rows={1} placeholder="Message Rosina…" /><button type="submit" className="rosina-send" aria-label="Send" disabled={busy || needsSignIn || !draft.trim()}><ArrowUp size={18} aria-hidden /></button></div>{(import.meta.env.DEV?new URLSearchParams(location.search).get('gateB')==='1':import.meta.env.VITE_GATE_B_VOICE==='1')&&session?.accessToken&&<TalkToRosina token={session.accessToken} childId={child?.selectedChildId??session.scope.childId} childName={child?.selectedChildName??session.scope.childName}/>}<span id="rosina-composer-hint" className="sr-only">{COMPOSER_HINT_MULTILINE}</span></form>
     </section>
   return <>
     {!pageTarget && <FgButton ref={launcherRef} className={`rosina-launcher ${dismissed ? 'is-reopen' : ''}`} onClick={() => {setOpen(true);setDismissed(false)}} aria-expanded={open}><MessageCircle size={18} aria-hidden="true" />Ask Rosina</FgButton>}
