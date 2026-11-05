@@ -71,9 +71,11 @@ export function SessionProvider({adapter,children}:{adapter:AuthAdapter;children
    const next=id?await adapter.signInAsPersona(id,controller.signal):null
    if(owner!==generation.current||controller.signal.aborted||!mounted.current)return
    // A restore keeps the route the reload arrived on; initialRoute only fills an empty hash.
-   if(next?.persona.initialRoute&&!(restore&&location.hash.length>2)){
-    const day=next.persona.initialRoute==='calendar'?calendarDayForNextPerspective.current:null
-    window.history.replaceState(null,'',`${location.pathname}${location.search}#/${next.persona.initialRoute}${day?`?day=${day}`:''}`)
+   // The Demo guide always starts on Today, where the judge checklist lives.
+   const startRoute=next?.persona.id==='demo-guide'?'today':next?.persona.initialRoute
+   if(startRoute&&!(restore&&location.hash.length>2)){
+    const day=startRoute==='calendar'?calendarDayForNextPerspective.current:null
+    window.history.replaceState(null,'',`${location.pathname}${location.search}#/${startRoute}${day?`?day=${day}`:''}`)
    }
    if(id)calendarDayForNextPerspective.current=null
    const value=next?{...next,generation:owner}:null;currentSession.current=value;setSession(value)
