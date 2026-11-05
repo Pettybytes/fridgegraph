@@ -31,12 +31,12 @@ it('renders no external receipt links; receipts stay in-app', () => {
   expect(screen.getByRole('link', { name: 'Mission Control — the pickup request' })).toHaveAttribute('href', '#/mission-control')
 })
 
-it('always shows the six verified steps and keeps unverified actions out of the guided path', () => {
+it('always shows the seven verified steps and keeps unverified actions out of the guided path', () => {
   render(<DemoChecklist {...props} availability={{ ...availability, voiceReady: true, photoReady: true }} />)
-  for (const name of ['A school notice changes the plan', 'Ask Rosina to add a calendar event', 'Ask Rosina a question', 'Review Orbit before anyone sends', 'Walk the Village map', 'See a caregiver’s Living Village']) {
+  for (const name of ['A school notice changes the plan', 'Ask Rosina to add a calendar event', 'Ask Rosina a question', 'Review Orbit before anyone sends', 'Walk the Village map', 'See a caregiver’s Living Village', 'Make a party invitation with Muse Image']) {
     expect(screen.getByRole('heading', { name })).toBeVisible()
   }
-  expect(screen.getAllByText(/Perspective check:/)).toHaveLength(6)
+  expect(screen.getAllByText(/Perspective check:/)).toHaveLength(7)
   // Unverified journeys stay out even when their readiness flags are on.
   expect(screen.queryByRole('heading', { name: 'Talk to Rosina' })).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Review photo suggestions' })).not.toBeInTheDocument()
@@ -44,7 +44,7 @@ it('always shows the six verified steps and keeps unverified actions out of the 
   // Under the live gate the notice step is a persisted-state action card, not a tried checkbox.
   expect(screen.getByRole('button', { name: 'Add the school notice' })).toBeVisible()
   expect(screen.queryByRole('checkbox', { name: 'I tried this: A school notice changes the plan' })).not.toBeInTheDocument()
-  expect(screen.getAllByRole('checkbox')).toHaveLength(5)
+  expect(screen.getAllByRole('checkbox')).toHaveLength(6)
   expect(screen.getByText(/they do not verify an app result/)).toBeVisible()
 })
 
@@ -73,17 +73,17 @@ it('scopes tried progress and dismissal to version, persona, child, and demo run
   // With the notice action card excluded, five tried checkboxes remain.
   const view = render(<DemoChecklist {...props} />)
   fireEvent.click(screen.getByRole('checkbox', { name: 'I tried this: Ask Rosina to add a calendar event' }))
-  expect(screen.getByText(/1 of 5 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 6 tried/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Dismiss checklist' }))
   expect(screen.getByRole('button', { name: 'Reopen judge checklist' })).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Reopen judge checklist' }))
-  expect(screen.getByText(/1 of 5 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 6 tried/)).toBeVisible()
   for (const changed of [{ version: '2' }, { personaId: 'andre' }, { childId: 'p_jax' }, { demoRunId: 'run-b' }]) {
     view.rerender(<DemoChecklist {...props} {...changed} />)
-    expect(screen.getByText(/0 of 5 tried/)).toBeVisible()
+    expect(screen.getByText(/0 of 6 tried/)).toBeVisible()
   }
   view.rerender(<DemoChecklist {...props} />)
-  expect(screen.getByText(/1 of 5 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 6 tried/)).toBeVisible()
 })
 
 it('handles denied storage and keeps the guide path read-only', () => {
@@ -91,12 +91,12 @@ it('handles denied storage and keeps the guide path read-only', () => {
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
   const onReset = vi.fn(async () => true)
   render(<DemoChecklist {...props} personaId="demo-guide" mode="guide" onReset={onReset} />)
-  // The guide walks the same six steps; with the notice card live-gated it renders as a checkbox here.
-  expect(screen.getAllByRole('checkbox')).toHaveLength(5)
+  // The guide walks the same seven steps; with the notice card live-gated it renders as a checkbox here.
+  expect(screen.getAllByRole('checkbox')).toHaveLength(6)
   expect(screen.getByRole('heading', { name: 'See a caregiver’s Living Village' })).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Reset shared demo…' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('checkbox', { name: 'I tried this: Walk the Village map' }))
-  expect(screen.getByText(/1 of 5 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 6 tried/)).toBeVisible()
   expect(onReset).not.toHaveBeenCalled()
 })
 
@@ -110,12 +110,12 @@ it('calls authorized reset only on click and clears progress only after success'
   expect(screen.getByText(/resets the shared sandbox for everyone/)).toBeVisible()
   expect(onReset).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Reset demo for everyone' }))
-  expect(screen.getByText(/1 of 5 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 6 tried/)).toBeVisible()
   expect(screen.getByText(/Resetting the demo/)).toBeVisible()
   await act(async () => finish(false))
   expect(screen.getByRole('alert')).toHaveTextContent('progress is unchanged')
-  expect(screen.getByText(/1 of 5 tried/)).toBeVisible()
+  expect(screen.getByText(/1 of 6 tried/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Reset demo for everyone' }))
-  await waitFor(() => expect(screen.getByText(/0 of 5 tried/)).toBeVisible())
+  await waitFor(() => expect(screen.getByText(/0 of 6 tried/)).toBeVisible())
   expect(onReset).toHaveBeenCalledTimes(2)
 })
