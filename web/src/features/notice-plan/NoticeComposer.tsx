@@ -1,5 +1,5 @@
 import {useEffect,useId,useMemo,useRef,useState} from 'react'
-import {FileText,Upload,X} from 'lucide-react'
+import {ImagePlus,Upload,X} from 'lucide-react'
 import {Button} from '@/components/ui/button'
 import {useSession} from '@/features/personas/Session'
 import {createMockNoticeAdapter,noticeErrorMessage} from './mockAdapter'
@@ -101,7 +101,7 @@ function LocalNoticeDraft({registerCleanup,adapter,childId,canConfirm=false,read
  stageRef.current=()=>{if(details.current)details.current.open=true;void stageSampleAndReview()}
  useEffect(()=>onNoticeSampleRequest(()=>stageRef.current()),[])
  return <details ref={details} className="notice-draft" aria-label="Notice draft">
-  <summary><FileText size={18} aria-hidden="true"/><span>Add a notice</span><strong>{adapter?.mode==='live'?'Live':'Mock'}</strong></summary>
+  <summary><ImagePlus size={18} aria-hidden="true"/><span>Add a notice</span><strong>{adapter?.mode==='live'?'Live':'Mock'}</strong></summary>
   <div className="notice-draft-body">
    <Button type="button" variant="ghost" className="notice-control" onClick={event=>{const details=event.currentTarget.closest('details');if(details){details.open=false;details.querySelector('summary')?.focus()}}}>Close notice</Button>
    <p className="notice-local-note">{adapter?.mode==='live'?'Reviewing sends the notice securely. Nothing changes until you confirm.':'Local draft only. Nothing is uploaded or created.'}</p>

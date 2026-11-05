@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { CalendarDays, FileText, HeartHandshake, Map as MapIcon, MessageCircle, Radar } from 'lucide-react'
+import { CalendarDays, FileText, HeartHandshake, ImagePlus, Map as MapIcon, MessageCircle, Radar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FgButton, Surface } from '@/components/fg/primitives'
 import { ProgressBar, TypeNode, type CardType } from '@/components/fg/cards'
@@ -70,7 +70,7 @@ function steps(availability: DemoChecklistAvailability): Step[] {
   // perspective check so a judge can see the family boundaries for themselves.
   return [{
     id: 'notice', number: 1, title: 'A school notice changes the plan',
-    doThis: <>Viewing Nora as Kendra or the Demo guide, open <strong>Add a notice</strong> → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
+    doThis: <>Viewing Nora as Kendra or the Demo guide, open <strong>Ask Rosina</strong> (chat button, bottom right), then tap <strong><ImagePlus size={14} aria-hidden="true" style={{display:'inline',verticalAlign:'-2px'}}/> Add a notice</strong> just above the message box → <strong>Try a sample</strong> → <strong>Use early dismissal notice (PNG)</strong>. Review the proposal, then confirm once. On a phone, <a download href="/samples/notice-plan/notice-a-early-dismissal.png">download the PNG</a> or <a download href="/samples/notice-plan/notice-a-early-dismissal.pdf">PDF</a> and use <strong>Choose notice files</strong>.</>,
     lookFor: <>This is a historical October 26, 2026 sample: 12:30 PM dismissal conflicts with Nora’s recorded 3:00 PM pickup that day. {availability.noticeConfirmReady ? <>After parent confirmation, look for <strong>Pickup request created</strong>; pickup is <strong>not arranged yet</strong>.</> : <>In mock mode, confirmation shows a sample pickup request; <strong>no record is created</strong>. A recorded request needs live parent confirmation.</>}</>,
     perspective: <>Switch to Dana (Jax’s mom): she cannot see or confirm Nora’s notice. Switch back to Kendra or the Demo guide to try this step.</>,
   }, {
