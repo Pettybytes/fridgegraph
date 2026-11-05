@@ -84,6 +84,7 @@ const ROSINA_EXACT = new Set([
 const VILLAGE_EXACT = new Set(['/api/village/day', '/api/village/route']);
 
 const PROXY = [
+  { match: (p) => p === '/gate-b/proposals' || p === '/gate-b/web-call', port: Number(process.env.GATE_B_PORT ?? 4231), name: 'gate-b' },
   { match: (p) => p === '/graphql', port: 4010, name: 'graphql' },
   { match: (p) => ROSINA_EXACT.has(p) || p.startsWith('/api/rosina/pin/media/'), port: 4200, name: 'rosina' },
   { match: demoProxyAllowed, port: 4008, name: 'demo' },
