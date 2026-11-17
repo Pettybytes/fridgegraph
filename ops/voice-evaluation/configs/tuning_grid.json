@@ -1,0 +1,7 @@
+{
+  "turn_detection.silence_ms": [250, 500],
+  "tts.model_id": ["eleven_flash_v2_5", "eleven_multilingual_v2"],
+  "rag.top_k": [3, 5],
+  "schema_cache.enabled": [false, true],
+  "semantic_cache.enabled": [false, true]
+}

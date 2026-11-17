@@ -1,0 +1,63 @@
+{
+  "capture_version": 1,
+  "source": "synthetic",
+  "runtime_revision": "38542ce",
+  "clock_basis": "voice_hook_end_of_speech_decision",
+  "description": "Fictional observations shaped like useRosinaVoice output; not a live provider recording.",
+  "cases": [
+    {
+      "id": "greeting",
+      "scenario": "Kendra greets Rosina; no action is requested.",
+      "observation": {
+        "actions": [],
+        "timings": {
+          "asrMs": 250,
+          "rosinaMs": 700,
+          "ttsMs": 400,
+          "serverTotalMs": 1370,
+          "speechEndToReplyMs": 1500,
+          "speechEndToAudioMs": 1800
+        }
+      },
+      "expected_actions": [],
+      "limits_ms": {
+        "decision_to_playback_ms": 3000
+      }
+    },
+    {
+      "id": "corrected-calendar-day",
+      "scenario": "Kendra asks for Wednesday, then corrects to Thursday November 19 for Nora. Evaluate only the final response.",
+      "observation": {
+        "actions": [
+          {
+            "id": "open-calendar",
+            "args": {
+              "day": "2026-11-19",
+              "childId": "p_nora"
+            }
+          }
+        ],
+        "timings": {
+          "asrMs": 200,
+          "rosinaMs": 600,
+          "ttsMs": 400,
+          "serverTotalMs": 1240,
+          "speechEndToReplyMs": 1300,
+          "speechEndToAudioMs": 1600
+        }
+      },
+      "expected_actions": [
+        {
+          "id": "open-calendar",
+          "args": {
+            "day": "2026-11-19",
+            "childId": "p_nora"
+          }
+        }
+      ],
+      "limits_ms": {
+        "decision_to_playback_ms": 3000
+      }
+    }
+  ]
+}

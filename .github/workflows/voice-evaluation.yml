@@ -1,0 +1,38 @@
+name: Voice evaluation
+on:
+  pull_request:
+    paths:
+      - 'ops/voice-evaluation/**'
+      - 'ops/voice-browser.mjs'
+      - 'src/rosina/catalog.ts'
+      - '.github/workflows/voice-evaluation.yml'
+  push:
+    paths:
+      - 'ops/voice-evaluation/**'
+      - 'ops/voice-browser.mjs'
+      - 'src/rosina/catalog.ts'
+      - '.github/workflows/voice-evaluation.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run check
+      - run: python3 -m unittest discover -s tests -v
+        working-directory: ops/voice-evaluation
+      - run: python3 fridgegraph_capture.py --capture test_cases/fridgegraph_capture.json --report reports/fridgegraph.json
+        working-directory: ops/voice-evaluation
+      - run: python3 tune.py --experiments test_cases/tuning_example.json --report reports/tuning.json
+        working-directory: ops/voice-evaluation
+      - run: node --import tsx --test ops/voice-evaluation/fridgegraph-contract.test.mjs src/rosina/streaming.test.ts
