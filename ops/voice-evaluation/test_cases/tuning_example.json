@@ -1,0 +1,821 @@
+{
+  "description": "Synthetic selection example, not evidence that these settings improve an actual provider.",
+  "candidates": [
+    {
+      "id": "baseline",
+      "parameters": {
+        "turn_detection.silence_ms": 500
+      },
+      "calibration": {
+        "schema_version": 2,
+        "source": "synthetic",
+        "required": [
+          "tasks",
+          "traces"
+        ],
+        "tasks": [
+          {
+            "id": "appointment-confirmed",
+            "input": "Schedule a demo appointment on Thursday.",
+            "actual": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Thursday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Thursday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            },
+            "expected": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Thursday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Thursday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "id": "barge-in-and-recovery",
+            "scenario": "User interrupts a reply to correct the appointment day.",
+            "require_interruption": true,
+            "limits": {
+              "response_ms": 900,
+              "barge_in_ms": 250
+            },
+            "events": [
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-1",
+                "at_ms": 0
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-1",
+                "at_ms": 1000
+              },
+              {
+                "type": "stt_final",
+                "turn_id": "turn-1",
+                "at_ms": 1100
+              },
+              {
+                "type": "llm_request",
+                "turn_id": "turn-1",
+                "at_ms": 1120
+              },
+              {
+                "type": "llm_first_token",
+                "turn_id": "turn-1",
+                "at_ms": 1250
+              },
+              {
+                "type": "tts_request",
+                "turn_id": "turn-1",
+                "at_ms": 1300
+              },
+              {
+                "type": "tts_first_byte",
+                "turn_id": "turn-1",
+                "at_ms": 1400
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-1",
+                "at_ms": 1800
+              },
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-2",
+                "at_ms": 2000
+              },
+              {
+                "type": "agent_cancelled",
+                "turn_id": "turn-1",
+                "at_ms": 2050
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-1",
+                "at_ms": 2150
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-2",
+                "at_ms": 2500
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-2",
+                "at_ms": 3300
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-2",
+                "at_ms": 4800
+              }
+            ],
+            "interruptions": [
+              {
+                "speaking_turn_id": "turn-1",
+                "interrupting_turn_id": "turn-2"
+              }
+            ]
+          }
+        ]
+      },
+      "holdout": {
+        "schema_version": 2,
+        "source": "synthetic",
+        "required": [
+          "tasks",
+          "traces"
+        ],
+        "tasks": [
+          {
+            "id": "holdout-appointment",
+            "input": "Schedule a demo appointment on Monday.",
+            "actual": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Monday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Monday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            },
+            "expected": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Monday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Monday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "id": "holdout-barge-in",
+            "scenario": "Unseen appointment correction with different speech timing.",
+            "require_interruption": true,
+            "limits": {
+              "response_ms": 900,
+              "barge_in_ms": 250
+            },
+            "events": [
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-1",
+                "at_ms": 0
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-1",
+                "at_ms": 1000
+              },
+              {
+                "type": "stt_final",
+                "turn_id": "turn-1",
+                "at_ms": 1100
+              },
+              {
+                "type": "llm_request",
+                "turn_id": "turn-1",
+                "at_ms": 1120
+              },
+              {
+                "type": "llm_first_token",
+                "turn_id": "turn-1",
+                "at_ms": 1250
+              },
+              {
+                "type": "tts_request",
+                "turn_id": "turn-1",
+                "at_ms": 1300
+              },
+              {
+                "type": "tts_first_byte",
+                "turn_id": "turn-1",
+                "at_ms": 1400
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-1",
+                "at_ms": 1850
+              },
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-2",
+                "at_ms": 2000
+              },
+              {
+                "type": "agent_cancelled",
+                "turn_id": "turn-1",
+                "at_ms": 2050
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-1",
+                "at_ms": 2150
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-2",
+                "at_ms": 2500
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-2",
+                "at_ms": 3350
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-2",
+                "at_ms": 4850
+              }
+            ],
+            "interruptions": [
+              {
+                "speaking_turn_id": "turn-1",
+                "interrupting_turn_id": "turn-2"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "balanced",
+      "parameters": {
+        "turn_detection.silence_ms": 350
+      },
+      "calibration": {
+        "schema_version": 2,
+        "source": "synthetic",
+        "required": [
+          "tasks",
+          "traces"
+        ],
+        "tasks": [
+          {
+            "id": "appointment-confirmed",
+            "input": "Schedule a demo appointment on Thursday.",
+            "actual": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Thursday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Thursday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            },
+            "expected": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Thursday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Thursday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "id": "barge-in-and-recovery",
+            "scenario": "User interrupts a reply to correct the appointment day.",
+            "require_interruption": true,
+            "limits": {
+              "response_ms": 900,
+              "barge_in_ms": 250
+            },
+            "events": [
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-1",
+                "at_ms": 0
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-1",
+                "at_ms": 1000
+              },
+              {
+                "type": "stt_final",
+                "turn_id": "turn-1",
+                "at_ms": 1100
+              },
+              {
+                "type": "llm_request",
+                "turn_id": "turn-1",
+                "at_ms": 1120
+              },
+              {
+                "type": "llm_first_token",
+                "turn_id": "turn-1",
+                "at_ms": 1250
+              },
+              {
+                "type": "tts_request",
+                "turn_id": "turn-1",
+                "at_ms": 1300
+              },
+              {
+                "type": "tts_first_byte",
+                "turn_id": "turn-1",
+                "at_ms": 1400
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-1",
+                "at_ms": 1600
+              },
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-2",
+                "at_ms": 2000
+              },
+              {
+                "type": "agent_cancelled",
+                "turn_id": "turn-1",
+                "at_ms": 2050
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-1",
+                "at_ms": 2150
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-2",
+                "at_ms": 2500
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-2",
+                "at_ms": 3100
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-2",
+                "at_ms": 4600
+              }
+            ],
+            "interruptions": [
+              {
+                "speaking_turn_id": "turn-1",
+                "interrupting_turn_id": "turn-2"
+              }
+            ]
+          }
+        ]
+      },
+      "holdout": {
+        "schema_version": 2,
+        "source": "synthetic",
+        "required": [
+          "tasks",
+          "traces"
+        ],
+        "tasks": [
+          {
+            "id": "holdout-appointment",
+            "input": "Schedule a demo appointment on Monday.",
+            "actual": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Monday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Monday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            },
+            "expected": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Monday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Monday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "id": "holdout-barge-in",
+            "scenario": "Unseen appointment correction with different speech timing.",
+            "require_interruption": true,
+            "limits": {
+              "response_ms": 900,
+              "barge_in_ms": 250
+            },
+            "events": [
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-1",
+                "at_ms": 0
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-1",
+                "at_ms": 1000
+              },
+              {
+                "type": "stt_final",
+                "turn_id": "turn-1",
+                "at_ms": 1100
+              },
+              {
+                "type": "llm_request",
+                "turn_id": "turn-1",
+                "at_ms": 1120
+              },
+              {
+                "type": "llm_first_token",
+                "turn_id": "turn-1",
+                "at_ms": 1250
+              },
+              {
+                "type": "tts_request",
+                "turn_id": "turn-1",
+                "at_ms": 1300
+              },
+              {
+                "type": "tts_first_byte",
+                "turn_id": "turn-1",
+                "at_ms": 1400
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-1",
+                "at_ms": 1650
+              },
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-2",
+                "at_ms": 2000
+              },
+              {
+                "type": "agent_cancelled",
+                "turn_id": "turn-1",
+                "at_ms": 2050
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-1",
+                "at_ms": 2150
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-2",
+                "at_ms": 2500
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-2",
+                "at_ms": 3150
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-2",
+                "at_ms": 4650
+              }
+            ],
+            "interruptions": [
+              {
+                "speaking_turn_id": "turn-1",
+                "interrupting_turn_id": "turn-2"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "fast-but-wrong",
+      "parameters": {
+        "turn_detection.silence_ms": 250
+      },
+      "calibration": {
+        "schema_version": 2,
+        "source": "synthetic",
+        "required": [
+          "tasks",
+          "traces"
+        ],
+        "tasks": [
+          {
+            "id": "appointment-confirmed",
+            "input": "Schedule a demo appointment on Thursday.",
+            "actual": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Thursday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Thursday"
+                  }
+                }
+              ],
+              "outcome": "not_confirmed"
+            },
+            "expected": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Thursday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Thursday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "id": "barge-in-and-recovery",
+            "scenario": "User interrupts a reply to correct the appointment day.",
+            "require_interruption": true,
+            "limits": {
+              "response_ms": 900,
+              "barge_in_ms": 250
+            },
+            "events": [
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-1",
+                "at_ms": 0
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-1",
+                "at_ms": 1000
+              },
+              {
+                "type": "stt_final",
+                "turn_id": "turn-1",
+                "at_ms": 1100
+              },
+              {
+                "type": "llm_request",
+                "turn_id": "turn-1",
+                "at_ms": 1120
+              },
+              {
+                "type": "llm_first_token",
+                "turn_id": "turn-1",
+                "at_ms": 1250
+              },
+              {
+                "type": "tts_request",
+                "turn_id": "turn-1",
+                "at_ms": 1300
+              },
+              {
+                "type": "tts_first_byte",
+                "turn_id": "turn-1",
+                "at_ms": 1400
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-1",
+                "at_ms": 1450
+              },
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-2",
+                "at_ms": 2000
+              },
+              {
+                "type": "agent_cancelled",
+                "turn_id": "turn-1",
+                "at_ms": 2050
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-1",
+                "at_ms": 2150
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-2",
+                "at_ms": 2500
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-2",
+                "at_ms": 2950
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-2",
+                "at_ms": 4450
+              }
+            ],
+            "interruptions": [
+              {
+                "speaking_turn_id": "turn-1",
+                "interrupting_turn_id": "turn-2"
+              }
+            ]
+          }
+        ]
+      },
+      "holdout": {
+        "schema_version": 2,
+        "source": "synthetic",
+        "required": [
+          "tasks",
+          "traces"
+        ],
+        "tasks": [
+          {
+            "id": "holdout-appointment",
+            "input": "Schedule a demo appointment on Monday.",
+            "actual": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Monday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Monday"
+                  }
+                }
+              ],
+              "outcome": "not_confirmed"
+            },
+            "expected": {
+              "intent": "schedule",
+              "slots": {
+                "day": "Monday"
+              },
+              "tool_calls": [
+                {
+                  "name": "schedule_demo",
+                  "arguments": {
+                    "day": "Monday"
+                  }
+                }
+              ],
+              "outcome": "confirmed"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "id": "holdout-barge-in",
+            "scenario": "Unseen appointment correction with different speech timing.",
+            "require_interruption": true,
+            "limits": {
+              "response_ms": 900,
+              "barge_in_ms": 250
+            },
+            "events": [
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-1",
+                "at_ms": 0
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-1",
+                "at_ms": 1000
+              },
+              {
+                "type": "stt_final",
+                "turn_id": "turn-1",
+                "at_ms": 1100
+              },
+              {
+                "type": "llm_request",
+                "turn_id": "turn-1",
+                "at_ms": 1120
+              },
+              {
+                "type": "llm_first_token",
+                "turn_id": "turn-1",
+                "at_ms": 1250
+              },
+              {
+                "type": "tts_request",
+                "turn_id": "turn-1",
+                "at_ms": 1300
+              },
+              {
+                "type": "tts_first_byte",
+                "turn_id": "turn-1",
+                "at_ms": 1400
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-1",
+                "at_ms": 1500
+              },
+              {
+                "type": "user_speech_started",
+                "turn_id": "turn-2",
+                "at_ms": 2000
+              },
+              {
+                "type": "agent_cancelled",
+                "turn_id": "turn-1",
+                "at_ms": 2050
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-1",
+                "at_ms": 2150
+              },
+              {
+                "type": "user_speech_ended",
+                "turn_id": "turn-2",
+                "at_ms": 2500
+              },
+              {
+                "type": "assistant_audio_started",
+                "turn_id": "turn-2",
+                "at_ms": 3000
+              },
+              {
+                "type": "assistant_audio_stopped",
+                "turn_id": "turn-2",
+                "at_ms": 4500
+              }
+            ],
+            "interruptions": [
+              {
+                "speaking_turn_id": "turn-1",
+                "interrupting_turn_id": "turn-2"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "ELEVENLABS_TTS_MODEL": [
+    "eleven_multilingual_v2",
+    "eleven_flash_v2_5"
+  ],
+  "ROSINA_LENS_TTL_MS": [
+    30000,
+    60000
+  ]
+}

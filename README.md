@@ -150,6 +150,7 @@ These are **source and build checks**, not a one-command public deployment. Runn
 
 - [Hackathon provenance and model roles](PROVENANCE.md)
 - [Recorded checks](docs/evidence/) and [browser evidence](web/evidence/)
+- [Voice evaluation and tuning](ops/voice-evaluation/README.md) — Rosina timing/action capture adapter, interruption trace checks, regression gates and held-out configuration selection; runnable offline with explicitly synthetic examples.
 - [The school notice mouse-confirm repair and same-ID assertion](https://github.com/Pettybytes/fridgegraph/pull/282)
 - [Original six-step perspective checklist](https://github.com/Pettybytes/fridgegraph/pull/286)
 - [Calendar cancel source fix](https://github.com/Pettybytes/fridgegraph/pull/285)
